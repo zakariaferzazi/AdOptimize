@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.:@]+$');
+    }
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check and connection test
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // User profile document
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) && isValidId(userId);
+
+      // User's connected Google Ads accounts
+      match /accounts/{accountId} {
+        allow read, write: if isOwner(userId) && isValidId(accountId);
+      }
+
+      // User's campaigns
+      match /campaigns/{campaignId} {
+        allow read, write: if isOwner(userId) && isValidId(campaignId);
+      }
+
+      // User's anomalies
+      match /anomalies/{anomalyId} {
+        allow read, write: if isOwner(userId) && isValidId(anomalyId);
+      }
+
+      // User's AI insights
+      match /insights/{insightId} {
+        allow read, write: if isOwner(userId) && isValidId(insightId);
+      }
+
+      // User's budget recommendations
+      match /budgetRecommendations/{recId} {
+        allow read, write: if isOwner(userId) && isValidId(recId);
+      }
+
+      // User's automation rules
+      match /automationRules/{ruleId} {
+        allow read, write: if isOwner(userId) && isValidId(ruleId);
+      }
+
+      // User's audit logs
+      match /auditLogs/{logId} {
+        allow read, write: if isOwner(userId) && isValidId(logId);
+      }
+
+      // User's keywords
+      match /keywords/{keywordId} {
+        allow read, write: if isOwner(userId) && isValidId(keywordId);
+      }
+
+      // User's search terms
+      match /searchTerms/{termId} {
+        allow read, write: if isOwner(userId) && isValidId(termId);
+      }
+    }
+  }
+}
