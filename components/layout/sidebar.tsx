@@ -12,7 +12,6 @@ import {
   FileText,
   Settings,
   HelpCircle,
-  ExternalLink,
   ChevronRight,
   TrendingUp,
   ShieldCheck,
@@ -34,7 +33,7 @@ interface SidebarProps {
   onSelectTab: (tab: NavTab) => void;
   anomaliesCount: number;
   recommendationsCount: number;
-  onOpenLanding: () => void;
+  onOpenLanding?: () => void;
 }
 
 export function Sidebar({
@@ -42,7 +41,6 @@ export function Sidebar({
   onSelectTab,
   anomaliesCount,
   recommendationsCount,
-  onOpenLanding,
 }: SidebarProps) {
   const mainNav = [
     {
@@ -99,8 +97,8 @@ export function Sidebar({
       {/* Top Brand & Nav */}
       <div className="p-5 flex flex-col gap-6">
         {/* Brand Lockup */}
-        <div className="flex items-center justify-between px-2 pt-1">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => onSelectTab('dashboard')}>
+        <div className="flex items-center px-2 pt-1">
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onSelectTab('dashboard')}>
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center shadow-lg shadow-[#00d67d]/20 text-slate-950 font-bold">
               <TrendingUp className="w-4 h-4 stroke-[2.5]" />
             </div>
@@ -109,15 +107,6 @@ export function Sidebar({
               <span className="text-[#00d67d]">Optimize</span>
             </div>
           </div>
-
-          <button
-            onClick={onOpenLanding}
-            title="View Public Marketing Site"
-            className="text-xs text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors flex items-center gap-1"
-          >
-            <span className="hidden xl:inline text-[11px] font-medium text-slate-400">Site</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
         </div>
 
         {/* Navigation Items */}

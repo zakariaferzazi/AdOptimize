@@ -910,7 +910,6 @@ export default function AdOptimizeApp() {
         onSelectTab={(tab) => setCurrentTab(tab)}
         anomaliesCount={anomalies.filter((a) => !a.resolved).length}
         recommendationsCount={budgetRecommendations.filter((b) => b.status === 'PENDING').length}
-        onOpenLanding={() => setShowLanding(true)}
       />
 
       {/* 2. Main Content Canvas */}
