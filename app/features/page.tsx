@@ -1,15 +1,38 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, TrendingUp, Sparkles, SlidersHorizontal, ShieldCheck, Zap, Bot, ArrowRight } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Sparkles, SlidersHorizontal, ShieldCheck, Zap, Bot, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Features - AdOptimize | AI Marketing Manager for Google Ads',
-  description: 'Explore AdOptimize features: continuous anomaly detection, grounded AI Marketing Analyst, Budget Optimizer, and guarded automation.',
+  title: 'Features - Google Ads Audit & Budget Optimization | AdOptimize',
+  description: 'Explore AdOptimize features: continuous Google Ads audit, negative keyword discovery, CPA spike detection, and 1-click budget rebalancing.',
 };
 
 export default function FeaturesPage() {
+  const capabilities = [
+    {
+      icon: Sparkles,
+      title: 'Continuous Google Ads Audit',
+      desc: 'Scans your Search, Performance Max (PMax), and Display campaigns every 15 minutes. Uncovers non-converting queries, budget caps, and negative keyword leaks.',
+    },
+    {
+      icon: SlidersHorizontal,
+      title: 'Budget Rebalancer & Margin Scaling',
+      desc: 'Identifies high-ROAS winning campaigns hitting daily spend ceilings. Reallocates capital away from dying ad groups with 1-click verification.',
+    },
+    {
+      icon: ShieldCheck,
+      title: 'CPA & ROAS Anomaly Detection',
+      desc: 'Detects sudden cost per conversion spikes before they drain weekly budgets. Delivers exact data evidence citing query logs and competitor auction pressure.',
+    },
+    {
+      icon: Bot,
+      title: 'Negative Keyword Automation',
+      desc: 'Automatically isolates career, student, crack, and login queries from your search traffic. Protects broad match campaigns from wasting click spend.',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900">
+    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
       <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -36,60 +59,33 @@ export default function FeaturesPage() {
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
             Platform Capabilities
           </span>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-            Engineered for High-ROI Performance Marketers
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            Everything You Need to Cut CPA & Scale ROAS
           </h1>
-          <p className="text-slate-600 text-sm leading-relaxed">
-            Everything you need to continuously monitor, diagnose, and optimize Google Ads accounts without hiring full-time agency overhead.
+          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+            Eliminate wasted ad spend, stop bleeding budgets, and optimize Google Ads accounts with zero agency retainers.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Grounded AI Marketing Analyst</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Every diagnosis delivers a clear Problem, Why It Matters, concrete Data Evidence from your actual query logs, and Expected Financial Impact.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <SlidersHorizontal className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Budget Optimizer & Rebalancer</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Dynamically identify high-ROAS winners with unmet impression share and low-performing bleeders. Reallocate capital with 1-click human verification.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Autonomous Anomaly Detection</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              24/7 background audit scans for sudden CPA spikes, ROAS drops, zero-conversion keyword drains, and competitor auction surge pressure.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">AI Marketing Copilot</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Ask questions in plain English (&ldquo;Why did my CPA increase?&rdquo;, &ldquo;Which keywords are wasting budget?&rdquo;) and receive data-grounded answers citing exact campaigns.
-            </p>
-          </div>
+          {capabilities.map((cap, i) => {
+            const Icon = cap.icon;
+            return (
+              <div key={i} className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{cap.title}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">{cap.desc}</p>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="text-center pt-6">
+        <div className="text-center pt-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-6 py-3.5 bg-slate-950 text-[#00d67d] font-bold text-xs rounded-2xl shadow-xl hover:bg-slate-900 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3.5 bg-slate-950 text-[#00d67d] font-bold text-xs rounded-xl shadow-xl hover:bg-slate-900 transition-colors"
           >
             <span>Launch Live AdOptimize Workspace</span>
             <ArrowRight className="w-4 h-4" />
