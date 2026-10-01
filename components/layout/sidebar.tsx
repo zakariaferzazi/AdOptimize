@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   Layers,
@@ -99,9 +100,14 @@ export function Sidebar({
         {/* Brand Lockup */}
         <div className="flex items-center px-2 pt-1">
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onSelectTab('dashboard')}>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center shadow-lg shadow-[#00d67d]/20 text-slate-950 font-bold">
-              <TrendingUp className="w-4 h-4 stroke-[2.5]" />
-            </div>
+            <Image
+              src="/icon.svg"
+              alt="AdOptimize Logo"
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-xl shadow-lg shadow-[#00d67d]/20 object-contain"
+              referrerPolicy="no-referrer"
+            />
             <div className="flex items-baseline tracking-tight font-bold text-xl">
               <span className="text-white">Ad</span>
               <span className="text-[#00d67d]">Optimize</span>

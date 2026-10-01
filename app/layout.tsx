@@ -4,6 +4,15 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'AdOptimize - AI Marketing Manager for Google Ads',
   description: 'Continuous campaign monitoring, anomaly detection, budget reallocation, and automated audit-proof optimizations for Google Ads.',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
   openGraph: {
     title: 'AdOptimize - AI Marketing Manager for Google Ads',
     description: 'Continuous campaign monitoring, anomaly detection, budget reallocation, and automated audit-proof optimizations for Google Ads.',
@@ -20,6 +29,9 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className="h-full antialiased">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+        <link rel="alternate icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

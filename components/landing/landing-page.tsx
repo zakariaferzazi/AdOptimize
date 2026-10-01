@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import {
   TrendingUp,
   Sparkles,
@@ -95,9 +96,14 @@ export function LandingPage({
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Brand Logo: Ad in white, Optimize in green, no dot */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={onOpenApp}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold shadow-md shadow-[#00d67d]/20">
-              <TrendingUp className="w-5 h-5 stroke-[2.5]" />
-            </div>
+            <Image
+              src="/icon.svg"
+              alt="AdOptimize Logo"
+              width={36}
+              height={36}
+              className="w-9 h-9 rounded-xl shadow-md shadow-[#00d67d]/20 object-contain"
+              referrerPolicy="no-referrer"
+            />
             <div className="text-2xl font-bold tracking-tight flex items-baseline">
               <span className="text-white">Ad</span>
               <span className="text-[#00d67d]">Optimize</span>
