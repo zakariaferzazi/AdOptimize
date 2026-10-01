@@ -9,15 +9,16 @@ import {
   RefreshCw,
   Building,
   Key,
-  ArrowRight
+  ArrowRight,
+  Info
 } from 'lucide-react';
-import { GoogleAdsAccount } from '@/types/adoptimize';
+import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
 
 interface ConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentAccount: GoogleAdsAccount;
-  onConnectAccount: (account: GoogleAdsAccount) => void;
+  onConnectAccount: (account: GoogleAdsAccount, syncedCampaigns?: Campaign[]) => void;
 }
 
 export function ConnectModal({
@@ -95,24 +96,43 @@ export function ConnectModal({
       });
       const data = await res.json();
 
-      setTimeout(() => {
-        setIsLoading(false);
-        const connectedAccount: GoogleAdsAccount = {
-          id: `acc-${cleanId || Date.now()}`,
-          clientCustomerId: targetId,
-          accountName: accountName.trim() || `Google Ads Account (${targetId})`,
-          currency: currency,
-          timezone: 'America/New_York (UTC-5)',
-          isConnected: true,
-          lastSyncAt: new Date().toISOString(),
-          syncStatus: 'SYNCED',
-          isDemo: false,
-          totalCampaignsCount: currentAccount.totalCampaignsCount || 0,
-          monthlySpendCap: Number(spendCap) || 25000,
-        };
-        onConnectAccount(data.account || connectedAccount);
-        onClose();
-      }, 800);
+      // Trigger automatic campaign sync from Google Ads for this CID
+      let syncedCampaigns: Campaign[] = [];
+      try {
+        const syncRes = await fetch('/api/google-ads/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountId: data.account?.id || `acc-${cleanId || Date.now()}`,
+            customerId: targetId,
+            accountName: accountName.trim() || `Google Ads Account (${targetId})`,
+          }),
+        });
+        const syncJson = await syncRes.json();
+        if (syncJson.campaigns) {
+          syncedCampaigns = syncJson.campaigns;
+        }
+      } catch (syncErr) {
+        console.warn('Initial sync warning:', syncErr);
+      }
+
+      setIsLoading(false);
+      const connectedAccount: GoogleAdsAccount = {
+        id: `acc-${cleanId || Date.now()}`,
+        clientCustomerId: targetId,
+        accountName: accountName.trim() || `Google Ads Account (${targetId})`,
+        currency: currency,
+        timezone: 'America/New_York (UTC-5)',
+        isConnected: true,
+        lastSyncAt: new Date().toISOString(),
+        syncStatus: 'SYNCED',
+        isDemo: false,
+        totalCampaignsCount: syncedCampaigns.length || 4,
+        monthlySpendCap: Number(spendCap) || 25000,
+      };
+
+      onConnectAccount(data.account || connectedAccount, syncedCampaigns);
+      onClose();
     } catch {
       setIsLoading(false);
       onClose();
@@ -130,13 +150,13 @@ export function ConnectModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Google Ads Connection</h3>
-              <p className="text-xs text-slate-500">Secure OAuth 2.0 Integration</p>
+              <p className="text-xs text-slate-500">Secure OAuth 2.0 & CID Integration</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -146,8 +166,18 @@ export function ConnectModal({
         {step === 'AUTH' && (
           <div className="space-y-5 text-xs text-slate-700">
             <p className="leading-relaxed text-slate-600">
-              AdOptimize requests read & write permission to your Google Ads account to continuously monitor campaign performance, detect anomalies, and execute approved optimizations.
+              AdOptimize requests read permission to your Google Ads account to continuously monitor campaign performance, detect anomalies, and boost your active campaigns.
             </p>
+
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-1.5 text-xs">
+              <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Campaign Creation Happens in Google Ads</span>
+              </div>
+              <p className="text-emerald-800 leading-relaxed text-[11px]">
+                You create and configure your campaigns inside Google Ads. AdOptimize automatically pulls and displays them here so you can analyze, audit, and boost them with AI.
+              </p>
+            </div>
 
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2.5 text-xs">
               <div className="font-bold text-slate-900">Requested Permissions:</div>
@@ -157,43 +187,43 @@ export function ConnectModal({
               </div>
               <div className="flex items-center gap-2 text-slate-600">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Modify budgets & negative keywords only upon your approval</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Zero token exposure: Stored in encrypted server environment</span>
+                <span>Execute budget boosts & negative keyword additions with your confirmation</span>
               </div>
             </div>
 
-            <button
-              onClick={handleOAuthConnect}
-              disabled={isLoading}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 text-[#00d67d] animate-spin" />
-                  <span>Connecting to Google OAuth...</span>
-                </>
-              ) : (
-                <>
-                  <span>Authorize with Google Account</span>
-                  <ArrowRight className="w-4 h-4 text-[#00d67d]" />
-                </>
-              )}
-            </button>
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Google Verified Security</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep('SELECT_CUSTOMER')}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  Enter CID Manually
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={handleOAuthConnect}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Authenticate with Google</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* STEP 2: Configure Customer ID & Account */}
+        {/* STEP 2: Select Customer ID */}
         {step === 'SELECT_CUSTOMER' && (
-          <div className="space-y-4 text-xs text-slate-700">
-            <p className="text-slate-600">
-              Configure your Google Ads Customer ID and settings to connect to the command center:
-            </p>
-
+          <div className="space-y-4 text-xs">
             {errorMessage && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">
                 {errorMessage}
               </div>
             )}
@@ -261,16 +291,18 @@ export function ConnectModal({
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
+                type="button"
                 onClick={() => setStep('AUTH')}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700 cursor-pointer"
               >
                 Back
               </button>
               <button
+                type="button"
                 onClick={handleConfirmCustomer}
                 className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs cursor-pointer"
               >
-                Connect & Sync Account
+                Connect & Sync Campaigns
               </button>
             </div>
           </div>
@@ -284,7 +316,7 @@ export function ConnectModal({
               Synchronizing with Google Ads API...
             </h4>
             <p className="text-xs text-slate-500 max-w-xs mx-auto">
-              Pulling campaigns, ad groups, keyword performance, Quality Scores, and search query logs.
+              Pulling active campaigns, keywords, quality scores, search queries, and anomaly telemetry.
             </p>
           </div>
         )}

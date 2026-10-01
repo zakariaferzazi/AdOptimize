@@ -22,7 +22,8 @@ import { ReportsView } from '@/components/reports/reports-view';
 import { SettingsView } from '@/components/settings/settings-view';
 import { LandingPage } from '@/components/landing/landing-page';
 import { ConnectModal } from '@/components/connect-modal';
-import { CampaignCreateModal } from '@/components/campaigns/campaign-create-modal';
+import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
+import { CampaignBoostModal } from '@/components/campaigns/campaign-boost-modal';
 import { AuthGate } from '@/components/auth/auth-gate';
 import {
   DollarSign,
@@ -36,7 +37,10 @@ import {
   ShieldCheck,
   Check,
   LogIn,
-  Plus
+  Plus,
+  RefreshCw,
+  ExternalLink,
+  Zap
 } from 'lucide-react';
 import {
   GoogleAdsAccount,
@@ -88,7 +92,9 @@ import {
   addAuditLogToFirestore,
   updateAuditLogStatus,
   saveUserAccount,
-  clearAllUserData
+  clearAllUserData,
+  saveInsightToFirestore,
+  saveAnomalyToFirestore
 } from '@/lib/firestore-service';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -98,7 +104,9 @@ export default function AdOptimizeApp() {
   const [showLanding, setShowLanding] = useState<boolean>(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
-  const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState<boolean>(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [isBoostModalOpen, setIsBoostModalOpen] = useState<boolean>(false);
+  const [boostTargetCampaign, setBoostTargetCampaign] = useState<Campaign | null>(null);
   const [showCopilot, setShowCopilot] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -349,110 +357,153 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Refresh Sync
-  const handleRefreshSync = async () => {
+  // Refresh Sync from Google Ads API
+  const handleRefreshSync = async (customCampaignNames?: string[]) => {
     setIsSyncing(true);
     try {
       const res = await fetch('/api/google-ads/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: account.id }),
+        body: JSON.stringify({
+          accountId: account.id,
+          customerId: account.clientCustomerId,
+          accountName: account.accountName,
+          customCampaignNames,
+        }),
       });
       const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Sync failed');
+      }
+
       const updatedAccount: GoogleAdsAccount = {
         ...account,
         lastSyncAt: data.lastSyncAt || new Date().toISOString(),
         syncStatus: 'SYNCED',
+        isConnected: true,
+        totalCampaignsCount: data.campaigns?.length || account.totalCampaignsCount,
       };
+
+      const newCampaigns: Campaign[] = data.campaigns || [];
+      const newKeywords: Keyword[] = data.keywords || [];
+      const newSearchTerms: SearchTerm[] = data.searchTerms || [];
+      const newInsights: AIInsight[] = data.insights || [];
+      const newAnomalies: AnomalyAlert[] = data.anomalies || [];
 
       setState((prev) => ({
         ...prev,
         account: updatedAccount,
+        campaigns: newCampaigns,
+        keywords: newKeywords,
+        searchTerms: newSearchTerms,
+        insights: newInsights.length > 0 ? newInsights : prev.insights,
+        anomalies: newAnomalies.length > 0 ? newAnomalies : prev.anomalies,
       }));
 
       if (user) {
         await saveUserAccount(user.uid, updatedAccount);
+        for (const camp of newCampaigns) {
+          await saveCampaignToFirestore(user.uid, camp);
+        }
+        for (const kw of newKeywords) {
+          await saveKeywordToFirestore(user.uid, kw);
+        }
+        for (const st of newSearchTerms) {
+          await saveSearchTermToFirestore(user.uid, st);
+        }
+        for (const ins of newInsights) {
+          await saveInsightToFirestore(user.uid, ins);
+        }
+        for (const anom of newAnomalies) {
+          await saveAnomalyToFirestore(user.uid, anom);
+        }
       }
-      showToast('Account synchronized with Google Ads API');
-    } catch {
-      showToast('Sync completed');
+
+      showToast(`Synchronized ${newCampaigns.length} campaigns from Google Ads!`);
+    } catch (err: any) {
+      console.error('Error syncing Google Ads:', err);
+      showToast('Error syncing with Google Ads');
     } finally {
       setIsSyncing(false);
     }
   };
 
   // Connect Google Ads account
-  const handleConnectAccount = async (newAccount: GoogleAdsAccount) => {
+  const handleConnectAccount = async (newAccount: GoogleAdsAccount, syncedCampaigns?: Campaign[]) => {
     setState((prev) => ({
       ...prev,
       account: newAccount,
+      campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
     }));
     if (user) {
       await saveUserAccount(user.uid, newAccount);
+      if (syncedCampaigns && syncedCampaigns.length > 0) {
+        for (const camp of syncedCampaigns) {
+          await saveCampaignToFirestore(user.uid, camp);
+        }
+      }
     }
     showToast(`Connected: ${newAccount.accountName}`);
-  };
-
-  // Create Real Campaign and Save to Firestore
-  const handleCreateCampaign = async (newCamp: Campaign, initialKeywords: Keyword[]) => {
-    if (!user) {
-      setState((prev) => ({
-        ...prev,
-        campaigns: [newCamp, ...prev.campaigns],
-        keywords: [...initialKeywords, ...prev.keywords],
-      }));
-      showToast(`Campaign "${newCamp.name}" created!`);
-      return;
-    }
-
-    try {
-      await saveCampaignToFirestore(user.uid, newCamp);
-      for (const kw of initialKeywords) {
-        await saveKeywordToFirestore(user.uid, kw);
-      }
-
-      const log: AuditLog = {
-        id: `audit-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        campaignId: newCamp.id,
-        campaignName: newCamp.name,
-        actionType: 'CAMPAIGN_CREATED',
-        previousValue: 'None',
-        newValue: `Created ${newCamp.type} ($${newCamp.budgetDaily.toFixed(2)}/day)`,
-        reason: 'User created new campaign in AdOptimize command center.',
-        source: 'USER',
-        userOrSystem: user.displayName || user.email || 'User',
-        status: 'EXECUTED',
-        canRevert: true,
-      };
-      await addAuditLogToFirestore(user.uid, log);
-
-      setState((prev) => ({
-        ...prev,
-        campaigns: [newCamp, ...prev.campaigns],
-        keywords: [...initialKeywords, ...prev.keywords],
-        auditLogs: [log, ...prev.auditLogs],
-        account: {
-          ...prev.account,
-          totalCampaignsCount: prev.campaigns.length + 1,
-        },
-      }));
-
-      showToast(`Campaign "${newCamp.name}" saved to Firestore!`);
-    } catch (err) {
-      console.error('Error creating campaign:', err);
-      showToast('Error saving campaign to Firestore');
+    if (!syncedCampaigns || syncedCampaigns.length === 0) {
+      handleRefreshSync();
     }
   };
 
-  // Delete Campaign
+  // Boost Campaign Performance
+  const handleApplyBoost = async (
+    campaignId: string,
+    boostType: string,
+    boostDetails: { newBudget?: number; newRoas?: number; newCpa?: number; description: string }
+  ) => {
+    const targetCamp = state.campaigns.find((c) => c.id === campaignId);
+    if (!targetCamp) return;
+
+    const updatedCamp: Campaign = {
+      ...targetCamp,
+      budgetDaily: boostDetails.newBudget || targetCamp.budgetDaily,
+      roas: boostDetails.newRoas || targetCamp.roas,
+      cpa: boostDetails.newCpa || targetCamp.cpa,
+      healthStatus: 'HEALTHY',
+      healthScore: Math.min(99, targetCamp.healthScore + 6),
+    };
+
+    const auditLog: AuditLog = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId: targetCamp.id,
+      campaignName: targetCamp.name,
+      actionType: 'BUDGET_REALLOCATED',
+      previousValue: `$${targetCamp.budgetDaily}/d (${targetCamp.roas}x ROAS)`,
+      newValue: `$${updatedCamp.budgetDaily}/d (${updatedCamp.roas}x ROAS)`,
+      reason: boostDetails.description,
+      source: 'AI_RECOMMENDATION',
+      userOrSystem: 'AdOptimize AI Agent',
+      status: 'EXECUTED',
+      canRevert: true,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      campaigns: prev.campaigns.map((c) => (c.id === campaignId ? updatedCamp : c)),
+      auditLogs: [auditLog, ...prev.auditLogs],
+    }));
+
+    if (user) {
+      await saveCampaignToFirestore(user.uid, updatedCamp);
+      await addAuditLogToFirestore(user.uid, auditLog);
+    }
+
+    showToast(`⚡ Boost Applied: ${targetCamp.name}`);
+  };
+
+  // Delete Campaign from Monitoring
   const handleDeleteCampaign = async (campaignId: string) => {
     if (!user) {
       setState((prev) => ({
         ...prev,
         campaigns: prev.campaigns.filter((c) => c.id !== campaignId),
       }));
-      showToast('Campaign deleted');
+      showToast('Campaign removed from monitoring');
       return;
     }
 
@@ -462,99 +513,10 @@ export default function AdOptimizeApp() {
         ...prev,
         campaigns: prev.campaigns.filter((c) => c.id !== campaignId),
       }));
-      showToast('Campaign deleted from Firestore');
+      showToast('Campaign removed from monitoring');
     } catch (err) {
       console.error('Error deleting campaign:', err);
-      showToast('Error deleting campaign');
-    }
-  };
-
-  // AI-Assisted Campaign Generation
-  const handleGenerateAiCampaigns = async () => {
-    if (!user) return;
-    setIsSyncing(true);
-    showToast('AI is generating Google Ads campaign architecture...');
-
-    try {
-      const now = Date.now();
-      const camp1: Campaign = {
-        id: `camp-${now}-1`,
-        accountId: state.account.id,
-        name: 'Search - Core Intent Acquisition',
-        type: 'SEARCH',
-        status: 'ENABLED',
-        budgetDaily: 120,
-        spend: 1200,
-        impressions: 14500,
-        clicks: 890,
-        ctr: 6.14,
-        cpc: 1.35,
-        conversions: 42,
-        cpa: 28.57,
-        conversionValue: 5880,
-        roas: 4.90,
-        conversionRate: 4.72,
-        healthStatus: 'HEALTHY',
-        healthScore: 94,
-        trendPoints: [30, 32, 35, 38, 40, 42, 45],
-        historicalPoints: [],
-        previousPeriod: { spend: 1100, conversions: 38, cpa: 28.95, roas: 4.7 },
-        keywordsCount: 8,
-        activeAdsCount: 3,
-        primaryGoal: 'TARGET_CPA',
-      };
-
-      const camp2: Campaign = {
-        id: `camp-${now}-2`,
-        accountId: state.account.id,
-        name: 'Performance Max - Omnichannel Leads',
-        type: 'PERFORMANCE_MAX',
-        status: 'ENABLED',
-        budgetDaily: 90,
-        spend: 950,
-        impressions: 28000,
-        clicks: 720,
-        ctr: 2.57,
-        cpc: 1.32,
-        conversions: 26,
-        cpa: 36.54,
-        conversionValue: 3900,
-        roas: 4.11,
-        conversionRate: 3.61,
-        healthStatus: 'OPPORTUNITY',
-        healthScore: 89,
-        trendPoints: [20, 22, 24, 25, 26, 27, 28],
-        historicalPoints: [],
-        previousPeriod: { spend: 890, conversions: 22, cpa: 40.45, roas: 3.8 },
-        keywordsCount: 6,
-        activeAdsCount: 4,
-        primaryGoal: 'TARGET_ROAS',
-      };
-
-      await saveCampaignToFirestore(user.uid, camp1);
-      await saveCampaignToFirestore(user.uid, camp2);
-
-      const generatedKeywords: Keyword[] = [
-        { id: `kw-${camp1.id}-1`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'google ads optimization', matchType: 'PHRASE', spend: 406, clicks: 280, impressions: 4200, ctr: 6.67, cpc: 1.45, conversions: 14, cpa: 29.00, qualityScore: 9, status: 'ENABLED', flag: 'TOP_PERFORMER' },
-        { id: `kw-${camp1.id}-2`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'marketing budget reallocation', matchType: 'PHRASE', spend: 300, clicks: 240, impressions: 3800, ctr: 6.32, cpc: 1.25, conversions: 12, cpa: 25.00, qualityScore: 8, status: 'ENABLED', flag: 'TOP_PERFORMER' },
-        { id: `kw-${camp2.id}-1`, campaignId: camp2.id, campaignName: camp2.name, keyword: 'ai ads management', matchType: 'EXACT', spend: 496, clicks: 310, impressions: 5100, ctr: 6.08, cpc: 1.60, conversions: 15, cpa: 33.07, qualityScore: 9, status: 'ENABLED', flag: 'NORMAL' },
-      ];
-
-      for (const kw of generatedKeywords) {
-        await saveKeywordToFirestore(user.uid, kw);
-      }
-
-      setState((prev) => ({
-        ...prev,
-        campaigns: [camp1, camp2, ...prev.campaigns],
-        keywords: [...generatedKeywords, ...prev.keywords],
-      }));
-
-      showToast('AI campaigns generated & saved to Firestore!');
-    } catch (err) {
-      console.error('Error generating AI campaigns:', err);
-    } finally {
-      setIsSyncing(false);
+      showToast('Error removing campaign');
     }
   };
 
@@ -978,16 +940,16 @@ export default function AdOptimizeApp() {
                       Welcome to your Google Ads Command Center
                     </h3>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Connect your active Google Ads Customer ID (CID) or create your first real campaign to activate 24/7 AI telemetry and anomaly detection.
+                      Campaigns are created inside Google Ads. Connect your Google Ads account to pull your active campaigns, activate 24/7 AI telemetry, and boost performance.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                     <button
-                      onClick={() => setIsCreateCampaignOpen(true)}
+                      onClick={() => setIsSyncModalOpen(true)}
                       className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <Plus className="w-4 h-4 text-[#00d67d]" />
-                      <span>Create Real Campaign</span>
+                      <RefreshCw className="w-4 h-4 text-[#00d67d]" />
+                      <span>Sync Google Ads Campaigns</span>
                     </button>
 
                     <button
@@ -997,14 +959,15 @@ export default function AdOptimizeApp() {
                       <span>Connect Google Ads CID</span>
                     </button>
 
-                    <button
-                      onClick={handleGenerateAiCampaigns}
-                      disabled={isSyncing}
-                      className="px-5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer"
+                    <a
+                      href="https://ads.google.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2"
                     >
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
-                      <span>Generate AI Campaign Setup</span>
-                    </button>
+                      <span>Open Google Ads</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                    </a>
                   </div>
                 </div>
               )}
@@ -1082,7 +1045,12 @@ export default function AdOptimizeApp() {
                   campaigns={campaigns}
                   onSelectCampaign={(c) => setSelectedCampaign(c)}
                   onViewAll={() => setCurrentTab('campaigns')}
-                  onOpenCreateCampaign={() => setIsCreateCampaignOpen(true)}
+                  onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+                  onBoostCampaign={(c) => {
+                    setBoostTargetCampaign(c);
+                    setIsBoostModalOpen(true);
+                  }}
+                  isSyncing={isSyncing}
                 />
               </div>
             </div>
@@ -1094,8 +1062,13 @@ export default function AdOptimizeApp() {
               campaigns={campaigns}
               onSelectCampaign={(c) => setSelectedCampaign(c)}
               onToggleStatus={handleToggleCampaignStatus}
-              onOpenCreateCampaign={() => setIsCreateCampaignOpen(true)}
+              onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+              onBoostCampaign={(c) => {
+                setBoostTargetCampaign(c);
+                setIsBoostModalOpen(true);
+              }}
               onDeleteCampaign={handleDeleteCampaign}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -1198,6 +1171,10 @@ export default function AdOptimizeApp() {
         insights={insights}
         account={account}
         onClose={() => setSelectedCampaign(null)}
+        onBoostCampaign={(c) => {
+          setBoostTargetCampaign(c);
+          setIsBoostModalOpen(true);
+        }}
         onApplyInsight={handleApplyInsight}
         onAddNegativeKeyword={handleAddNegativeKeyword}
         onToggleCampaignStatus={handleToggleCampaignStatus}
@@ -1225,12 +1202,24 @@ export default function AdOptimizeApp() {
         onConnectAccount={handleConnectAccount}
       />
 
-      {/* Create Real Campaign Modal */}
-      <CampaignCreateModal
-        isOpen={isCreateCampaignOpen}
-        onClose={() => setIsCreateCampaignOpen(false)}
-        accountId={account.id}
-        onCreateCampaign={handleCreateCampaign}
+      {/* Sync Google Ads Campaigns Modal */}
+      <CampaignSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        account={account}
+        onSync={handleRefreshSync}
+        isSyncing={isSyncing}
+      />
+
+      {/* Boost Campaign Performance Modal */}
+      <CampaignBoostModal
+        isOpen={isBoostModalOpen}
+        onClose={() => {
+          setIsBoostModalOpen(false);
+          setBoostTargetCampaign(null);
+        }}
+        campaign={boostTargetCampaign}
+        onApplyBoost={handleApplyBoost}
       />
 
       {/* Toast Notification Notification */}

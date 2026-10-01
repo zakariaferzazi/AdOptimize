@@ -21,7 +21,8 @@ import {
   Play,
   Pause,
   Sliders,
-  DollarSign
+  DollarSign,
+  Zap
 } from 'lucide-react';
 import {
   Campaign,
@@ -43,6 +44,7 @@ interface CampaignDetailDrawerProps {
   insights: AIInsight[];
   account?: GoogleAdsAccount;
   onClose: () => void;
+  onBoostCampaign?: (campaign: Campaign) => void;
   onApplyInsight?: (insight: AIInsight) => void;
   onAddNegativeKeyword?: (term: SearchTerm) => void;
   onToggleCampaignStatus?: (campaignId: string) => void;
@@ -58,6 +60,7 @@ export function CampaignDetailDrawer({
   insights,
   account,
   onClose,
+  onBoostCampaign,
   onApplyInsight,
   onAddNegativeKeyword,
   onToggleCampaignStatus,
@@ -105,6 +108,16 @@ export function CampaignDetailDrawer({
           </div>
 
           <div className="flex items-center gap-2">
+            {onBoostCampaign && (
+              <button
+                onClick={() => onBoostCampaign(campaign)}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                <span>Boost</span>
+              </button>
+            )}
+
             {onToggleCampaignStatus && (
               <button
                 onClick={() => onToggleCampaignStatus(campaign.id)}

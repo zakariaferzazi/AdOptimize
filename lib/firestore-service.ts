@@ -106,6 +106,16 @@ export async function updateInsightStatus(userId: string, insightId: string, sta
   }
 }
 
+export async function saveInsightToFirestore(userId: string, insight: AIInsight) {
+  const path = `users/${userId}/insights/${insight.id}`;
+  try {
+    const docRef = doc(db, 'users', userId, 'insights', insight.id);
+    await setDoc(docRef, insight, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 // 5. Fetch Anomalies
 export async function fetchUserAnomalies(userId: string): Promise<AnomalyAlert[]> {
   const path = `users/${userId}/anomalies`;
@@ -120,6 +130,16 @@ export async function fetchUserAnomalies(userId: string): Promise<AnomalyAlert[]
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
     return [];
+  }
+}
+
+export async function saveAnomalyToFirestore(userId: string, anomaly: AnomalyAlert) {
+  const path = `users/${userId}/anomalies/${anomaly.id}`;
+  try {
+    const docRef = doc(db, 'users', userId, 'anomalies', anomaly.id);
+    await setDoc(docRef, anomaly, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
