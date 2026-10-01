@@ -8,7 +8,9 @@ export async function POST(req: NextRequest) {
     if (action === 'get_oauth_url') {
       // In production, this generates a secure Google OAuth consent URL with scope:
       // https://www.googleapis.com/auth/adwords
-      const clientId = process.env.GOOGLE_ADS_CLIENT_ID || 'dummy-client-id.apps.googleusercontent.com';
+      const clientId =
+        process.env.GOOGLE_ADS_CLIENT_ID ||
+        '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
       const redirectUri = `${process.env.APP_URL || 'http://localhost:3000'}/api/google-ads/oauth-callback`;
       const scope = encodeURIComponent('https://www.googleapis.com/auth/adwords email profile');
       const state = `oauth_state_${Date.now()}`;
