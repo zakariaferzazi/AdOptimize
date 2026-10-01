@@ -11,68 +11,69 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.:@]+$');
-    }
-
-    // Default deny all access
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Health check and connection test
     match /test/connection {
       allow read: if true;
     }
 
-    // User profile document
+    // User profile document and all user-owned subcollections
     match /users/{userId} {
-      allow read, write: if isOwner(userId) && isValidId(userId);
+      allow read, write: if isOwner(userId);
 
-      // User's connected Google Ads accounts
+      // Connected Google Ads accounts
       match /accounts/{accountId} {
-        allow read, write: if isOwner(userId) && isValidId(accountId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's campaigns
+      // Live Google Ads campaigns
       match /campaigns/{campaignId} {
-        allow read, write: if isOwner(userId) && isValidId(campaignId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's anomalies
+      // Anomaly alerts
       match /anomalies/{anomalyId} {
-        allow read, write: if isOwner(userId) && isValidId(anomalyId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's AI insights
+      // AI insights & root-cause diagnostics
       match /insights/{insightId} {
-        allow read, write: if isOwner(userId) && isValidId(insightId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's budget recommendations
+      // Budget recommendations & reallocations
       match /budgetRecommendations/{recId} {
-        allow read, write: if isOwner(userId) && isValidId(recId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's automation rules
+      // Automation rules
       match /automationRules/{ruleId} {
-        allow read, write: if isOwner(userId) && isValidId(ruleId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's audit logs
+      // Immutable change audit logs
       match /auditLogs/{logId} {
-        allow read, write: if isOwner(userId) && isValidId(logId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's keywords
+      // Campaign keywords
       match /keywords/{keywordId} {
-        allow read, write: if isOwner(userId) && isValidId(keywordId);
+        allow read, write: if isOwner(userId);
       }
 
-      // User's search terms
+      // Search terms query reports
       match /searchTerms/{termId} {
-        allow read, write: if isOwner(userId) && isValidId(termId);
+        allow read, write: if isOwner(userId);
       }
+
+      // Fallback for any other user-specific subcollections
+      match /{allChildren=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
