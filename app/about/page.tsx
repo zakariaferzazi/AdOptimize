@@ -16,10 +16,9 @@ export default function AboutPage() {
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold">
               <TrendingUp className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <div className="text-xl font-bold tracking-tight text-white flex items-baseline">
-              <span>.adopt</span>
-              <span className="text-[#00d67d]">imize</span>
-              <span className="text-[#00d67d] ml-0.5">✦</span>
+            <div className="text-xl font-bold tracking-tight flex items-baseline">
+              <span className="text-white">Ad</span>
+              <span className="text-[#00d67d]">Optimize</span>
             </div>
           </Link>
 

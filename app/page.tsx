@@ -342,6 +342,8 @@ export default function AdOptimizeApp() {
   const handleSignInWithGoogle = async () => {
     try {
       await signInWithGoogle();
+      setShowLanding(false);
+      showToast('Signed in successfully');
     } catch (err: any) {
       showToast('Sign-in cancelled or closed');
     }
@@ -351,7 +353,9 @@ export default function AdOptimizeApp() {
   const handleSignOut = async () => {
     try {
       await logOut();
-      showToast('Signed out of Firebase');
+      setState((prev) => ({ ...prev, isDemoMode: false }));
+      setShowLanding(true);
+      showToast('Signed out successfully');
     } catch (err: any) {
       showToast('Sign-out error');
     }
@@ -860,19 +864,6 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Landing Page toggle
-  if (showLanding) {
-    return (
-      <LandingPage
-        onOpenApp={() => setShowLanding(false)}
-        onConnectGoogleAds={() => {
-          setShowLanding(false);
-          setShowConnectModal(true);
-        }}
-      />
-    );
-  }
-
   // Auth Loading Screen
   if (authLoading) {
     return (
@@ -885,12 +876,28 @@ export default function AdOptimizeApp() {
     );
   }
 
-  // If unauthenticated and not in explicit sandbox mode, show clean AuthGate
-  if (!user && !state.isDemoMode) {
+  // When user is not logged in and not in demo mode, OR when landing page view is requested:
+  // Show the homepage with Sign Up / Log In options, which then seamlessly opens the dashboard
+  if (showLanding || (!user && !state.isDemoMode)) {
     return (
-      <AuthGate
+      <LandingPage
+        onOpenApp={() => {
+          setShowLanding(false);
+          if (!user && !state.isDemoMode) {
+            setState((prev) => ({ ...prev, isDemoMode: true }));
+          }
+        }}
+        onConnectGoogleAds={() => {
+          if (!user) {
+            handleSignInWithGoogle();
+          } else {
+            setShowLanding(false);
+            setShowConnectModal(true);
+          }
+        }}
         onSignInWithGoogle={handleSignInWithGoogle}
-        onExploreDemo={() => setState((prev) => ({ ...prev, isDemoMode: true }))}
+        user={user}
+        onSignOut={handleSignOut}
       />
     );
   }

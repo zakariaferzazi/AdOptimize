@@ -35,10 +35,9 @@ export function AccountMonitorCard({
       {/* Top Header of Card */}
       <div className="flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
-          <div className="text-sm font-bold tracking-tight text-white flex items-center">
-            <span>.adopt</span>
-            <span className="text-[#00d67d]">imize</span>
-            <span className="text-[#00d67d] ml-0.5">✦</span>
+          <div className="text-sm font-bold tracking-tight flex items-center">
+            <span className="text-white">Ad</span>
+            <span className="text-[#00d67d]">Optimize</span>
           </div>
           <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-[#00d67d] px-2 py-0.5 rounded-full border border-emerald-500/30">
             Live Guard

@@ -18,16 +18,26 @@ import {
   RotateCcw,
   ExternalLink,
   ChevronRight,
-  DollarSign
+  DollarSign,
+  LogIn
 } from 'lucide-react';
 import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
 
 interface LandingPageProps {
   onOpenApp: () => void;
   onConnectGoogleAds: () => void;
+  onSignInWithGoogle?: () => void;
+  user?: { displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
+  onSignOut?: () => void;
 }
 
-export function LandingPage({ onOpenApp, onConnectGoogleAds }: LandingPageProps) {
+export function LandingPage({
+  onOpenApp,
+  onConnectGoogleAds,
+  onSignInWithGoogle,
+  user,
+  onSignOut,
+}: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
 
@@ -56,18 +66,17 @@ export function LandingPage({ onOpenApp, onConnectGoogleAds }: LandingPageProps)
 
   return (
     <div className="min-h-screen bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900">
-      {/* Navigation Top Bar (Following Top Bar Contract: Brand — 4-6 Links — Action) */}
+      {/* Navigation Top Bar */}
       <header className="sticky top-0 z-40 bg-[#0d1117]/95 backdrop-blur-md border-b border-slate-800/80 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Brand */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={onOpenApp}>
+          {/* Brand Logo: Ad in white, Optimize in green, no dot */}
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={onOpenApp}>
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold shadow-md shadow-[#00d67d]/20">
               <TrendingUp className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <div className="text-xl font-bold tracking-tight text-white flex items-baseline">
-              <span>.adopt</span>
-              <span className="text-[#00d67d]">imize</span>
-              <span className="text-[#00d67d] ml-0.5">✦</span>
+            <div className="text-xl font-bold tracking-tight flex items-baseline">
+              <span className="text-white">Ad</span>
+              <span className="text-[#00d67d]">Optimize</span>
             </div>
           </div>
 
@@ -81,15 +90,44 @@ export function LandingPage({ onOpenApp, onConnectGoogleAds }: LandingPageProps)
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </nav>
 
-          {/* Primary Action */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onOpenApp}
-              className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-[#00d67d]/20 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Launch Live SaaS App</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          {/* Header Action Buttons */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {user ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  onClick={onOpenApp}
+                  className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-[#00d67d]/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                {onSignOut && (
+                  <button
+                    onClick={onSignOut}
+                    className="hidden sm:inline-flex px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-medium text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Sign Out
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  onClick={onSignInWithGoogle}
+                  className="px-3.5 py-2 text-slate-300 hover:text-white font-semibold text-xs rounded-xl hover:bg-white/5 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-[#00d67d]" />
+                  <span>Log In</span>
+                </button>
+                <button
+                  onClick={onSignInWithGoogle}
+                  className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-[#00d67d]/20 transition-all flex items-center gap-1.5 cursor-pointer hover:scale-102"
+                >
+                  <span>Sign Up Free</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -111,22 +149,48 @@ export function LandingPage({ onOpenApp, onConnectGoogleAds }: LandingPageProps)
           </p>
 
           {/* Hero CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <button
-              onClick={onConnectGoogleAds}
-              className="px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 text-sm font-bold rounded-2xl shadow-xl shadow-[#00d67d]/25 transition-all flex items-center gap-2 cursor-pointer hover:scale-105"
-            >
-              <span>Connect Google Ads</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onOpenApp}
-              className="px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white text-sm font-bold rounded-2xl border border-white/15 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span>Explore Interactive Demo</span>
-              <Sparkles className="w-4 h-4 text-[#00d67d]" />
-            </button>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-4">
+            {user ? (
+              <>
+                <button
+                  onClick={onOpenApp}
+                  className="px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 text-sm font-bold rounded-2xl shadow-xl shadow-[#00d67d]/25 transition-all flex items-center gap-2 cursor-pointer hover:scale-105"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onConnectGoogleAds}
+                  className="px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white text-sm font-bold rounded-2xl border border-white/15 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Sync Google Ads Account</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onSignInWithGoogle || onConnectGoogleAds}
+                  className="px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 text-sm font-bold rounded-2xl shadow-xl shadow-[#00d67d]/25 transition-all flex items-center gap-2 cursor-pointer hover:scale-105"
+                >
+                  <span>Sign Up with Google Free</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onSignInWithGoogle}
+                  className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white text-sm font-bold rounded-2xl border border-white/15 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4 text-[#00d67d]" />
+                  <span>Log In</span>
+                </button>
+                <button
+                  onClick={onOpenApp}
+                  className="px-5 py-3.5 bg-transparent hover:bg-white/5 text-slate-300 hover:text-white text-sm font-medium rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-[#00d67d]" />
+                  <span>Try Demo</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Trust strip */}
@@ -490,10 +554,9 @@ export function LandingPage({ onOpenApp, onConnectGoogleAds }: LandingPageProps)
       <footer className="bg-[#0b0f12] text-slate-400 py-8 px-6 border-t border-slate-800/80 text-xs">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="text-sm font-bold text-white">
-              <span>.adopt</span>
-              <span className="text-[#00d67d]">imize</span>
-              <span className="text-[#00d67d] ml-0.5">✦</span>
+            <div className="text-sm font-bold flex items-baseline">
+              <span className="text-white">Ad</span>
+              <span className="text-[#00d67d]">Optimize</span>
             </div>
             <span>© 2026 AdOptimize Inc. All rights reserved.</span>
           </div>
