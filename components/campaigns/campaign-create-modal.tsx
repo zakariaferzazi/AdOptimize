@@ -59,6 +59,7 @@ export function CampaignCreateModal({
         cpa: cpaVal,
         qualityScore: 8,
         status: 'ENABLED',
+        flag: 'NORMAL',
       }));
 
       const newCampaign: Campaign = {

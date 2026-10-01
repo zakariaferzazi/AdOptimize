@@ -1,6 +1,7 @@
 export type CampaignType = 'SEARCH' | 'PERFORMANCE_MAX' | 'DISPLAY' | 'SHOPPING';
 export type CampaignStatus = 'ENABLED' | 'PAUSED';
 export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'OPPORTUNITY';
+export type CampaignGoal = 'MAXIMIZE_CONVERSIONS' | 'TARGET_CPA' | 'TARGET_ROAS' | 'MAXIMIZE_VALUE';
 
 export interface PerformanceMetric {
   spend: number;
@@ -61,7 +62,7 @@ export interface Campaign {
   };
   keywordsCount: number;
   activeAdsCount: number;
-  primaryGoal: 'MAXIMIZE_CONVERSIONS' | 'TARGET_CPA' | 'TARGET_ROAS' | 'MAXIMIZE_VALUE';
+  primaryGoal: CampaignGoal;
 }
 
 export interface Keyword {
@@ -79,7 +80,7 @@ export interface Keyword {
   cpa: number;
   qualityScore: number; // 1 to 10
   status: 'ENABLED' | 'PAUSED';
-  flag: 'HIGH_SPEND_ZERO_CONV' | 'TOP_PERFORMER' | 'RISING_CPA' | 'LOW_QUALITY_SCORE' | 'NORMAL';
+  flag?: 'HIGH_SPEND_ZERO_CONV' | 'TOP_PERFORMER' | 'RISING_CPA' | 'LOW_QUALITY_SCORE' | 'NORMAL';
 }
 
 export interface SearchTerm {

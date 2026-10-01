@@ -128,9 +128,9 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
                 </p>
                 {topCampaign && (
                   <p>
-                    <strong>Top Performer:</strong> Campaign <em>"{topCampaign.name}"</em> generated {topCampaign.conversions} conversions with a strong ROAS of <strong>{topCampaign.roas.toFixed(2)}x</strong> at ${topCampaign.cpa.toFixed(2)} CPA.
+                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaign.name}&quot;</em> generated {topCampaign.conversions} conversions with a strong ROAS of <strong>{topCampaign.roas.toFixed(2)}x</strong> at ${topCampaign.cpa.toFixed(2)} CPA.
                     {lowestCampaign && lowestCampaign.id !== topCampaign.id && lowestCampaign.spend > 0 && (
-                      <span> In contrast, <em>"{lowestCampaign.name}"</em> absorbed ${lowestCampaign.spend.toLocaleString()} with {lowestCampaign.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
+                      <span> In contrast, <em>&quot;{lowestCampaign.name}&quot;</em> absorbed ${lowestCampaign.spend.toLocaleString()} with {lowestCampaign.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
                     )}
                   </p>
                 )}

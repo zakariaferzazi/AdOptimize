@@ -535,9 +535,9 @@ export default function AdOptimizeApp() {
       await saveCampaignToFirestore(user.uid, camp2);
 
       const generatedKeywords: Keyword[] = [
-        { id: `kw-${camp1.id}-1`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'google ads optimization', matchType: 'PHRASE', spend: 406, clicks: 280, impressions: 4200, ctr: 6.67, cpc: 1.45, conversions: 14, cpa: 29.00, qualityScore: 9, status: 'ENABLED' },
-        { id: `kw-${camp1.id}-2`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'marketing budget reallocation', matchType: 'PHRASE', spend: 300, clicks: 240, impressions: 3800, ctr: 6.32, cpc: 1.25, conversions: 12, cpa: 25.00, qualityScore: 8, status: 'ENABLED' },
-        { id: `kw-${camp2.id}-1`, campaignId: camp2.id, campaignName: camp2.name, keyword: 'ai ads management', matchType: 'EXACT', spend: 496, clicks: 310, impressions: 5100, ctr: 6.08, cpc: 1.60, conversions: 15, cpa: 33.07, qualityScore: 9, status: 'ENABLED' },
+        { id: `kw-${camp1.id}-1`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'google ads optimization', matchType: 'PHRASE', spend: 406, clicks: 280, impressions: 4200, ctr: 6.67, cpc: 1.45, conversions: 14, cpa: 29.00, qualityScore: 9, status: 'ENABLED', flag: 'TOP_PERFORMER' },
+        { id: `kw-${camp1.id}-2`, campaignId: camp1.id, campaignName: camp1.name, keyword: 'marketing budget reallocation', matchType: 'PHRASE', spend: 300, clicks: 240, impressions: 3800, ctr: 6.32, cpc: 1.25, conversions: 12, cpa: 25.00, qualityScore: 8, status: 'ENABLED', flag: 'TOP_PERFORMER' },
+        { id: `kw-${camp2.id}-1`, campaignId: camp2.id, campaignName: camp2.name, keyword: 'ai ads management', matchType: 'EXACT', spend: 496, clicks: 310, impressions: 5100, ctr: 6.08, cpc: 1.60, conversions: 15, cpa: 33.07, qualityScore: 9, status: 'ENABLED', flag: 'NORMAL' },
       ];
 
       for (const kw of generatedKeywords) {
