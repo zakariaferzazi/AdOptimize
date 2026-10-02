@@ -13,7 +13,8 @@ import {
   LogOut,
   LogIn,
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 import { GoogleAdsAccount, AnomalyAlert } from '@/types/adoptimize';
 import { User } from 'firebase/auth';
@@ -32,6 +33,7 @@ interface HeaderProps {
   onSearchQuery?: (q: string) => void;
   onSignInWithGoogle: () => void;
   onSignOut: () => void;
+  onClearData?: () => void;
 }
 
 export function Header({
@@ -48,6 +50,7 @@ export function Header({
   onSearchQuery,
   onSignInWithGoogle,
   onSignOut,
+  onClearData,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -113,6 +116,18 @@ export function Header({
                   <span>Connect / Switch Google Ads ID</span>
                   <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                 </button>
+                {onClearData && (
+                  <button
+                    onClick={() => {
+                      setShowAccountDropdown(false);
+                      onClearData();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <span>Clear All Demo Campaigns</span>
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  </button>
+                )}
               </div>
             </div>
           )}

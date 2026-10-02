@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
           lastSyncAt: new Date().toISOString(),
           syncStatus: 'SYNCED',
           isDemo: false,
-          totalCampaignsCount: 6,
+          totalCampaignsCount: 0,
           monthlySpendCap: 50000,
         },
       });

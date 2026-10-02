@@ -215,7 +215,7 @@ export default function AdOptimizeApp() {
 
           if (!isSubscribed) return;
 
-          // Check if remote data has fake/seeded mock campaigns or legacy CloudScale credentials
+          // Check if remote data has fake/seeded mock campaigns or legacy fake data
           const hasFakeData =
             remoteAccount?.clientCustomerId === '492-819-2041' ||
             remoteAccount?.accountName?.includes('CloudScale') ||
@@ -228,6 +228,9 @@ export default function AdOptimizeApp() {
                 c.id === 'camp-05' ||
                 c.id === 'camp-google-8921' ||
                 c.name?.includes('High Intent Core') ||
+                c.name?.includes('High-Intent Core') ||
+                c.name?.includes('Omnichannel') ||
+                c.name?.includes('Remarketing Funnel') ||
                 c.name?.includes('Competitor Conquesting')
             );
 
@@ -385,7 +388,7 @@ export default function AdOptimizeApp() {
         lastSyncAt: data.lastSyncAt || new Date().toISOString(),
         syncStatus: 'SYNCED',
         isConnected: true,
-        totalCampaignsCount: data.campaigns?.length || account.totalCampaignsCount,
+        totalCampaignsCount: data.campaigns?.length ?? 0,
       };
 
       const newCampaigns: Campaign[] = data.campaigns || [];
@@ -400,30 +403,40 @@ export default function AdOptimizeApp() {
         campaigns: newCampaigns,
         keywords: newKeywords,
         searchTerms: newSearchTerms,
-        insights: newInsights.length > 0 ? newInsights : prev.insights,
-        anomalies: newAnomalies.length > 0 ? newAnomalies : prev.anomalies,
+        insights: newInsights,
+        anomalies: newAnomalies,
+        isDemoMode: false,
       }));
 
       if (user) {
         await saveUserAccount(user.uid, updatedAccount);
-        for (const camp of newCampaigns) {
-          await saveCampaignToFirestore(user.uid, camp);
-        }
-        for (const kw of newKeywords) {
-          await saveKeywordToFirestore(user.uid, kw);
-        }
-        for (const st of newSearchTerms) {
-          await saveSearchTermToFirestore(user.uid, st);
-        }
-        for (const ins of newInsights) {
-          await saveInsightToFirestore(user.uid, ins);
-        }
-        for (const anom of newAnomalies) {
-          await saveAnomalyToFirestore(user.uid, anom);
+        if (newCampaigns.length === 0) {
+          await clearAllUserData(user.uid);
+          await saveUserAccount(user.uid, updatedAccount);
+        } else {
+          for (const camp of newCampaigns) {
+            await saveCampaignToFirestore(user.uid, camp);
+          }
+          for (const kw of newKeywords) {
+            await saveKeywordToFirestore(user.uid, kw);
+          }
+          for (const st of newSearchTerms) {
+            await saveSearchTermToFirestore(user.uid, st);
+          }
+          for (const ins of newInsights) {
+            await saveInsightToFirestore(user.uid, ins);
+          }
+          for (const anom of newAnomalies) {
+            await saveAnomalyToFirestore(user.uid, anom);
+          }
         }
       }
 
-      showToast(`Synchronized ${newCampaigns.length} campaigns from Google Ads!`);
+      if (newCampaigns.length > 0) {
+        showToast(`Synchronized ${newCampaigns.length} campaigns from Google Ads.`);
+      } else {
+        showToast(data.message || `Sync complete: 0 campaigns found for CID ${account.clientCustomerId}.`);
+      }
     } catch (err: any) {
       console.error('Error syncing Google Ads:', err);
       showToast('Error syncing with Google Ads');
@@ -434,23 +447,29 @@ export default function AdOptimizeApp() {
 
   // Connect Google Ads account
   const handleConnectAccount = async (newAccount: GoogleAdsAccount, syncedCampaigns?: Campaign[]) => {
+    const campaignsToSet = syncedCampaigns || [];
     setState((prev) => ({
       ...prev,
       account: newAccount,
-      campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
+      campaigns: campaignsToSet,
+      keywords: campaignsToSet.length > 0 ? prev.keywords : [],
+      searchTerms: campaignsToSet.length > 0 ? prev.searchTerms : [],
+      insights: campaignsToSet.length > 0 ? prev.insights : [],
+      anomalies: campaignsToSet.length > 0 ? prev.anomalies : [],
+      isDemoMode: false,
     }));
     if (user) {
+      if (campaignsToSet.length === 0) {
+        await clearAllUserData(user.uid);
+      }
       await saveUserAccount(user.uid, newAccount);
-      if (syncedCampaigns && syncedCampaigns.length > 0) {
-        for (const camp of syncedCampaigns) {
+      if (campaignsToSet.length > 0) {
+        for (const camp of campaignsToSet) {
           await saveCampaignToFirestore(user.uid, camp);
         }
       }
     }
-    showToast(`Connected: ${newAccount.accountName}`);
-    if (!syncedCampaigns || syncedCampaigns.length === 0) {
-      handleRefreshSync();
-    }
+    showToast(`Connected: ${newAccount.accountName} (CID: ${newAccount.clientCustomerId})`);
   };
 
   // Boost Campaign Performance
@@ -928,6 +947,7 @@ export default function AdOptimizeApp() {
           onSelectAnomaly={handleSelectAnomaly}
           onSignInWithGoogle={handleSignInWithGoogle}
           onSignOut={handleSignOut}
+          onClearData={handleClearAllData}
         />
 
         {/* Dynamic View Container */}
@@ -943,10 +963,14 @@ export default function AdOptimizeApp() {
                   </div>
                   <div className="max-w-md mx-auto space-y-1.5">
                     <h3 className="text-lg font-bold text-slate-900">
-                      Welcome to your Google Ads Command Center
+                      {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                        ? `Connected to CID: ${account.clientCustomerId}`
+                        : 'Welcome to your Google Ads Command Center'}
                     </h3>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Campaigns are created inside Google Ads. Connect your Google Ads account to pull your active campaigns, activate 24/7 AI telemetry, and boost performance.
+                      {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                        ? 'Your Customer ID is connected. No active campaigns are detected yet in Google Ads. Click below to auto-sync or specify your active campaign names to monitor.'
+                        : 'Connect your Google Ads Customer ID (CID) to pull your active campaigns, activate 24/7 AI telemetry, and boost performance.'}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -955,14 +979,14 @@ export default function AdOptimizeApp() {
                       className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                     >
                       <RefreshCw className="w-4 h-4 text-[#00d67d]" />
-                      <span>Sync Google Ads Campaigns</span>
+                      <span>Auto-Sync CID / Add Campaigns</span>
                     </button>
 
                     <button
                       onClick={() => setShowConnectModal(true)}
                       className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span>Connect Google Ads CID</span>
+                      <span>{account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Change CID' : 'Connect Google Ads CID'}</span>
                     </button>
 
                     <a

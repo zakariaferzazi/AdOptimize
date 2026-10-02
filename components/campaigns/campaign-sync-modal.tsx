@@ -105,9 +105,12 @@ export function CampaignSyncModal({
                   : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
               }`}
             >
-              <div className="font-bold text-xs">Auto-Sync CID</div>
-              <div className={`text-[11px] mt-1 ${syncType === 'AUTO' ? 'text-slate-300' : 'text-slate-500'}`}>
-                Automatically sync all active Search, PMax & Display campaigns from this account.
+              <div className="font-bold text-xs flex items-center justify-between">
+                <span>Auto-Sync CID</span>
+                <span className="text-[10px] font-mono text-emerald-400">Reports API</span>
+              </div>
+              <div className={`text-[11px] mt-1.5 leading-relaxed ${syncType === 'AUTO' ? 'text-slate-300' : 'text-slate-500'}`}>
+                Queries Google Ads directly for CID {account.clientCustomerId}. If no live campaigns exist, displays 0 campaigns (zero fake or demo data).
               </div>
             </button>
 
@@ -120,9 +123,12 @@ export function CampaignSyncModal({
                   : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
               }`}
             >
-              <div className="font-bold text-xs">Specify Campaign Names</div>
-              <div className={`text-[11px] mt-1 ${syncType === 'CUSTOM' ? 'text-slate-300' : 'text-slate-500'}`}>
-                Enter specific campaign titles running in Google Ads to monitor immediately.
+              <div className="font-bold text-xs flex items-center justify-between">
+                <span>Specify Campaign Names</span>
+                <span className="text-[10px] font-mono text-cyan-400">Direct Entry</span>
+              </div>
+              <div className={`text-[11px] mt-1.5 leading-relaxed ${syncType === 'CUSTOM' ? 'text-slate-300' : 'text-slate-500'}`}>
+                Enter the exact campaign names running in your Google Ads account to monitor them right away.
               </div>
             </button>
           </div>

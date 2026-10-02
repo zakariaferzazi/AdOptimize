@@ -127,7 +127,7 @@ export function ConnectModal({
         lastSyncAt: new Date().toISOString(),
         syncStatus: 'SYNCED',
         isDemo: false,
-        totalCampaignsCount: syncedCampaigns.length || 4,
+        totalCampaignsCount: syncedCampaigns.length,
         monthlySpendCap: Number(spendCap) || 25000,
       };
 

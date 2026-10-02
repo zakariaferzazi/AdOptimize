@@ -87,6 +87,9 @@ export function getInitialState(): AdOptimizeState {
                 c.id === 'camp-05' ||
                 c.id === 'camp-google-8921' ||
                 c.name?.includes('High Intent Core') ||
+                c.name?.includes('High-Intent Core') ||
+                c.name?.includes('Omnichannel') ||
+                c.name?.includes('Remarketing Funnel') ||
                 c.name?.includes('Competitor Conquesting')
             ));
 

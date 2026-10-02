@@ -51,19 +51,22 @@ export function AccountMonitorCard({
 
       {/* Middle: Formatted Customer ID (formatted like card numbers in reference) */}
       <div className="z-10 my-auto">
-        <div className="text-xs text-slate-400 font-medium tracking-wide">
-          GOOGLE ADS CLIENT ID
+        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+          Google Ads Customer ID (CID)
         </div>
         <div className="text-xl font-mono tracking-wider font-bold text-white mt-1 flex items-center gap-2">
           <span>{account.clientCustomerId || 'Not Connected'}</span>
           {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
-            <span className="text-xs text-emerald-400 font-sans font-semibold">● Synced</span>
+            <span className="text-[11px] text-[#00d67d] font-sans font-bold flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
+              <span>Active CID</span>
+            </span>
           ) : (
             <button
               onClick={onOpenSettings}
               className="text-xs text-amber-400 hover:text-amber-300 font-sans font-semibold underline decoration-amber-400/50 cursor-pointer"
             >
-              ● Connect ID
+              ● Connect CID
             </button>
           )}
         </div>
