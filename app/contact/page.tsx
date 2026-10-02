@@ -50,7 +50,7 @@ export default function ContactPage() {
               <Mail className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <div className="font-bold text-slate-900 text-xs">Email Support</div>
-                <div className="text-xs text-slate-600 mt-0.5">support@adoptimize.io</div>
+                <div className="text-xs text-slate-600 mt-0.5">support@adoptimize.app</div>
               </div>
             </div>
 

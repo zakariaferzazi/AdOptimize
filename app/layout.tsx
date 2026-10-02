@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
   description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
-  metadataBase: new URL(process.env.APP_URL || 'https://adoptimize.io'),
+  metadataBase: new URL(process.env.APP_URL || 'https://adoptimize.app'),
   alternates: {
     canonical: '/',
   },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
     description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
-    url: 'https://adoptimize.io',
+    url: 'https://adoptimize.app',
     siteName: 'AdOptimize',
     type: 'website',
   },
@@ -38,8 +38,8 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
       {
         '@type': 'Organization',
         name: 'AdOptimize',
-        url: 'https://adoptimize.io',
-        logo: 'https://adoptimize.io/icon.svg',
+        url: 'https://adoptimize.app',
+        logo: 'https://adoptimize.app/icon.svg',
         sameAs: ['https://twitter.com/adoptimize'],
       },
       {

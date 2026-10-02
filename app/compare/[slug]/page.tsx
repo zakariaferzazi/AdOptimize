@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const comp = PSEO_COMPARISONS.find((c) => c.slug === slug);
   if (!comp) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.io';
+  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
   const url = `${baseUrl}/compare/${comp.slug}`;
 
   return {
@@ -60,7 +60,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
         author: {
           '@type': 'Organization',
           name: 'AdOptimize',
-          url: 'https://adoptimize.io',
+          url: 'https://adoptimize.app',
         },
       },
       {
@@ -70,19 +70,19 @@ export default async function ComparisonDetailPage({ params }: Props) {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://adoptimize.io',
+            item: 'https://adoptimize.app',
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Compare',
-            item: 'https://adoptimize.io/compare',
+            item: 'https://adoptimize.app/compare',
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: comp.title,
-            item: `https://adoptimize.io/compare/${comp.slug}`,
+            item: `https://adoptimize.app/compare/${comp.slug}`,
           },
         ],
       },

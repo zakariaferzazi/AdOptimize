@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tool = PSEO_TOOLS.find((t) => t.slug === slug);
   if (!tool) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.io';
+  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
   const url = `${baseUrl}/tools/${tool.slug}`;
 
   return {
@@ -73,19 +73,19 @@ export default async function ToolDetailPage({ params }: Props) {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://adoptimize.io',
+            item: 'https://adoptimize.app',
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Free Google Ads Tools',
-            item: 'https://adoptimize.io/tools',
+            item: 'https://adoptimize.app/tools',
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: tool.title,
-            item: `https://adoptimize.io/tools/${tool.slug}`,
+            item: `https://adoptimize.app/tools/${tool.slug}`,
           },
         ],
       },

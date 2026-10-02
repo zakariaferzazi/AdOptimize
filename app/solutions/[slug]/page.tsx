@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const sol = PSEO_SOLUTIONS.find((s) => s.slug === slug);
   if (!sol) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.io';
+  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
   const url = `${baseUrl}/solutions/${sol.slug}`;
 
   return {
@@ -60,7 +60,7 @@ export default async function SolutionDetailPage({ params }: Props) {
         author: {
           '@type': 'Organization',
           name: 'AdOptimize',
-          url: 'https://adoptimize.io',
+          url: 'https://adoptimize.app',
         },
       },
       {
@@ -70,19 +70,19 @@ export default async function SolutionDetailPage({ params }: Props) {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://adoptimize.io',
+            item: 'https://adoptimize.app',
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Solutions',
-            item: 'https://adoptimize.io/solutions',
+            item: 'https://adoptimize.app/solutions',
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: sol.industry,
-            item: `https://adoptimize.io/solutions/${sol.slug}`,
+            item: `https://adoptimize.app/solutions/${sol.slug}`,
           },
         ],
       },

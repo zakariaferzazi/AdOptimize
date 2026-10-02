@@ -46,7 +46,7 @@ export default function RefundPolicyPage() {
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">How to Request a Refund</h2>
             <p>
-              Email <span className="font-semibold text-slate-900">support@adoptimize.io</span> with your account Customer ID. Refunds are processed back to your original payment method within 3–5 business days.
+              Email <span className="font-semibold text-slate-900">support@adoptimize.app</span> with your account Customer ID. Refunds are processed back to your original payment method within 3–5 business days.
             </p>
           </section>
         </div>

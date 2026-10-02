@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { PSEO_TOOLS, PSEO_SOLUTIONS, PSEO_COMPARISONS } from '@/lib/pseo-data';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.io';
+  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
 
   const staticRoutes = [
     '',
