@@ -67,7 +67,16 @@ export function BudgetOptimizerView({
           Current Budget & ROAS Distribution
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {campaigns.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <SlidersHorizontal className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <div className="text-xs font-bold text-slate-700">No Active Campaigns to Distribute</div>
+            <p className="text-[11px] text-slate-500 max-w-sm mx-auto mt-1">
+              Add or sync your Google Ads campaigns to analyze ROAS efficiency curves and unlock one-click cross-campaign budget rebalancing.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {campaigns.map((c) => {
             const isWinner = c.roas >= 4.0;
             const isBleeder = c.roas < 1.0;
@@ -115,6 +124,7 @@ export function BudgetOptimizerView({
             );
           })}
         </div>
+      )}
       </div>
 
       {/* Pending Reallocation Proposals */}

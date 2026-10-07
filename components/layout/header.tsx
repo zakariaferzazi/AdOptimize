@@ -80,10 +80,20 @@ export function Header({
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
             className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                account.isConnected && account.clientCustomerId !== 'Not Connected'
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-400'
+              }`}
+            />
             <span className="font-semibold text-slate-900">{account.accountName}</span>
             <span className="text-slate-400">·</span>
-            <span className="font-mono text-slate-500">{account.clientCustomerId}</span>
+            <span className="font-mono text-slate-500">
+              {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                ? account.clientCustomerId
+                : 'Not Connected'}
+            </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
           </button>
 

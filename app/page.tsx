@@ -24,6 +24,7 @@ import { LandingPage } from '@/components/landing/landing-page';
 import { ConnectModal } from '@/components/connect-modal';
 import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
 import { CampaignBoostModal } from '@/components/campaigns/campaign-boost-modal';
+import { CampaignEditModal } from '@/components/campaigns/campaign-edit-modal';
 import { AuthGate } from '@/components/auth/auth-gate';
 import {
   DollarSign,
@@ -107,6 +108,8 @@ export default function AdOptimizeApp() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [isBoostModalOpen, setIsBoostModalOpen] = useState<boolean>(false);
   const [boostTargetCampaign, setBoostTargetCampaign] = useState<Campaign | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [showCopilot, setShowCopilot] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -543,6 +546,95 @@ export default function AdOptimizeApp() {
     }
   };
 
+  // Open Add/Edit Campaign Modals
+  const handleOpenAddCampaign = () => {
+    setEditingCampaign(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleOpenEditCampaign = (camp: Campaign) => {
+    setEditingCampaign(camp);
+    setIsEditModalOpen(true);
+  };
+
+  // Save / Update Campaign with full Firestore persistence and real AI audit
+  const handleSaveCampaign = async (camp: Campaign) => {
+    const isExisting = state.campaigns.some((c) => c.id === camp.id);
+    let updatedCampaigns: Campaign[] = [];
+
+    if (isExisting) {
+      updatedCampaigns = state.campaigns.map((c) => (c.id === camp.id ? camp : c));
+    } else {
+      updatedCampaigns = [camp, ...state.campaigns];
+    }
+
+    const updatedAccount: GoogleAdsAccount = {
+      ...state.account,
+      isConnected: true,
+      totalCampaignsCount: updatedCampaigns.length,
+      lastSyncAt: new Date().toISOString(),
+    };
+
+    const auditLog: AuditLog = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId: camp.id,
+      campaignName: camp.name,
+      actionType: isExisting ? 'BUDGET_REALLOCATED' : 'CAMPAIGN_CREATED',
+      previousValue: isExisting ? 'Previous settings' : 'None (New campaign)',
+      newValue: `$${camp.budgetDaily}/d (${camp.type}, ${camp.status})`,
+      reason: isExisting ? 'Manual campaign adjustment' : 'Added to AdOptimize monitoring workspace',
+      source: 'USER_DIRECT',
+      userOrSystem: user?.displayName || user?.email || 'Marketing Manager',
+      status: 'EXECUTED',
+      canRevert: false,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      account: updatedAccount,
+      campaigns: updatedCampaigns,
+      auditLogs: [auditLog, ...prev.auditLogs],
+    }));
+
+    if (user) {
+      await saveCampaignToFirestore(user.uid, camp);
+      await saveUserAccount(user.uid, updatedAccount);
+      await addAuditLogToFirestore(user.uid, auditLog);
+    }
+
+    showToast(isExisting ? `Updated: ${camp.name}` : `Added campaign: ${camp.name}`);
+
+    // Trigger grounded Gemini AI analysis on updated campaigns in the background
+    try {
+      fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaigns: updatedCampaigns,
+          accountName: updatedAccount.accountName,
+        }),
+      })
+        .then((res) => res.json())
+        .then((aiData) => {
+          if (aiData.insights && aiData.insights.length > 0) {
+            setState((prev) => ({
+              ...prev,
+              insights: aiData.insights,
+              anomalies: aiData.anomalies || prev.anomalies,
+              budgetRecommendations: aiData.budgetRecommendations || prev.budgetRecommendations,
+            }));
+            if (user) {
+              for (const ins of aiData.insights) {
+                saveInsightToFirestore(user.uid, ins);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    } catch {}
+  };
+
   // Clear All Data & Clean Slate
   const handleClearAllData = async () => {
     if (!user) {
@@ -865,8 +957,30 @@ export default function AdOptimizeApp() {
       l.id === logId ? { ...l, status: 'REVERTED' as const } : l
     );
 
+    // Also restore actual campaign values in state and Firestore
+    let revertedCampaigns = campaigns;
+    if (log.campaignId) {
+      const targetCamp = campaigns.find((c) => c.id === log.campaignId);
+      if (targetCamp) {
+        let updatedCamp = { ...targetCamp };
+        if (log.actionType === 'CAMPAIGN_STATUS_CHANGE' && (log.previousValue === 'ENABLED' || log.previousValue === 'PAUSED')) {
+          updatedCamp.status = log.previousValue as any;
+        } else if (log.actionType === 'BUDGET_REALLOCATED') {
+          const match = log.previousValue.match(/\$?(\d+(\.\d+)?)/);
+          if (match) {
+            updatedCamp.budgetDaily = parseFloat(match[1]);
+          }
+        }
+        revertedCampaigns = campaigns.map((c) => (c.id === log.campaignId ? updatedCamp : c));
+        if (user) {
+          saveCampaignToFirestore(user.uid, updatedCamp);
+        }
+      }
+    }
+
     setState((prev) => ({
       ...prev,
+      campaigns: revertedCampaigns,
       auditLogs: [rollbackAuditLog, ...updatedLogs],
     }));
 
@@ -975,18 +1089,26 @@ export default function AdOptimizeApp() {
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                     <button
+                      onClick={handleOpenAddCampaign}
+                      className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Add Campaign</span>
+                    </button>
+
+                    <button
                       onClick={() => setIsSyncModalOpen(true)}
                       className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                     >
                       <RefreshCw className="w-4 h-4 text-[#00d67d]" />
-                      <span>Auto-Sync CID / Add Campaigns</span>
+                      <span>Sync Campaigns</span>
                     </button>
 
                     <button
                       onClick={() => setShowConnectModal(true)}
                       className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span>{account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Change CID' : 'Connect Google Ads CID'}</span>
+                      <span>{account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Workspace CID' : 'Connect Google Ads CID'}</span>
                     </button>
 
                     <a
@@ -1007,36 +1129,36 @@ export default function AdOptimizeApp() {
                 <MetricCard
                   label="Total Ad Spend (7 Days)"
                   value={`$${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  changeText="+8.4% vs previous 7d"
+                  changeText={metrics.spend > 0 ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day` : 'No spend recorded'}
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={DollarSign}
                   variant="dark"
-                  subContext="Budget pacing: 92%"
+                  subContext={metrics.spend > 0 ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of cap` : '0 active ad sets'}
                   onClick={() => setCurrentTab('campaigns')}
                 />
 
                 <MetricCard
                   label="Verified Conversions"
                   value={metrics.conversions.toString()}
-                  changeText="+12.8% vs previous 7d"
+                  changeText={metrics.conversions > 0 ? `Conv. Rate: ${metrics.conversionRate.toFixed(2)}%` : '0 verified conversions'}
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={Target}
                   variant="light"
-                  subContext={`Rate: ${metrics.conversionRate.toFixed(2)}%`}
+                  subContext={metrics.conversions > 0 ? `${metrics.conversions} goal completions` : 'Awaiting goal conversions'}
                   onClick={() => setCurrentTab('campaigns')}
                 />
 
                 <MetricCard
                   label="Account ROAS & Efficiency"
                   value={`${metrics.roas.toFixed(2)}x ROAS`}
-                  changeText={`$${metrics.cpa.toFixed(2)} CPA`}
+                  changeText={metrics.conversions > 0 ? `$${metrics.cpa.toFixed(2)} Blended CPA` : '0.00x return'}
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={TrendingUp}
                   variant="light"
-                  subContext="Benchmark: 3.5x"
+                  subContext={metrics.roas >= 3 ? 'Healthy return' : 'Calculated from conversion value / spend'}
                   onClick={() => setCurrentTab('insights')}
                 />
               </div>
@@ -1076,6 +1198,7 @@ export default function AdOptimizeApp() {
                   onSelectCampaign={(c) => setSelectedCampaign(c)}
                   onViewAll={() => setCurrentTab('campaigns')}
                   onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+                  onAddCampaign={handleOpenAddCampaign}
                   onBoostCampaign={(c) => {
                     setBoostTargetCampaign(c);
                     setIsBoostModalOpen(true);
@@ -1093,6 +1216,8 @@ export default function AdOptimizeApp() {
               onSelectCampaign={(c) => setSelectedCampaign(c)}
               onToggleStatus={handleToggleCampaignStatus}
               onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+              onAddCampaign={handleOpenAddCampaign}
+              onEditCampaign={handleOpenEditCampaign}
               onBoostCampaign={(c) => {
                 setBoostTargetCampaign(c);
                 setIsBoostModalOpen(true);
@@ -1239,6 +1364,18 @@ export default function AdOptimizeApp() {
         account={account}
         onSync={handleRefreshSync}
         isSyncing={isSyncing}
+      />
+
+      {/* Campaign Create & Edit Modal */}
+      <CampaignEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingCampaign(null);
+        }}
+        campaign={editingCampaign}
+        onSave={handleSaveCampaign}
+        accountId={account.id}
       />
 
       {/* Boost Campaign Performance Modal */}

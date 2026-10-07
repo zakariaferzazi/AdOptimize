@@ -104,15 +104,23 @@ export function SettingsView({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-slate-900 text-sm">{account.accountName}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                    Connected
-                  </span>
+                  {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                      {account.verifiedLive ? 'Live API Verified' : 'Workspace Active'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                      Not Connected
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-mono">
                   Client Customer ID: {account.clientCustomerId} · {account.timezone}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  Last Synced: {new Date(account.lastSyncAt).toLocaleTimeString()} · Status: 100% healthy
+                  {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                    ? `Last Synced: ${new Date(account.lastSyncAt).toLocaleTimeString()} · Status: Active monitoring`
+                    : 'Status: No active account linked. Click below to connect Google Ads or initialize workspace.'}
                 </div>
               </div>
             </div>

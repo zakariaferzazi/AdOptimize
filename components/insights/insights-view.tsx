@@ -198,32 +198,44 @@ export function InsightsView({
                 </div>
 
                 {/* Concrete Evidence Strip */}
-                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Data Evidence · {item.evidence.metric}</span>
-                    </div>
-                    <div className="text-xs text-emerald-800 mt-1">
-                      {item.evidence.context}
-                    </div>
-                  </div>
+                {(() => {
+                  const ev = item.evidence;
+                  const isObj = typeof ev === 'object' && ev !== null;
+                  const metric = isObj ? ev.metric : 'Account Telemetry';
+                  const context = isObj ? ev.context : typeof ev === 'string' ? ev : 'Performance audit';
+                  const beforeVal = isObj ? ev.before : 'Target';
+                  const currentVal = isObj ? ev.current : 'Active';
+                  const changePercent = isObj ? ev.changePercent : 'Audited';
 
-                  <div className="flex items-center gap-4 text-xs font-mono font-bold">
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-400 font-sans uppercase">Previous</div>
-                      <div className="text-slate-700">{item.evidence.before}</div>
+                  return (
+                    <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Data Evidence · {metric}</span>
+                        </div>
+                        <div className="text-xs text-emerald-800 mt-1">
+                          {context}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs font-mono font-bold">
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-400 font-sans uppercase">Previous</div>
+                          <div className="text-slate-700">{beforeVal}</div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="text-left">
+                          <div className="text-[10px] text-slate-400 font-sans uppercase">Current</div>
+                          <div className="text-slate-900">{currentVal}</div>
+                        </div>
+                        <div className="px-2.5 py-1 bg-white rounded-xl border border-emerald-200 text-emerald-800 shadow-2xs">
+                          {changePercent}
+                        </div>
+                      </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div className="text-left">
-                      <div className="text-[10px] text-slate-400 font-sans uppercase">Current</div>
-                      <div className="text-slate-900">{item.evidence.current}</div>
-                    </div>
-                    <div className="px-2.5 py-1 bg-white rounded-xl border border-emerald-200 text-emerald-800 shadow-2xs">
-                      {item.evidence.changePercent}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Recommended Action & Impact */}
                 <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4">

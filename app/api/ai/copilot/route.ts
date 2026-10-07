@@ -52,14 +52,14 @@ STRICT GUIDELINES:
     if (ai) {
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: 'gemini-2.5-flash',
           contents: prompt,
         });
 
         const reply = response.text || 'Unable to generate response from model.';
         return NextResponse.json({
           reply,
-          model: 'gemini-3.8-flash',
+          model: 'gemini-2.5-flash',
           grounded: true,
         });
       } catch (geminiErr: any) {

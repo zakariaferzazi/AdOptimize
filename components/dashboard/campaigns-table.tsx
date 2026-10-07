@@ -25,6 +25,7 @@ interface CampaignsTableProps {
   onViewAll?: () => void;
   onOpenSyncCampaigns?: () => void;
   onBoostCampaign?: (campaign: Campaign) => void;
+  onAddCampaign?: () => void;
   isSyncing?: boolean;
 }
 
@@ -34,6 +35,7 @@ export function CampaignsTable({
   onViewAll,
   onOpenSyncCampaigns,
   onBoostCampaign,
+  onAddCampaign,
   isSyncing = false,
 }: CampaignsTableProps) {
   // Mini sparkline helper
@@ -80,14 +82,23 @@ export function CampaignsTable({
         </div>
 
         <div className="flex items-center gap-2">
+          {onAddCampaign && (
+            <button
+              onClick={onAddCampaign}
+              className="px-3 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            >
+              <span>+ Add Campaign</span>
+            </button>
+          )}
+
           {onOpenSyncCampaigns && (
             <button
               onClick={onOpenSyncCampaigns}
               disabled={isSyncing}
-              className="px-3 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>Sync with Google Ads</span>
+              <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>Sync</span>
             </button>
           )}
 
@@ -140,7 +151,15 @@ export function CampaignsTable({
                     <p className="text-[11px] text-slate-500 leading-relaxed">
                       Campaigns are created inside Google Ads. Once created, click below to sync them into AdOptimize for continuous telemetry and AI boosts.
                     </p>
-                    <div className="flex items-center justify-center gap-2 pt-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                      {onAddCampaign && (
+                        <button
+                          onClick={onAddCampaign}
+                          className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <span>+ Add Campaign</span>
+                        </button>
+                      )}
                       {onOpenSyncCampaigns && (
                         <button
                           onClick={onOpenSyncCampaigns}
@@ -148,7 +167,7 @@ export function CampaignsTable({
                           className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-                          <span>Sync with Google Ads</span>
+                          <span>Sync Account</span>
                         </button>
                       )}
                       <a

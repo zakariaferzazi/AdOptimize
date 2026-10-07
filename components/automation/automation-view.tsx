@@ -152,7 +152,50 @@ export function AutomationView({
 
       {/* Rules List */}
       <div className="space-y-3.5">
-        {filteredRules.map((rule) => {
+        {filteredRules.length === 0 ? (
+          <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-xs space-y-4">
+            <Zap className="w-10 h-10 text-[#00d67d] mx-auto" />
+            <div className="max-w-md mx-auto space-y-1">
+              <h4 className="text-base font-bold text-slate-900">No Custom Automation Rules Yet</h4>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Set up automated safeguards to detect sudden CPA spikes, cap budget drift, and prevent wasted spend on non-converting search terms.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  onAddRule({
+                    id: `rule-${Date.now()}-1`,
+                    name: 'Auto-Pause Bleeders: Spend > $120 with 0 Conversions',
+                    category: 'RECOMMEND',
+                    conditionDescription: 'If ad spend exceeds $120 with 0 conversions over 7 days',
+                    conditionMetric: 'SPEND_NO_CONV',
+                    conditionOperator: '>',
+                    conditionValue: 120,
+                    durationDays: 7,
+                    actionType: 'RECOMMEND_PAUSE',
+                    actionDescription: 'Draft proposal to pause keyword and add as negative',
+                    enabled: true,
+                    requiresApproval: true,
+                    maxBudgetImpactPercent: 15,
+                    lastEvaluated: new Date().toISOString(),
+                    triggersCount: 0,
+                  });
+                }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                + Activate Bleeder Protector Template
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Create Custom Rule
+              </button>
+            </div>
+          </div>
+        ) : (
+          filteredRules.map((rule) => {
           const isAuto = rule.category === 'AUTO_OPTIMIZE';
           const isRec = rule.category === 'RECOMMEND';
 
@@ -228,7 +271,8 @@ export function AutomationView({
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* Add Rule Modal */}

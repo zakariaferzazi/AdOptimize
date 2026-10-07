@@ -5,6 +5,9 @@ import { TrendingUp, HelpCircle, ArrowRight } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Frequently Asked Questions - AdOptimize',
   description: 'Common questions about Google Ads integration, AI recommendations, budget safety limits, and automation.',
+  alternates: {
+    canonical: 'https://adoptimize.io/faq',
+  },
 };
 
 export default function FaqPage() {
@@ -25,10 +28,36 @@ export default function FaqPage() {
       q: 'Is our advertising performance data private?',
       a: 'Yes. We strictly isolate all customer account data. We never sell your data or use your campaign keywords to train external foundation models.',
     },
+    {
+      q: 'How does AdOptimize connect to my Google Ads account?',
+      a: 'AdOptimize connects securely via official Google OAuth 2.0 with the read/write advertising management scope. All tokens and developer credentials remain strictly server-side in encrypted environments. We never expose API keys to the browser.',
+    },
+    {
+      q: 'Does AdOptimize change my bids or budgets without permission?',
+      a: 'No. By default, AdOptimize operates in "Recommend" mode. Every suggested budget shift, negative keyword addition, or campaign pause requires your explicit click approval.',
+    },
   ];
+
+  const jsonLdFaq = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.a,
+      },
+    })),
+  };
 
   return (
     <div className="min-h-screen bg-[#f6f8fa] text-slate-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }}
+      />
+
       <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -41,9 +70,14 @@ export default function FaqPage() {
             </div>
           </Link>
 
-          <Link href="/" className="px-4 py-2 bg-[#00d67d] text-slate-950 font-bold text-xs rounded-xl shadow-xs">
-            Open SaaS App
-          </Link>
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <Link href="/solutions" className="text-slate-300 hover:text-white">
+              Solutions Hub
+            </Link>
+            <Link href="/" className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold rounded-xl shadow-xs transition-colors">
+              Open SaaS App
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -61,21 +95,28 @@ export default function FaqPage() {
         </div>
 
         <div className="space-y-4">
-          {faqs.map((faq, i) => (
-            <div key={i} className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-2">
-              <h3 className="text-sm font-bold text-slate-900">{faq.q}</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{faq.a}</p>
+          {faqs.map((f, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-2">
+              <div className="flex items-start gap-3">
+                <HelpCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <h3 className="font-bold text-slate-900 text-base">{f.q}</h3>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-600 pl-8 leading-relaxed">{f.a}</p>
             </div>
           ))}
         </div>
 
-        <div className="text-center pt-6">
+        <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200/80 flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h4 className="font-bold text-emerald-950 text-sm">Have more questions?</h4>
+            <p className="text-xs text-emerald-800">Our engineering and ad strategist team is available 24/7.</p>
+          </div>
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3.5 bg-slate-950 text-[#00d67d] font-bold text-xs rounded-2xl shadow-xl hover:bg-slate-900 transition-colors"
+            href="/contact"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
           >
-            <span>Launch Live AdOptimize App</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>Contact Support</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </main>
