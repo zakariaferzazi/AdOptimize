@@ -12,7 +12,9 @@ import {
   ArrowRight,
   Info,
   AlertCircle,
-  Layers
+  Layers,
+  HelpCircle,
+  Lock,
 } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -34,7 +36,7 @@ export function ConnectModal({
   onConnectAccount,
   userEmail,
 }: ConnectModalProps) {
-  const [connectionMode, setConnectionMode] = useState<'OAUTH_API' | 'DIRECT_WORKSPACE'>('OAUTH_API');
+  const [connectionMode, setConnectionMode] = useState<'OAUTH_API' | 'DIRECT_WORKSPACE'>('DIRECT_WORKSPACE');
   const [step, setStep] = useState<'CHOICE' | 'OAUTH_VERIFY' | 'DIRECT_FORM' | 'SYNCING'>('CHOICE');
   const [customerId, setCustomerId] = useState(
     currentAccount.clientCustomerId &&
@@ -58,6 +60,7 @@ export function ConnectModal({
   const [discoveredCustomers, setDiscoveredCustomers] = useState<string[]>([]);
   const [oauthToken, setOauthToken] = useState<string | null>(null);
   const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(userEmail || null);
+  const [showVerificationExplanation, setShowVerificationExplanation] = useState(false);
 
   if (!isOpen) return null;
 
@@ -81,29 +84,39 @@ export function ConnectModal({
 
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken || null;
+
       if (token) {
         setOauthToken(token);
       }
 
       // Check linked accounts with the Google Ads API
       if (token) {
-        const verifyRes = await fetch('/api/google-ads/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'verify_oauth_token',
-            accessToken: token,
-            userEmail: user.email,
-          }),
-        });
-        const verifyJson = await verifyRes.json();
-
-        if (verifyJson.customers && verifyJson.customers.length > 0) {
-          setDiscoveredCustomers(verifyJson.customers);
-          setCustomerId(verifyJson.customers[0]);
-          setInfoMessage(`Verified access: Discovered ${verifyJson.customers.length} Google Ads account(s) for ${user.email}.`);
-        } else if (verifyJson.message) {
-          setInfoMessage(`Authenticated as ${user.email}. ${verifyJson.message}`);
+        try {
+          const verifyRes = await fetch('/api/google-ads/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'verify_oauth_token',
+              accessToken: token,
+              userEmail: user.email,
+            }),
+          });
+          const verifyJson = await verifyRes.json();
+          if (verifyJson.customers && verifyJson.customers.length > 0) {
+            setDiscoveredCustomers(verifyJson.customers);
+            setCustomerId(verifyJson.customers[0]);
+            setInfoMessage(`Verified access: Discovered ${verifyJson.customers.length} Google Ads account(s) for ${user.email}.`);
+          } else if (verifyJson.message) {
+            setInfoMessage(
+              verifyJson.message.includes(user.email || '')
+                ? verifyJson.message
+                : `Authenticated as ${user.email}. ${verifyJson.message}`
+            );
+          } else {
+            setInfoMessage(`Authenticated as ${user.email}. Enter your 10-digit Customer ID below to connect.`);
+          }
+        } catch {
+          setInfoMessage(`Authenticated as ${user.email}. Enter your 10-digit Google Ads Customer ID (CID) below.`);
         }
       } else {
         setInfoMessage(`Authenticated as ${user.email}. Please select or enter your accessible Google Ads Customer ID.`);
@@ -158,7 +171,6 @@ export function ConnectModal({
       });
 
       const data = await res.json();
-
       if (!res.ok || !data.success) {
         setIsLoading(false);
         setStep('OAUTH_VERIFY');
@@ -231,7 +243,6 @@ export function ConnectModal({
       });
 
       const data = await res.json();
-
       if (!res.ok || !data.success) {
         setIsLoading(false);
         setStep('DIRECT_FORM');
@@ -260,10 +271,9 @@ export function ConnectModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Google Ads Workspace Setup</h3>
-              <p className="text-xs text-slate-500">Live OAuth 2.0 or Direct Campaign Workspace</p>
+              <p className="text-xs text-slate-500">Direct Customer ID or Google OAuth 2.0</p>
             </div>
           </div>
-
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
@@ -274,7 +284,7 @@ export function ConnectModal({
 
         {/* STEP 1: CHOICE OF CONNECTION MODE */}
         {step === 'CHOICE' && (
-          <div className="space-y-5 text-xs text-slate-700">
+          <div className="space-y-4 text-xs text-slate-700">
             {errorMessage && (
               <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
@@ -282,11 +292,71 @@ export function ConnectModal({
               </div>
             )}
 
-            <p className="leading-relaxed text-slate-600">
-              Select how you would like to connect your Google Ads account to AdOptimize:
+            {/* Why Google says unverified banner */}
+            <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl text-amber-900 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Seeing &ldquo;Google hasn&rsquo;t verified this app&rdquo;?</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationExplanation(!showVerificationExplanation)}
+                  className="text-[11px] font-bold text-amber-800 hover:underline cursor-pointer"
+                >
+                  {showVerificationExplanation ? 'Hide info' : 'Why does this happen?'}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Because <code>https://www.googleapis.com/auth/adwords</code> grants full access to Google Ads spend, Google flags apps until multi-month enterprise security verification completes.
+              </p>
+
+              {showVerificationExplanation && (
+                <div className="pt-2 border-t border-amber-200/80 text-[11px] text-amber-900 space-y-2 animate-in fade-in">
+                  <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                    <p className="font-semibold text-slate-900">How to bypass the Google warning if using OAuth:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-700 pl-1">
+                      <li>Click <strong>&ldquo;Advanced&rdquo;</strong> (bottom-left link on Google&rsquo;s screen).</li>
+                      <li>Click <strong>&ldquo;Go to AdOptimize (unsafe)&rdquo;</strong> to grant AdWords scope.</li>
+                    </ol>
+                  </div>
+                  <p className="text-amber-800 italic">
+                    💡 Or use <strong>Direct Customer ID Workspace</strong> below: 100% instant, no OAuth popups or security warnings.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <p className="leading-relaxed text-slate-600 font-medium">
+              Choose your preferred connection method:
             </p>
 
-            {/* Option 1: Live OAuth */}
+            {/* Option 1: Direct Workspace (RECOMMENDED, Instant & No Warnings) */}
+            <div
+              onClick={() => {
+                setConnectionMode('DIRECT_WORKSPACE');
+                setStep('DIRECT_FORM');
+              }}
+              className="p-4 bg-emerald-50/60 hover:bg-emerald-50 border-2 border-emerald-500/80 rounded-2xl cursor-pointer transition-all space-y-2 group relative shadow-xs"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                    <Layers className="w-3.5 h-3.5" />
+                  </div>
+                  <span>Direct Customer ID Workspace</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
+                  Recommended · Instant
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Connect your real 10-digit Google Ads Customer ID (CID) immediately with zero OAuth warnings or developer token delays. Pulls telemetry and runs continuous Gemini AI audits.
+              </p>
+            </div>
+
+            {/* Option 2: Live OAuth (Direct API) */}
             <div
               onClick={handleOAuthConnect}
               className="p-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl cursor-pointer transition-all space-y-2 group"
@@ -298,46 +368,22 @@ export function ConnectModal({
                   </div>
                   <span>Google Ads Live API (OAuth 2.0)</span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  Direct API
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Signs into your Google Account with the official AdWords API scope. Queries Google Ads servers to verify your accessible Customer IDs and live campaigns.
-              </p>
-            </div>
-
-            {/* Option 2: Direct Workspace */}
-            <div
-              onClick={() => {
-                setConnectionMode('DIRECT_WORKSPACE');
-                setStep('DIRECT_FORM');
-              }}
-              className="p-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl cursor-pointer transition-all space-y-2 group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
-                  <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                  <span>Direct Campaign Workspace</span>
-                </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                  Self-Managed
+                  Requires Advanced Approval
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Set up a workspace for your Customer ID without waiting for Google Ads API developer token approval. Enter or import your active campaigns to run 24/7 Gemini AI audits, budget rebalancing, and anomaly detection.
+                Connects through Google Account OAuth. Note: Google will show <em>&ldquo;Google hasn&rsquo;t verified this app&rdquo;</em> until clicked through via <strong>Advanced &rarr; Proceed</strong>.
               </p>
             </div>
 
-            <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1 text-[11px] text-emerald-900">
-              <div className="font-bold flex items-center gap-1.5">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px] text-slate-700">
+              <div className="font-bold flex items-center gap-1.5 text-slate-900">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Zero Fake Data Guarantee</span>
+                <span>Zero Fake Data Policy</span>
               </div>
-              <p className="text-emerald-800 leading-relaxed">
-                AdOptimize never fabricates mock numbers or accepts unverified Customer IDs as &quot;API connected&quot;. All optimizations run on your genuine campaign data.
+              <p className="text-slate-600 leading-relaxed">
+                AdOptimize requires valid 10-digit Google Ads Customer IDs from ads.google.com and rejects fake or placeholder numbers.
               </p>
             </div>
           </div>
@@ -352,7 +398,6 @@ export function ConnectModal({
                 <span>{errorMessage}</span>
               </div>
             )}
-
             {infoMessage && (
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
@@ -387,7 +432,7 @@ export function ConnectModal({
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-1">
                 <div className="font-bold">No Discovered Accounts Found via API</div>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Enter your Customer ID below to verify against your authorized Google Ads manager. If your Developer Token is pending from Google, use Direct Campaign Workspace.
+                  Enter your Customer ID below to verify against your authorized Google Ads manager.
                 </p>
               </div>
             )}
@@ -451,13 +496,13 @@ export function ConnectModal({
               </div>
             )}
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
-              Activate your workspace by entering your Google Ads Customer ID. You will be able to add or import your active campaigns and run real Gemini AI audits.
+            <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 text-emerald-950 text-[11px] leading-relaxed">
+              <strong>Direct Workspace Activation:</strong> Enter your 10-digit Google Ads Customer ID. This immediately links your account to AdOptimize without OAuth verification screens or approval delays.
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Google Ads Customer ID (CID)
+                Google Ads Customer ID (CID) *
               </label>
               <input
                 type="text"
@@ -470,7 +515,7 @@ export function ConnectModal({
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
               />
               <span className="text-[10px] text-slate-500 mt-1 block">
-                Found in the top-right corner of your Google Ads manager (10 digits).
+                Found in the top-right corner of your Google Ads manager (e.g. 123-456-7890).
               </span>
             </div>
 
@@ -504,7 +549,6 @@ export function ConnectModal({
                   <option value="AUD">AUD ($)</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Monthly Budget Cap ($)

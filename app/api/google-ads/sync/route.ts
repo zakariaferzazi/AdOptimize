@@ -30,20 +30,21 @@ export async function POST(req: NextRequest) {
           lastSyncAt: syncTimestamp,
           syncStatus: 'SYNCED',
           isLiveApi: true,
-          freshness: '100% Live data from Google Ads SearchStream API v17',
+          freshness: '100% Live data from Google Ads SearchStream API v22',
           message: `Successfully synchronized ${liveResult.campaigns.length} live campaigns from Google Ads for CID ${formattedCid}.`,
           campaigns: liveResult.campaigns,
         });
       }
 
       if (liveResult.error) {
-        // Return honest API feedback rather than pretending or generating fake data
+        // Return honest API feedback without raw syntax or HTML errors
+        const cleanErr = liveResult.error.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
         return NextResponse.json({
           success: true,
           lastSyncAt: syncTimestamp,
           syncStatus: 'ATTENTION_NEEDED',
           isLiveApi: false,
-          message: `Google Ads API response for CID ${formattedCid}: ${liveResult.error}. You can add your active campaigns manually below to run AI optimization.`,
+          message: `Google Ads API response for CID ${formattedCid}: ${cleanErr}. You can add your active campaigns manually below to run AI optimization.`,
           campaigns: [],
         });
       }

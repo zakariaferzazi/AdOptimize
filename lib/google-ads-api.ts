@@ -46,6 +46,25 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
+const GOOGLE_ADS_API_VERSION = 'v22';
+
+/**
+ * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
+ */
+async function safeParseResponse(res: Response): Promise<{ isJson: boolean; data: any; rawText: string }> {
+  try {
+    const rawText = await res.text();
+    try {
+      const data = JSON.parse(rawText);
+      return { isJson: true, data, rawText };
+    } catch {
+      return { isJson: false, data: null, rawText };
+    }
+  } catch (err: any) {
+    return { isJson: false, data: null, rawText: err.message || '' };
+  }
+}
+
 /**
  * Calls Google Ads API to list accessible customers for the user's OAuth access token.
  */
@@ -60,15 +79,30 @@ export async function listAccessibleCustomers(accessToken: string, developerToke
       headers['developer-token'] = developerToken;
     }
 
-    const res = await fetch('https://googleads.googleapis.com/v17/customers:listAccessibleCustomers', {
+    const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers:listAccessibleCustomers`, {
       method: 'GET',
       headers,
     });
 
-    const data = await res.json();
+    const parsed = await safeParseResponse(res);
+
+    if (!parsed.isJson) {
+      const cleanSnippet = parsed.rawText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      return {
+        success: false,
+        error: `Google Ads API returned HTTP ${res.status}: ${cleanSnippet || res.statusText || 'Non-JSON response'}`,
+        statusCode: res.status,
+      };
+    }
+
+    const data = parsed.data;
 
     if (!res.ok) {
-      const errMsg = data?.error?.message || `Google Ads API Error (HTTP ${res.status})`;
+      const errMsg =
+        data?.error?.message ||
+        data?.error?.status ||
+        data?.[0]?.error?.message ||
+        `Google Ads API Error (HTTP ${res.status})`;
       return {
         success: false,
         error: errMsg,
@@ -77,7 +111,7 @@ export async function listAccessibleCustomers(accessToken: string, developerToke
       };
     }
 
-    const resourceNames: string[] = data.resourceNames || [];
+    const resourceNames: string[] = data?.resourceNames || [];
     const customerIds = resourceNames.map((r: string) => {
       const raw = r.replace('customers/', '');
       return raw.length === 10 ? `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}` : raw;
@@ -132,16 +166,31 @@ export async function queryLiveCampaigns(
       LIMIT 50
     `;
 
-    const res = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:searchStream`, {
+    const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${cleanCustomerId}/googleAds:searchStream`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ query: gaqlQuery }),
     });
 
-    const data = await res.json();
+    const parsed = await safeParseResponse(res);
+
+    if (!parsed.isJson) {
+      const cleanSnippet = parsed.rawText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      return {
+        success: false,
+        error: `Google Ads SearchStream API returned HTTP ${res.status}: ${cleanSnippet || res.statusText || 'Non-JSON response'}`,
+        statusCode: res.status,
+      };
+    }
+
+    const data = parsed.data;
 
     if (!res.ok) {
-      const errMsg = data?.error?.message || data?.[0]?.error?.message || `Google Ads API Error (HTTP ${res.status})`;
+      const errMsg =
+        data?.error?.message ||
+        data?.[0]?.error?.message ||
+        data?.error?.status ||
+        `Google Ads API Error (HTTP ${res.status})`;
       return {
         success: false,
         error: errMsg,

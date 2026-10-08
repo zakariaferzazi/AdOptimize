@@ -95,6 +95,17 @@ export function CampaignsFullView({
               />
             </div>
 
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold focus:outline-none"
+            >
+              <option value="ALL">All Statuses ({campaigns.length})</option>
+              <option value="ENABLED">● Enabled ({campaigns.filter(c => c.status === 'ENABLED').length})</option>
+              <option value="PAUSED">❚❚ Paused ({campaigns.filter(c => c.status === 'PAUSED').length})</option>
+            </select>
+
             {/* Type selector */}
             <select
               value={typeFilter}

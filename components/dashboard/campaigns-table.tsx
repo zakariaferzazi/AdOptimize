@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   Layers,
@@ -16,8 +16,10 @@ import {
   RefreshCw,
   ExternalLink,
   Zap,
+  Play,
+  Pause,
 } from 'lucide-react';
-import { Campaign } from '@/types/adoptimize';
+import { Campaign, CampaignStatus } from '@/types/adoptimize';
 
 interface CampaignsTableProps {
   campaigns: Campaign[];
@@ -26,6 +28,7 @@ interface CampaignsTableProps {
   onOpenSyncCampaigns?: () => void;
   onBoostCampaign?: (campaign: Campaign) => void;
   onAddCampaign?: () => void;
+  onToggleStatus?: (campaignId: string) => void;
   isSyncing?: boolean;
 }
 
@@ -36,8 +39,19 @@ export function CampaignsTable({
   onOpenSyncCampaigns,
   onBoostCampaign,
   onAddCampaign,
+  onToggleStatus,
   isSyncing = false,
 }: CampaignsTableProps) {
+  const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
+
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
+    return true;
+  });
+
+  const enabledCount = campaigns.filter((c) => c.status === 'ENABLED').length;
+  const pausedCount = campaigns.filter((c) => c.status === 'PAUSED').length;
+
   // Mini sparkline helper
   const renderSparkline = (points: number[], isPositive: boolean) => {
     if (!points || points.length === 0) return null;
@@ -71,17 +85,58 @@ export function CampaignsTable({
   return (
     <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs select-none">
       {/* Table Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
         <div>
-          <h3 className="text-base font-bold text-slate-900 tracking-tight">
-            Google Ads Active Campaigns
-          </h3>
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">
+              Google Ads Active Campaigns
+            </h3>
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              {campaigns.length} Total
+            </span>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time telemetry, AI health scores, and 1-click optimization boosts
+            Real-time telemetry, live status toggling (Enabled &amp; Paused), and 1-click optimization boosts
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Quick Filter Tabs */}
+          <div className="flex items-center p-0.5 bg-slate-100 rounded-xl text-xs font-medium">
+            <button
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                statusFilter === 'ALL'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All ({campaigns.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('ENABLED')}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                statusFilter === 'ENABLED'
+                  ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-emerald-700'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Enabled ({enabledCount})</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter('PAUSED')}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                statusFilter === 'PAUSED'
+                  ? 'bg-white text-amber-700 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-amber-700'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span>Paused ({pausedCount})</span>
+            </button>
+          </div>
+
           {onAddCampaign && (
             <button
               onClick={onAddCampaign}
@@ -117,7 +172,7 @@ export function CampaignsTable({
               onClick={onViewAll}
               className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors ml-1 cursor-pointer"
             >
-              <span>View All ({campaigns.length})</span>
+              <span>View All</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           )}
@@ -129,6 +184,7 @@ export function CampaignsTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              <th className="py-3 px-3">Status</th>
               <th className="py-3 px-3">Campaign</th>
               <th className="py-3 px-3">Type</th>
               <th className="py-3 px-3 text-right">Daily Budget</th>
@@ -141,12 +197,14 @@ export function CampaignsTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/80 text-xs">
-            {campaigns.length === 0 ? (
+            {filteredCampaigns.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-400">
+                <td colSpan={10} className="py-12 text-center text-slate-400">
                   <div className="max-w-md mx-auto space-y-2.5">
                     <p className="text-xs font-medium text-slate-700">
-                      No active campaigns detected in your connected Google Ads account yet.
+                      {campaigns.length === 0
+                        ? 'No active campaigns detected in your connected Google Ads account yet.'
+                        : `No campaigns currently matching the "${statusFilter.toLowerCase()}" filter.`}
                     </p>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
                       Campaigns are created inside Google Ads. Once created, click below to sync them into AdOptimize for continuous telemetry and AI boosts.
@@ -184,7 +242,7 @@ export function CampaignsTable({
                 </td>
               </tr>
             ) : (
-              campaigns.map((camp) => {
+              filteredCampaigns.map((camp) => {
                 const isHealthy = camp.healthStatus === 'HEALTHY';
                 const isCritical = camp.healthStatus === 'CRITICAL';
                 const isOpportunity = camp.healthStatus === 'OPPORTUNITY';
@@ -195,11 +253,54 @@ export function CampaignsTable({
                     onClick={() => onSelectCampaign(camp)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
+                    {/* Status Pill & Toggle */}
+                    <td className="py-3.5 px-3">
+                      <div className="flex items-center gap-1.5">
+                        {onToggleStatus ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleStatus(camp.id);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                              camp.status === 'ENABLED'
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
+                            }`}
+                            title={`Click to ${camp.status === 'ENABLED' ? 'Pause' : 'Enable'} campaign`}
+                          >
+                            {camp.status === 'ENABLED' ? (
+                              <>
+                                <Play className="w-2.5 h-2.5 fill-emerald-600" />
+                                <span>Enabled</span>
+                              </>
+                            ) : (
+                              <>
+                                <Pause className="w-2.5 h-2.5 fill-slate-400" />
+                                <span>Paused</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <span
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 ${
+                              camp.status === 'ENABLED'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200/60'
+                            }`}
+                          >
+                            {camp.status === 'ENABLED' ? 'Enabled' : 'Paused'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
                     {/* Campaign Name & Health indicator */}
                     <td className="py-3.5 px-3">
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          className={`w-2 h-2 rounded-full shrink-0 ${
                             isCritical
                               ? 'bg-rose-500 ring-4 ring-rose-100'
                               : isOpportunity

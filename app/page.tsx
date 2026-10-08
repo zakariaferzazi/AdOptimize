@@ -1199,6 +1199,7 @@ export default function AdOptimizeApp() {
                   onViewAll={() => setCurrentTab('campaigns')}
                   onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
                   onAddCampaign={handleOpenAddCampaign}
+                  onToggleStatus={handleToggleCampaignStatus}
                   onBoostCampaign={(c) => {
                     setBoostTargetCampaign(c);
                     setIsBoostModalOpen(true);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, RefreshCw, ExternalLink, Sparkles, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { X, RefreshCw, ExternalLink, Sparkles, CheckCircle2, ShieldCheck, ArrowRight, Play, Pause } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 
 interface CampaignSyncModalProps {
@@ -47,10 +47,9 @@ export function CampaignSyncModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Sync Google Ads Campaigns</h3>
-              <p className="text-xs text-slate-500">Live Telemetry & Anomaly Monitoring</p>
+              <p className="text-xs text-slate-500">Live Telemetry &amp; Anomaly Monitoring (Enabled &amp; Paused)</p>
             </div>
           </div>
-
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
@@ -66,7 +65,7 @@ export function CampaignSyncModal({
             <span>Campaign Creation Policy</span>
           </div>
           <p className="text-xs text-emerald-800 leading-relaxed">
-            Campaigns are created inside <strong>Google Ads</strong>. AdOptimize continuously pulls telemetry, audits search queries, detects budget waste, and provides AI boosting recommendations.
+            Campaigns are created inside <strong>Google Ads</strong>. AdOptimize continuously pulls telemetry for all campaigns (both <strong>Enabled</strong> and <strong>Paused</strong>), audits search queries, detects budget waste, and provides AI boosting recommendations.
           </p>
           <a
             href="https://ads.google.com"
@@ -110,7 +109,7 @@ export function CampaignSyncModal({
                 <span className="text-[10px] font-mono text-emerald-400">Reports API</span>
               </div>
               <div className={`text-[11px] mt-1.5 leading-relaxed ${syncType === 'AUTO' ? 'text-slate-300' : 'text-slate-500'}`}>
-                Queries Google Ads directly for CID {account.clientCustomerId}. If no live campaigns exist, displays 0 campaigns (zero fake or demo data).
+                Queries Google Ads SearchStream API for CID {account.clientCustomerId}. Pulls all active and paused campaigns with spend &amp; conversions.
               </div>
             </button>
 
@@ -128,7 +127,7 @@ export function CampaignSyncModal({
                 <span className="text-[10px] font-mono text-cyan-400">Direct Entry</span>
               </div>
               <div className={`text-[11px] mt-1.5 leading-relaxed ${syncType === 'CUSTOM' ? 'text-slate-300' : 'text-slate-500'}`}>
-                Enter the exact campaign names running in your Google Ads account to monitor them right away.
+                Enter the exact campaign names running in your Google Ads account to monitor both Enabled and Paused states right away.
               </div>
             </button>
           </div>
@@ -160,7 +159,6 @@ export function CampaignSyncModal({
           >
             Cancel
           </button>
-
           <button
             type="button"
             disabled={isSyncing}
@@ -168,7 +166,7 @@ export function CampaignSyncModal({
             className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Synchronizing with Google Ads...' : 'Sync Active Campaigns'}</span>
+            <span>{isSyncing ? 'Synchronizing with Google Ads...' : 'Sync Active & Paused Campaigns'}</span>
           </button>
         </div>
       </div>
