@@ -584,7 +584,7 @@ export default function AdOptimizeApp() {
       previousValue: isExisting ? 'Previous settings' : 'None (New campaign)',
       newValue: `$${camp.budgetDaily}/d (${camp.type}, ${camp.status})`,
       reason: isExisting ? 'Manual campaign adjustment' : 'Added to AdOptimize monitoring workspace',
-      source: 'USER_DIRECT',
+      source: 'USER',
       userOrSystem: user?.displayName || user?.email || 'Marketing Manager',
       status: 'EXECUTED',
       canRevert: false,

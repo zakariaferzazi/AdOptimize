@@ -241,6 +241,8 @@ export interface GoogleAdsAccount {
   isDemo: boolean;
   totalCampaignsCount: number;
   monthlySpendCap: number;
+  verifiedLive?: boolean;
+  connectionType?: 'oauth_api' | 'direct_workspace';
 }
 
 export interface ChatMessage {

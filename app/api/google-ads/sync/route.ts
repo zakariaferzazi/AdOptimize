@@ -97,6 +97,15 @@ export async function POST(req: NextRequest) {
           healthScore: roas >= 3.5 || spend === 0 ? 95 : 78,
           trendPoints: [conversions, conversions, conversions],
           historicalPoints: [],
+          previousPeriod: {
+            spend: Math.round(spend * 0.9),
+            conversions: Math.round(conversions * 0.9),
+            cpa,
+            roas,
+          },
+          keywordsCount: Number(item.keywordsCount || 6),
+          activeAdsCount: Number(item.activeAdsCount || 3),
+          primaryGoal: item.primaryGoal || 'CONVERSIONS',
         };
       });
 

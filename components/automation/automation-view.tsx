@@ -173,13 +173,13 @@ export function AutomationView({
                     conditionOperator: '>',
                     conditionValue: 120,
                     durationDays: 7,
-                    actionType: 'RECOMMEND_PAUSE',
+                    actionType: 'PAUSE_SEARCH_TERM',
                     actionDescription: 'Draft proposal to pause keyword and add as negative',
                     enabled: true,
                     requiresApproval: true,
-                    maxBudgetImpactPercent: 15,
-                    lastEvaluated: new Date().toISOString(),
-                    triggersCount: 0,
+                    maxBudgetShiftLimitPercent: 15,
+                    lastTriggeredAt: new Date().toISOString(),
+                    executionCount: 0,
                   });
                 }}
                 className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"

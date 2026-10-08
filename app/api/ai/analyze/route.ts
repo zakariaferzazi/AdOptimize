@@ -135,18 +135,24 @@ INSTRUCTIONS:
           };
         });
 
-        const formattedAnomalies: AnomalyAlert[] = (parsed.anomalies || []).map((anom: any, i: number) => ({
-          id: `anom-ai-${Date.now()}-${i}`,
-          severity: anom.severity || 'HIGH',
-          title: anom.title,
-          campaignName: anom.campaignName,
-          whatChanged: anom.whatChanged,
-          whyItMatters: anom.whyItMatters,
-          recommendedAction: anom.recommendedAction,
-          detectedAt: now,
-          resolved: false,
-          category: 'PERFORMANCE',
-        }));
+        const formattedAnomalies: AnomalyAlert[] = (parsed.anomalies || []).map((anom: any, i: number) => {
+          const camp = campaigns.find((c: Campaign) => c.name.includes(anom.campaignName)) || campaigns[0];
+          return {
+            id: `anom-ai-${Date.now()}-${i}`,
+            campaignId: camp?.id || 'unknown',
+            campaignName: anom.campaignName || camp?.name || 'Campaign',
+            metric: (anom.metric && ['CPA', 'ROAS', 'SPEND', 'CONVERSIONS', 'CTR', 'CPC'].includes(anom.metric)) ? anom.metric : 'CPA',
+            severity: anom.severity === 'CRITICAL' ? 'CRITICAL' : anom.severity === 'OPPORTUNITY' ? 'OPPORTUNITY' : 'WARNING',
+            title: anom.title || `Performance Alert on ${anom.campaignName || 'Campaign'}`,
+            whatChanged: anom.whatChanged || 'Performance metric shifted significantly.',
+            whenChanged: anom.whenChanged || 'Last 7 days',
+            whyItMatters: anom.whyItMatters || 'Affects campaign efficiency and acquisition cost.',
+            recommendedAction: anom.recommendedAction || 'Review ad budget and bidding.',
+            detectedAt: now,
+            resolved: false,
+            autoExecutable: false,
+          };
+        });
 
         const budgetRecommendations: BudgetRecommendation[] = [];
         if (parsed.budgetRebalance?.sourceCampaignName && parsed.budgetRebalance?.targetCampaignName) {
@@ -205,15 +211,18 @@ INSTRUCTIONS:
     if (worstCamp && worstCamp.spend > 0 && worstCamp.cpa > 60) {
       fallbackAnomalies.push({
         id: `anom-${Date.now()}-1`,
-        severity: worstCamp.cpa > 100 ? 'CRITICAL' : 'HIGH',
-        title: `High CPA Alert on ${worstCamp.name}`,
+        campaignId: worstCamp.id,
         campaignName: worstCamp.name,
+        metric: 'CPA',
+        severity: worstCamp.cpa > 100 ? 'CRITICAL' : 'WARNING',
+        title: `High CPA Alert on ${worstCamp.name}`,
         whatChanged: `Cost per acquisition is $${worstCamp.cpa.toFixed(2)} with ${worstCamp.conversions} conversions.`,
+        whenChanged: 'Last 7 days',
         whyItMatters: `Consuming $${worstCamp.spend.toFixed(2)} with below-benchmark return (${worstCamp.roas.toFixed(2)}x ROAS).`,
         recommendedAction: `Reduce daily budget from $${worstCamp.budgetDaily}/d to $${Math.max(15, worstCamp.budgetDaily - 25)}/d.`,
         detectedAt: now,
         resolved: false,
-        category: 'PERFORMANCE',
+        autoExecutable: false,
       });
     }
 
@@ -258,8 +267,10 @@ INSTRUCTIONS:
           context: `Maintains ${bestCamp.roas}x ROAS and $${bestCamp.cpa.toFixed(2)} CPA across ${bestCamp.conversions} conversions.`,
         },
         confidence: 95,
+        expectedImpact: `+${Math.round((shift * 30) / (bestCamp.cpa || 1))} conversions/month`,
         recommendedAction: `Shift $${shift}/day from ${worstCamp.name} to ${bestCamp.name}.`,
         status: 'NEW',
+        createdAt: now,
       });
     }
 
