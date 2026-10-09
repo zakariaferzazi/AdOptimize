@@ -50,6 +50,10 @@ export function ConnectModal({
     currentAccount.accountName || ''
   );
   const [currency, setCurrency] = useState(currentAccount.currency || 'USD');
+  const [loginCustomerId, setLoginCustomerId] = useState('');
+  const [developerToken, setDeveloperToken] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [accessibleAccounts, setAccessibleAccounts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
@@ -102,6 +106,19 @@ export function ConnectModal({
     return token;
   };
 
+  const handleSwitchGoogleAccount = async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('google_ads_oauth_token');
+      }
+      setOauthToken(null);
+      setErrorMessage(null);
+      await acquireGoogleOAuthToken();
+    } catch (err: any) {
+      console.warn('Switch account cancelled:', err);
+    }
+  };
+
   const handleConnectAndSync = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -141,6 +158,8 @@ export function ConnectModal({
           userEmail: authenticatedEmail,
           accountName: accountName.trim() || `Google Ads (${formattedCid})`,
           currency,
+          loginCustomerId: loginCustomerId.trim() || undefined,
+          developerToken: developerToken.trim() || undefined,
         }),
       });
 
@@ -150,6 +169,10 @@ export function ConnectModal({
         const errorMsg = data.error || data.message || `Google Ads account ${formattedCid} could not be verified.`;
         setIsLoading(false);
         setErrorMessage(errorMsg);
+
+        if (Array.isArray(data.accessibleCustomers) && data.accessibleCustomers.length > 0) {
+          setAccessibleAccounts(data.accessibleCustomers);
+        }
 
         // Report error to parent page so it renders in the prominent page banner!
         if (onApiError) {
@@ -211,7 +234,7 @@ export function ConnectModal({
 
         {/* Error notification in modal */}
         {errorMessage && (
-          <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1 animate-in fade-in">
+          <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1.5 animate-in fade-in">
             <div className="flex items-start gap-2 font-bold text-rose-950">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>Google Ads Verification Error</span>
@@ -219,6 +242,39 @@ export function ConnectModal({
             <p className="text-[11px] leading-relaxed pl-6 text-rose-800">
               {errorMessage}
             </p>
+            {errorMessage.toLowerCase().includes('permission') && (
+              <div className="mt-2 pt-2 border-t border-rose-200/80 text-[11px] text-rose-950 space-y-1 pl-6">
+                <p className="font-bold">How to resolve permission issues:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-[10px] text-rose-900">
+                  <li>Verify you signed into the Google account that owns or has access to this CID.</li>
+                  <li>In ads.google.com, check <strong>Tools &amp; Settings → Access and Security</strong> to ensure this email has Standard or Admin access.</li>
+                  <li>If this CID is inside a Manager Account (MCC), open <strong>Advanced Settings</strong> below and provide your Manager CID.</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Accessible Customer IDs detected */}
+        {accessibleAccounts.length > 0 && (
+          <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2 animate-in fade-in">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Accessible Google Ads accounts for {authenticatedEmail}:</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {accessibleAccounts.map((accCid) => (
+                <button
+                  key={accCid}
+                  type="button"
+                  onClick={() => setCustomerId(accCid)}
+                  className="px-3 py-1.5 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-xl font-mono text-xs font-bold text-emerald-900 shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{accCid}</span>
+                  <span className="text-[10px] text-emerald-600">↵ Use this</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -291,17 +347,70 @@ export function ConnectModal({
               <GoogleIcon className="w-4 h-4" />
               <div className="leading-tight">
                 <span className="font-bold text-slate-900 block">
-                  {authenticatedEmail ? 'Google Authorized' : 'Google Authentication Required'}
+                  {authenticatedEmail ? `Signed in as ${authenticatedEmail}` : 'Google Authentication Required'}
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  {authenticatedEmail || 'Will prompt for Google sign-in with AdWords scope'}
+                  {authenticatedEmail ? 'OAuth 2.0 with AdWords Scope' : 'Will prompt for Google sign-in with AdWords scope'}
                 </span>
               </div>
             </div>
-            {authenticatedEmail && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                Active ✓
-              </span>
+            <div className="flex items-center gap-2">
+              {authenticatedEmail && (
+                <button
+                  type="button"
+                  onClick={handleSwitchGoogleAccount}
+                  className="text-[11px] font-bold text-slate-600 hover:text-slate-950 underline cursor-pointer"
+                >
+                  Switch Account
+                </button>
+              )}
+              {authenticatedEmail && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Active ✓
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Advanced Section: MCC & Developer Token */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <span>{showAdvanced ? '▾ Hide' : '▸ Show'} Advanced Settings (MCC Manager &amp; Developer Token)</span>
+            </button>
+            {showAdvanced && (
+              <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 animate-in fade-in duration-150">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Manager Account CID (Login Customer ID)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 555-666-7777 (if CID is managed under an MCC)"
+                    value={loginCustomerId}
+                    onChange={(e) => setLoginCustomerId(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                  />
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    Required by Google Ads if your Google login only has access through a Manager Account (MCC).
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Custom Developer Token (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Optional Google Ads developer token"
+                    value={developerToken}
+                    onChange={(e) => setDeveloperToken(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                  />
+                </div>
+              </div>
             )}
           </div>
 

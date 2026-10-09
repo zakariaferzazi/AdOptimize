@@ -40,8 +40,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-    const liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken);
+    const loginCustomerId = body.loginCustomerId || undefined;
+    const developerToken = body.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    const liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
 
     if (liveResult.success) {
       const realCampaigns = liveResult.campaigns || [];

@@ -1038,6 +1038,24 @@ export default function AdOptimizeApp() {
                         {apiIssue.details}
                       </p>
                     )}
+                    {(apiIssue.statusCode === 403 || apiIssue.message.toLowerCase().includes('permission')) && (
+                      <div className="bg-white/90 border border-rose-200 rounded-2xl p-3 text-xs text-rose-950 space-y-1.5 mt-2 max-w-3xl">
+                        <span className="font-bold flex items-center gap-1.5 text-rose-900">
+                          <span>💡 How to fix &quot;The caller does not have permission&quot;:</span>
+                        </span>
+                        <ul className="list-disc pl-4 space-y-1 text-[11px] text-rose-900 leading-normal">
+                          <li>
+                            <strong>Account mismatch:</strong> Check that your signed-in Google account matches the account that has permissions on this Google Ads CID. Click <strong>&quot;Change CID&quot;</strong> → <strong>&quot;Switch Account&quot;</strong> to choose another Google account.
+                          </li>
+                          <li>
+                            <strong>Grant access in Google Ads:</strong> In <a href="https://ads.google.com" target="_blank" rel="noopener noreferrer" className="underline font-bold text-rose-950 hover:text-black">ads.google.com</a>, go to <strong>Tools &amp; Settings → Access and Security</strong>, and verify this email has been invited with Standard or Administrative access.
+                          </li>
+                          <li>
+                            <strong>Managed under MCC:</strong> If your account is accessed via an agency/manager account, click <strong>&quot;Change CID&quot;</strong>, expand <strong>Advanced Settings</strong>, and enter your Manager Account ID as the Login Customer ID.
+                          </li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
 

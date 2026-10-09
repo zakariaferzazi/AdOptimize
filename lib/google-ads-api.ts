@@ -127,7 +127,11 @@ function extractGoogleAdsError(data: any, status: number, rawText: string): { er
 /**
  * Calls Google Ads API to list accessible customers for the user's OAuth access token.
  */
-export async function listAccessibleCustomers(accessToken: string, developerToken?: string): Promise<GoogleAdsApiResult> {
+export async function listAccessibleCustomers(
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<GoogleAdsApiResult> {
   try {
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${accessToken}`,
@@ -136,6 +140,10 @@ export async function listAccessibleCustomers(accessToken: string, developerToke
 
     if (developerToken) {
       headers['developer-token'] = developerToken;
+    }
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
     }
 
     let lastError: GoogleAdsApiResult = {
@@ -210,7 +218,8 @@ export async function listAccessibleCustomers(accessToken: string, developerToke
 export async function queryLiveCampaigns(
   cleanCustomerId: string,
   accessToken: string,
-  developerToken?: string
+  developerToken?: string,
+  loginCustomerId?: string
 ): Promise<GoogleAdsApiResult> {
   try {
     const headers: Record<string, string> = {
@@ -220,6 +229,10 @@ export async function queryLiveCampaigns(
 
     if (developerToken) {
       headers['developer-token'] = developerToken;
+    }
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
     }
 
     // Google Ads Query Language (GAQL)
@@ -247,11 +260,27 @@ export async function queryLiveCampaigns(
     };
 
     for (const version of GOOGLE_ADS_API_VERSIONS) {
-      const res = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+      let res = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: gaqlQuery }),
       });
+
+      // If 403 Permission Denied and login-customer-id wasn't set, try once with cleanCustomerId as login-customer-id
+      if (res.status === 403 && !loginCustomerId) {
+        const retryHeaders = {
+          ...headers,
+          'login-customer-id': cleanCustomerId,
+        };
+        const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+          method: 'POST',
+          headers: retryHeaders,
+          body: JSON.stringify({ query: gaqlQuery }),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      }
 
       const parsed = await safeParseResponse(res);
 
@@ -290,63 +319,63 @@ export async function queryLiveCampaigns(
       const parsedCampaigns: any[] = [];
       const resultsBatches = Array.isArray(data) ? data : [data];
 
-    for (const batch of resultsBatches) {
-      const results = batch.results || [];
-      for (const row of results) {
-        const camp = row.campaign || {};
-        const metrics = row.metrics || {};
-        const budget = row.campaignBudget || {};
+      for (const batch of resultsBatches) {
+        const results = batch.results || [];
+        for (const row of results) {
+          const camp = row.campaign || {};
+          const metrics = row.metrics || {};
+          const budget = row.campaignBudget || {};
 
-        const spend = Number(((metrics.costMicros || 0) / 1_000_000).toFixed(2));
-        const budgetDaily = Number(((budget.amountMicros || 0) / 1_000_000).toFixed(2));
-        const clicks = Number(metrics.clicks || 0);
-        const impressions = Number(metrics.impressions || 0);
-        const conversions = Number(metrics.conversions || 0);
-        const convValue = Number((metrics.conversionsValue || 0).toFixed(2));
-        const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : spend;
-        const roas = spend > 0 ? Number((convValue / spend).toFixed(2)) : 0;
-        const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
-        const cpc = clicks > 0 ? Number((spend / clicks).toFixed(2)) : 0;
+          const spend = Number(((metrics.costMicros || 0) / 1_000_000).toFixed(2));
+          const budgetDaily = Number(((budget.amountMicros || 0) / 1_000_000).toFixed(2));
+          const clicks = Number(metrics.clicks || 0);
+          const impressions = Number(metrics.impressions || 0);
+          const conversions = Number(metrics.conversions || 0);
+          const convValue = Number((metrics.conversionsValue || 0).toFixed(2));
+          const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : spend;
+          const roas = spend > 0 ? Number((convValue / spend).toFixed(2)) : 0;
+          const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
+          const cpc = clicks > 0 ? Number((spend / clicks).toFixed(2)) : 0;
 
-        let channelType = 'SEARCH';
-        const rawType = (camp.advertisingChannelType || '').toUpperCase();
-        if (rawType.includes('PERFORMANCE_MAX') || rawType.includes('PMAX')) channelType = 'PERFORMANCE_MAX';
-        else if (rawType.includes('DISPLAY')) channelType = 'DISPLAY';
-        else if (rawType.includes('SHOPPING')) channelType = 'SHOPPING';
-        else if (rawType.includes('VIDEO')) channelType = 'VIDEO';
-        else if (rawType.includes('DEMAND_GEN') || rawType.includes('DISCOVERY')) channelType = 'DEMAND_GEN';
+          let channelType = 'SEARCH';
+          const rawType = (camp.advertisingChannelType || '').toUpperCase();
+          if (rawType.includes('PERFORMANCE_MAX') || rawType.includes('PMAX')) channelType = 'PERFORMANCE_MAX';
+          else if (rawType.includes('DISPLAY')) channelType = 'DISPLAY';
+          else if (rawType.includes('SHOPPING')) channelType = 'SHOPPING';
+          else if (rawType.includes('VIDEO')) channelType = 'VIDEO';
+          else if (rawType.includes('DEMAND_GEN') || rawType.includes('DISCOVERY')) channelType = 'DEMAND_GEN';
 
-        parsedCampaigns.push({
-          id: `camp-live-${camp.id}`,
-          accountId: `acc-${cleanCustomerId}`,
-          name: camp.name || `Campaign ${camp.id}`,
-          type: channelType,
-          status: camp.status === 'ENABLED' ? 'ENABLED' : 'PAUSED',
-          budgetDaily,
-          spend,
-          impressions,
-          clicks,
-          ctr,
-          cpc,
-          conversions,
-          cpa,
-          conversionValue: convValue,
-          roas,
-          conversionRate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
-          healthStatus: roas >= 3.5 ? 'HEALTHY' : cpa > 80 ? 'WARNING' : 'HEALTHY',
-          healthScore: Math.min(99, Math.max(50, Math.round(roas * 18) + (camp.status === 'ENABLED' ? 20 : 0))),
-          historicalPoints: [],
-          trendPoints: [conversions, Math.round(conversions * 1.1), conversions],
-          keywordsCount: 0,
-          activeAdsCount: 0,
-        });
+          parsedCampaigns.push({
+            id: `camp-live-${camp.id}`,
+            accountId: `acc-${cleanCustomerId}`,
+            name: camp.name || `Campaign ${camp.id}`,
+            type: channelType,
+            status: camp.status === 'ENABLED' ? 'ENABLED' : 'PAUSED',
+            budgetDaily,
+            spend,
+            impressions,
+            clicks,
+            ctr,
+            cpc,
+            conversions,
+            cpa,
+            conversionValue: convValue,
+            roas,
+            conversionRate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
+            healthStatus: roas >= 3.5 ? 'HEALTHY' : cpa > 80 ? 'WARNING' : 'HEALTHY',
+            healthScore: Math.min(99, Math.max(50, Math.round(roas * 18) + (camp.status === 'ENABLED' ? 20 : 0))),
+            historicalPoints: [],
+            trendPoints: [conversions, Math.round(conversions * 1.1), conversions],
+            keywordsCount: 0,
+            activeAdsCount: 0,
+          });
+        }
       }
-    }
 
-    return {
-      success: true,
-      campaigns: parsedCampaigns,
-    };
+      return {
+        success: true,
+        campaigns: parsedCampaigns,
+      };
     }
 
     return lastError;
@@ -364,10 +393,23 @@ export async function queryLiveCampaigns(
 export async function verifyCustomerAccess(
   cleanCustomerId: string,
   accessToken: string,
-  developerToken?: string
-): Promise<{ accessible: boolean; reason?: string; campaigns?: any[]; statusCode?: number; details?: string }> {
+  developerToken?: string,
+  loginCustomerId?: string,
+  userEmail?: string
+): Promise<{
+  accessible: boolean;
+  reason?: string;
+  campaigns?: any[];
+  statusCode?: number;
+  details?: string;
+  accessibleCustomers?: string[];
+}> {
+  const formattedCid = cleanCustomerId.length === 10
+    ? `${cleanCustomerId.slice(0, 3)}-${cleanCustomerId.slice(3, 6)}-${cleanCustomerId.slice(6)}`
+    : cleanCustomerId;
+
   // First, query live campaigns directly for this Customer ID
-  const liveResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken);
+  const liveResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken, loginCustomerId);
   if (liveResult.success) {
     return {
       accessible: true,
@@ -377,23 +419,52 @@ export async function verifyCustomerAccess(
   }
 
   // Second, check listAccessibleCustomers for direct access
-  const listResult = await listAccessibleCustomers(accessToken, developerToken);
-  if (listResult.success && listResult.customers) {
-    const isDirectMatch = listResult.customers.some((c) => c.replace(/\D/g, '') === cleanCustomerId);
+  const listResult = await listAccessibleCustomers(accessToken, developerToken, loginCustomerId);
+  const foundAccounts = listResult.customers || [];
+
+  if (foundAccounts.length > 0) {
+    const isDirectMatch = foundAccounts.some((c) => c.replace(/\D/g, '') === cleanCustomerId);
     if (isDirectMatch) {
+      // It exists in listAccessibleCustomers! Try again with explicit login-customer-id
+      const retryResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken, cleanCustomerId);
+      if (retryResult.success) {
+        return {
+          accessible: true,
+          campaigns: retryResult.campaigns || [],
+          statusCode: 200,
+        };
+      }
       return {
         accessible: true,
-        campaigns: liveResult.campaigns || [],
-        reason: liveResult.error,
-        statusCode: liveResult.statusCode || 200,
-        details: liveResult.details,
+        campaigns: retryResult.campaigns || [],
+        reason: retryResult.error,
+        statusCode: retryResult.statusCode || 200,
+        details: retryResult.details,
+        accessibleCustomers: foundAccounts,
       };
     }
+
+    return {
+      accessible: false,
+      reason: `The caller does not have permission for CID ${formattedCid}. Your Google login (${userEmail || 'current user'}) has access to ${foundAccounts.length} account${foundAccounts.length > 1 ? 's' : ''}: ${foundAccounts.join(', ')}. Select one of your accessible accounts or grant access in ads.google.com.`,
+      statusCode: 403,
+      accessibleCustomers: foundAccounts,
+      details: JSON.stringify({ accessibleAccounts: foundAccounts }),
+    };
+  }
+
+  if (liveResult.statusCode === 403 || listResult.statusCode === 403) {
+    return {
+      accessible: false,
+      reason: `The caller does not have permission: The authenticated Google account ${userEmail ? `(${userEmail})` : ''} does not have user access to CID ${formattedCid} in ads.google.com. Go to Tools & Settings → Access and Security in Google Ads to invite this email, or switch to the Google account that manages this CID.`,
+      statusCode: 403,
+      details: liveResult.details || listResult.details,
+    };
   }
 
   return {
     accessible: false,
-    reason: liveResult.error || listResult.error || 'Customer ID not found or not accessible with this Google account.',
+    reason: liveResult.error || listResult.error || `Customer ID ${formattedCid} not found or not accessible with this Google account.`,
     statusCode: liveResult.statusCode || listResult.statusCode || 400,
     details: liveResult.details || listResult.details,
   };

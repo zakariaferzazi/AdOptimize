@@ -88,9 +88,10 @@ export async function POST(req: NextRequest) {
 
       const formattedCid = validation.formatted;
       const cleanId = validation.clean;
-      const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+      const loginCustomerId = body.loginCustomerId || undefined;
+      const developerToken = body.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
-      const verification = await verifyCustomerAccess(cleanId, accessToken, developerToken);
+      const verification = await verifyCustomerAccess(cleanId, accessToken, developerToken, loginCustomerId, userEmail);
 
       if (!verification.accessible) {
         const errorReason = verification.reason || `Google Ads Customer ID ${formattedCid} was not found or is inaccessible with this Google account.`;
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
             details: verification.details,
             statusCode: verification.statusCode || 403,
             cid: formattedCid,
+            accessibleCustomers: verification.accessibleCustomers,
             message: `Google Ads Verification Failed: ${errorReason}`,
           },
           { status: verification.statusCode && verification.statusCode >= 400 ? verification.statusCode : 403 }
