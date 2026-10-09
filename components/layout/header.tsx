@@ -28,7 +28,7 @@ interface HeaderProps {
   authLoading: boolean;
   onRefreshSync: () => void;
   onOpenConnectModal: () => void;
-  onOpenCopilot: () => void;
+  onOpenCopilot?: () => void;
   onSelectAnomaly: (anomaly: AnomalyAlert) => void;
   onSearchQuery?: (q: string) => void;
   onSignInWithGoogle: () => void;
@@ -163,19 +163,10 @@ export function Header({
           onClick={onRefreshSync}
           disabled={isSyncing}
           title="Force refresh Google Ads API data"
-          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-medium shadow-xs transition-colors disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-60 cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Ads'}</span>
-        </button>
-
-        {/* AI Copilot Quick Button */}
-        <button
-          onClick={onOpenCopilot}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium shadow-xs transition-colors group"
-        >
-          <Bot className="w-3.5 h-3.5 text-[#00d67d] group-hover:scale-110 transition-transform" />
-          <span className="hidden sm:inline font-semibold">AI Copilot</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Campaigns'}</span>
         </button>
 
         {/* Notifications Bell */}

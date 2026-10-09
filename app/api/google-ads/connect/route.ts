@@ -61,9 +61,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Connect Customer ID
+    // 3. Connect Customer ID (Real Google Ads API only)
     if (action === 'connect_customer') {
-      const mode = body.mode || (accessToken ? 'oauth_api' : 'direct_workspace');
       const validation = validateAndFormatCustomerId(customerId);
 
       // STRICT VALIDATION: Reject any fake or invalid customer IDs
@@ -77,109 +76,61 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const formattedCid = validation.formatted;
-      const cleanId = validation.clean;
-
-      // Handle OAuth API Connection Mode
-      if (mode === 'oauth_api') {
-        if (!accessToken) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'Google OAuth authorization is required to connect to the Google Ads API.',
-            },
-            { status: 401 }
-          );
-        }
-
-        const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-        const verification = await verifyCustomerAccess(cleanId, accessToken, developerToken);
-
-        const accessible = verification.accessible;
-        const realCampaigns = verification.campaigns || [];
-        let apiWarning: string | undefined = undefined;
-
-        if (!accessible && verification.reason) {
-          const lower = verification.reason.toLowerCase();
-          // If Google explicitly rejected the CID because it does not exist or the user has no permissions for it
-          if (
-            lower.includes('not found') ||
-            lower.includes('invalid_customer_id') ||
-            lower.includes('customer_not_found') ||
-            lower.includes('user_permission_denied') ||
-            lower.includes('not accessible') ||
-            lower.includes('404')
-          ) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: `Google Ads account ${formattedCid} does not exist or is not accessible by ${userEmail || 'your Google login'}. Please verify your 10-digit Customer ID in ads.google.com.`,
-              },
-              { status: 403 }
-            );
-          }
-
-          apiWarning = verification.reason
-            .replace(/<[^>]*>?/gm, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 220);
-        }
-
-        const accountObj = {
-          id: `acc-${cleanId}`,
-          clientCustomerId: formattedCid,
-          accountName: accountName?.trim() || `Google Ads Account (${formattedCid})`,
-          currency: currency || 'USD',
-          timezone: 'America/New_York (UTC-5)',
-          isConnected: true,
-          connectionType: 'OAUTH_API',
-          authenticatedEmail: userEmail || undefined,
-          lastSyncAt: new Date().toISOString(),
-          syncStatus: realCampaigns.length > 0 ? 'SYNCED' : 'CONNECTED',
-          isDemo: false,
-          totalCampaignsCount: realCampaigns.length,
-          monthlySpendCap: Number(monthlySpendCap) || 25000,
-          verifiedLive: accessible,
-          verificationNote: accessible
-            ? `Verified account with Google Ads API (${realCampaigns.length} campaigns found).`
-            : `Connected via Google OAuth (${userEmail || 'Authenticated'}). Ready to sync.`,
-          apiWarning,
-        };
-
-        return NextResponse.json({
-          success: true,
-          account: accountObj,
-          campaigns: realCampaigns,
-          apiWarning,
-          message: accessible
-            ? `Verified Google Ads CID ${formattedCid}. Synchronized ${realCampaigns.length} real campaigns.`
-            : `Connected Google Ads account (${formattedCid}) for ${userEmail || 'your Google login'}.`,
-        });
+      if (!accessToken) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Google OAuth authorization is required. Please sign in with your Google account to connect Google Ads.',
+          },
+          { status: 401 }
+        );
       }
 
-      // Handle Direct Campaign Workspace Mode (for manual & CSV tracking when API token is not yet provisioned)
+      const formattedCid = validation.formatted;
+      const cleanId = validation.clean;
+      const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+      const verification = await verifyCustomerAccess(cleanId, accessToken, developerToken);
+
+      if (!verification.accessible) {
+        const errorReason = verification.reason || `Google Ads Customer ID ${formattedCid} was not found or is inaccessible with this Google account.`;
+        return NextResponse.json(
+          {
+            success: false,
+            error: errorReason,
+            details: verification.details,
+            statusCode: verification.statusCode || 403,
+            cid: formattedCid,
+            message: `Google Ads Verification Failed: ${errorReason}`,
+          },
+          { status: verification.statusCode && verification.statusCode >= 400 ? verification.statusCode : 403 }
+        );
+      }
+
+      const realCampaigns = verification.campaigns || [];
       const accountObj = {
         id: `acc-${cleanId}`,
         clientCustomerId: formattedCid,
-        accountName: accountName?.trim() || `Campaign Workspace (${formattedCid})`,
+        accountName: accountName?.trim() || `Google Ads (${formattedCid})`,
         currency: currency || 'USD',
         timezone: 'America/New_York (UTC-5)',
         isConnected: true,
-        connectionType: 'DIRECT_WORKSPACE',
+        connectionType: 'OAUTH_API',
+        authenticatedEmail: userEmail || undefined,
         lastSyncAt: new Date().toISOString(),
-        syncStatus: 'ACTIVE',
+        syncStatus: 'SYNCED',
         isDemo: false,
-        totalCampaignsCount: 0,
+        totalCampaignsCount: realCampaigns.length,
         monthlySpendCap: Number(monthlySpendCap) || 25000,
-        verifiedLive: false,
-        verificationNote: 'Direct Workspace Mode: Tracking campaigns in AdOptimize without live API link.',
+        verifiedLive: true,
+        verificationNote: `Verified real account with Google Ads API (${realCampaigns.length} campaigns found).`,
       };
 
       return NextResponse.json({
         success: true,
         account: accountObj,
-        message: `Workspace configured for Customer ID ${formattedCid}. You can now add and track your campaigns to run continuous AI optimization.`,
+        campaigns: realCampaigns,
+        message: `Verified Google Ads CID ${formattedCid}. Synchronized ${realCampaigns.length} live campaigns from ads.google.com.`,
       });
     }
 

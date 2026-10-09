@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         lastSyncAt: syncTimestamp,
         syncStatus: 'SYNCED',
         isLiveApi: true,
-        freshness: '100% Live data from Google Ads SearchStream API v22',
+        freshness: '100% Live data from Google Ads SearchStream API v17',
         campaignsCount: realCampaigns.length,
         message: realCampaigns.length > 0
           ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for CID ${formattedCid}.`
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       .replace(/<[^>]*>?/gm, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 250);
+      .slice(0, 300);
 
     return NextResponse.json(
       {
@@ -74,10 +74,13 @@ export async function POST(req: NextRequest) {
         isLiveApi: false,
         apiError: cleanErr,
         error: cleanErr,
+        details: liveResult.details,
+        statusCode: liveResult.statusCode || 400,
+        cid: formattedCid,
         message: `Google Ads API Error for CID ${formattedCid}: ${cleanErr}`,
         campaigns: [],
       },
-      { status: 400 }
+      { status: liveResult.statusCode && liveResult.statusCode >= 400 ? liveResult.statusCode : 400 }
     );
   } catch (err: any) {
     console.error('Error in /api/google-ads/sync:', err);

@@ -16,8 +16,6 @@ import {
   ExternalLink,
   Zap,
   Trash2,
-  Plus,
-  Pencil
 } from 'lucide-react';
 import { Campaign, CampaignType, CampaignStatus } from '@/types/adoptimize';
 
@@ -179,15 +177,6 @@ export function CampaignsFullView({
                         Campaigns are created inside Google Ads. Once active in your Google Ads account, click &quot;Sync with Google Ads&quot; to import and start boosting them.
                       </p>
                       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                        {onAddCampaign && (
-                          <button
-                            onClick={onAddCampaign}
-                            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Campaign</span>
-                          </button>
-                        )}
                         {onOpenSyncCampaigns && (
                           <button
                             onClick={onOpenSyncCampaigns}

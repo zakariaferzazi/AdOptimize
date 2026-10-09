@@ -46,7 +46,7 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
-const GOOGLE_ADS_API_VERSION = 'v22';
+const GOOGLE_ADS_API_VERSION = 'v17';
 
 /**
  * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
@@ -274,13 +274,14 @@ export async function verifyCustomerAccess(
   cleanCustomerId: string,
   accessToken: string,
   developerToken?: string
-): Promise<{ accessible: boolean; reason?: string; campaigns?: any[] }> {
+): Promise<{ accessible: boolean; reason?: string; campaigns?: any[]; statusCode?: number; details?: string }> {
   // First, query live campaigns directly for this Customer ID
   const liveResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken);
   if (liveResult.success) {
     return {
       accessible: true,
       campaigns: liveResult.campaigns || [],
+      statusCode: 200,
     };
   }
 
@@ -293,6 +294,8 @@ export async function verifyCustomerAccess(
         accessible: true,
         campaigns: liveResult.campaigns || [],
         reason: liveResult.error,
+        statusCode: liveResult.statusCode || 200,
+        details: liveResult.details,
       };
     }
   }
@@ -300,5 +303,7 @@ export async function verifyCustomerAccess(
   return {
     accessible: false,
     reason: liveResult.error || listResult.error || 'Customer ID not found or not accessible with this Google account.',
+    statusCode: liveResult.statusCode || listResult.statusCode || 400,
+    details: liveResult.details || listResult.details,
   };
 }

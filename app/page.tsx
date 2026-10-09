@@ -110,20 +110,20 @@ export default function AdOptimizeApp() {
   const [showCopilot, setShowCopilot] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [oauthToken, setOauthToken] = useState<string | null>(null);
+  const [oauthToken, setOauthToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('google_ads_oauth_token');
+    }
+    return null;
+  });
   const [apiIssue, setApiIssue] = useState<{
     message: string;
     cid: string;
     timestamp: string;
     severity: 'error' | 'warning';
+    statusCode?: number;
+    details?: string;
   } | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedToken = sessionStorage.getItem('google_ads_oauth_token');
-      if (savedToken) setOauthToken(savedToken);
-    }
-  }, []);
 
   // Real Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -572,95 +572,6 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Open Add/Edit Campaign Modals
-  const handleOpenAddCampaign = () => {
-    setEditingCampaign(null);
-    setIsEditModalOpen(true);
-  };
-
-  const handleOpenEditCampaign = (camp: Campaign) => {
-    setEditingCampaign(camp);
-    setIsEditModalOpen(true);
-  };
-
-  // Save / Update Campaign with full Firestore persistence and real AI audit
-  const handleSaveCampaign = async (camp: Campaign) => {
-    const isExisting = state.campaigns.some((c) => c.id === camp.id);
-    let updatedCampaigns: Campaign[] = [];
-
-    if (isExisting) {
-      updatedCampaigns = state.campaigns.map((c) => (c.id === camp.id ? camp : c));
-    } else {
-      updatedCampaigns = [camp, ...state.campaigns];
-    }
-
-    const updatedAccount: GoogleAdsAccount = {
-      ...state.account,
-      isConnected: true,
-      totalCampaignsCount: updatedCampaigns.length,
-      lastSyncAt: new Date().toISOString(),
-    };
-
-    const auditLog: AuditLog = {
-      id: `audit-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      campaignId: camp.id,
-      campaignName: camp.name,
-      actionType: isExisting ? 'BUDGET_REALLOCATED' : 'CAMPAIGN_CREATED',
-      previousValue: isExisting ? 'Previous settings' : 'None (New campaign)',
-      newValue: `$${camp.budgetDaily}/d (${camp.type}, ${camp.status})`,
-      reason: isExisting ? 'Manual campaign adjustment' : 'Added to AdOptimize monitoring workspace',
-      source: 'USER',
-      userOrSystem: user?.displayName || user?.email || 'Marketing Manager',
-      status: 'EXECUTED',
-      canRevert: false,
-    };
-
-    setState((prev) => ({
-      ...prev,
-      account: updatedAccount,
-      campaigns: updatedCampaigns,
-      auditLogs: [auditLog, ...prev.auditLogs],
-    }));
-
-    if (user) {
-      await saveCampaignToFirestore(user.uid, camp);
-      await saveUserAccount(user.uid, updatedAccount);
-      await addAuditLogToFirestore(user.uid, auditLog);
-    }
-
-    showToast(isExisting ? `Updated: ${camp.name}` : `Added campaign: ${camp.name}`);
-
-    // Trigger grounded Gemini AI analysis on updated campaigns in the background
-    try {
-      fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          campaigns: updatedCampaigns,
-          accountName: updatedAccount.accountName,
-        }),
-      })
-        .then((res) => res.json())
-        .then((aiData) => {
-          if (aiData.insights && aiData.insights.length > 0) {
-            setState((prev) => ({
-              ...prev,
-              insights: aiData.insights,
-              anomalies: aiData.anomalies || prev.anomalies,
-              budgetRecommendations: aiData.budgetRecommendations || prev.budgetRecommendations,
-            }));
-            if (user) {
-              for (const ins of aiData.insights) {
-                saveInsightToFirestore(user.uid, ins);
-              }
-            }
-          }
-        })
-        .catch(() => {});
-    } catch {}
-  };
-
   // Clear All Data & Clean Slate
   const handleClearAllData = async () => {
     if (!user) {
@@ -1092,6 +1003,71 @@ export default function AdOptimizeApp() {
 
         {/* Dynamic View Container */}
         <main className="flex-1 px-8 pb-10 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Real Google Ads API Issue Alert Banner */}
+          {apiIssue && (
+            <div className="bg-rose-50/95 border-2 border-rose-300 rounded-3xl p-5 shadow-sm text-slate-900 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-rose-950">
+                        Google Ads API Issue
+                      </h4>
+                      {apiIssue.cid && (
+                        <span className="font-mono text-xs bg-white px-2 py-0.5 rounded-lg border border-rose-200 font-bold text-rose-900">
+                          CID: {apiIssue.cid}
+                        </span>
+                      )}
+                      {apiIssue.statusCode && (
+                        <span className="text-[10px] font-mono bg-rose-200 text-rose-900 font-bold px-2 py-0.5 rounded-md">
+                          HTTP {apiIssue.statusCode}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-rose-600 font-medium">
+                        {apiIssue.timestamp}
+                      </span>
+                    </div>
+                    <p className="text-xs text-rose-900 font-medium leading-relaxed max-w-3xl">
+                      {apiIssue.message}
+                    </p>
+                    {apiIssue.details && apiIssue.details !== '{}' && (
+                      <p className="text-[11px] text-rose-700 font-mono bg-white/60 p-2 rounded-xl border border-rose-200/60 mt-1 max-w-3xl break-words">
+                        {apiIssue.details}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleRefreshSync}
+                    disabled={isSyncing}
+                    className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>Retry Sync</span>
+                  </button>
+                  <button
+                    onClick={() => setShowConnectModal(true)}
+                    className="px-3.5 py-2 bg-white hover:bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    Change CID
+                  </button>
+                  <button
+                    onClick={() => setApiIssue(null)}
+                    className="p-2 text-rose-400 hover:text-rose-700 rounded-xl hover:bg-rose-100/60 transition-colors cursor-pointer"
+                    title="Dismiss alert"
+                  >
+                    <span className="text-sm font-bold">✕</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* VIEW: DASHBOARD */}
           {currentTab === 'dashboard' && (
             <div className="space-y-6">
@@ -1115,18 +1091,10 @@ export default function AdOptimizeApp() {
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                     <button
-                      onClick={handleOpenAddCampaign}
-                      className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>+ Add Campaign</span>
-                    </button>
-
-                    <button
                       onClick={() => setIsSyncModalOpen(true)}
-                      className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                      className="px-6 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <RefreshCw className="w-4 h-4 text-[#00d67d]" />
+                      <RefreshCw className="w-4 h-4 text-slate-950" />
                       <span>Sync Campaigns</span>
                     </button>
 
@@ -1134,17 +1102,17 @@ export default function AdOptimizeApp() {
                       onClick={() => setShowConnectModal(true)}
                       className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span>{account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Workspace CID' : 'Connect Google Ads CID'}</span>
+                      <span>Connect Google Ads CID</span>
                     </button>
 
                     <a
                       href="https://ads.google.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2"
+                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2"
                     >
-                      <span>Open Google Ads</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Open ads.google.com</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
                     </a>
                   </div>
                 </div>
@@ -1224,12 +1192,7 @@ export default function AdOptimizeApp() {
                   onSelectCampaign={(c) => setSelectedCampaign(c)}
                   onViewAll={() => setCurrentTab('campaigns')}
                   onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
-                  onAddCampaign={handleOpenAddCampaign}
                   onToggleStatus={handleToggleCampaignStatus}
-                  onBoostCampaign={(c) => {
-                    setBoostTargetCampaign(c);
-                    setIsBoostModalOpen(true);
-                  }}
                   isSyncing={isSyncing}
                 />
               </div>
@@ -1243,12 +1206,6 @@ export default function AdOptimizeApp() {
               onSelectCampaign={(c) => setSelectedCampaign(c)}
               onToggleStatus={handleToggleCampaignStatus}
               onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
-              onAddCampaign={handleOpenAddCampaign}
-              onEditCampaign={handleOpenEditCampaign}
-              onBoostCampaign={(c) => {
-                setBoostTargetCampaign(c);
-                setIsBoostModalOpen(true);
-              }}
               onDeleteCampaign={handleDeleteCampaign}
               isSyncing={isSyncing}
             />
@@ -1353,10 +1310,6 @@ export default function AdOptimizeApp() {
         insights={insights}
         account={account}
         onClose={() => setSelectedCampaign(null)}
-        onBoostCampaign={(c) => {
-          setBoostTargetCampaign(c);
-          setIsBoostModalOpen(true);
-        }}
         onApplyInsight={handleApplyInsight}
         onAddNegativeKeyword={handleAddNegativeKeyword}
         onToggleCampaignStatus={handleToggleCampaignStatus}
@@ -1382,6 +1335,8 @@ export default function AdOptimizeApp() {
         onClose={() => setShowConnectModal(false)}
         currentAccount={account}
         onConnectAccount={handleConnectAccount}
+        onApiError={(issue) => setApiIssue(issue)}
+        userEmail={user?.email}
       />
 
       {/* Sync Google Ads Campaigns Modal */}
@@ -1391,29 +1346,6 @@ export default function AdOptimizeApp() {
         account={account}
         onSync={handleRefreshSync}
         isSyncing={isSyncing}
-      />
-
-      {/* Campaign Create & Edit Modal */}
-      <CampaignEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingCampaign(null);
-        }}
-        campaign={editingCampaign}
-        onSave={handleSaveCampaign}
-        accountId={account.id}
-      />
-
-      {/* Boost Campaign Performance Modal */}
-      <CampaignBoostModal
-        isOpen={isBoostModalOpen}
-        onClose={() => {
-          setIsBoostModalOpen(false);
-          setBoostTargetCampaign(null);
-        }}
-        campaign={boostTargetCampaign}
-        onApplyBoost={handleApplyBoost}
       />
 
       {/* Toast Notification Notification */}

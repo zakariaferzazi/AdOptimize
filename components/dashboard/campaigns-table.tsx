@@ -92,7 +92,7 @@ export function CampaignsTable({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time telemetry, live status toggling (Enabled &amp; Paused), and 1-click optimization boosts
+            Live Google Ads campaign telemetry, metrics, and status from your connected Google Ads account.
           </p>
         </div>
 
@@ -194,34 +194,26 @@ export function CampaignsTable({
                         : `No campaigns currently matching the "${statusFilter.toLowerCase()}" filter.`}
                     </p>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Campaigns are created inside Google Ads. Once created, click below to sync them into AdOptimize for continuous telemetry and AI boosts.
+                      Campaigns are created inside Google Ads. Once created, click below to sync them into AdOptimize for continuous monitoring.
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                      {onAddCampaign && (
-                        <button
-                          onClick={onAddCampaign}
-                          className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          <span>+ Add Campaign</span>
-                        </button>
-                      )}
                       {onOpenSyncCampaigns && (
                         <button
                           onClick={onOpenSyncCampaigns}
                           disabled={isSyncing}
-                          className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                          className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-2"
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-                          <span>Sync Account</span>
+                          <RefreshCw className={`w-3.5 h-3.5 text-slate-950 ${isSyncing ? 'animate-spin' : ''}`} />
+                          <span>{isSyncing ? 'Syncing...' : 'Sync Campaigns from Google Ads'}</span>
                         </button>
                       )}
                       <a
                         href="https://ads.google.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
                       >
-                        <span>Open Google Ads</span>
+                        <span>Open ads.google.com</span>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </div>
