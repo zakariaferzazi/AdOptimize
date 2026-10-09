@@ -23,8 +23,6 @@ import { SettingsView } from '@/components/settings/settings-view';
 import { LandingPage } from '@/components/landing/landing-page';
 import { ConnectModal } from '@/components/connect-modal';
 import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
-import { CampaignBoostModal } from '@/components/campaigns/campaign-boost-modal';
-import { CampaignEditModal } from '@/components/campaigns/campaign-edit-modal';
 import { AuthGate } from '@/components/auth/auth-gate';
 import {
   DollarSign,
@@ -41,7 +39,10 @@ import {
   Plus,
   RefreshCw,
   ExternalLink,
-  Zap
+  Zap,
+  AlertTriangle,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import {
   GoogleAdsAccount,
@@ -106,13 +107,23 @@ export default function AdOptimizeApp() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
-  const [isBoostModalOpen, setIsBoostModalOpen] = useState<boolean>(false);
-  const [boostTargetCampaign, setBoostTargetCampaign] = useState<Campaign | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [showCopilot, setShowCopilot] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [oauthToken, setOauthToken] = useState<string | null>(null);
+  const [apiIssue, setApiIssue] = useState<{
+    message: string;
+    cid: string;
+    timestamp: string;
+    severity: 'error' | 'warning';
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedToken = sessionStorage.getItem('google_ads_oauth_token');
+      if (savedToken) setOauthToken(savedToken);
+    }
+  }, []);
 
   // Real Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -367,8 +378,28 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Refresh Sync from Google Ads API
-  const handleRefreshSync = async (customCampaignNames?: string[]) => {
+  // Refresh Sync directly from Google Ads API
+  const handleRefreshSync = async () => {
+    if (!account.isConnected || account.clientCustomerId === 'Not Connected') {
+      setShowConnectModal(true);
+      return;
+    }
+
+    const tokenToUse =
+      oauthToken ||
+      (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_oauth_token') : null);
+
+    if (!tokenToUse) {
+      setApiIssue({
+        message: 'Google OAuth session expired. Please reconnect your Google Ads account to sync live campaigns.',
+        cid: account.clientCustomerId,
+        timestamp: new Date().toLocaleTimeString(),
+        severity: 'warning',
+      });
+      setShowConnectModal(true);
+      return;
+    }
+
     setIsSyncing(true);
     try {
       const res = await fetch('/api/google-ads/sync', {
@@ -378,13 +409,25 @@ export default function AdOptimizeApp() {
           accountId: account.id,
           customerId: account.clientCustomerId,
           accountName: account.accountName,
-          customCampaignNames,
+          accessToken: tokenToUse,
         }),
       });
       const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Sync failed');
+
+      if (!res.ok || !data.success) {
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        setApiIssue({
+          message: errorMsg,
+          cid: account.clientCustomerId,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: 'error',
+        });
+        showToast(`API Error: ${errorMsg}`);
+        return;
       }
+
+      // Successful sync: clear previous API issue!
+      setApiIssue(null);
 
       const updatedAccount: GoogleAdsAccount = {
         ...account,
@@ -442,6 +485,13 @@ export default function AdOptimizeApp() {
       }
     } catch (err: any) {
       console.error('Error syncing Google Ads:', err);
+      const errMsg = err.message || 'Error syncing with Google Ads API';
+      setApiIssue({
+        message: errMsg,
+        cid: account.clientCustomerId,
+        timestamp: new Date().toLocaleTimeString(),
+        severity: 'error',
+      });
       showToast('Error syncing with Google Ads');
     } finally {
       setIsSyncing(false);
@@ -449,7 +499,29 @@ export default function AdOptimizeApp() {
   };
 
   // Connect Google Ads account
-  const handleConnectAccount = async (newAccount: GoogleAdsAccount, syncedCampaigns?: Campaign[]) => {
+  const handleConnectAccount = async (
+    newAccount: GoogleAdsAccount,
+    syncedCampaigns?: Campaign[],
+    token?: string | null
+  ) => {
+    if (token) {
+      setOauthToken(token);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('google_ads_oauth_token', token);
+      }
+    }
+
+    if ((newAccount as any).apiWarning) {
+      setApiIssue({
+        message: (newAccount as any).apiWarning,
+        cid: newAccount.clientCustomerId,
+        timestamp: new Date().toLocaleTimeString(),
+        severity: 'warning',
+      });
+    } else {
+      setApiIssue(null);
+    }
+
     const campaignsToSet = syncedCampaigns || [];
     setState((prev) => ({
       ...prev,
@@ -461,6 +533,7 @@ export default function AdOptimizeApp() {
       anomalies: campaignsToSet.length > 0 ? prev.anomalies : [],
       isDemoMode: false,
     }));
+
     if (user) {
       if (campaignsToSet.length === 0) {
         await clearAllUserData(user.uid);
@@ -473,53 +546,6 @@ export default function AdOptimizeApp() {
       }
     }
     showToast(`Connected: ${newAccount.accountName} (CID: ${newAccount.clientCustomerId})`);
-  };
-
-  // Boost Campaign Performance
-  const handleApplyBoost = async (
-    campaignId: string,
-    boostType: string,
-    boostDetails: { newBudget?: number; newRoas?: number; newCpa?: number; description: string }
-  ) => {
-    const targetCamp = state.campaigns.find((c) => c.id === campaignId);
-    if (!targetCamp) return;
-
-    const updatedCamp: Campaign = {
-      ...targetCamp,
-      budgetDaily: boostDetails.newBudget || targetCamp.budgetDaily,
-      roas: boostDetails.newRoas || targetCamp.roas,
-      cpa: boostDetails.newCpa || targetCamp.cpa,
-      healthStatus: 'HEALTHY',
-      healthScore: Math.min(99, targetCamp.healthScore + 6),
-    };
-
-    const auditLog: AuditLog = {
-      id: `audit-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      campaignId: targetCamp.id,
-      campaignName: targetCamp.name,
-      actionType: 'BUDGET_REALLOCATED',
-      previousValue: `$${targetCamp.budgetDaily}/d (${targetCamp.roas}x ROAS)`,
-      newValue: `$${updatedCamp.budgetDaily}/d (${updatedCamp.roas}x ROAS)`,
-      reason: boostDetails.description,
-      source: 'AI_RECOMMENDATION',
-      userOrSystem: 'AdOptimize AI Agent',
-      status: 'EXECUTED',
-      canRevert: true,
-    };
-
-    setState((prev) => ({
-      ...prev,
-      campaigns: prev.campaigns.map((c) => (c.id === campaignId ? updatedCamp : c)),
-      auditLogs: [auditLog, ...prev.auditLogs],
-    }));
-
-    if (user) {
-      await saveCampaignToFirestore(user.uid, updatedCamp);
-      await addAuditLogToFirestore(user.uid, auditLog);
-    }
-
-    showToast(`⚡ Boost Applied: ${targetCamp.name}`);
   };
 
   // Delete Campaign from Monitoring

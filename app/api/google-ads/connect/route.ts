@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAndFormatCustomerId, listAccessibleCustomers } from '@/lib/google-ads-api';
+import { validateAndFormatCustomerId, listAccessibleCustomers, queryLiveCampaigns, verifyCustomerAccess } from '@/lib/google-ads-api';
 
 export async function POST(req: NextRequest) {
   try {
@@ -93,12 +93,38 @@ export async function POST(req: NextRequest) {
         }
 
         const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-        const checkResult = await listAccessibleCustomers(accessToken, developerToken);
+        const verification = await verifyCustomerAccess(cleanId, accessToken, developerToken);
 
-        const isLiveVerified =
-          checkResult.success &&
-          Array.isArray(checkResult.customers) &&
-          checkResult.customers.some((c) => c.replace(/\D/g, '') === cleanId);
+        const accessible = verification.accessible;
+        const realCampaigns = verification.campaigns || [];
+        let apiWarning: string | undefined = undefined;
+
+        if (!accessible && verification.reason) {
+          const lower = verification.reason.toLowerCase();
+          // If Google explicitly rejected the CID because it does not exist or the user has no permissions for it
+          if (
+            lower.includes('not found') ||
+            lower.includes('invalid_customer_id') ||
+            lower.includes('customer_not_found') ||
+            lower.includes('user_permission_denied') ||
+            lower.includes('not accessible') ||
+            lower.includes('404')
+          ) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Google Ads account ${formattedCid} does not exist or is not accessible by ${userEmail || 'your Google login'}. Please verify your 10-digit Customer ID in ads.google.com.`,
+              },
+              { status: 403 }
+            );
+          }
+
+          apiWarning = verification.reason
+            .replace(/<[^>]*>?/gm, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 220);
+        }
 
         const accountObj = {
           id: `acc-${cleanId}`,
@@ -110,22 +136,25 @@ export async function POST(req: NextRequest) {
           connectionType: 'OAUTH_API',
           authenticatedEmail: userEmail || undefined,
           lastSyncAt: new Date().toISOString(),
-          syncStatus: isLiveVerified ? 'SYNCED' : 'CONNECTED',
+          syncStatus: realCampaigns.length > 0 ? 'SYNCED' : 'CONNECTED',
           isDemo: false,
-          totalCampaignsCount: 0,
+          totalCampaignsCount: realCampaigns.length,
           monthlySpendCap: Number(monthlySpendCap) || 25000,
-          verifiedLive: isLiveVerified,
-          verificationNote: isLiveVerified
-            ? 'Live verified against Google Ads API.'
-            : `Connected with authenticated Google account (${userEmail || 'OAuth'}). Ready to track and sync campaigns for CID ${formattedCid}.`,
+          verifiedLive: accessible,
+          verificationNote: accessible
+            ? `Verified account with Google Ads API (${realCampaigns.length} campaigns found).`
+            : `Connected via Google OAuth (${userEmail || 'Authenticated'}). Ready to sync.`,
+          apiWarning,
         };
 
         return NextResponse.json({
           success: true,
           account: accountObj,
-          message: isLiveVerified
-            ? `Verified and connected to Google Ads API for CID ${formattedCid}.`
-            : `Connected Google Ads account (${formattedCid}) for ${userEmail || 'your Google login'}. You can now track and sync your campaigns.`,
+          campaigns: realCampaigns,
+          apiWarning,
+          message: accessible
+            ? `Verified Google Ads CID ${formattedCid}. Synchronized ${realCampaigns.length} real campaigns.`
+            : `Connected Google Ads account (${formattedCid}) for ${userEmail || 'your Google login'}.`,
         });
       }
 

@@ -25,7 +25,7 @@ interface ConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentAccount: GoogleAdsAccount;
-  onConnectAccount: (account: GoogleAdsAccount, syncedCampaigns?: Campaign[]) => void;
+  onConnectAccount: (account: GoogleAdsAccount, syncedCampaigns?: Campaign[], token?: string | null) => void;
   userEmail?: string | null;
 }
 
@@ -199,8 +199,15 @@ export function ConnectModal({
         console.warn('Sync note:', syncErr);
       }
 
+      if (oauthToken && typeof window !== 'undefined') {
+        sessionStorage.setItem('google_ads_oauth_token', oauthToken);
+      }
       setIsLoading(false);
-      onConnectAccount(data.account, syncedCampaigns);
+      onConnectAccount(
+        data.account,
+        syncedCampaigns.length > 0 ? syncedCampaigns : (data.campaigns || []),
+        oauthToken
+      );
       onClose();
     } catch (err: any) {
       setIsLoading(false);

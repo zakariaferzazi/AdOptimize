@@ -163,7 +163,7 @@ export async function queryLiveCampaigns(
       FROM campaign
       WHERE campaign.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
-      LIMIT 50
+      LIMIT 200
     `;
 
     const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${cleanCustomerId}/googleAds:searchStream`, {
@@ -221,9 +221,12 @@ export async function queryLiveCampaigns(
         const cpc = clicks > 0 ? Number((spend / clicks).toFixed(2)) : 0;
 
         let channelType = 'SEARCH';
-        if (camp.advertisingChannelType === 'PERFORMANCE_MAX') channelType = 'PERFORMANCE_MAX';
-        if (camp.advertisingChannelType === 'DISPLAY') channelType = 'DISPLAY';
-        if (camp.advertisingChannelType === 'SHOPPING') channelType = 'SHOPPING';
+        const rawType = (camp.advertisingChannelType || '').toUpperCase();
+        if (rawType.includes('PERFORMANCE_MAX') || rawType.includes('PMAX')) channelType = 'PERFORMANCE_MAX';
+        else if (rawType.includes('DISPLAY')) channelType = 'DISPLAY';
+        else if (rawType.includes('SHOPPING')) channelType = 'SHOPPING';
+        else if (rawType.includes('VIDEO')) channelType = 'VIDEO';
+        else if (rawType.includes('DEMAND_GEN') || rawType.includes('DISCOVERY')) channelType = 'DEMAND_GEN';
 
         parsedCampaigns.push({
           id: `camp-live-${camp.id}`,
@@ -246,6 +249,8 @@ export async function queryLiveCampaigns(
           healthScore: Math.min(99, Math.max(50, Math.round(roas * 18) + (camp.status === 'ENABLED' ? 20 : 0))),
           historicalPoints: [],
           trendPoints: [conversions, Math.round(conversions * 1.1), conversions],
+          keywordsCount: 0,
+          activeAdsCount: 0,
         });
       }
     }
@@ -260,4 +265,40 @@ export async function queryLiveCampaigns(
       error: err.message || 'Error querying Google Ads SearchStream API',
     };
   }
+}
+
+/**
+ * Verifies if a specific customer ID is accessible by the authenticated user in Google Ads.
+ */
+export async function verifyCustomerAccess(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string
+): Promise<{ accessible: boolean; reason?: string; campaigns?: any[] }> {
+  // First, query live campaigns directly for this Customer ID
+  const liveResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken);
+  if (liveResult.success) {
+    return {
+      accessible: true,
+      campaigns: liveResult.campaigns || [],
+    };
+  }
+
+  // Second, check listAccessibleCustomers for direct access
+  const listResult = await listAccessibleCustomers(accessToken, developerToken);
+  if (listResult.success && listResult.customers) {
+    const isDirectMatch = listResult.customers.some((c) => c.replace(/\D/g, '') === cleanCustomerId);
+    if (isDirectMatch) {
+      return {
+        accessible: true,
+        campaigns: liveResult.campaigns || [],
+        reason: liveResult.error,
+      };
+    }
+  }
+
+  return {
+    accessible: false,
+    reason: liveResult.error || listResult.error || 'Customer ID not found or not accessible with this Google account.',
+  };
 }
