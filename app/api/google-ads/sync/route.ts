@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         lastSyncAt: syncTimestamp,
         syncStatus: 'SYNCED',
         isLiveApi: true,
-        freshness: '100% Live data from Google Ads SearchStream API v17',
+        freshness: '100% Live data from Google Ads SearchStream API v25',
         campaignsCount: realCampaigns.length,
         message: realCampaigns.length > 0
           ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for CID ${formattedCid}.`

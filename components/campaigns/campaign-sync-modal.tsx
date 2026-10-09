@@ -37,7 +37,7 @@ export function CampaignSyncModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Sync Google Ads Campaigns</h3>
-              <p className="text-xs text-slate-500">Live SearchStream API v22 (Enabled &amp; Paused)</p>
+              <p className="text-xs text-slate-500">Live SearchStream API v25 (Enabled &amp; Paused)</p>
             </div>
           </div>
           <button
@@ -64,7 +64,7 @@ export function CampaignSyncModal({
             <span className="text-slate-500 font-medium">Data Source:</span>
             <span className="text-emerald-700 font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Official Google Ads REST API v22</span>
+              <span>Official Google Ads REST API v25</span>
             </span>
           </div>
         </div>

@@ -46,7 +46,7 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
-const GOOGLE_ADS_API_VERSION = 'v17';
+const GOOGLE_ADS_API_VERSIONS = ['v25', 'v24', 'v23', 'v22'];
 
 /**
  * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
@@ -65,6 +65,65 @@ async function safeParseResponse(res: Response): Promise<{ isJson: boolean; data
   }
 }
 
+function cleanHtmlSnippet(raw: string): string {
+  return raw
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]*>?/gm, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220);
+}
+
+function extractGoogleAdsError(data: any, status: number, rawText: string): { error: string; details?: string } {
+  if (data?.error) {
+    const mainMsg = data.error.message || data.error.status;
+    let detailMsg = '';
+    let errorCodeStr = '';
+
+    if (Array.isArray(data.error.details)) {
+      for (const item of data.error.details) {
+        if (Array.isArray(item.errors) && item.errors.length > 0) {
+          const firstErr = item.errors[0];
+          if (firstErr.message) detailMsg = firstErr.message;
+          if (firstErr.errorCode) {
+            const keys = Object.keys(firstErr.errorCode);
+            if (keys.length > 0) {
+              errorCodeStr = `${keys[0]}: ${firstErr.errorCode[keys[0]]}`;
+            }
+          }
+        }
+      }
+    }
+
+    const message = detailMsg || mainMsg || `Google Ads API Error (HTTP ${status})`;
+    return {
+      error: errorCodeStr ? `${message} (${errorCodeStr})` : message,
+      details: data.error.details ? JSON.stringify(data.error.details) : undefined,
+    };
+  }
+
+  if (Array.isArray(data) && data[0]?.error) {
+    return {
+      error: data[0].error.message || `Google Ads API Error (HTTP ${status})`,
+      details: JSON.stringify(data[0].error),
+    };
+  }
+
+  const cleanSnippet = cleanHtmlSnippet(rawText);
+  if (status === 404) {
+    return {
+      error: `Google Ads API returned HTTP 404 (Not Found): Customer ID does not exist or endpoint was not found.`,
+      details: cleanSnippet || undefined,
+    };
+  }
+
+  return {
+    error: `Google Ads API returned HTTP ${status}: ${cleanSnippet || 'No response body'}`,
+    details: cleanSnippet || undefined,
+  };
+}
+
 /**
  * Calls Google Ads API to list accessible customers for the user's OAuth access token.
  */
@@ -79,48 +138,64 @@ export async function listAccessibleCustomers(accessToken: string, developerToke
       headers['developer-token'] = developerToken;
     }
 
-    const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers:listAccessibleCustomers`, {
-      method: 'GET',
-      headers,
-    });
-
-    const parsed = await safeParseResponse(res);
-
-    if (!parsed.isJson) {
-      const cleanSnippet = parsed.rawText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
-      return {
-        success: false,
-        error: `Google Ads API returned HTTP ${res.status}: ${cleanSnippet || res.statusText || 'Non-JSON response'}`,
-        statusCode: res.status,
-      };
-    }
-
-    const data = parsed.data;
-
-    if (!res.ok) {
-      const errMsg =
-        data?.error?.message ||
-        data?.error?.status ||
-        data?.[0]?.error?.message ||
-        `Google Ads API Error (HTTP ${res.status})`;
-      return {
-        success: false,
-        error: errMsg,
-        details: JSON.stringify(data?.error?.details || data?.error || {}),
-        statusCode: res.status,
-      };
-    }
-
-    const resourceNames: string[] = data?.resourceNames || [];
-    const customerIds = resourceNames.map((r: string) => {
-      const raw = r.replace('customers/', '');
-      return raw.length === 10 ? `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}` : raw;
-    });
-
-    return {
-      success: true,
-      customers: customerIds,
+    let lastError: GoogleAdsApiResult = {
+      success: false,
+      error: 'Failed to connect to Google Ads API',
     };
+
+    for (const version of GOOGLE_ADS_API_VERSIONS) {
+      const res = await fetch(`https://googleads.googleapis.com/${version}/customers:listAccessibleCustomers`, {
+        method: 'GET',
+        headers,
+      });
+
+      const parsed = await safeParseResponse(res);
+
+      if (res.status === 404) {
+        // Try next version if available
+        lastError = {
+          success: false,
+          error: `Google Ads API endpoint (${version}) not found (HTTP 404)`,
+          statusCode: 404,
+        };
+        continue;
+      }
+
+      if (!parsed.isJson) {
+        const errInfo = extractGoogleAdsError(null, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+        };
+      }
+
+      const data = parsed.data;
+
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+        };
+      }
+
+      const resourceNames: string[] = data?.resourceNames || [];
+      const customerIds = resourceNames.map((r: string) => {
+        const raw = r.replace('customers/', '');
+        return raw.length === 10 ? `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}` : raw;
+      });
+
+      return {
+        success: true,
+        customers: customerIds,
+      };
+    }
+
+    return lastError;
   } catch (err: any) {
     return {
       success: false,
@@ -166,41 +241,54 @@ export async function queryLiveCampaigns(
       LIMIT 200
     `;
 
-    const res = await fetch(`https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${cleanCustomerId}/googleAds:searchStream`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query: gaqlQuery }),
-    });
+    let lastError: GoogleAdsApiResult = {
+      success: false,
+      error: 'Google Ads SearchStream query failed',
+    };
 
-    const parsed = await safeParseResponse(res);
+    for (const version of GOOGLE_ADS_API_VERSIONS) {
+      const res = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: gaqlQuery }),
+      });
 
-    if (!parsed.isJson) {
-      const cleanSnippet = parsed.rawText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
-      return {
-        success: false,
-        error: `Google Ads SearchStream API returned HTTP ${res.status}: ${cleanSnippet || res.statusText || 'Non-JSON response'}`,
-        statusCode: res.status,
-      };
-    }
+      const parsed = await safeParseResponse(res);
 
-    const data = parsed.data;
+      if (res.status === 404) {
+        // Version sunset or invalid, try next version
+        lastError = {
+          success: false,
+          error: `Google Ads SearchStream API (${version}) returned HTTP 404 for CID ${cleanCustomerId}. Customer ID may not exist in Google Ads.`,
+          statusCode: 404,
+        };
+        continue;
+      }
 
-    if (!res.ok) {
-      const errMsg =
-        data?.error?.message ||
-        data?.[0]?.error?.message ||
-        data?.error?.status ||
-        `Google Ads API Error (HTTP ${res.status})`;
-      return {
-        success: false,
-        error: errMsg,
-        details: JSON.stringify(data?.error || data || {}),
-        statusCode: res.status,
-      };
-    }
+      if (!parsed.isJson) {
+        const errInfo = extractGoogleAdsError(null, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+        };
+      }
 
-    const parsedCampaigns: any[] = [];
-    const resultsBatches = Array.isArray(data) ? data : [data];
+      const data = parsed.data;
+
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+        };
+      }
+
+      const parsedCampaigns: any[] = [];
+      const resultsBatches = Array.isArray(data) ? data : [data];
 
     for (const batch of resultsBatches) {
       const results = batch.results || [];
@@ -259,6 +347,9 @@ export async function queryLiveCampaigns(
       success: true,
       campaigns: parsedCampaigns,
     };
+    }
+
+    return lastError;
   } catch (err: any) {
     return {
       success: false,
