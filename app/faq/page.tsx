@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Frequently Asked Questions - AdOptimize',
   description: 'Common questions about Google Ads integration, AI recommendations, budget safety limits, and automation.',
   alternates: {
-    canonical: 'https://adoptimize.io/faq',
+    canonical: 'https://adoptimize.app/faq',
   },
 };
 

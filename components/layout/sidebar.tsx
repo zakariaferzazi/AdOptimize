@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   LayoutDashboard,
   Layers,
@@ -172,13 +173,22 @@ export function Sidebar({
 
         {/* Secondary Links */}
         <div className="flex items-center justify-between px-2 pt-1 text-xs text-slate-400">
-          <button
-            onClick={() => onSelectTab('settings')}
-            className="flex items-center gap-2 hover:text-white transition-colors py-1"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>Help & Docs</span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => onSelectTab('settings')}
+              className="flex items-center gap-1.5 hover:text-white transition-colors py-1 cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+            <span>•</span>
+            <Link
+              href="/privacy-policy"
+              className="hover:text-white transition-colors py-1 cursor-pointer"
+            >
+              Privacy
+            </Link>
+          </div>
           <span className="text-[11px] font-mono text-slate-400">v2.4 Pro</span>
         </div>
       </div>

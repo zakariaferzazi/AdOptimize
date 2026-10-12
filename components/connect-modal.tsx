@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   X,
   ShieldCheck,
@@ -414,8 +415,21 @@ export function ConnectModal({
             )}
           </div>
 
-          <div className="p-3 bg-slate-100/70 border border-slate-200 rounded-xl text-[11px] text-slate-600 leading-relaxed">
-            <strong className="text-slate-900">Strict Real Verification:</strong> AdOptimize calls the live Google Ads API to verify that CID <strong className="text-slate-900">{customerId || 'xxx-xxx-xxxx'}</strong> exists and is accessible. If there is an issue with access or permissions, it will be displayed on the page.
+          <div className="p-3.5 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] text-slate-600 leading-relaxed space-y-1.5">
+            <div>
+              <strong className="text-slate-900">Live API Verification:</strong> AdOptimize calls the live Google Ads API to verify that CID <strong className="text-slate-900">{customerId || 'xxx-xxx-xxxx'}</strong> exists and is accessible.
+            </div>
+            <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60 flex items-center justify-between flex-wrap gap-1">
+              <span>Protected by AES-256 encryption. Disconnect &amp; delete data anytime.</span>
+              <Link
+                href="/privacy-policy"
+                target="_blank"
+                className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5"
+              >
+                <span>Privacy &amp; Data Deletion Policy</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </Link>
+            </div>
           </div>
 
           {/* Action buttons */}

@@ -104,6 +104,46 @@ export default function SecurityPage() {
           </ul>
         </div>
 
+        {/* Data Retention & Deletion Protocols Card */}
+        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-base">
+            <Lock className="w-5 h-5 text-emerald-600" />
+            <h3>Google User Data Protection, Retention &amp; Deletion Protocols</h3>
+          </div>
+          <p>
+            AdOptimize enforces bank-grade cryptographic controls and strict retention rules for all sensitive Google Ads account data:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span className="font-bold text-slate-900 text-xs block">AES-256 &amp; TLS 1.3 Protection</span>
+              <p className="text-[11px] text-slate-600">
+                Data is encrypted in transit using TLS 1.3/TLS 1.2 and at rest using AES-256. Sensitive OAuth tokens are stored in server-isolated vaults, never exposed to client browsers.
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span className="font-bold text-slate-900 text-xs block">30-Day Retention Schedule</span>
+              <p className="text-[11px] text-slate-600">
+                Google user data is retained only while the account is connected. Data from disconnected or inactive accounts is permanently purged within 30 days.
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span className="font-bold text-slate-900 text-xs block">Instant Deletion Methods</span>
+              <p className="text-[11px] text-slate-600">
+                Purge your data anytime via 1-click in-app deletion, directly revoke in Google Account Permissions, or email support@adoptimize.app for full wipe within 48-72h.
+              </p>
+            </div>
+          </div>
+          <div className="pt-2 text-xs">
+            <Link
+              href="/privacy-policy"
+              className="text-emerald-700 font-bold underline hover:text-emerald-900 inline-flex items-center gap-1"
+            >
+              <span>Read our full Privacy Policy for technical retention schedules and verification timelines</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
         <div className="text-center pt-2">
           <Link
             href="/"

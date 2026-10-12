@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Settings,
   CreditCard,
@@ -13,7 +14,9 @@ import {
   RefreshCw,
   Trash2,
   RotateCcw,
-  Zap
+  Zap,
+  Lock,
+  Clock,
 } from 'lucide-react';
 import { GoogleAdsAccount, SubscriptionPlan } from '@/types/adoptimize';
 import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
@@ -22,12 +25,14 @@ interface SettingsViewProps {
   account: GoogleAdsAccount;
   onOpenConnectModal: () => void;
   onResetDemo: () => void;
+  userEmail?: string | null;
 }
 
 export function SettingsView({
   account,
   onOpenConnectModal,
   onResetDemo,
+  userEmail,
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
   const [currentPlan, setCurrentPlan] = useState<'FREE' | 'PRO' | 'BUSINESS'>('PRO');
@@ -307,7 +312,9 @@ export function SettingsView({
             <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
               <div>
                 <div className="font-bold text-slate-900">Critical Anomaly Email Notifications</div>
-                <div className="text-[11px] text-slate-500">Send instant alert to zakariaferzazi24.04.2000@gmail.com</div>
+                <div className="text-[11px] text-slate-500">
+                  Send instant alert to {userEmail || 'support@adoptimize.app'}
+                </div>
               </div>
               <input
                 type="checkbox"
@@ -333,28 +340,91 @@ export function SettingsView({
       {/* TAB 5: SECURITY & PRIVACY */}
       {activeTab === 'security' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="pb-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900">Security & Access Management</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Secure OAuth token encryption, zero-credential client policy, and access audits.
-            </p>
+          <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Security &amp; Data Protection</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Bank-grade encryption, zero client-side token exposure, and Google API User Data compliance.
+              </p>
+            </div>
+            <Link
+              href="/privacy-policy"
+              className="text-xs text-emerald-700 font-bold hover:underline inline-flex items-center gap-1 shrink-0"
+            >
+              <span>View Full Privacy Policy</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
-          <div className="space-y-3 text-xs text-slate-700">
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-              <div>
-                <div className="font-bold text-emerald-900">Zero Client-Side Token Exposure</div>
-                <div className="text-emerald-800 mt-0.5">
-                  All Google Ads OAuth refresh tokens and developer keys are stored exclusively in server environment variables. The browser never receives raw tokens.
+          <div className="space-y-4 text-xs text-slate-700">
+            {/* Protection mechanisms */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-emerald-950">Zero Client-Side Token Exposure</div>
+                  <div className="text-emerald-800 mt-0.5 leading-relaxed text-[11px]">
+                    All Google Ads OAuth tokens are held in server-isolated environments. Tokens are never passed to the client browser or stored in localStorage.
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-start gap-3">
+                <Lock className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-slate-900">AES-256 at Rest &amp; TLS 1.3 in Transit</div>
+                  <div className="text-slate-600 mt-0.5 leading-relaxed text-[11px]">
+                    All data in transit is encrypted with TLS 1.3/1.2 over HTTPS. Persistent records and database snapshots use AES-256 cloud encryption.
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Retention and Deletion Card */}
+            <div className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3.5">
+              <div className="flex items-center gap-2 font-bold text-slate-900">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span>Google User Data Retention Schedule</span>
+              </div>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                Google user data (Customer IDs, campaign metrics, keywords, and OAuth tokens) is retained only while your account is actively connected. Inactive or disconnected accounts have their data permanently purged within <strong>30 days</strong>. OAuth access tokens expire automatically every 60 minutes.
+              </p>
+
+              <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="font-bold text-slate-900 text-xs block">User-Initiated Deletion &amp; Disconnect</span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Permanently delete all synced Google Ads campaigns, Customer IDs, and session tokens from AdOptimize.
+                  </span>
+                </div>
+                <button
+                  onClick={onResetDemo}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Google Data &amp; Disconnect</span>
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1 flex-wrap">
+                <span>You can also revoke AdOptimize directly via</span>
+                <a
+                  href="https://myaccount.google.com/permissions"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5"
+                >
+                  <span>Google Account Permissions</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <span>or contact support@adoptimize.app for manual deletion within 48h.</span>
+              </div>
+            </div>
+
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="font-bold text-slate-900">Audit Trail Retention</div>
-              <div className="text-slate-600 mt-0.5">
-                Every optimization execution, approval, and rejection is permanently stored in the change log for compliance and rollback capabilities.
+              <div className="font-bold text-slate-900">Compliance &amp; Limited Use</div>
+              <div className="text-slate-600 mt-0.5 text-[11px] leading-relaxed">
+                AdOptimize adheres to the Google API Services User Data Policy, including the Limited Use requirements. Your advertising data is never sold, never disclosed to competitors, and never used to train public AI models.
               </div>
             </div>
           </div>

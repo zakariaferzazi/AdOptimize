@@ -1312,6 +1312,7 @@ export default function AdOptimizeApp() {
               account={account}
               onOpenConnectModal={() => setShowConnectModal(true)}
               onResetDemo={handleClearAllData}
+              userEmail={user?.email}
             />
           )}
         </main>
