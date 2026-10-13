@@ -64,6 +64,14 @@ export interface Campaign {
   activeAdsCount: number;
   primaryGoal?: CampaignGoal;
   allTimeSpend?: number;
+  allTimeClicks?: number;
+  allTimeImpressions?: number;
+  allTimeConversions?: number;
+  allTimeConversionValue?: number;
+  allTimeCtr?: number;
+  allTimeCpc?: number;
+  allTimeCpa?: number;
+  allTimeRoas?: number;
 }
 
 export interface Keyword {
@@ -261,7 +269,7 @@ export interface ChatMessage {
   };
 }
 
-export type DateRangePeriod = 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'PREVIOUS_PERIOD' | 'CUSTOM';
+export type DateRangePeriod = 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'ALL_TIME' | 'PREVIOUS_PERIOD' | 'CUSTOM';
 
 export interface PlanFeature {
   name: string;

@@ -110,6 +110,8 @@ export async function POST(req: NextRequest) {
       }
 
       const realCampaigns = verification.campaigns || [];
+      const realKeywords = verification.keywords || [];
+      const realSearchTerms = verification.searchTerms || [];
       const accountObj = {
         id: `acc-${cleanId}`,
         clientCustomerId: formattedCid,
@@ -126,7 +128,7 @@ export async function POST(req: NextRequest) {
         monthlySpendCap: Number(monthlySpendCap) || 25000,
         verifiedLive: true,
         verificationNote: `Verified real account with Google Ads API (${realCampaigns.length} campaigns found).`,
-        loginCustomerId: loginCustomerId || (verification as any).loginCustomerIdUsed || undefined,
+        loginCustomerId: loginCustomerId || verification.loginCustomerIdUsed || undefined,
         developerToken: developerToken || undefined,
       };
 
@@ -134,6 +136,9 @@ export async function POST(req: NextRequest) {
         success: true,
         account: accountObj,
         campaigns: realCampaigns,
+        keywords: realKeywords,
+        searchTerms: realSearchTerms,
+        loginCustomerIdUsed: verification.loginCustomerIdUsed,
         message: `Verified Google Ads CID ${formattedCid}. Synchronized ${realCampaigns.length} live campaigns from ads.google.com.`,
       });
     }

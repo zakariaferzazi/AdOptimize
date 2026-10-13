@@ -31,13 +31,13 @@ export interface AdOptimizeState {
   deviceBreakdown: BreakdownItem[];
   locationBreakdown: BreakdownItem[];
   isDemoMode: boolean;
-  selectedPeriod: 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'PREVIOUS_PERIOD' | 'CUSTOM';
+  selectedPeriod: 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'ALL_TIME' | 'PREVIOUS_PERIOD' | 'CUSTOM';
 }
 
 export function getCleanInitialState(accountName?: string, customerId?: string): AdOptimizeState {
   return {
     account: {
-      id: customerId ? `acc-${customerId.replace(/\D/g, '')}` : 'acc-primary',
+      id: customerId ? `acc-${String(customerId || '').replace(/\D/g, '')}` : 'acc-primary',
       clientCustomerId: customerId || 'Not Connected',
       accountName: accountName || 'Google Ads Account',
       currency: 'USD',

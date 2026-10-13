@@ -12,6 +12,7 @@ import { AccountMonitorCard } from '@/components/dashboard/account-monitor-card'
 import { AnomaliesWidget } from '@/components/dashboard/anomalies-widget';
 import { CampaignsTable } from '@/components/dashboard/campaigns-table';
 import { CampaignDetailDrawer } from '@/components/campaigns/campaign-detail-drawer';
+import { CampaignAnalysisPage } from '@/components/campaigns/campaign-analysis-page';
 import { CampaignsFullView } from '@/components/campaigns/campaigns-full-view';
 import { InsightsView } from '@/components/insights/insights-view';
 import { BudgetOptimizerView } from '@/components/optimizer/budget-optimizer-view';
@@ -353,7 +354,9 @@ export default function AdOptimizeApp() {
     selectedPeriod,
   } = state;
 
-  const metrics = computeAccountMetrics(campaigns);
+  const metrics = computeAccountMetrics(campaigns, selectedPeriod);
+  const sevenDayMetrics = computeAccountMetrics(campaigns, 'LAST_7_DAYS');
+  const allTimeMetrics = computeAccountMetrics(campaigns, 'ALL_TIME');
 
   // --- ACTIONS & HANDLERS ---
 
@@ -568,7 +571,7 @@ export default function AdOptimizeApp() {
         (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_dev_token') : undefined) ||
         undefined;
 
-      const cleanCid = newCid.replace(/\D/g, '');
+      const cleanCid = String(newCid || '').replace(/\D/g, '');
       const res = await fetch('/api/google-ads/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -639,7 +642,9 @@ export default function AdOptimizeApp() {
   const handleConnectAccount = async (
     newAccount: GoogleAdsAccount,
     syncedCampaigns?: Campaign[],
-    token?: string | null
+    token?: string | null,
+    syncedKeywords?: Keyword[],
+    syncedSearchTerms?: SearchTerm[]
   ) => {
     if (token) {
       setOauthToken(token);
@@ -664,8 +669,8 @@ export default function AdOptimizeApp() {
       ...prev,
       account: newAccount,
       campaigns: campaignsToSet,
-      keywords: campaignsToSet.length > 0 ? prev.keywords : [],
-      searchTerms: campaignsToSet.length > 0 ? prev.searchTerms : [],
+      keywords: syncedKeywords && syncedKeywords.length > 0 ? syncedKeywords : (campaignsToSet.length > 0 ? prev.keywords : []),
+      searchTerms: syncedSearchTerms && syncedSearchTerms.length > 0 ? syncedSearchTerms : (campaignsToSet.length > 0 ? prev.searchTerms : []),
       insights: campaignsToSet.length > 0 ? prev.insights : [],
       anomalies: campaignsToSet.length > 0 ? prev.anomalies : [],
       isDemoMode: false,
@@ -1287,9 +1292,28 @@ export default function AdOptimizeApp() {
             </div>
           )}
 
-          {/* VIEW: DASHBOARD */}
-          {currentTab === 'dashboard' && (
-            <div className="space-y-6">
+          {/* WHOLE-PAGE VIEW: CAMPAIGN ANALYSIS (Opens in full page, not sidebar) */}
+          {selectedCampaign ? (
+            <CampaignAnalysisPage
+              campaign={selectedCampaign}
+              keywords={keywords}
+              searchTerms={searchTerms}
+              ads={ads}
+              deviceBreakdown={deviceBreakdown}
+              locationBreakdown={locationBreakdown}
+              insights={insights}
+              account={account}
+              onBack={() => setSelectedCampaign(null)}
+              onApplyInsight={handleApplyInsight}
+              onAddNegativeKeyword={handleAddNegativeKeyword}
+              onToggleCampaignStatus={handleToggleCampaignStatus}
+              onSyncCampaign={handleRefreshSync}
+            />
+          ) : (
+            <>
+              {/* VIEW: DASHBOARD */}
+              {currentTab === 'dashboard' && (
+                <div className="space-y-6">
               {/* If no campaigns created yet, show welcoming real setup card */}
               {campaigns.length === 0 && (
                 <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-5 text-center animate-in fade-in duration-200">
@@ -1337,47 +1361,111 @@ export default function AdOptimizeApp() {
                 </div>
               )}
 
+              {/* Performance Telemetry Window Toggle Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-900">Telemetry Period:</span>
+                  <span className="text-slate-500">
+                    {selectedPeriod === 'LAST_7_DAYS'
+                      ? 'Live 7-day active telemetry. Only spend and conversions recorded within the last 7 days.'
+                      : 'Lifetime totals. Cumulative all-time historical performance across all campaigns.'}
+                  </span>
+                </div>
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+                  <button
+                    onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'LAST_7_DAYS' }))}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      selectedPeriod === 'LAST_7_DAYS'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'ALL_TIME' }))}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      selectedPeriod === 'ALL_TIME'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All-Time Lifetime
+                  </button>
+                </div>
+              </div>
+
               {/* Top 3 Metric Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <MetricCard
-                  label="Total Ad Spend (Last 7 Days)"
+                  label={selectedPeriod === 'ALL_TIME' ? 'Total Ad Spend (All-Time Lifetime)' : 'Total Ad Spend (Last 7 Days)'}
                   value={`$${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  changeText={metrics.spend > 0 ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day` : 'No spend in last 7 days'}
+                  changeText={
+                    selectedPeriod === 'ALL_TIME'
+                      ? `All-time spend across ${campaigns.length} campaigns`
+                      : metrics.spend > 0
+                      ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day`
+                      : '0 spend in last 7 days (Campaigns paused or inactive)'
+                  }
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={DollarSign}
                   variant="dark"
                   subContext={
-                    campaigns.some((c) => (c.allTimeSpend || 0) > 0)
-                      ? `All-time spend: $${campaigns.reduce((sum, c) => sum + (c.allTimeSpend || c.spend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                    selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.spend > 0
+                      ? `All-time lifetime spend: $${allTimeMetrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                       : metrics.spend > 0
-                      ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of cap`
+                      ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of monthly cap`
                       : '0 active ad sets'
                   }
                   onClick={() => setCurrentTab('campaigns')}
                 />
 
                 <MetricCard
-                  label="Verified Conversions"
+                  label={selectedPeriod === 'ALL_TIME' ? 'Verified Conversions (All-Time)' : 'Verified Conversions (Last 7 Days)'}
                   value={metrics.conversions.toString()}
-                  changeText={metrics.conversions > 0 ? `Conv. Rate: ${metrics.conversionRate.toFixed(2)}%` : '0 verified conversions'}
+                  changeText={
+                    metrics.conversions > 0
+                      ? `Conv. Rate: ${metrics.conversionRate.toFixed(2)}%`
+                      : selectedPeriod === 'LAST_7_DAYS'
+                      ? '0 conversions in last 7 days'
+                      : '0 all-time conversions'
+                  }
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={Target}
                   variant="light"
-                  subContext={metrics.conversions > 0 ? `${metrics.conversions} goal completions` : 'Awaiting goal conversions'}
+                  subContext={
+                    selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.conversions > 0
+                      ? `All-time conversions: ${allTimeMetrics.conversions}`
+                      : metrics.conversions > 0
+                      ? `${metrics.conversions} goal completions`
+                      : 'Awaiting goal conversions'
+                  }
                   onClick={() => setCurrentTab('campaigns')}
                 />
 
                 <MetricCard
                   label="Account ROAS & Efficiency"
                   value={`${metrics.roas.toFixed(2)}x ROAS`}
-                  changeText={metrics.conversions > 0 ? `$${metrics.cpa.toFixed(2)} Blended CPA` : '0.00x return'}
+                  changeText={
+                    metrics.conversions > 0
+                      ? `$${metrics.cpa.toFixed(2)} Blended CPA`
+                      : metrics.spend > 0
+                      ? '0.00x return (spend with 0 conversions)'
+                      : '0.00x return'
+                  }
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={TrendingUp}
                   variant="light"
-                  subContext={metrics.roas >= 3 ? 'Healthy return' : 'Calculated from conversion value / spend'}
+                  subContext={
+                    metrics.roas >= 3
+                      ? 'Healthy return yield'
+                      : selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.roas > 0
+                      ? `All-time ROAS: ${allTimeMetrics.roas.toFixed(2)}x`
+                      : 'Calculated from conversion value / spend'
+                  }
                   onClick={() => setCurrentTab('insights')}
                 />
               </div>
@@ -1522,24 +1610,10 @@ export default function AdOptimizeApp() {
               userEmail={user?.email}
             />
           )}
+            </>
+          )}
         </main>
       </div>
-
-      {/* Campaign Detail Drawer */}
-      <CampaignDetailDrawer
-        campaign={selectedCampaign}
-        keywords={keywords}
-        searchTerms={searchTerms}
-        ads={ads}
-        deviceBreakdown={deviceBreakdown}
-        locationBreakdown={locationBreakdown}
-        insights={insights}
-        account={account}
-        onClose={() => setSelectedCampaign(null)}
-        onApplyInsight={handleApplyInsight}
-        onAddNegativeKeyword={handleAddNegativeKeyword}
-        onToggleCampaignStatus={handleToggleCampaignStatus}
-      />
 
       {/* AI Marketing Copilot Drawer */}
       <CopilotDrawer

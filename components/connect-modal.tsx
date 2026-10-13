@@ -21,7 +21,13 @@ interface ConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentAccount: GoogleAdsAccount;
-  onConnectAccount: (account: GoogleAdsAccount, syncedCampaigns?: Campaign[], token?: string | null) => void;
+  onConnectAccount: (
+    account: GoogleAdsAccount,
+    syncedCampaigns?: Campaign[],
+    token?: string | null,
+    syncedKeywords?: any[],
+    syncedSearchTerms?: any[]
+  ) => void;
   onApiError?: (issue: {
     message: string;
     cid: string;
@@ -213,7 +219,13 @@ export function ConnectModal({
         }
       }
       setIsLoading(false);
-      onConnectAccount(data.account, data.campaigns || [], tokenToUse);
+      onConnectAccount(
+        data.account,
+        data.campaigns || [],
+        tokenToUse,
+        data.keywords || [],
+        data.searchTerms || []
+      );
       onClose();
     } catch (err: any) {
       setIsLoading(false);

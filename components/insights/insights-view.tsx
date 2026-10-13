@@ -143,7 +143,7 @@ export function InsightsView({
                           : 'bg-slate-100 text-slate-800'
                       }`}
                     >
-                      {item.category.replace('_', ' ')}
+                      {String(item.category || 'OPTIMIZATION').replace(/_/g, ' ')}
                     </span>
 
                     {item.campaignName && (

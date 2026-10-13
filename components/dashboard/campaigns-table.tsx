@@ -303,7 +303,7 @@ export function CampaignsTable({
                     {/* Campaign Type */}
                     <td className="py-3.5 px-3">
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 uppercase tracking-tight">
-                        {(camp.type || 'SEARCH').replace(/_/g, ' ')}
+                        {String(camp.type || 'SEARCH').replace(/_/g, ' ')}
                       </span>
                     </td>
 

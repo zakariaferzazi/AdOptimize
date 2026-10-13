@@ -216,7 +216,7 @@ export function AutomationView({
                         : 'bg-blue-100 text-blue-800 border border-blue-200'
                     }`}
                   >
-                    {rule.category.replace('_', ' ')}
+                    {String(rule.category || 'RULE').replace(/_/g, ' ')}
                   </span>
                   <h4 className="text-sm font-bold text-slate-900 truncate">
                     {rule.name}

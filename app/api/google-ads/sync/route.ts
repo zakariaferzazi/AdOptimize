@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
 
     if (liveResult.success) {
       const realCampaigns = liveResult.campaigns || [];
+      const realKeywords = liveResult.keywords || [];
+      const realSearchTerms = liveResult.searchTerms || [];
       return NextResponse.json({
         success: true,
         lastSyncAt: syncTimestamp,
@@ -58,6 +60,8 @@ export async function POST(req: NextRequest) {
           ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for CID ${formattedCid}.`
           : `Google Ads account ${formattedCid} is connected. No campaigns found in ads.google.com for this CID.`,
         campaigns: realCampaigns,
+        keywords: realKeywords,
+        searchTerms: realSearchTerms,
       });
     }
 

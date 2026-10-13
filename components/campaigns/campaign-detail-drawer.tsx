@@ -101,11 +101,7 @@ export function CampaignDetailDrawer({
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 Daily Budget: ${Number(campaign.budgetDaily || 0).toFixed(2)}/day · Goal:{' '}
-                {campaign.primaryGoal
-                  ? campaign.primaryGoal.replace(/_/g, ' ')
-                  : campaign.type
-                  ? campaign.type.replace(/_/g, ' ')
-                  : 'Maximize Conversions'}
+                {String(campaign.primaryGoal || campaign.type || 'MAXIMIZE_CONVERSIONS').replace(/_/g, ' ')}
               </p>
             </div>
           </div>
@@ -548,7 +544,7 @@ export function CampaignDetailDrawer({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-900">
-                        {ins.category ? ins.category.replace(/_/g, ' ') : 'Optimization'}
+                        {String(ins.category || 'Optimization').replace(/_/g, ' ')}
                       </span>
                       <span className="text-xs font-mono font-bold text-[#00d67d] bg-slate-950 px-2 py-0.5 rounded">
                         {ins.confidence}% Confidence

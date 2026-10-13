@@ -21,11 +21,17 @@ export function PerformanceChart({
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
 
-  // Dynamically compute 7-day time series from active campaigns
+  // Dynamically compute time series based on selected period and active campaigns
   const daysData = useMemo(() => {
     if (!campaigns || campaigns.length === 0) {
       return [];
     }
+
+    const isAllTime = selectedPeriod === 'ALL_TIME';
+    const totalPeriodSpend = campaigns.reduce(
+      (sum, c) => sum + (isAllTime ? Number(c.allTimeSpend ?? c.spend ?? 0) : Number(c.spend || 0)),
+      0
+    );
 
     const today = new Date();
     const result = [];
@@ -42,23 +48,36 @@ export function PerformanceChart({
       let dayClicks = 0;
       let dayImpressions = 0;
 
-      for (const camp of campaigns) {
-        if (camp.historicalPoints && camp.historicalPoints.length > 0) {
-          const pt = camp.historicalPoints.find((p) => p.date === dateStr) || camp.historicalPoints[6 - i];
-          if (pt) {
-            daySpend += Number(pt.spend || 0);
-            dayConversions += Number(pt.conversions || 0);
-            dayConversionValue += Number(pt.spend || 0) * Number(pt.roas || 1);
-            dayClicks += Math.round(Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5));
-            dayImpressions += Math.round(Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5) * 20);
+      // Only calculate if there is actually spend in this period
+      if (totalPeriodSpend > 0) {
+        for (const camp of campaigns) {
+          const campPeriodSpend = isAllTime
+            ? Number(camp.allTimeSpend ?? camp.spend ?? 0)
+            : Number(camp.spend || 0);
+
+          if (campPeriodSpend > 0) {
+            const pt = !isAllTime ? camp.historicalPoints?.find((p) => p.date === dateStr) : undefined;
+            if (pt) {
+              daySpend += Number(pt.spend || 0);
+              dayConversions += Number(pt.conversions || 0);
+              dayConversionValue += Number(pt.spend || 0) * Number(pt.roas || camp.roas || 1);
+              dayClicks += Math.round(Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5));
+              dayImpressions += Math.round((Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5)) * 20);
+            } else {
+              // Evenly distributed daily average for active period
+              const portion = campPeriodSpend / 7;
+              const campConv = isAllTime ? Number(camp.allTimeConversions ?? camp.conversions ?? 0) : Number(camp.conversions || 0);
+              const campVal = isAllTime ? Number(camp.allTimeConversionValue ?? camp.conversionValue ?? 0) : Number(camp.conversionValue || 0);
+              const campClk = isAllTime ? Number(camp.allTimeClicks ?? camp.clicks ?? 0) : Number(camp.clicks || 0);
+              const campImp = isAllTime ? Number(camp.allTimeImpressions ?? camp.impressions ?? 0) : Number(camp.impressions || 0);
+
+              daySpend += portion;
+              dayConversions += Math.round(campConv / 7);
+              dayConversionValue += campVal / 7;
+              dayClicks += Math.round(campClk / 7);
+              dayImpressions += Math.round(campImp / 7);
+            }
           }
-        } else {
-          const portion = (camp.spend || 0) / 7;
-          daySpend += portion;
-          dayConversions += Math.round((camp.conversions || 0) / 7);
-          dayConversionValue += (camp.conversionValue || 0) / 7;
-          dayClicks += Math.round((camp.clicks || 0) / 7);
-          dayImpressions += Math.round((camp.impressions || 0) / 7);
         }
       }
 
@@ -80,7 +99,7 @@ export function PerformanceChart({
     }
 
     return result;
-  }, [campaigns]);
+  }, [campaigns, selectedPeriod]);
 
   // Helper to format values based on metric
   const formatMetricVal = (val: number, metric: ChartMetric) => {
@@ -210,6 +229,8 @@ export function PerformanceChart({
               <span>
                 {selectedPeriod === 'LAST_7_DAYS'
                   ? 'Last 7 days'
+                  : selectedPeriod === 'ALL_TIME'
+                  ? 'All-Time Lifetime'
                   : selectedPeriod === 'LAST_30_DAYS'
                   ? 'Last 30 days'
                   : selectedPeriod === 'TODAY'
@@ -220,11 +241,12 @@ export function PerformanceChart({
             </button>
 
             {showPeriodDropdown && (
-              <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-xl shadow-lg border border-slate-200 p-1 z-30 animate-in fade-in zoom-in-95 duration-75">
+              <div className="absolute right-0 mt-1.5 w-44 bg-white rounded-xl shadow-lg border border-slate-200 p-1 z-30 animate-in fade-in zoom-in-95 duration-75">
                 {[
-                  { id: 'TODAY' as DateRangePeriod, label: 'Today' },
                   { id: 'LAST_7_DAYS' as DateRangePeriod, label: 'Last 7 days' },
+                  { id: 'ALL_TIME' as DateRangePeriod, label: 'All-Time Lifetime' },
                   { id: 'LAST_30_DAYS' as DateRangePeriod, label: 'Last 30 days' },
+                  { id: 'TODAY' as DateRangePeriod, label: 'Today' },
                   { id: 'PREVIOUS_PERIOD' as DateRangePeriod, label: 'Previous period' },
                 ].map((item) => (
                   <button

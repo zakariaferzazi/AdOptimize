@@ -969,14 +969,24 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   }
 ];
 
-export function computeAccountMetrics(campaigns: Campaign[]): PerformanceMetric {
+export function computeAccountMetrics(
+  campaigns: Campaign[],
+  period: 'LAST_7_DAYS' | 'ALL_TIME' | 'TODAY' | 'LAST_30_DAYS' | 'PREVIOUS_PERIOD' | 'CUSTOM' = 'LAST_7_DAYS'
+): PerformanceMetric {
   const totals = campaigns.reduce(
     (acc, c) => {
-      acc.spend += c.spend;
-      acc.impressions += c.impressions;
-      acc.clicks += c.clicks;
-      acc.conversions += c.conversions;
-      acc.conversionValue += c.conversionValue;
+      const isAllTime = period === 'ALL_TIME';
+      const sp = isAllTime ? Number(c.allTimeSpend ?? c.spend ?? 0) : Number(c.spend || 0);
+      const imp = isAllTime ? Number(c.allTimeImpressions ?? c.impressions ?? 0) : Number(c.impressions || 0);
+      const clk = isAllTime ? Number(c.allTimeClicks ?? c.clicks ?? 0) : Number(c.clicks || 0);
+      const conv = isAllTime ? Number(c.allTimeConversions ?? c.conversions ?? 0) : Number(c.conversions || 0);
+      const val = isAllTime ? Number(c.allTimeConversionValue ?? c.conversionValue ?? 0) : Number(c.conversionValue || 0);
+
+      acc.spend += sp;
+      acc.impressions += imp;
+      acc.clicks += clk;
+      acc.conversions += conv;
+      acc.conversionValue += val;
       return acc;
     },
     { spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0 }
@@ -989,15 +999,15 @@ export function computeAccountMetrics(campaigns: Campaign[]): PerformanceMetric 
   const conversionRate = totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : 0;
 
   return {
-    spend: totals.spend,
+    spend: Number(totals.spend.toFixed(2)),
     impressions: totals.impressions,
     clicks: totals.clicks,
     conversions: totals.conversions,
-    conversionValue: totals.conversionValue,
-    ctr,
-    cpc,
-    cpa,
-    roas,
-    conversionRate,
+    conversionValue: Number(totals.conversionValue.toFixed(2)),
+    ctr: Number(ctr.toFixed(2)),
+    cpc: Number(cpc.toFixed(2)),
+    cpa: Number(cpa.toFixed(2)),
+    roas: Number(roas.toFixed(2)),
+    conversionRate: Number(conversionRate.toFixed(2)),
   };
 }

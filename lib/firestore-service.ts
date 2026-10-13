@@ -271,7 +271,7 @@ export async function saveUserAccount(userId: string, account: GoogleAdsAccount)
 // 10. Seed Initial Production Campaigns into Firestore for new user
 export async function seedInitialAccountData(userId: string, customerId: string, accountName: string) {
   const account: GoogleAdsAccount = {
-    id: `acc-${customerId.replace(/\D/g, '')}`,
+    id: `acc-${String(customerId || '').replace(/\D/g, '')}`,
     clientCustomerId: customerId,
     accountName: accountName,
     currency: 'USD',

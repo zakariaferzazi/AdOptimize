@@ -87,7 +87,7 @@ export function AuditLogView({ logs, onRevertLog }: AuditLogViewProps) {
                     {/* Action Type */}
                     <td className="py-3.5 px-3 font-semibold text-slate-700">
                       <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px]">
-                        {log.actionType.replace(/_/g, ' ')}
+                        {String(log.actionType || 'UPDATE').replace(/_/g, ' ')}
                       </span>
                     </td>
 
