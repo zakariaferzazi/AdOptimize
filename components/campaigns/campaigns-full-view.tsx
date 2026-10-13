@@ -246,29 +246,29 @@ export function CampaignsFullView({
                       {/* Type */}
                       <td className="py-3.5 px-3">
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 uppercase">
-                          {c.type.replace('_', ' ')}
+                          {(c.type || 'SEARCH').replace(/_/g, ' ')}
                         </span>
                       </td>
 
                       {/* Daily Budget */}
                       <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
-                        ${c.budgetDaily.toFixed(2)}/d
+                        ${Number(c.budgetDaily || 0).toFixed(2)}/d
                       </td>
 
                       {/* Spend */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                        ${c.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ${Number(c.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Conversions */}
                       <td className="py-3.5 px-3 text-right font-mono font-semibold text-slate-900">
-                        {c.conversions}
+                        {c.conversions || 0}
                       </td>
 
                       {/* CPA */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         <span className={isCritical ? 'text-rose-600 font-bold' : 'text-slate-800'}>
-                          ${c.cpa.toFixed(2)}
+                          ${Number(c.cpa || 0).toFixed(2)}
                         </span>
                       </td>
 
@@ -276,14 +276,14 @@ export function CampaignsFullView({
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         <span
                           className={`px-2 py-0.5 rounded ${
-                            c.roas >= 4.0
+                            Number(c.roas || 0) >= 4.0
                               ? 'bg-emerald-50 text-emerald-700'
-                              : c.roas >= 2.0
+                              : Number(c.roas || 0) >= 2.0
                               ? 'bg-slate-100 text-slate-800'
                               : 'bg-rose-50 text-rose-700'
                           }`}
                         >
-                          {c.roas.toFixed(2)}x
+                          {Number(c.roas || 0).toFixed(2)}x
                         </span>
                       </td>
 

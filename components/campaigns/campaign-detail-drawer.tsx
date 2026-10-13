@@ -100,7 +100,12 @@ export function CampaignDetailDrawer({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Daily Budget: ${campaign.budgetDaily.toFixed(2)}/day · Goal: {campaign.primaryGoal.replace('_', ' ')}
+                Daily Budget: ${Number(campaign.budgetDaily || 0).toFixed(2)}/day · Goal:{' '}
+                {campaign.primaryGoal
+                  ? campaign.primaryGoal.replace(/_/g, ' ')
+                  : campaign.type
+                  ? campaign.type.replace(/_/g, ' ')
+                  : 'Maximize Conversions'}
               </p>
             </div>
           </div>
@@ -170,35 +175,37 @@ export function CampaignDetailDrawer({
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="text-[11px] font-medium text-slate-500">Spend (7d)</div>
+                  <div className="text-[11px] font-medium text-slate-500">Spend (Last 7 Days)</div>
                   <div className="text-lg font-bold text-slate-900 mt-1 font-mono">
-                    ${campaign.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${Number(campaign.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Budget: ${campaign.budgetDaily}/d</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Budget: ${Number(campaign.budgetDaily || 0).toFixed(2)}/d · All-time: ${Number(campaign.allTimeSpend || campaign.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="text-[11px] font-medium text-slate-500">Conversions</div>
+                  <div className="text-[11px] font-medium text-slate-500">Conversions (7d)</div>
                   <div className="text-lg font-bold text-slate-900 mt-1 font-mono">
-                    {campaign.conversions}
+                    {campaign.conversions || 0}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Conv Rate: {campaign.conversionRate}%</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Conv Rate: {Number(campaign.conversionRate || 0).toFixed(2)}%</div>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="text-[11px] font-medium text-slate-500">Actual CPA</div>
+                  <div className="text-[11px] font-medium text-slate-500">Actual CPA (7d)</div>
                   <div className="text-lg font-bold text-slate-900 mt-1 font-mono">
-                    ${campaign.cpa.toFixed(2)}
+                    ${Number(campaign.cpa || 0).toFixed(2)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">CPC: ${campaign.cpc.toFixed(2)}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">CPC: ${Number(campaign.cpc || 0).toFixed(2)}</div>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="text-[11px] font-medium text-slate-500">ROAS</div>
+                  <div className="text-[11px] font-medium text-slate-500">ROAS (7d)</div>
                   <div className="text-lg font-bold text-emerald-600 mt-1 font-mono">
-                    {campaign.roas.toFixed(2)}x
+                    {Number(campaign.roas || 0).toFixed(2)}x
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Value: ${campaign.conversionValue.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Value: ${Number(campaign.conversionValue || 0).toLocaleString()}</div>
                 </div>
               </div>
 
@@ -207,29 +214,36 @@ export function CampaignDetailDrawer({
                 <div>
                   <div className="text-xs text-slate-400 font-medium">AI Health Score</div>
                   <div className="text-2xl font-bold text-white flex items-center gap-2 mt-0.5 font-mono">
-                    <span>{campaign.healthScore}/100</span>
+                    <span>{campaign.healthScore || 85}/100</span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded font-sans font-semibold ${
                         isHealthy ? 'bg-emerald-500/20 text-[#00d67d]' : 'bg-rose-500/20 text-rose-300'
                       }`}
                     >
-                      {campaign.healthStatus}
+                      {campaign.healthStatus || 'HEALTHY'}
                     </span>
                   </div>
                 </div>
 
-                <div className="text-right text-xs text-slate-400">
-                  <div>Previous period CPA: ${campaign.previousPeriod.cpa.toFixed(2)}</div>
-                  <div className="text-[#00d67d] font-semibold mt-0.5">
-                    {campaign.cpa < campaign.previousPeriod.cpa ? 'Efficiency improving' : 'CPA rising'}
+                {campaign.previousPeriod ? (
+                  <div className="text-right text-xs text-slate-400">
+                    <div>Previous period CPA: ${Number(campaign.previousPeriod.cpa || 0).toFixed(2)}</div>
+                    <div className="text-[#00d67d] font-semibold mt-0.5">
+                      {Number(campaign.cpa || 0) < Number(campaign.previousPeriod.cpa || 0) ? 'Efficiency improving' : 'CPA rising'}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="text-right text-xs text-slate-400">
+                    <div>All-time Spend: ${Number(campaign.allTimeSpend || campaign.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div className="text-emerald-400 font-semibold mt-0.5">7-day active telemetry</div>
+                  </div>
+                )}
               </div>
 
               {/* Day-by-Day Historical Breakdown */}
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  Historical Daily Trend
+                  Historical Daily Trend (Last 7 Days)
                 </h4>
                 <div className="border border-slate-100 rounded-2xl overflow-hidden">
                   <table className="w-full text-left text-xs">
@@ -243,15 +257,23 @@ export function CampaignDetailDrawer({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-mono">
-                      {campaign.historicalPoints.map((day, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="py-2 px-3 font-sans font-medium text-slate-700">{day.date}</td>
-                          <td className="py-2 px-3 text-right">${day.spend}</td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-900">{day.conversions}</td>
-                          <td className="py-2 px-3 text-right">${day.cpa.toFixed(2)}</td>
-                          <td className="py-2 px-3 text-right text-emerald-600 font-bold">{day.roas.toFixed(1)}x</td>
+                      {(campaign.historicalPoints && campaign.historicalPoints.length > 0) ? (
+                        campaign.historicalPoints.map((day, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="py-2 px-3 font-sans font-medium text-slate-700">{day.date}</td>
+                            <td className="py-2 px-3 text-right">${Number(day.spend || 0).toFixed(2)}</td>
+                            <td className="py-2 px-3 text-right font-bold text-slate-900">{day.conversions || 0}</td>
+                            <td className="py-2 px-3 text-right">${Number(day.cpa || 0).toFixed(2)}</td>
+                            <td className="py-2 px-3 text-right text-emerald-600 font-bold">{Number(day.roas || 0).toFixed(1)}x</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-4 text-center text-slate-400 font-sans">
+                            No daily spend recorded in the last 7 days.
+                          </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -525,7 +547,9 @@ export function CampaignDetailDrawer({
                     className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">{ins.category.replace('_', ' ')}</span>
+                      <span className="text-xs font-bold text-slate-900">
+                        {ins.category ? ins.category.replace(/_/g, ' ') : 'Optimization'}
+                      </span>
                       <span className="text-xs font-mono font-bold text-[#00d67d] bg-slate-950 px-2 py-0.5 rounded">
                         {ins.confidence}% Confidence
                       </span>

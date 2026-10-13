@@ -303,29 +303,29 @@ export function CampaignsTable({
                     {/* Campaign Type */}
                     <td className="py-3.5 px-3">
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 uppercase tracking-tight">
-                        {camp.type.replace('_', ' ')}
+                        {(camp.type || 'SEARCH').replace(/_/g, ' ')}
                       </span>
                     </td>
 
                     {/* Daily Budget */}
                     <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700 tabular-nums">
-                      ${camp.budgetDaily.toFixed(2)}/d
+                      ${Number(camp.budgetDaily || 0).toFixed(2)}/d
                     </td>
 
                     {/* Spend */}
                     <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                      ${camp.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      ${Number(camp.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
 
                     {/* Conversions */}
                     <td className="py-3.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
-                      {camp.conversions}
+                      {camp.conversions || 0}
                     </td>
 
                     {/* CPA */}
                     <td className="py-3.5 px-3 text-right font-mono font-bold tabular-nums">
                       <span className={isCritical ? 'text-rose-600' : 'text-slate-900'}>
-                        ${camp.cpa.toFixed(2)}
+                        ${Number(camp.cpa || 0).toFixed(2)}
                       </span>
                     </td>
 
@@ -333,14 +333,14 @@ export function CampaignsTable({
                     <td className="py-3.5 px-3 text-right font-mono font-bold tabular-nums">
                       <span
                         className={`px-2 py-0.5 rounded-md text-[11px] ${
-                          camp.roas >= 4.0
+                          Number(camp.roas || 0) >= 4.0
                             ? 'bg-emerald-50 text-emerald-700'
-                            : camp.roas >= 2.0
+                            : Number(camp.roas || 0) >= 2.0
                             ? 'bg-slate-100 text-slate-800'
                             : 'bg-rose-50 text-rose-700'
                         }`}
                       >
-                        {camp.roas.toFixed(2)}x
+                        {Number(camp.roas || 0).toFixed(2)}x
                       </span>
                     </td>
 

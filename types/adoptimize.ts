@@ -54,7 +54,7 @@ export interface Campaign {
   healthScore: number; // 0 to 100
   trendPoints: number[]; // sparkline data
   historicalPoints: { date: string; spend: number; conversions: number; cpa: number; roas: number }[];
-  previousPeriod: {
+  previousPeriod?: {
     spend: number;
     conversions: number;
     cpa: number;
@@ -62,7 +62,8 @@ export interface Campaign {
   };
   keywordsCount: number;
   activeAdsCount: number;
-  primaryGoal: CampaignGoal;
+  primaryGoal?: CampaignGoal;
+  allTimeSpend?: number;
 }
 
 export interface Keyword {

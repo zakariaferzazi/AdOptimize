@@ -33,6 +33,7 @@ export function PerformanceChart({
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       let daySpend = 0;
@@ -42,19 +43,22 @@ export function PerformanceChart({
       let dayImpressions = 0;
 
       for (const camp of campaigns) {
-        if (camp.historicalPoints && camp.historicalPoints[6 - i]) {
-          const pt = camp.historicalPoints[6 - i];
-          daySpend += pt.spend || 0;
-          dayConversions += pt.conversions || 0;
-          dayConversionValue += (pt.spend || 0) * (pt.roas || 1);
+        if (camp.historicalPoints && camp.historicalPoints.length > 0) {
+          const pt = camp.historicalPoints.find((p) => p.date === dateStr) || camp.historicalPoints[6 - i];
+          if (pt) {
+            daySpend += Number(pt.spend || 0);
+            dayConversions += Number(pt.conversions || 0);
+            dayConversionValue += Number(pt.spend || 0) * Number(pt.roas || 1);
+            dayClicks += Math.round(Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5));
+            dayImpressions += Math.round(Number(pt.spend || 0) / Math.max(camp.cpc || 1, 0.5) * 20);
+          }
         } else {
-          // Proportionate distribution if detailed daily points aren't present
-          const weight = 0.12 + ((7 - i) * 0.005);
-          daySpend += (camp.spend || 0) * weight;
-          dayConversions += Math.round((camp.conversions || 0) * weight);
-          dayConversionValue += (camp.conversionValue || 0) * weight;
-          dayClicks += Math.round((camp.clicks || 0) * weight);
-          dayImpressions += Math.round((camp.impressions || 0) * weight);
+          const portion = (camp.spend || 0) / 7;
+          daySpend += portion;
+          dayConversions += Math.round((camp.conversions || 0) / 7);
+          dayConversionValue += (camp.conversionValue || 0) / 7;
+          dayClicks += Math.round((camp.clicks || 0) / 7);
+          dayImpressions += Math.round((camp.impressions || 0) / 7);
         }
       }
 

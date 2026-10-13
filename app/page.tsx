@@ -1340,14 +1340,20 @@ export default function AdOptimizeApp() {
               {/* Top 3 Metric Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <MetricCard
-                  label="Total Ad Spend (7 Days)"
+                  label="Total Ad Spend (Last 7 Days)"
                   value={`$${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  changeText={metrics.spend > 0 ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day` : 'No spend recorded'}
+                  changeText={metrics.spend > 0 ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day` : 'No spend in last 7 days'}
                   isPositiveChange={true}
                   isNegativeBad={false}
                   icon={DollarSign}
                   variant="dark"
-                  subContext={metrics.spend > 0 ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of cap` : '0 active ad sets'}
+                  subContext={
+                    campaigns.some((c) => (c.allTimeSpend || 0) > 0)
+                      ? `All-time spend: $${campaigns.reduce((sum, c) => sum + (c.allTimeSpend || c.spend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                      : metrics.spend > 0
+                      ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of cap`
+                      : '0 active ad sets'
+                  }
                   onClick={() => setCurrentTab('campaigns')}
                 />
 
