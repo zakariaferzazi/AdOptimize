@@ -60,6 +60,12 @@ export function CampaignSyncModal({
               {account.clientCustomerId}
             </span>
           </div>
+          {account.loginCustomerId && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Manager Account (MCC):</span>
+              <span className="font-mono font-bold text-slate-800">{account.loginCustomerId}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
             <span className="text-slate-500 font-medium">Data Source:</span>
             <span className="text-emerald-700 font-semibold flex items-center gap-1">

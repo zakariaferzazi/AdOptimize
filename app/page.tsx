@@ -42,6 +42,7 @@ import {
   Zap,
   AlertTriangle,
   AlertCircle,
+  CheckCircle2,
   X
 } from 'lucide-react';
 import {
@@ -98,7 +99,7 @@ import {
   saveInsightToFirestore,
   saveAnomalyToFirestore
 } from '@/lib/firestore-service';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 export default function AdOptimizeApp() {
   const [state, setState] = useState<AdOptimizeState>(() => getInitialState());
@@ -123,6 +124,7 @@ export default function AdOptimizeApp() {
     severity: 'error' | 'warning';
     statusCode?: number;
     details?: string;
+    accessibleCustomers?: string[];
   } | null>(null);
 
   // Real Firebase Auth state
@@ -402,6 +404,15 @@ export default function AdOptimizeApp() {
 
     setIsSyncing(true);
     try {
+      const loginCustomerIdToUse =
+        account.loginCustomerId ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined) ||
+        undefined;
+      const developerTokenToUse =
+        account.developerToken ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_dev_token') : undefined) ||
+        undefined;
+
       const res = await fetch('/api/google-ads/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -410,6 +421,8 @@ export default function AdOptimizeApp() {
           customerId: account.clientCustomerId,
           accountName: account.accountName,
           accessToken: tokenToUse,
+          loginCustomerId: loginCustomerIdToUse,
+          developerToken: developerTokenToUse,
         }),
       });
       const data = await res.json();
@@ -421,6 +434,9 @@ export default function AdOptimizeApp() {
           cid: account.clientCustomerId,
           timestamp: new Date().toLocaleTimeString(),
           severity: 'error',
+          statusCode: data.statusCode || res.status,
+          details: data.details,
+          accessibleCustomers: data.accessibleCustomers,
         });
         showToast(`API Error: ${errorMsg}`);
         return;
@@ -435,7 +451,12 @@ export default function AdOptimizeApp() {
         syncStatus: 'SYNCED',
         isConnected: true,
         totalCampaignsCount: data.campaigns?.length ?? 0,
+        loginCustomerId: data.loginCustomerIdUsed || account.loginCustomerId,
       };
+
+      if (data.loginCustomerIdUsed && typeof window !== 'undefined') {
+        sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+      }
 
       const newCampaigns: Campaign[] = data.campaigns || [];
       const newKeywords: Keyword[] = data.keywords || [];
@@ -493,6 +514,122 @@ export default function AdOptimizeApp() {
         severity: 'error',
       });
       showToast('Error syncing with Google Ads');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Switch to another Google Account directly via popup
+  const handleSwitchGoogleAccount = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/adwords');
+      provider.addScope('email');
+      provider.addScope('profile');
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken || null;
+      if (token) {
+        setOauthToken(token);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('google_ads_oauth_token', token);
+        }
+      }
+      showToast(`Authenticated as ${result.user.email}. Opening account connector...`);
+      setShowConnectModal(true);
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        showToast(`Sign-in error: ${err.message || 'Cancelled'}`);
+      }
+    }
+  };
+
+  // Switch to one of the user's accessible CIDs and sync
+  const handleSwitchToAccessibleCid = async (newCid: string) => {
+    const tokenToUse =
+      oauthToken ||
+      (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_oauth_token') : null);
+
+    if (!tokenToUse) {
+      setShowConnectModal(true);
+      return;
+    }
+
+    setIsSyncing(true);
+    setApiIssue(null);
+    try {
+      const loginCustomerIdToUse =
+        account.loginCustomerId ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined) ||
+        undefined;
+      const developerTokenToUse =
+        account.developerToken ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_dev_token') : undefined) ||
+        undefined;
+
+      const cleanCid = newCid.replace(/\D/g, '');
+      const res = await fetch('/api/google-ads/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: `acc-${cleanCid}`,
+          customerId: newCid,
+          accountName: `Google Ads (${newCid})`,
+          accessToken: tokenToUse,
+          loginCustomerId: loginCustomerIdToUse,
+          developerToken: developerTokenToUse,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        setApiIssue({
+          message: errorMsg,
+          cid: newCid,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: 'error',
+          statusCode: data.statusCode || res.status,
+          details: data.details,
+          accessibleCustomers: data.accessibleCustomers,
+        });
+        showToast(`API Error: ${errorMsg}`);
+        return;
+      }
+
+      setApiIssue(null);
+      const updatedAccount: GoogleAdsAccount = {
+        ...account,
+        id: `acc-${cleanCid}`,
+        clientCustomerId: newCid,
+        accountName: `Google Ads (${newCid})`,
+        lastSyncAt: data.lastSyncAt || new Date().toISOString(),
+        syncStatus: 'SYNCED',
+        isConnected: true,
+        totalCampaignsCount: data.campaigns?.length ?? 0,
+        loginCustomerId: data.loginCustomerIdUsed || account.loginCustomerId,
+      };
+
+      if (data.loginCustomerIdUsed && typeof window !== 'undefined') {
+        sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+      }
+
+      const newCampaigns: Campaign[] = data.campaigns || [];
+      setState((prev) => ({
+        ...prev,
+        account: updatedAccount,
+        campaigns: newCampaigns,
+        keywords: newCampaigns.length > 0 ? prev.keywords : [],
+        isDemoMode: false,
+      }));
+
+      if (user) {
+        await saveUserAccount(user.uid, updatedAccount);
+      }
+      showToast(`Successfully switched to CID ${newCid} and synchronized ${newCampaigns.length} campaigns!`);
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Failed to switch account'}`);
     } finally {
       setIsSyncing(false);
     }
@@ -1038,20 +1175,78 @@ export default function AdOptimizeApp() {
                         {apiIssue.details}
                       </p>
                     )}
+                    {/* Accessible Customer IDs detected */}
+                    {apiIssue.accessibleCustomers && apiIssue.accessibleCustomers.length > 0 && (
+                      <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-3.5 text-xs text-emerald-950 space-y-2 mt-2 max-w-3xl animate-in fade-in">
+                        <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Accessible Google Ads Accounts for {user?.email || 'this Google login'}:</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800 leading-relaxed">
+                          Your Google login has permissions on the following Customer IDs. Click one to switch immediately:
+                        </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {apiIssue.accessibleCustomers.map((accCid) => (
+                            <button
+                              key={accCid}
+                              onClick={() => handleSwitchToAccessibleCid(accCid)}
+                              disabled={isSyncing}
+                              className="px-3 py-1.5 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-xl font-mono text-xs font-bold text-emerald-950 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            >
+                              <span>{accCid}</span>
+                              <span className="text-[10px] text-emerald-600 font-sans font-bold">↳ Switch &amp; Sync</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {(apiIssue.statusCode === 403 || apiIssue.message.toLowerCase().includes('permission')) && (
-                      <div className="bg-white/90 border border-rose-200 rounded-2xl p-3 text-xs text-rose-950 space-y-1.5 mt-2 max-w-3xl">
-                        <span className="font-bold flex items-center gap-1.5 text-rose-900">
-                          <span>💡 How to fix &quot;The caller does not have permission&quot;:</span>
-                        </span>
-                        <ul className="list-disc pl-4 space-y-1 text-[11px] text-rose-900 leading-normal">
+                      <div className="bg-white/95 border border-rose-200 rounded-2xl p-4 text-xs text-rose-950 space-y-2.5 mt-2 max-w-3xl">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-bold flex items-center gap-1.5 text-rose-900">
+                            <span>💡 Fix &quot;The caller does not have permission&quot;:</span>
+                          </span>
+                          <span className="text-[11px] text-rose-700 font-mono">
+                            Current login: {user?.email || 'Authenticated user'}
+                          </span>
+                        </div>
+
+                        <ul className="list-disc pl-4 space-y-1.5 text-[11px] text-rose-900 leading-normal">
                           <li>
-                            <strong>Account mismatch:</strong> Check that your signed-in Google account matches the account that has permissions on this Google Ads CID. Click <strong>&quot;Change CID&quot;</strong> → <strong>&quot;Switch Account&quot;</strong> to choose another Google account.
+                            <strong>Account mismatch:</strong> Your signed-in Google account (<code>{user?.email || 'current email'}</code>) does not have access to Google Ads CID <code>{apiIssue.cid}</code>.
+                            <div className="pt-1">
+                              <button
+                                onClick={handleSwitchGoogleAccount}
+                                className="px-3 py-1 bg-rose-950 hover:bg-rose-900 text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              >
+                                <span>Switch Google Account</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
                           </li>
                           <li>
-                            <strong>Grant access in Google Ads:</strong> In <a href="https://ads.google.com" target="_blank" rel="noopener noreferrer" className="underline font-bold text-rose-950 hover:text-black">ads.google.com</a>, go to <strong>Tools &amp; Settings → Access and Security</strong>, and verify this email has been invited with Standard or Administrative access.
+                            <strong>Grant access in Google Ads:</strong> In Google Ads, go to{' '}
+                            <a
+                              href="https://ads.google.com/aw/access"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline font-bold text-rose-950 hover:text-black inline-flex items-center gap-0.5"
+                            >
+                              <span>Tools &amp; Settings → Access and Security</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>{' '}
+                            and invite <code>{user?.email || 'this email'}</code> with Standard or Administrative access.
                           </li>
                           <li>
-                            <strong>Managed under MCC:</strong> If your account is accessed via an agency/manager account, click <strong>&quot;Change CID&quot;</strong>, expand <strong>Advanced Settings</strong>, and enter your Manager Account ID as the Login Customer ID.
+                            <strong>Managed under MCC:</strong> If this account is managed under an agency or MCC manager account, open{' '}
+                            <button
+                              onClick={() => setShowConnectModal(true)}
+                              className="underline font-bold text-rose-950 hover:text-black cursor-pointer"
+                            >
+                              Advanced Settings
+                            </button>{' '}
+                            and enter your Manager Account ID as the Login Customer ID.
                           </li>
                         </ul>
                       </div>
@@ -1059,7 +1254,7 @@ export default function AdOptimizeApp() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
                   <button
                     onClick={handleRefreshSync}
                     disabled={isSyncing}
@@ -1069,10 +1264,16 @@ export default function AdOptimizeApp() {
                     <span>Retry Sync</span>
                   </button>
                   <button
-                    onClick={() => setShowConnectModal(true)}
-                    className="px-3.5 py-2 bg-white hover:bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                    onClick={handleSwitchGoogleAccount}
+                    className="px-3 py-2 bg-white hover:bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
-                    Change CID
+                    Switch Account
+                  </button>
+                  <button
+                    onClick={() => setShowConnectModal(true)}
+                    className="px-3 py-2 bg-white hover:bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    Change CID / MCC
                   </button>
                   <button
                     onClick={() => setApiIssue(null)}

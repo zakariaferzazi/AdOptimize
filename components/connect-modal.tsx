@@ -51,9 +51,23 @@ export function ConnectModal({
     currentAccount.accountName || ''
   );
   const [currency, setCurrency] = useState(currentAccount.currency || 'USD');
-  const [loginCustomerId, setLoginCustomerId] = useState('');
-  const [developerToken, setDeveloperToken] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [loginCustomerId, setLoginCustomerId] = useState(() => {
+    if (currentAccount.loginCustomerId) return currentAccount.loginCustomerId;
+    if (typeof window !== 'undefined') return sessionStorage.getItem('google_ads_login_cid') || '';
+    return '';
+  });
+  const [developerToken, setDeveloperToken] = useState(() => {
+    if (currentAccount.developerToken) return currentAccount.developerToken;
+    if (typeof window !== 'undefined') return sessionStorage.getItem('google_ads_dev_token') || '';
+    return '';
+  });
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+    return Boolean(
+      currentAccount.loginCustomerId ||
+      currentAccount.developerToken ||
+      (typeof window !== 'undefined' && (sessionStorage.getItem('google_ads_login_cid') || sessionStorage.getItem('google_ads_dev_token')))
+    );
+  });
   const [accessibleAccounts, setAccessibleAccounts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,6 +204,14 @@ export function ConnectModal({
       }
 
       // 3. Success: Connect and close
+      if (typeof window !== 'undefined') {
+        if (loginCustomerId.trim()) {
+          sessionStorage.setItem('google_ads_login_cid', loginCustomerId.trim());
+        }
+        if (developerToken.trim()) {
+          sessionStorage.setItem('google_ads_dev_token', developerToken.trim());
+        }
+      }
       setIsLoading(false);
       onConnectAccount(data.account, data.campaigns || [], tokenToUse);
       onClose();

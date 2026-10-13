@@ -243,6 +243,8 @@ export interface GoogleAdsAccount {
   monthlySpendCap: number;
   verifiedLive?: boolean;
   connectionType?: 'oauth_api' | 'direct_workspace';
+  loginCustomerId?: string;
+  developerToken?: string;
 }
 
 export interface ChatMessage {

@@ -10,6 +10,8 @@ export interface GoogleAdsApiResult {
   error?: string;
   details?: string;
   statusCode?: number;
+  accessibleCustomers?: string[];
+  loginCustomerIdUsed?: string;
 }
 
 /**
@@ -266,19 +268,58 @@ export async function queryLiveCampaigns(
         body: JSON.stringify({ query: gaqlQuery }),
       });
 
-      // If 403 Permission Denied and login-customer-id wasn't set, try once with cleanCustomerId as login-customer-id
-      if (res.status === 403 && !loginCustomerId) {
-        const retryHeaders = {
-          ...headers,
-          'login-customer-id': cleanCustomerId,
-        };
-        const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
-          method: 'POST',
-          headers: retryHeaders,
-          body: JSON.stringify({ query: gaqlQuery }),
-        });
-        if (retryRes.ok) {
-          res = retryRes;
+      let discoveredLoginCid: string | undefined = undefined;
+      let accessibleList: string[] = [];
+
+      // If 403 Permission Denied:
+      if (res.status === 403) {
+        // Step 1: try once with cleanCustomerId as login-customer-id (if not tried yet)
+        if (!loginCustomerId) {
+          const retryHeaders = {
+            ...headers,
+            'login-customer-id': cleanCustomerId,
+          };
+          const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+            method: 'POST',
+            headers: retryHeaders,
+            body: JSON.stringify({ query: gaqlQuery }),
+          });
+          if (retryRes.ok) {
+            res = retryRes;
+            discoveredLoginCid = cleanCustomerId;
+          }
+        }
+
+        // Step 2: If still 403, query listAccessibleCustomers to discover linked accounts or manager MCCs
+        if (res.status === 403) {
+          try {
+            const listRes = await listAccessibleCustomers(accessToken, developerToken);
+            if (listRes.success && Array.isArray(listRes.customers) && listRes.customers.length > 0) {
+              accessibleList = listRes.customers;
+              // Test each accessible account as a potential Manager Account (MCC)
+              for (const acc of accessibleList.slice(0, 3)) {
+                const cleanAcc = acc.replace(/\D/g, '');
+                if (cleanAcc !== cleanCustomerId && cleanAcc !== loginCustomerId) {
+                  const mccHeaders = {
+                    ...headers,
+                    'login-customer-id': cleanAcc,
+                  };
+                  const mccRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+                    method: 'POST',
+                    headers: mccHeaders,
+                    body: JSON.stringify({ query: gaqlQuery }),
+                  });
+                  if (mccRes.ok) {
+                    res = mccRes;
+                    discoveredLoginCid = acc;
+                    break;
+                  }
+                }
+              }
+            }
+          } catch {
+            // listAccessibleCustomers failed, proceed with error extraction
+          }
         }
       }
 
@@ -301,6 +342,7 @@ export async function queryLiveCampaigns(
           error: errInfo.error,
           details: errInfo.details,
           statusCode: res.status,
+          accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
         };
       }
 
@@ -308,11 +350,20 @@ export async function queryLiveCampaigns(
 
       if (!res.ok) {
         const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        let finalErrorMsg = errInfo.error;
+        if (res.status === 403) {
+          if (accessibleList.length > 0) {
+            finalErrorMsg = `The caller does not have permission for CID ${cleanCustomerId}. Your Google login has access to: ${accessibleList.join(', ')}.`;
+          } else {
+            finalErrorMsg = `The caller does not have permission for CID ${cleanCustomerId}. Check that your signed-in Google account has been granted access in Google Ads (ads.google.com → Tools & Settings → Access and Security) or provide your Manager CID.`;
+          }
+        }
         return {
           success: false,
-          error: errInfo.error,
+          error: finalErrorMsg,
           details: errInfo.details,
           statusCode: res.status,
+          accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
         };
       }
 
@@ -375,6 +426,7 @@ export async function queryLiveCampaigns(
       return {
         success: true,
         campaigns: parsedCampaigns,
+        loginCustomerIdUsed: discoveredLoginCid,
       };
     }
 

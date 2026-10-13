@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
         monthlySpendCap: Number(monthlySpendCap) || 25000,
         verifiedLive: true,
         verificationNote: `Verified real account with Google Ads API (${realCampaigns.length} campaigns found).`,
+        loginCustomerId: loginCustomerId || (verification as any).loginCustomerIdUsed || undefined,
+        developerToken: developerToken || undefined,
       };
 
       return NextResponse.json({
