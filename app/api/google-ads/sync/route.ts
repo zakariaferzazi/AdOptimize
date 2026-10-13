@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
         error: cleanErr,
         details: liveResult.details,
         statusCode: liveResult.statusCode || 400,
+        isAuthExpired: liveResult.statusCode === 401 || liveResult.isAuthExpired,
         cid: formattedCid,
         accessibleCustomers: liveResult.accessibleCustomers || [],
         message: `Google Ads API Error for CID ${formattedCid}: ${cleanErr}`,

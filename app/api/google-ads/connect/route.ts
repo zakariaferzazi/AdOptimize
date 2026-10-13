@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
             error: errorReason,
             details: verification.details,
             statusCode: verification.statusCode || 403,
+            isAuthExpired: verification.statusCode === 401 || verification.isAuthExpired,
             cid: formattedCid,
             accessibleCustomers: verification.accessibleCustomers,
             message: `Google Ads Verification Failed: ${errorReason}`,

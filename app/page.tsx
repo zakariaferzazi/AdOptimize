@@ -72,6 +72,8 @@ import {
 import {
   auth,
   signInWithGoogle,
+  refreshGoogleAdsOAuthToken,
+  getStoredGoogleAdsToken,
   logOut
 } from '@/lib/firebase';
 import {
@@ -126,6 +128,7 @@ export default function AdOptimizeApp() {
     statusCode?: number;
     details?: string;
     accessibleCustomers?: string[];
+    isAuthExpired?: boolean;
   } | null>(null);
 
   // Real Firebase Auth state
@@ -390,19 +393,41 @@ export default function AdOptimizeApp() {
       return;
     }
 
-    const tokenToUse =
-      oauthToken ||
-      (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_oauth_token') : null);
+    // 1. Check token freshness
+    const tokenStatus = getStoredGoogleAdsToken();
+    let tokenToUse = oauthToken || tokenStatus.token;
 
-    if (!tokenToUse) {
-      setApiIssue({
-        message: 'Google OAuth session expired. Please reconnect your Google Ads account to sync live campaigns.',
-        cid: account.clientCustomerId,
-        timestamp: new Date().toLocaleTimeString(),
-        severity: 'warning',
-      });
-      setShowConnectModal(true);
-      return;
+    if (!tokenToUse || tokenStatus.isExpired) {
+      showToast('Refreshing Google Ads OAuth token...');
+      try {
+        const freshToken = await refreshGoogleAdsOAuthToken();
+        if (freshToken) {
+          tokenToUse = freshToken;
+          setOauthToken(freshToken);
+        } else {
+          setApiIssue({
+            message: 'Google OAuth session expired. Please re-authenticate your Google Ads account to sync live campaigns.',
+            cid: account.clientCustomerId,
+            timestamp: new Date().toLocaleTimeString(),
+            severity: 'warning',
+            isAuthExpired: true,
+          });
+          setShowConnectModal(true);
+          return;
+        }
+      } catch (authErr: any) {
+        if (authErr.code !== 'auth/popup-closed-by-user') {
+          setApiIssue({
+            message: 'Google OAuth session expired. Please re-authenticate your Google Ads account.',
+            cid: account.clientCustomerId,
+            timestamp: new Date().toLocaleTimeString(),
+            severity: 'warning',
+            isAuthExpired: true,
+          });
+          setShowConnectModal(true);
+        }
+        return;
+      }
     }
 
     setIsSyncing(true);
@@ -432,16 +457,32 @@ export default function AdOptimizeApp() {
 
       if (!res.ok || !data.success) {
         const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        const isAuthIssue =
+          res.status === 401 ||
+          data.isAuthExpired ||
+          /invalid authentication credentials|Expected OAuth 2 access token|UNAUTHENTICATED/i.test(errorMsg);
+
+        if (isAuthIssue) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('google_ads_oauth_token');
+            sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+          }
+          setOauthToken(null);
+        }
+
         setApiIssue({
-          message: errorMsg,
+          message: isAuthIssue
+            ? 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your credentials.'
+            : errorMsg,
           cid: account.clientCustomerId,
           timestamp: new Date().toLocaleTimeString(),
           severity: 'error',
           statusCode: data.statusCode || res.status,
           details: data.details,
           accessibleCustomers: data.accessibleCustomers,
+          isAuthExpired: isAuthIssue,
         });
-        showToast(`API Error: ${errorMsg}`);
+        showToast(isAuthIssue ? 'Google Ads session expired' : `API Error: ${errorMsg}`);
         return;
       }
 
@@ -545,6 +586,104 @@ export default function AdOptimizeApp() {
       if (err.code !== 'auth/popup-closed-by-user') {
         showToast(`Sign-in error: ${err.message || 'Cancelled'}`);
       }
+    }
+  };
+
+  // 1-Click Re-authenticate and sync immediately
+  const handleReauthenticateAndSync = async () => {
+    setIsSyncing(true);
+    setApiIssue(null);
+    try {
+      showToast('Opening Google sign-in to refresh access token...');
+      const freshToken = await refreshGoogleAdsOAuthToken();
+      if (!freshToken) {
+        showToast('Re-authentication was cancelled.');
+        setIsSyncing(false);
+        return;
+      }
+      setOauthToken(freshToken);
+      showToast('Token refreshed! Syncing live campaigns now...');
+
+      const loginCustomerIdToUse =
+        account.loginCustomerId ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined) ||
+        undefined;
+      const developerTokenToUse =
+        account.developerToken ||
+        (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_dev_token') : undefined) ||
+        undefined;
+
+      const res = await fetch('/api/google-ads/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: account.id,
+          customerId: account.clientCustomerId,
+          accountName: account.accountName,
+          accessToken: freshToken,
+          loginCustomerId: loginCustomerIdToUse,
+          developerToken: developerTokenToUse,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        setApiIssue({
+          message: errorMsg,
+          cid: account.clientCustomerId,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: 'error',
+          statusCode: data.statusCode || res.status,
+          details: data.details,
+          accessibleCustomers: data.accessibleCustomers,
+          isAuthExpired: data.isAuthExpired,
+        });
+        showToast(`API Error: ${errorMsg}`);
+        return;
+      }
+
+      setApiIssue(null);
+      const newCampaigns: Campaign[] = data.campaigns || [];
+      const newKeywords = data.keywords || [];
+      const newSearchTerms = data.searchTerms || [];
+
+      const updatedAccount: GoogleAdsAccount = {
+        ...account,
+        lastSyncAt: data.lastSyncAt || new Date().toISOString(),
+        syncStatus: 'SYNCED',
+        isConnected: true,
+        totalCampaignsCount: newCampaigns.length,
+        isDemo: false,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        account: updatedAccount,
+        campaigns: newCampaigns,
+        keywords: newKeywords.length > 0 ? newKeywords : prev.keywords,
+        searchTerms: newSearchTerms.length > 0 ? newSearchTerms : prev.searchTerms,
+      }));
+
+      if (auth.currentUser) {
+        try {
+          const uid = auth.currentUser.uid;
+          await saveUserAccount(uid, updatedAccount);
+          for (const camp of newCampaigns) {
+            await saveCampaignToFirestore(uid, camp);
+          }
+        } catch (e) {
+          console.warn('Could not save synced account:', e);
+        }
+      }
+
+      showToast(`Synchronized ${newCampaigns.length} live campaigns for ${account.clientCustomerId}!`);
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        showToast(`Re-authentication error: ${err.message || 'Cancelled'}`);
+      }
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -1202,6 +1341,40 @@ export default function AdOptimizeApp() {
                               <span className="text-[10px] text-emerald-600 font-sans font-bold">↳ Switch &amp; Sync</span>
                             </button>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(apiIssue.statusCode === 401 || apiIssue.isAuthExpired || apiIssue.message.toLowerCase().includes('authentication') || apiIssue.message.toLowerCase().includes('oauth')) && (
+                      <div className="bg-white/95 border border-rose-200 rounded-2xl p-4 text-xs text-rose-950 space-y-2.5 mt-2 max-w-3xl">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-bold flex items-center gap-1.5 text-rose-900">
+                            <span>🔑 Resolve Expired Session / Authentication Error:</span>
+                          </span>
+                          <span className="text-[11px] text-rose-700 font-mono">
+                            User: {user?.email || 'Authenticated user'}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-rose-900 leading-relaxed">
+                          Google Ads OAuth access tokens expire periodically for security. Your access token is expired or requires re-authentication with the AdWords scope. Click below to refresh your token and immediately sync your live campaigns:
+                        </p>
+
+                        <div className="pt-1 flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={handleReauthenticateAndSync}
+                            disabled={isSyncing}
+                            className="px-4 py-2 bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
+                            <span>Re-authenticate with Google &amp; Sync Now</span>
+                          </button>
+                          <button
+                            onClick={() => setShowConnectModal(true)}
+                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <span>Open Account Connector</span>
+                          </button>
                         </div>
                       </div>
                     )}

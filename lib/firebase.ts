@@ -44,6 +44,9 @@ function initDb(): Firestore {
 export const db: Firestore = initDb();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/adwords');
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
 
 export enum OperationType {
   CREATE = 'create',
@@ -120,11 +123,34 @@ if (typeof window !== 'undefined') {
   testConnection();
 }
 
+// Token status helper
+export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
+  if (typeof window === 'undefined') return { token: null, isExpired: true };
+  const token = sessionStorage.getItem('google_ads_oauth_token');
+  const timestampStr = sessionStorage.getItem('google_ads_oauth_token_timestamp');
+  if (!token) return { token: null, isExpired: true };
+  if (timestampStr) {
+    const ageMs = Date.now() - parseInt(timestampStr, 10);
+    // Google OAuth access tokens expire after 3600 seconds (60 mins).
+    // Mark as expired after 50 minutes (3000 seconds) so we can proactively renew.
+    if (ageMs > 50 * 60 * 1000) {
+      return { token, isExpired: true };
+    }
+  }
+  return { token, isExpired: false };
+}
+
 // Auth helpers
 export async function signInWithGoogle() {
   try {
     googleProvider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    const token = credential?.accessToken || null;
+    if (token && typeof window !== 'undefined') {
+      sessionStorage.setItem('google_ads_oauth_token', token);
+      sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+    }
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -132,8 +158,38 @@ export async function signInWithGoogle() {
   }
 }
 
+export async function refreshGoogleAdsOAuthToken(): Promise<string | null> {
+  try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('google_ads_oauth_token');
+      sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+    }
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/adwords');
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'consent select_account' });
+
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    const token = credential?.accessToken || null;
+    if (token && typeof window !== 'undefined') {
+      sessionStorage.setItem('google_ads_oauth_token', token);
+      sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+    }
+    return token;
+  } catch (error) {
+    console.error('Error refreshing Google Ads OAuth token:', error);
+    throw error;
+  }
+}
+
 export async function logOut() {
   try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('google_ads_oauth_token');
+      sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+    }
     await signOut(auth);
   } catch (error) {
     console.error('Error signing out:', error);

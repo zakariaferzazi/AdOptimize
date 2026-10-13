@@ -73,11 +73,18 @@ export function CampaignSyncModal({
               <span>Official Google Ads REST API v25</span>
             </span>
           </div>
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
+            <span className="text-slate-500 font-medium">OAuth Session:</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>OAuth 2.0 (Auto-refreshed with AdWords scope)</span>
+            </span>
+          </div>
         </div>
 
         <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 leading-relaxed">
-          Clicking <strong>Sync Campaigns</strong> directly queries Google Ads for CID{' '}
-          <strong>{account.clientCustomerId}</strong>. It pulls all live Search, Performance Max, Display, and Video campaigns (both Enabled and Paused) with their real spend, clicks, conversions, and ROAS.
+          Clicking <strong>Sync Real Campaigns Now</strong> queries Google Ads for CID{' '}
+          <strong>{account.clientCustomerId}</strong>. It pulls all live Search, Performance Max, Display, and Video campaigns with real spend, clicks, conversions, and ROAS. If your token has expired, Google sign-in will renew it automatically.
         </div>
 
         {/* Action buttons */}

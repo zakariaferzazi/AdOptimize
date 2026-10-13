@@ -14,6 +14,7 @@ export interface GoogleAdsApiResult {
   statusCode?: number;
   accessibleCustomers?: string[];
   loginCustomerIdUsed?: string;
+  isAuthExpired?: boolean;
 }
 
 /**
@@ -79,7 +80,23 @@ function cleanHtmlSnippet(raw: string): string {
     .slice(0, 220);
 }
 
-function extractGoogleAdsError(data: any, status: number, rawText: string): { error: string; details?: string } {
+function extractGoogleAdsError(data: any, status: number, rawText: string): { error: string; details?: string; isAuthExpired?: boolean } {
+  // Check for expired or invalid OAuth credentials
+  const isAuthError =
+    status === 401 ||
+    data?.error?.status === 'UNAUTHENTICATED' ||
+    /invalid authentication credentials/i.test(rawText) ||
+    /Expected OAuth 2 access token/i.test(rawText) ||
+    /UNAUTHENTICATED/i.test(rawText);
+
+  if (isAuthError) {
+    return {
+      error: 'Google Ads authorization session expired. Your OAuth access token has expired or is invalid. Please re-authenticate your Google account to refresh your connection.',
+      details: data?.error?.message || 'Request had invalid authentication credentials (HTTP 401)',
+      isAuthExpired: true,
+    };
+  }
+
   if (data?.error) {
     const mainMsg = data.error.message || data.error.status;
     let detailMsg = '';
@@ -180,6 +197,7 @@ export async function listAccessibleCustomers(
           error: errInfo.error,
           details: errInfo.details,
           statusCode: res.status,
+          isAuthExpired: errInfo.isAuthExpired,
         };
       }
 
@@ -192,6 +210,7 @@ export async function listAccessibleCustomers(
           error: errInfo.error,
           details: errInfo.details,
           statusCode: res.status,
+          isAuthExpired: errInfo.isAuthExpired,
         };
       }
 
@@ -345,6 +364,7 @@ export async function queryLiveCampaigns(
           details: errInfo.details,
           statusCode: res.status,
           accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
+          isAuthExpired: errInfo.isAuthExpired,
         };
       }
 
@@ -366,6 +386,7 @@ export async function queryLiveCampaigns(
           details: errInfo.details,
           statusCode: res.status,
           accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
+          isAuthExpired: errInfo.isAuthExpired,
         };
       }
 
@@ -838,6 +859,7 @@ export async function verifyCustomerAccess(
   statusCode?: number;
   details?: string;
   accessibleCustomers?: string[];
+  isAuthExpired?: boolean;
 }> {
   const formattedCid = cleanCustomerId.length === 10
     ? `${cleanCustomerId.slice(0, 3)}-${cleanCustomerId.slice(3, 6)}-${cleanCustomerId.slice(6)}`
@@ -856,8 +878,29 @@ export async function verifyCustomerAccess(
     };
   }
 
+  // Handle immediate 401 auth expiration
+  if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
+    return {
+      accessible: false,
+      reason: liveResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
+      statusCode: 401,
+      isAuthExpired: true,
+      details: liveResult.details || 'OAuth 2 access token expired or invalid',
+    };
+  }
+
   // Second, check listAccessibleCustomers for direct access
   const listResult = await listAccessibleCustomers(accessToken, developerToken, loginCustomerId);
+  if (listResult.statusCode === 401 || listResult.isAuthExpired) {
+    return {
+      accessible: false,
+      reason: listResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
+      statusCode: 401,
+      isAuthExpired: true,
+      details: listResult.details || 'OAuth 2 access token expired or invalid',
+    };
+  }
+
   const foundAccounts = listResult.customers || [];
 
   if (foundAccounts.length > 0) {
@@ -885,6 +928,7 @@ export async function verifyCustomerAccess(
         statusCode: retryResult.statusCode || 200,
         details: retryResult.details,
         accessibleCustomers: foundAccounts,
+        isAuthExpired: retryResult.isAuthExpired,
       };
     }
 
@@ -911,5 +955,6 @@ export async function verifyCustomerAccess(
     reason: liveResult.error || listResult.error || `Customer ID ${formattedCid} not found or not accessible with this Google account.`,
     statusCode: liveResult.statusCode || listResult.statusCode || 400,
     details: liveResult.details || listResult.details,
+    isAuthExpired: liveResult.isAuthExpired || listResult.isAuthExpired,
   };
 }

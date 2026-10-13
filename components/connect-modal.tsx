@@ -13,7 +13,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, getStoredGoogleAdsToken } from '@/lib/firebase';
 import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
 import { GoogleIcon } from '@/components/ui/google-icon';
 
@@ -35,6 +35,8 @@ interface ConnectModalProps {
     severity: 'error' | 'warning';
     statusCode?: number;
     details?: string;
+    isAuthExpired?: boolean;
+    accessibleCustomers?: string[];
   }) => void;
   userEmail?: string | null;
 }
@@ -77,6 +79,7 @@ export function ConnectModal({
   const [accessibleAccounts, setAccessibleAccounts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAuthExpired, setIsAuthExpired] = useState(false);
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('google_ads_oauth_token');
@@ -96,6 +99,7 @@ export function ConnectModal({
   // Format CID nicely as xxx-xxx-xxxx while typing
   const handleCidChange = (val: string) => {
     setErrorMessage(null);
+    setIsAuthExpired(false);
     const digitsOnly = val.replace(/\D/g, '').slice(0, 10);
     let formatted = digitsOnly;
     if (digitsOnly.length > 6) {
@@ -112,7 +116,7 @@ export function ConnectModal({
     provider.addScope('https://www.googleapis.com/auth/adwords');
     provider.addScope('email');
     provider.addScope('profile');
-    provider.setCustomParameters({ prompt: 'select_account' });
+    provider.setCustomParameters({ prompt: 'consent select_account' });
 
     const result = await signInWithPopup(auth, provider);
     setAuthenticatedEmail(result.user.email);
@@ -120,8 +124,10 @@ export function ConnectModal({
     const token = credential?.accessToken || null;
     if (token) {
       setOauthToken(token);
+      setIsAuthExpired(false);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('google_ads_oauth_token', token);
+        sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
       }
     }
     return token;
@@ -131,8 +137,10 @@ export function ConnectModal({
     try {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('google_ads_oauth_token');
+        sessionStorage.removeItem('google_ads_oauth_token_timestamp');
       }
       setOauthToken(null);
+      setIsAuthExpired(false);
       setErrorMessage(null);
       await acquireGoogleOAuthToken();
     } catch (err: any) {
@@ -140,35 +148,9 @@ export function ConnectModal({
     }
   };
 
-  const handleConnectAndSync = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    const cleanCid = customerId.replace(/\D/g, '');
-    if (cleanCid.length !== 10) {
-      setErrorMessage(
-        `Invalid Customer ID: Google Ads CIDs must contain exactly 10 digits (e.g. 123-456-7890). Found ${cleanCid.length} digits.`
-      );
-      return;
-    }
-
-    const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
+  const executeConnect = async (tokenToUse: string, formattedCid: string) => {
     setIsLoading(true);
-
     try {
-      // 1. Ensure real OAuth token
-      let tokenToUse = oauthToken;
-      if (!tokenToUse) {
-        tokenToUse = await acquireGoogleOAuthToken();
-      }
-
-      if (!tokenToUse) {
-        setIsLoading(false);
-        setErrorMessage('Google OAuth authorization was not completed. Please authenticate with your Google Ads account.');
-        return;
-      }
-
-      // 2. Call real Google Ads verify endpoint
       const res = await fetch('/api/google-ads/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,21 +171,43 @@ export function ConnectModal({
       if (!res.ok || !data.success) {
         const errorMsg = data.error || data.message || `Google Ads account ${formattedCid} could not be verified.`;
         setIsLoading(false);
-        setErrorMessage(errorMsg);
+
+        // Detect 401 or token expired error
+        const isAuthIssue =
+          res.status === 401 ||
+          data.isAuthExpired ||
+          /invalid authentication credentials|Expected OAuth 2 access token|UNAUTHENTICATED/i.test(errorMsg);
+
+        if (isAuthIssue) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('google_ads_oauth_token');
+            sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+          }
+          setOauthToken(null);
+          setIsAuthExpired(true);
+          setErrorMessage(
+            'Google Ads authorization session expired. Your OAuth access token has expired or is invalid. Click "Re-authenticate with Google" below to refresh your token.'
+          );
+        } else {
+          setErrorMessage(errorMsg);
+        }
 
         if (Array.isArray(data.accessibleCustomers) && data.accessibleCustomers.length > 0) {
           setAccessibleAccounts(data.accessibleCustomers);
         }
 
-        // Report error to parent page so it renders in the prominent page banner!
         if (onApiError) {
           onApiError({
-            message: errorMsg,
+            message: isAuthIssue
+              ? 'Google Ads authorization session expired. Please re-authenticate your Google account.'
+              : errorMsg,
             cid: formattedCid,
             timestamp: new Date().toLocaleTimeString(),
             severity: 'error',
             statusCode: data.statusCode || res.status,
             details: data.details,
+            isAuthExpired: isAuthIssue,
+            accessibleCustomers: data.accessibleCustomers,
           });
         }
         return;
@@ -237,11 +241,87 @@ export function ConnectModal({
       if (onApiError) {
         onApiError({
           message: errMsg,
-          cid: customerId,
+          cid: formattedCid,
           timestamp: new Date().toLocaleTimeString(),
           severity: 'error',
         });
       }
+    }
+  };
+
+  const handleConnectAndSync = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setIsAuthExpired(false);
+
+    const cleanCid = customerId.replace(/\D/g, '');
+    if (cleanCid.length !== 10) {
+      setErrorMessage(
+        `Invalid Customer ID: Google Ads CIDs must contain exactly 10 digits (e.g. 123-456-7890). Found ${cleanCid.length} digits.`
+      );
+      return;
+    }
+
+    const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
+
+    // 1. Ensure fresh OAuth token
+    const tokenStatus = getStoredGoogleAdsToken();
+    let tokenToUse = oauthToken || tokenStatus.token;
+
+    if (!tokenToUse || tokenStatus.isExpired) {
+      setIsLoading(true);
+      try {
+        tokenToUse = await acquireGoogleOAuthToken();
+      } catch (authErr: any) {
+        setIsLoading(false);
+        setErrorMessage(
+          authErr.code === 'auth/popup-closed-by-user'
+            ? 'Google sign-in popup was closed before completing authorization.'
+            : authErr.message || 'Google authorization was cancelled.'
+        );
+        return;
+      }
+    }
+
+    if (!tokenToUse) {
+      setIsLoading(false);
+      setErrorMessage('Google OAuth authorization was not completed. Please authenticate with your Google Ads account.');
+      return;
+    }
+
+    await executeConnect(tokenToUse, formattedCid);
+  };
+
+  const handleReauthAndRetry = async () => {
+    setErrorMessage(null);
+    setIsAuthExpired(false);
+    setIsLoading(true);
+
+    const cleanCid = customerId.replace(/\D/g, '');
+    const formattedCid = cleanCid.length === 10
+      ? `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`
+      : customerId;
+
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('google_ads_oauth_token');
+        sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+      }
+      setOauthToken(null);
+      const freshToken = await acquireGoogleOAuthToken();
+      if (freshToken) {
+        await executeConnect(freshToken, formattedCid);
+      } else {
+        setIsLoading(false);
+        setErrorMessage('Authentication was not completed.');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(
+        err.code === 'auth/popup-closed-by-user'
+          ? 'Google sign-in popup was closed.'
+          : err.message || 'Re-authentication failed.'
+      );
     }
   };
 
@@ -277,6 +357,22 @@ export function ConnectModal({
             <p className="text-[11px] leading-relaxed pl-6 text-rose-800">
               {errorMessage}
             </p>
+            {(isAuthExpired || errorMessage.toLowerCase().includes('authentication') || errorMessage.toLowerCase().includes('oauth')) && (
+              <div className="mt-2.5 pt-2.5 border-t border-rose-200/80 text-[11px] text-rose-950 space-y-2 pl-6">
+                <p className="font-semibold text-rose-900 leading-snug">
+                  Your Google Ads OAuth session has expired or requires renewal. Re-authenticating will grant a fresh access token:
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReauthAndRetry}
+                  disabled={isLoading}
+                  className="px-3.5 py-1.5 bg-rose-900 hover:bg-rose-950 text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Re-authenticate with Google &amp; Retry</span>
+                </button>
+              </div>
+            )}
             {errorMessage.toLowerCase().includes('permission') && (
               <div className="mt-2 pt-2 border-t border-rose-200/80 text-[11px] text-rose-950 space-y-1 pl-6">
                 <p className="font-bold">How to resolve permission issues:</p>
