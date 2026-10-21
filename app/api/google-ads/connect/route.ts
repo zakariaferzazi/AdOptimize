@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     if (action === 'get_oauth_url') {
       const clientId =
         process.env.GOOGLE_ADS_CLIENT_ID ||
-        '1019046039336-bi6a6loj5gtlhq2b9kno56j4h8nidapt.apps.googleusercontent.com';
+        '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
       const redirectUri = `${process.env.APP_URL || 'http://localhost:3000'}/api/google-ads/oauth-callback`;
       const scope = encodeURIComponent('https://www.googleapis.com/auth/adwords email profile');
       const state = `oauth_state_${Date.now()}`;

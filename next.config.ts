@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  env: {
+    NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID:
+      process.env.GOOGLE_ADS_CLIENT_ID ||
+      process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
+      '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com',
+  },
   // Allow access to remote image placeholder and Google auth avatars.
   images: {
     remotePatterns: [

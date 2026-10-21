@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   X,
@@ -10,6 +10,8 @@ import {
   RefreshCw,
   AlertCircle,
   Lock,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -84,6 +86,12 @@ export function ConnectModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthExpired, setIsAuthExpired] = useState(false);
+  const [originMismatchNotice, setOriginMismatchNotice] = useState(false);
+  const [copiedOrigin, setCopiedOrigin] = useState(false);
+  const [activeClientId, setActiveClientId] = useState(
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
+    '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com'
+  );
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('google_ads_oauth_token');
@@ -97,6 +105,30 @@ export function ConnectModal({
     }
     return null;
   });
+
+  useEffect(() => {
+    fetch('/api/google-ads/config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.clientId) {
+          setActiveClientId(data.clientId);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const currentOrigin =
+    typeof window !== 'undefined' && window.location.origin
+      ? window.location.origin
+      : 'https://adoptimize.app';
+
+  const copyOriginToClipboard = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(currentOrigin);
+      setCopiedOrigin(true);
+      setTimeout(() => setCopiedOrigin(false), 2500);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -115,38 +147,81 @@ export function ConnectModal({
   };
 
   // Google OAuth authorization handler using Google Identity Services (GIS) Token Model
-  // This client-side flow uses response_type=token (no offline refresh token request)
-  const acquireGoogleOAuthToken = async (): Promise<string | null> => {
-    try {
-      const token = await requestGoogleAdsAccessToken(authenticatedEmail || undefined);
-      if (token) {
-        setOauthToken(token);
-        setIsAuthExpired(false);
-        return token;
-      }
-    } catch (gisErr: any) {
-      console.warn('GIS Token Client notice:', gisErr?.message || gisErr);
-      if (gisErr?.message?.includes('closed') || gisErr?.message?.includes('popup') || gisErr?.message?.includes('cancelled')) {
-        throw gisErr;
+  // with seamless fallback to Firebase Auth popup (with AdWords scope) if origin mismatch or popup issues occur
+  const acquireGoogleOAuthToken = async (preferredMethod?: 'gis' | 'firebase'): Promise<string | null> => {
+    // 1. Try official Google Identity Services first (unless specifically requesting firebase)
+    if (preferredMethod !== 'firebase') {
+      try {
+        const token = await requestGoogleAdsAccessToken(authenticatedEmail || undefined);
+        if (token) {
+          setOauthToken(token);
+          setIsAuthExpired(false);
+          setOriginMismatchNotice(false);
+          return token;
+        }
+      } catch (gisErr: any) {
+        console.warn('Google Identity Services notice:', gisErr?.message || gisErr);
+        // If GIS was closed, or failed with origin error
+        if (typeof window !== 'undefined' && (window.location.origin.includes('adoptimize.app') || window.location.hostname !== 'localhost')) {
+          setOriginMismatchNotice(true);
+        }
       }
     }
 
-    // Graceful fallback to Firebase provider if GIS was blocked
-    const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/adwords');
-    const result = await signInWithPopup(auth, provider);
-    setAuthenticatedEmail(result.user.email);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential?.accessToken || null;
-    if (token) {
-      setOauthToken(token);
-      setIsAuthExpired(false);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('google_ads_oauth_token', token);
-        sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+    // 2. Seamless fallback to Firebase Auth popup (uses firebaseapp.com authorized OAuth handler)
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/adwords');
+      if (authenticatedEmail) {
+        provider.setCustomParameters({ login_hint: authenticatedEmail });
       }
+      const result = await signInWithPopup(auth, provider);
+      setAuthenticatedEmail(result.user.email);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken || null;
+      if (token) {
+        setOauthToken(token);
+        setIsAuthExpired(false);
+        setOriginMismatchNotice(false);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('google_ads_oauth_token', token);
+          sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+        }
+        return token;
+      }
+    } catch (fbErr: any) {
+      console.warn('Firebase Google Auth notice:', fbErr);
+      if (fbErr.code === 'auth/popup-closed-by-user') {
+        if (typeof window !== 'undefined' && (window.location.origin.includes('adoptimize.app') || window.location.hostname !== 'localhost')) {
+          setOriginMismatchNotice(true);
+        }
+        throw new Error('Google authorization window was closed. If you saw "Error 400: origin_mismatch", register your origin in Google Cloud Console or click "Try Alternate Google Auth Flow" below.');
+      }
+      throw fbErr;
     }
-    return token;
+
+    return null;
+  };
+
+  const handleConnectViaAlternateAuth = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const token = await acquireGoogleOAuthToken('firebase');
+      if (token) {
+        setIsLoading(false);
+        const cleanCid = customerId.replace(/\D/g, '');
+        if (cleanCid.length === 10) {
+          const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
+          await executeConnect(token, formattedCid);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err.message || 'Authorization failed.');
+    }
   };
 
   const handleSwitchGoogleAccount = async () => {
@@ -358,8 +433,75 @@ export function ConnectModal({
           </button>
         </div>
 
+        {/* Origin mismatch / Authorized JavaScript Origins Guide */}
+        {(originMismatchNotice || (errorMessage && /origin_mismatch|origin mismatch|origin=/i.test(errorMessage))) && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-3 animate-in fade-in">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Authorized JavaScript Origin Required</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOriginMismatchNotice(false)}
+                className="text-amber-600 hover:text-amber-950 text-xs cursor-pointer p-0.5"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-900">
+              Google OAuth requires your website domain to be registered under <strong>Authorized JavaScript origins</strong> for your OAuth 2.0 Client ID.
+            </p>
+            <div className="bg-white/90 p-3 rounded-xl border border-amber-200 space-y-2 text-[11px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-600 font-medium">Domain to add:</span>
+                <div className="flex items-center gap-1.5">
+                  <code className="bg-slate-100 px-2.5 py-1 rounded-lg font-mono font-bold text-slate-900 text-xs select-all">
+                    {currentOrigin}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyOriginToClipboard}
+                    className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    {copiedOrigin ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedOrigin ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                <span>OAuth Client ID:</span>
+                <code className="font-mono text-slate-700 truncate max-w-[240px]" title={activeClientId}>
+                  {activeClientId}
+                </code>
+              </div>
+            </div>
+            <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 bg-amber-950 hover:bg-black text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <span>Add Origin in Google Cloud Console</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <button
+                type="button"
+                onClick={handleConnectViaAlternateAuth}
+                disabled={isLoading}
+                className="px-3.5 py-2 bg-white hover:bg-amber-100 border border-amber-300 text-amber-950 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Try Alternate Google Auth Flow</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error notification in modal */}
-        {errorMessage && (
+        {errorMessage && !errorMessage.toLowerCase().includes('origin_mismatch') && (
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-2 animate-in fade-in">
             <div className="flex items-start gap-2 font-bold text-rose-950">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />

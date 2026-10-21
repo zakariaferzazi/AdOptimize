@@ -1,10 +1,33 @@
 import firebaseConfig from '@/firebase-applet-config.json';
 
 const GOOGLE_ADS_SCOPE = 'https://www.googleapis.com/auth/adwords';
-const DEFAULT_CLIENT_ID =
+export const DEFAULT_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
-  firebaseConfig.oAuthClientId ||
-  '1019046039336-bi6a6loj5gtlhq2b9kno56j4h8nidapt.apps.googleusercontent.com';
+  '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
+
+let cachedClientId: string | null = null;
+
+export async function getGoogleAdsClientId(): Promise<string> {
+  if (cachedClientId) return cachedClientId;
+  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID) {
+    cachedClientId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID;
+    return cachedClientId;
+  }
+  try {
+    const res = await fetch('/api/google-ads/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.clientId) {
+        cachedClientId = data.clientId;
+        return data.clientId;
+      }
+    }
+  } catch {
+    // Fall back to default
+  }
+  cachedClientId = DEFAULT_CLIENT_ID;
+  return DEFAULT_CLIENT_ID;
+}
 
 declare global {
   interface Window {
@@ -74,10 +97,12 @@ export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<s
     throw new Error('Google Identity Services library could not be initialized.');
   }
 
+  const activeClientId = await getGoogleAdsClientId();
+
   return new Promise((resolve, reject) => {
     try {
       const client = window.google!.accounts.oauth2.initTokenClient({
-        client_id: DEFAULT_CLIENT_ID,
+        client_id: activeClientId,
         scope: GOOGLE_ADS_SCOPE,
         callback: (response) => {
           if (response.error) {
