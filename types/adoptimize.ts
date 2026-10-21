@@ -243,13 +243,13 @@ export interface GoogleAdsAccount {
   clientCustomerId: string;
   accountName: string;
   currency: string;
-  timezone: string;
+  timezone?: string;
   isConnected: boolean;
   lastSyncAt: string;
   syncStatus: 'SYNCED' | 'SYNCING' | 'ERROR' | 'IDLE';
   isDemo: boolean;
   totalCampaignsCount: number;
-  monthlySpendCap: number;
+  monthlySpendCap?: number;
   verifiedLive?: boolean;
   connectionType?: 'oauth_api' | 'direct_workspace';
   loginCustomerId?: string;
