@@ -4,19 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   X,
-  ShieldCheck,
   CheckCircle2,
   ExternalLink,
   RefreshCw,
   AlertCircle,
-  Lock,
-  Copy,
-  Check,
 } from 'lucide-react';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import {
-  requestGoogleAdsAccessToken,
+  acquireGoogleAdsToken,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
 } from '@/lib/google-identity';
@@ -86,12 +80,6 @@ export function ConnectModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthExpired, setIsAuthExpired] = useState(false);
-  const [originMismatchNotice, setOriginMismatchNotice] = useState(false);
-  const [copiedOrigin, setCopiedOrigin] = useState(false);
-  const [activeClientId, setActiveClientId] = useState(
-    process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
-    '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com'
-  );
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('google_ads_oauth_token');
@@ -100,40 +88,8 @@ export function ConnectModal({
   });
   const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(() => {
     if (userEmail) return userEmail;
-    if (typeof window !== 'undefined' && auth.currentUser?.email) {
-      return auth.currentUser.email;
-    }
     return null;
   });
-
-  useEffect(() => {
-    fetch('/api/google-ads/config')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.clientId) {
-          setActiveClientId(data.clientId);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const currentOrigin =
-    typeof window !== 'undefined' && window.location.origin
-      ? window.location.origin
-      : 'https://adoptimize.app';
-
-  const isPreviewOrigin =
-    typeof window !== 'undefined' &&
-    Boolean(window.location.origin) &&
-    window.location.origin !== 'https://adoptimize.app';
-
-  const copyOriginToClipboard = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(currentOrigin);
-      setCopiedOrigin(true);
-      setTimeout(() => setCopiedOrigin(false), 2500);
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -151,85 +107,23 @@ export function ConnectModal({
     setCustomerId(formatted);
   };
 
-  // Google OAuth authorization handler using Google Identity Services (GIS) Token Model
-  // with seamless fallback to Firebase Auth popup (with AdWords scope) if origin mismatch or popup issues occur
-  const acquireGoogleOAuthToken = async (preferredMethod?: 'gis' | 'firebase'): Promise<string | null> => {
-    const methodToUse = preferredMethod || (isPreviewOrigin ? 'firebase' : 'gis');
-
-    // 1. Try official Google Identity Services first if requested or on production
-    if (methodToUse === 'gis') {
-      try {
-        const token = await requestGoogleAdsAccessToken(authenticatedEmail || undefined);
-        if (token) {
-          setOauthToken(token);
-          setIsAuthExpired(false);
-          setOriginMismatchNotice(false);
-          return token;
-        }
-      } catch (gisErr: any) {
-        console.warn('Google Identity Services notice:', gisErr?.message || gisErr);
-        setOriginMismatchNotice(true);
-        // Seamlessly continue to Firebase Auth fallback below
-      }
-    }
-
-    // 2. Seamless fallback to Firebase Auth popup (uses authorized firebaseapp.com OAuth handler)
-    // This completely circumvents Error 400: origin_mismatch on preview environments!
+  // Google OAuth authorization handler
+  const acquireGoogleOAuthToken = async (): Promise<string | null> => {
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/adwords');
-      if (authenticatedEmail) {
-        provider.setCustomParameters({ login_hint: authenticatedEmail });
-      }
-      const result = await signInWithPopup(auth, provider);
-      setAuthenticatedEmail(result.user.email);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken || null;
+      const token = await acquireGoogleAdsToken({ emailHint: authenticatedEmail || undefined });
       if (token) {
         setOauthToken(token);
         setIsAuthExpired(false);
-        setOriginMismatchNotice(false);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('google_ads_oauth_token', token);
-          sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-        }
         return token;
       }
-    } catch (fbErr: any) {
-      console.warn('Firebase Google Auth notice:', fbErr);
-      if (fbErr.code === 'auth/popup-closed-by-user') {
-        if (isPreviewOrigin) {
-          setOriginMismatchNotice(true);
-        }
-        throw new Error(
-          'Google authorization window was closed. To connect, approve the Google permissions popup or add your preview origin in Google Cloud Console.'
-        );
-      }
-      throw fbErr;
-    }
-
-    return null;
-  };
-
-  const handleConnectViaAlternateAuth = async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const token = await acquireGoogleOAuthToken('firebase');
-      if (token) {
-        setIsLoading(false);
-        const cleanCid = customerId.replace(/\D/g, '');
-        if (cleanCid.length === 10) {
-          const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
-          await executeConnect(token, formattedCid);
-        }
-      } else {
-        setIsLoading(false);
-      }
     } catch (err: any) {
-      setIsLoading(false);
-      setErrorMessage(err.message || 'Authorization failed.');
+      console.warn('Google authorization notice:', err?.message || err);
+      if (err.message && err.message.includes('closed')) {
+        throw new Error('Google authorization window was closed.');
+      }
+      throw err;
     }
+    return null;
   };
 
   const handleSwitchGoogleAccount = async () => {
@@ -441,78 +335,8 @@ export function ConnectModal({
           </button>
         </div>
 
-        {/* Origin mismatch / Authorized JavaScript Origins Guide */}
-        {(isPreviewOrigin || originMismatchNotice || (errorMessage && /origin_mismatch|origin mismatch|origin=/i.test(errorMessage))) && (
-          <div className="p-4 bg-amber-50/95 border-2 border-amber-300 rounded-2xl text-xs text-amber-950 space-y-3 animate-in fade-in">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 font-bold text-amber-950">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Preview Domain Detected — Google OAuth Origin Notice</span>
-              </div>
-              {originMismatchNotice && (
-                <button
-                  type="button"
-                  onClick={() => setOriginMismatchNotice(false)}
-                  className="text-amber-600 hover:text-amber-950 text-xs cursor-pointer p-0.5"
-                  title="Dismiss"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <p className="text-[11px] leading-relaxed text-amber-900">
-              Your Google Cloud Console OAuth Client (<strong>Web client 2</strong>, Project <code>1019046039336</code>) has <strong>https://adoptimize.app</strong> registered under Authorized JavaScript origins.
-              Because you are accessing the app from this preview URL, Google will return <code className="font-bold text-amber-950">Error 400: origin_mismatch</code> with standard popup.
-            </p>
-            <div className="bg-white/95 p-3 rounded-xl border border-amber-200 space-y-2 text-[11px]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-600 font-medium">Your current preview origin:</span>
-                <div className="flex items-center gap-1.5">
-                  <code className="bg-slate-100 px-2.5 py-1 rounded-lg font-mono font-bold text-slate-900 text-xs select-all">
-                    {currentOrigin}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={copyOriginToClipboard}
-                    className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    {copiedOrigin ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedOrigin ? 'Copied' : 'Copy URI'}</span>
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
-                <span>OAuth 2.0 Client ID:</span>
-                <code className="font-mono text-slate-700 truncate max-w-[240px]" title={activeClientId}>
-                  {activeClientId}
-                </code>
-              </div>
-            </div>
-            <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={handleConnectViaAlternateAuth}
-                disabled={isLoading}
-                className="px-3.5 py-2 bg-[#00d67d] hover:bg-[#00c070] text-slate-950 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              >
-                <ShieldCheck className="w-4 h-4 text-slate-950" />
-                <span>Authorize via Firebase Flow (Instant, No Origin Error)</span>
-              </button>
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <span>Add URI in Google Cloud Console</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
-        )}
-
         {/* Error notification in modal */}
-        {errorMessage && !errorMessage.toLowerCase().includes('origin_mismatch') && (
+        {errorMessage && (
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-2 animate-in fade-in">
             <div className="flex items-start gap-2 font-bold text-rose-950">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -760,25 +584,13 @@ export function ConnectModal({
             >
               Cancel
             </button>
-            {isPreviewOrigin && (
-              <button
-                type="button"
-                onClick={handleConnectViaAlternateAuth}
-                disabled={isLoading || !customerId.trim()}
-                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Bypasses origin mismatch using pre-authorized Firebase auth handler"
-              >
-                <ShieldCheck className="w-4 h-4 text-slate-950" />
-                <span>Connect via Firebase Flow</span>
-              </button>
-            )}
             <button
               type="submit"
               disabled={isLoading || !customerId.trim()}
               className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Connecting to Google Ads...' : isPreviewOrigin ? 'Connect (Standard OAuth)' : 'Authorize & Connect Google Ads'}</span>
+              <span>{isLoading ? 'Connecting to Google Ads...' : 'Authorize & Connect Google Ads'}</span>
             </button>
           </div>
         </form>

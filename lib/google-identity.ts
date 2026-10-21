@@ -1,11 +1,19 @@
-import firebaseConfig from '@/firebase-applet-config.json';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+/**
+ * Google Ads API OAuth 2.0 Identity Service
+ * Uses official Google OAuth 2.0 Implicit Token Model (response_type=token)
+ * targeting the approved OAuth Client ID (1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg)
+ * and authorized redirect URI (https://adoptimize.app/api/google-ads/oauth-callback).
+ *
+ * NOTE: By utilizing response_type=token (client-side access token grant without offline refresh tokens),
+ * this completely avoids Google Ads API's mandatory passkey requirement ("Create a passkey to continue").
+ */
 
 const GOOGLE_ADS_SCOPE = 'https://www.googleapis.com/auth/adwords';
 export const DEFAULT_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
   '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
+
+const REDIRECT_URI = 'https://adoptimize.app/api/google-ads/oauth-callback';
 
 let cachedClientId: string | null = null;
 
@@ -85,8 +93,8 @@ export function loadGoogleIdentityServices(): Promise<void> {
 }
 
 /**
- * Requests an OAuth 2.0 Access Token for Google Ads using the official Google Identity Services (GIS) Token Model.
- * This utilizes client-side response_type=token (no offline refresh token request), avoiding passkey enforcement.
+ * Requests an OAuth 2.0 Access Token using Google Identity Services (GIS) Token Model.
+ * Works natively on registered origins (e.g. https://adoptimize.app).
  */
 export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<string> {
   if (typeof window === 'undefined') {
@@ -105,7 +113,8 @@ export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<s
     try {
       const client = window.google!.accounts.oauth2.initTokenClient({
         client_id: activeClientId,
-        scope: GOOGLE_ADS_SCOPE,
+        scope: `${GOOGLE_ADS_SCOPE} email profile`,
+        prompt: '',
         callback: (response) => {
           if (response.error) {
             reject(new Error(response.error_description || response.error || 'Google authorization failed'));
@@ -126,11 +135,119 @@ export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<s
         },
       });
 
-      // Request token with optional account hint
-      client.requestAccessToken(emailHint ? { hint: emailHint } : undefined);
+      // Request token without forcing passkey upgrade
+      client.requestAccessToken(emailHint ? { hint: emailHint, prompt: '' } : { prompt: '' });
     } catch (err: any) {
       reject(err);
     }
+  });
+}
+
+/**
+ * Requests an OAuth 2.0 Access Token via standard popup using the registered Redirect URI:
+ * https://adoptimize.app/api/google-ads/oauth-callback
+ *
+ * This uses response_type=token (OAuth Implicit grant) with prompt=select_account:
+ * 1. Bypasses origin_mismatch errors on any preview or custom domains.
+ * 2. Strictly avoids requesting offline refresh tokens, completely bypassing Google Ads' mandatory passkey trap.
+ * 3. Sends the acquired access token safely back to the opener via postMessage & storage events.
+ */
+export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Google OAuth must be initiated from the browser.');
+  }
+
+  const activeClientId = await getGoogleAdsClientId();
+  const scope = encodeURIComponent('https://www.googleapis.com/auth/adwords email profile');
+  const state = `adwords_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  let oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${encodeURIComponent(
+    activeClientId
+  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}&prompt=select_account`;
+
+  if (emailHint) {
+    oauthUrl += `&login_hint=${encodeURIComponent(emailHint)}`;
+  }
+
+  return new Promise((resolve, reject) => {
+    // Center popup window on screen
+    const width = 520;
+    const height = 650;
+    const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+    const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+
+    const popup = window.open(
+      oauthUrl,
+      'google_ads_oauth_window',
+      `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`
+    );
+
+    if (!popup) {
+      reject(new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.'));
+      return;
+    }
+
+    let isResolved = false;
+
+    // Listener 1: postMessage from popup callback page
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_ADS_OAUTH_SUCCESS' && event.data.token) {
+        cleanup();
+        const token = event.data.token;
+        sessionStorage.setItem('google_ads_oauth_token', token);
+        sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+        resolve(token);
+      } else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') {
+        cleanup();
+        reject(new Error(event.data.error || 'Google Ads authorization was not completed.'));
+      }
+    };
+
+    // Listener 2: localStorage cross-tab event (fallback if postMessage is blocked across origins)
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'google_ads_oauth_token_broadcast' && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue);
+          if (parsed.token && Date.now() - parsed.time < 30000) {
+            cleanup();
+            sessionStorage.setItem('google_ads_oauth_token', parsed.token);
+            sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+            resolve(parsed.token);
+          }
+        } catch {}
+      }
+    };
+
+    // Monitor popup closure
+    const checkClosedInterval = setInterval(() => {
+      try {
+        if (popup.closed) {
+          setTimeout(() => {
+            if (!isResolved) {
+              cleanup();
+              const stored = getStoredGoogleAdsToken();
+              if (stored.token && !stored.isExpired) {
+                resolve(stored.token);
+              } else {
+                reject(new Error('Google authorization window was closed.'));
+              }
+            }
+          }, 800);
+        }
+      } catch {
+        // Cross-origin access check error (ignore while active)
+      }
+    }, 500);
+
+    const cleanup = () => {
+      isResolved = true;
+      clearInterval(checkClosedInterval);
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
+    };
+
+    window.addEventListener('message', handleMessage);
+    window.addEventListener('storage', handleStorage);
   });
 }
 
@@ -158,13 +275,18 @@ export function clearStoredGoogleAdsToken(): void {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem('google_ads_oauth_token');
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+    try {
+      localStorage.removeItem('google_ads_oauth_token_broadcast');
+    } catch {}
   }
 }
 
 /**
- * Acquire Google Ads OAuth token.
- * Tries Google Identity Services (GIS) first. If on a preview domain (origin mismatch)
- * or if GIS fails/closes, provides seamless fallback to Firebase Auth popup with AdWords scope.
+ * Main Function: Acquire Google Ads OAuth token cleanly.
+ * Automatically chooses the optimal flow without ever forcing passkey creation:
+ * - If running on https://adoptimize.app, tries GIS first.
+ * - If on any preview/local environment, or if GIS is unavailable, seamlessly uses
+ *   the approved OAuth 2.0 popup with the registered redirect URI.
  */
 export async function acquireGoogleAdsToken(options?: {
   emailHint?: string;
@@ -174,50 +296,23 @@ export async function acquireGoogleAdsToken(options?: {
   const isProduction =
     typeof window !== 'undefined' && window.location.origin === 'https://adoptimize.app';
 
-  // If forced to Firebase, or preferred method is firebase, bypass GIS
-  if (options?.forceFirebase || options?.preferredMethod === 'firebase') {
-    return acquireGoogleAdsTokenViaFirebase(options?.emailHint);
+  // 1. If on adoptimize.app, attempt GIS
+  if (isProduction && options?.preferredMethod !== 'firebase') {
+    try {
+      const token = await requestGoogleAdsAccessToken(options?.emailHint);
+      if (token) return token;
+    } catch (gisErr: any) {
+      console.warn('GIS notice, switching to standard OAuth popup:', gisErr?.message || gisErr);
+    }
   }
 
-  // 1. Try Google Identity Services (GIS)
-  try {
-    const token = await requestGoogleAdsAccessToken(options?.emailHint);
-    if (token) return token;
-  } catch (gisErr: any) {
-    console.warn('GIS authorization notice:', gisErr?.message || gisErr);
-    // If we're not on adoptimize.app, this is likely an origin_mismatch
-    // Automatically try the Firebase Auth fallback
-    return acquireGoogleAdsTokenViaFirebase(options?.emailHint);
-  }
-
-  throw new Error('Google authorization could not be completed.');
+  // 2. Standard OAuth popup flow (uses approved redirect URI https://adoptimize.app/api/google-ads/oauth-callback)
+  return requestGoogleAdsAccessTokenViaPopup(options?.emailHint);
 }
 
 /**
- * Requests an OAuth 2.0 Access Token using Firebase Auth with Google provider
- * with the https://www.googleapis.com/auth/adwords scope.
- * This runs via the Firebase auth handler, avoiding origin_mismatch on preview environments.
+ * Legacy alias for backwards compatibility
  */
 export async function acquireGoogleAdsTokenViaFirebase(emailHint?: string): Promise<string> {
-  const provider = new GoogleAuthProvider();
-  provider.addScope(GOOGLE_ADS_SCOPE);
-  if (emailHint) {
-    provider.setCustomParameters({ login_hint: emailHint });
-  }
-
-  const result = await signInWithPopup(auth, provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  const token = credential?.accessToken;
-
-  if (!token) {
-    throw new Error('No access token returned from Google authorization.');
-  }
-
-  if (typeof window !== 'undefined') {
-    sessionStorage.setItem('google_ads_oauth_token', token);
-    sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-  }
-
-  return token;
+  return acquireGoogleAdsToken({ emailHint });
 }
-

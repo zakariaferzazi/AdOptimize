@@ -144,12 +144,6 @@ export async function signInWithGoogle() {
   try {
     googleProvider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, googleProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential?.accessToken || null;
-    if (token && typeof window !== 'undefined') {
-      sessionStorage.setItem('google_ads_oauth_token', token);
-      sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-    }
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -164,26 +158,9 @@ export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<st
       sessionStorage.removeItem('google_ads_oauth_token_timestamp');
     }
 
-    // Try official Google Identity Services first (response_type=token, no passkey requirement)
-    try {
-      const { requestGoogleAdsAccessToken } = await import('@/lib/google-identity');
-      const token = await requestGoogleAdsAccessToken(emailHint);
-      if (token) return token;
-    } catch (gisErr: any) {
-      console.warn('GIS authorization failed or fallback needed:', gisErr?.message || gisErr);
-    }
-
-    // Fallback to standard provider
-    const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/adwords');
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential?.accessToken || null;
-    if (token && typeof window !== 'undefined') {
-      sessionStorage.setItem('google_ads_oauth_token', token);
-      sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-    }
-    return token;
+    const { acquireGoogleAdsToken } = await import('@/lib/google-identity');
+    const token = await acquireGoogleAdsToken({ emailHint });
+    return token || null;
   } catch (error) {
     console.error('Error refreshing Google Ads OAuth token:', error);
     throw error;
