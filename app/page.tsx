@@ -72,10 +72,13 @@ import {
 import {
   auth,
   signInWithGoogle,
-  refreshGoogleAdsOAuthToken,
-  getStoredGoogleAdsToken,
   logOut
 } from '@/lib/firebase';
+import {
+  requestGoogleAdsAccessToken,
+  getStoredGoogleAdsToken,
+  clearStoredGoogleAdsToken,
+} from '@/lib/google-identity';
 import {
   syncUserProfile,
   fetchUserCampaigns,
@@ -400,7 +403,7 @@ export default function AdOptimizeApp() {
     if (!tokenToUse || tokenStatus.isExpired) {
       showToast('Refreshing Google Ads OAuth token...');
       try {
-        const freshToken = await refreshGoogleAdsOAuthToken();
+        const freshToken = await requestGoogleAdsAccessToken(user?.email || undefined);
         if (freshToken) {
           tokenToUse = freshToken;
           setOauthToken(freshToken);
@@ -563,46 +566,40 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Switch to another Google Account directly via popup
+  // Switch to another Google Account directly via Google Identity Services
   const handleSwitchGoogleAccount = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/adwords');
-      provider.addScope('email');
-      provider.addScope('profile');
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken || null;
+      clearStoredGoogleAdsToken();
+      setOauthToken(null);
+      showToast('Opening Google authorization...');
+      const token = await requestGoogleAdsAccessToken();
       if (token) {
         setOauthToken(token);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('google_ads_oauth_token', token);
-        }
+        showToast('Google account authorized. Opening account connector...');
+        setShowConnectModal(true);
       }
-      showToast(`Authenticated as ${result.user.email}. Opening account connector...`);
-      setShowConnectModal(true);
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        showToast(`Sign-in error: ${err.message || 'Cancelled'}`);
+      if (!err?.message?.includes('closed') && !err?.message?.includes('cancelled')) {
+        showToast(`Authorization error: ${err.message || 'Cancelled'}`);
       }
     }
   };
 
-  // 1-Click Re-authenticate and sync immediately
+  // Re-authorize with Google Identity Services and sync immediately
   const handleReauthenticateAndSync = async () => {
     setIsSyncing(true);
     setApiIssue(null);
     try {
-      showToast('Opening Google sign-in to refresh access token...');
-      const freshToken = await refreshGoogleAdsOAuthToken();
+      showToast('Opening Google authorization to renew access...');
+      clearStoredGoogleAdsToken();
+      const freshToken = await requestGoogleAdsAccessToken(user?.email || undefined);
       if (!freshToken) {
-        showToast('Re-authentication was cancelled.');
+        showToast('Authorization was cancelled.');
         setIsSyncing(false);
         return;
       }
       setOauthToken(freshToken);
-      showToast('Token refreshed! Syncing live campaigns now...');
+      showToast('Authorization renewed! Syncing live campaigns now...');
 
       const loginCustomerIdToUse =
         account.loginCustomerId ||
@@ -685,207 +682,6 @@ export default function AdOptimizeApp() {
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  // Connect current CID in Evaluation Mode (allows immediate access if Google permissions are pending)
-  const handleConnectEvaluationMode = () => {
-    const rawCid = apiIssue?.cid || account.clientCustomerId || '582-821-8851';
-    const cleanCid = rawCid.replace(/\D/g, '') || '5828218851';
-    const formattedCid = cleanCid.length === 10
-      ? `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`
-      : '582-821-8851';
-
-    const demoAccount: GoogleAdsAccount = {
-      id: `acc-${cleanCid}`,
-      clientCustomerId: formattedCid,
-      accountName: account.accountName && account.accountName !== 'Not Connected'
-        ? account.accountName
-        : `Google Ads (${formattedCid})`,
-      currency: account.currency || 'USD',
-      timezone: account.timezone || 'America/Los_Angeles',
-      monthlySpendCap: account.monthlySpendCap || 5000,
-      lastSyncAt: new Date().toISOString(),
-      syncStatus: 'SYNCED',
-      isConnected: true,
-      totalCampaignsCount: 4,
-      isDemo: true,
-    };
-
-    const demoCampaigns: Campaign[] = [
-      {
-        id: `camp-${cleanCid}-1`,
-        accountId: demoAccount.id,
-        name: `Core Search - High Intent Leads (${formattedCid})`,
-        type: 'SEARCH',
-        status: 'ENABLED',
-        budgetDaily: 85.0,
-        spend: 3420.50,
-        impressions: 48200,
-        clicks: 2140,
-        ctr: 4.44,
-        cpc: 1.60,
-        conversions: 148,
-        cpa: 23.11,
-        conversionValue: 12850.0,
-        roas: 3.76,
-        conversionRate: 6.92,
-        healthStatus: 'HEALTHY',
-        healthScore: 88,
-        trendPoints: [18, 22, 25, 19, 24, 21, 26],
-        historicalPoints: [
-          { date: 'Day 1', spend: 480, conversions: 21, cpa: 22.8, roas: 3.8 },
-          { date: 'Day 2', spend: 510, conversions: 23, cpa: 22.1, roas: 3.9 },
-          { date: 'Day 3', spend: 490, conversions: 20, cpa: 24.5, roas: 3.6 },
-          { date: 'Day 4', spend: 470, conversions: 19, cpa: 24.7, roas: 3.5 },
-          { date: 'Day 5', spend: 520, conversions: 24, cpa: 21.6, roas: 4.1 },
-          { date: 'Day 6', spend: 460, conversions: 20, cpa: 23.0, roas: 3.7 },
-          { date: 'Day 7', spend: 490, conversions: 21, cpa: 23.3, roas: 3.8 },
-        ],
-        keywordsCount: 16,
-        activeAdsCount: 4,
-        primaryGoal: 'MAXIMIZE_CONVERSIONS',
-        allTimeSpend: 14800.0,
-        allTimeClicks: 8900,
-        allTimeImpressions: 198000,
-        allTimeConversions: 620,
-        allTimeCtr: 4.49,
-        allTimeCpc: 1.66,
-        allTimeCpa: 23.87,
-        allTimeRoas: 3.82,
-      },
-      {
-        id: `camp-${cleanCid}-2`,
-        accountId: demoAccount.id,
-        name: `Performance Max - Retargeting & Scale (${formattedCid})`,
-        type: 'PERFORMANCE_MAX',
-        status: 'ENABLED',
-        budgetDaily: 110.0,
-        spend: 4890.20,
-        impressions: 96400,
-        clicks: 3410,
-        ctr: 3.54,
-        cpc: 1.43,
-        conversions: 182,
-        cpa: 26.87,
-        conversionValue: 21450.0,
-        roas: 4.39,
-        conversionRate: 5.34,
-        healthStatus: 'HEALTHY',
-        healthScore: 92,
-        trendPoints: [22, 28, 26, 29, 31, 27, 30],
-        historicalPoints: [
-          { date: 'Day 1', spend: 680, conversions: 25, cpa: 27.2, roas: 4.2 },
-          { date: 'Day 2', spend: 710, conversions: 27, cpa: 26.3, roas: 4.4 },
-          { date: 'Day 3', spend: 690, conversions: 26, cpa: 26.5, roas: 4.3 },
-          { date: 'Day 4', spend: 720, conversions: 28, cpa: 25.7, roas: 4.5 },
-          { date: 'Day 5', spend: 700, conversions: 25, cpa: 28.0, roas: 4.2 },
-          { date: 'Day 6', spend: 690, conversions: 26, cpa: 26.5, roas: 4.4 },
-          { date: 'Day 7', spend: 700, conversions: 25, cpa: 28.0, roas: 4.5 },
-        ],
-        keywordsCount: 24,
-        activeAdsCount: 6,
-        primaryGoal: 'TARGET_ROAS',
-        allTimeSpend: 24500.0,
-        allTimeClicks: 16800,
-        allTimeImpressions: 480000,
-        allTimeConversions: 890,
-        allTimeCtr: 3.50,
-        allTimeCpc: 1.46,
-        allTimeCpa: 27.53,
-        allTimeRoas: 4.42,
-      },
-      {
-        id: `camp-${cleanCid}-3`,
-        accountId: demoAccount.id,
-        name: `Display Remarketing - Cart Abandoners (${formattedCid})`,
-        type: 'DISPLAY',
-        status: 'PAUSED',
-        budgetDaily: 35.0,
-        spend: 0,
-        impressions: 0,
-        clicks: 0,
-        ctr: 1.28,
-        cpc: 0.95,
-        conversions: 0,
-        cpa: 38.5,
-        conversionValue: 0,
-        roas: 2.15,
-        conversionRate: 2.45,
-        healthStatus: 'WARNING',
-        healthScore: 68,
-        trendPoints: [0, 0, 0, 0, 0, 0, 0],
-        historicalPoints: [
-          { date: 'Day 1', spend: 28, conversions: 1, cpa: 28.0, roas: 2.3 },
-          { date: 'Day 2', spend: 32, conversions: 1, cpa: 32.0, roas: 2.1 },
-          { date: 'Day 3', spend: 30, conversions: 0, cpa: 30.0, roas: 1.8 },
-          { date: 'Day 4', spend: 35, conversions: 1, cpa: 35.0, roas: 2.0 },
-          { date: 'Day 5', spend: 26, conversions: 0, cpa: 26.0, roas: 1.9 },
-          { date: 'Day 6', spend: 34, conversions: 1, cpa: 34.0, roas: 2.2 },
-          { date: 'Day 7', spend: 30, conversions: 1, cpa: 30.0, roas: 2.1 },
-        ],
-        keywordsCount: 12,
-        activeAdsCount: 3,
-        primaryGoal: 'TARGET_CPA',
-        allTimeSpend: 2840.0,
-        allTimeClicks: 2980,
-        allTimeImpressions: 232000,
-        allTimeConversions: 74,
-        allTimeCtr: 1.28,
-        allTimeCpc: 0.95,
-        allTimeCpa: 38.38,
-        allTimeRoas: 2.18,
-      },
-      {
-        id: `camp-${cleanCid}-4`,
-        accountId: demoAccount.id,
-        name: `Competitor Conquesting - Exact (${formattedCid})`,
-        type: 'SEARCH',
-        status: 'ENABLED',
-        budgetDaily: 60.0,
-        spend: 1820.40,
-        impressions: 24100,
-        clicks: 860,
-        ctr: 3.57,
-        cpc: 2.12,
-        conversions: 42,
-        cpa: 43.34,
-        conversionValue: 4680.0,
-        roas: 2.57,
-        conversionRate: 4.88,
-        healthStatus: 'OPPORTUNITY',
-        healthScore: 74,
-        trendPoints: [5, 7, 6, 8, 5, 6, 7],
-        historicalPoints: [
-          { date: 'Day 1', spend: 250, conversions: 6, cpa: 41.6, roas: 2.6 },
-          { date: 'Day 2', spend: 270, conversions: 6, cpa: 45.0, roas: 2.4 },
-          { date: 'Day 3', spend: 260, conversions: 7, cpa: 37.1, roas: 2.8 },
-          { date: 'Day 4', spend: 240, conversions: 5, cpa: 48.0, roas: 2.3 },
-          { date: 'Day 5', spend: 280, conversions: 7, cpa: 40.0, roas: 2.7 },
-          { date: 'Day 6', spend: 250, conversions: 5, cpa: 50.0, roas: 2.2 },
-          { date: 'Day 7', spend: 270, conversions: 6, cpa: 45.0, roas: 2.6 },
-        ],
-        keywordsCount: 18,
-        activeAdsCount: 4,
-        primaryGoal: 'MAXIMIZE_CONVERSIONS',
-        allTimeSpend: 7850.0,
-        allTimeClicks: 3720,
-        allTimeImpressions: 104000,
-        allTimeConversions: 182,
-        allTimeCtr: 3.58,
-        allTimeCpc: 2.11,
-        allTimeCpa: 43.13,
-        allTimeRoas: 2.61,
-      },
-    ];
-
-    setApiIssue(null);
-    setState((prev) => ({
-      ...prev,
-      account: demoAccount,
-      campaigns: demoCampaigns,
-      isDemoMode: true,
-    }));
-    showToast(`Connected CID ${formattedCid} in Evaluation Mode. Full telemetry loaded.`);
   };
 
   // Switch to one of the user's accessible CIDs and sync
@@ -1558,7 +1354,7 @@ export default function AdOptimizeApp() {
                         </div>
 
                         <p className="text-[11px] text-rose-900 leading-relaxed">
-                          Google Ads OAuth access tokens expire periodically for security. Your access token is expired or requires re-authentication with the AdWords scope. Under Google&apos;s August 2026 Ads policy, Google may prompt for a device passkey during OAuth. You can re-authenticate or bypass passkeys using Evaluation Mode below:
+                          Your Google Ads session token has expired or requires renewal. Re-authorizing will grant a fresh access token and resume synchronization:
                         </p>
 
                         <div className="pt-1 flex items-center gap-2 flex-wrap">
@@ -1568,20 +1364,13 @@ export default function AdOptimizeApp() {
                             className="px-4 py-2 bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-                            <span>Re-authenticate with Google</span>
-                          </button>
-                          <button
-                            onClick={handleConnectEvaluationMode}
-                            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-                            <span>Connect CID in Evaluation Mode (No Passkey)</span>
+                            <span>Re-authorize Google Ads &amp; Sync</span>
                           </button>
                           <button
                             onClick={() => setShowConnectModal(true)}
                             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                           >
-                            <span>Open Account Connector (Direct Token)</span>
+                            <span>Open Account Connector</span>
                           </button>
                         </div>
                       </div>
@@ -1638,17 +1427,17 @@ export default function AdOptimizeApp() {
 
                         <div className="pt-2 border-t border-rose-200/80 flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={handleConnectEvaluationMode}
+                            onClick={handleSwitchGoogleAccount}
                             className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                           >
-                            <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-                            <span>Connect CID {apiIssue.cid} in Evaluation Mode</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-[#00d67d]" />
+                            <span>Switch Google Account</span>
                           </button>
                           <button
-                            onClick={handleSwitchGoogleAccount}
+                            onClick={() => setShowConnectModal(true)}
                             className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-rose-300 text-rose-900 rounded-xl font-semibold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
-                            <span>Switch Google Account</span>
+                            <span>Account Settings</span>
                           </button>
                         </div>
                       </div>

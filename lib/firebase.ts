@@ -157,18 +157,25 @@ export async function signInWithGoogle() {
   }
 }
 
-export async function refreshGoogleAdsOAuthToken(): Promise<string | null> {
+export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<string | null> {
   try {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('google_ads_oauth_token');
       sessionStorage.removeItem('google_ads_oauth_token_timestamp');
     }
+
+    // Try official Google Identity Services first (response_type=token, no passkey requirement)
+    try {
+      const { requestGoogleAdsAccessToken } = await import('@/lib/google-identity');
+      const token = await requestGoogleAdsAccessToken(emailHint);
+      if (token) return token;
+    } catch (gisErr: any) {
+      console.warn('GIS authorization failed or fallback needed:', gisErr?.message || gisErr);
+    }
+
+    // Fallback to standard provider
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/adwords');
-    provider.addScope('email');
-    // Never use prompt: 'consent' - Google's August 2026 Ads OAuth policy forces passkey creation if consent is mandated
-    provider.setCustomParameters({ prompt: 'select_account' });
-
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken || null;

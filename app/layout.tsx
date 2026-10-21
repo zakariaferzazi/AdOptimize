@@ -98,6 +98,12 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
             `,
           }}
         />
+        <script
+          id="google-identity-services-script"
+          src="https://accounts.google.com/gsi/client"
+          async
+          defer
+        />
       </head>
       <body className="h-full bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans" suppressHydrationWarning>
         {children}
