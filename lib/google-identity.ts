@@ -1,4 +1,6 @@
 import firebaseConfig from '@/firebase-applet-config.json';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const GOOGLE_ADS_SCOPE = 'https://www.googleapis.com/auth/adwords';
 export const DEFAULT_CLIENT_ID =
@@ -158,3 +160,64 @@ export function clearStoredGoogleAdsToken(): void {
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
   }
 }
+
+/**
+ * Acquire Google Ads OAuth token.
+ * Tries Google Identity Services (GIS) first. If on a preview domain (origin mismatch)
+ * or if GIS fails/closes, provides seamless fallback to Firebase Auth popup with AdWords scope.
+ */
+export async function acquireGoogleAdsToken(options?: {
+  emailHint?: string;
+  preferredMethod?: 'gis' | 'firebase';
+  forceFirebase?: boolean;
+}): Promise<string> {
+  const isProduction =
+    typeof window !== 'undefined' && window.location.origin === 'https://adoptimize.app';
+
+  // If forced to Firebase, or preferred method is firebase, bypass GIS
+  if (options?.forceFirebase || options?.preferredMethod === 'firebase') {
+    return acquireGoogleAdsTokenViaFirebase(options?.emailHint);
+  }
+
+  // 1. Try Google Identity Services (GIS)
+  try {
+    const token = await requestGoogleAdsAccessToken(options?.emailHint);
+    if (token) return token;
+  } catch (gisErr: any) {
+    console.warn('GIS authorization notice:', gisErr?.message || gisErr);
+    // If we're not on adoptimize.app, this is likely an origin_mismatch
+    // Automatically try the Firebase Auth fallback
+    return acquireGoogleAdsTokenViaFirebase(options?.emailHint);
+  }
+
+  throw new Error('Google authorization could not be completed.');
+}
+
+/**
+ * Requests an OAuth 2.0 Access Token using Firebase Auth with Google provider
+ * with the https://www.googleapis.com/auth/adwords scope.
+ * This runs via the Firebase auth handler, avoiding origin_mismatch on preview environments.
+ */
+export async function acquireGoogleAdsTokenViaFirebase(emailHint?: string): Promise<string> {
+  const provider = new GoogleAuthProvider();
+  provider.addScope(GOOGLE_ADS_SCOPE);
+  if (emailHint) {
+    provider.setCustomParameters({ login_hint: emailHint });
+  }
+
+  const result = await signInWithPopup(auth, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken;
+
+  if (!token) {
+    throw new Error('No access token returned from Google authorization.');
+  }
+
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('google_ads_oauth_token', token);
+    sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+  }
+
+  return token;
+}
+

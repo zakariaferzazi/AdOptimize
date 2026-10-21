@@ -44,7 +44,8 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  X
+  X,
+  Copy
 } from 'lucide-react';
 import {
   GoogleAdsAccount,
@@ -76,6 +77,7 @@ import {
 } from '@/lib/firebase';
 import {
   requestGoogleAdsAccessToken,
+  acquireGoogleAdsToken,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
 } from '@/lib/google-identity';
@@ -137,6 +139,25 @@ export default function AdOptimizeApp() {
   // Real Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [copiedOrigin, setCopiedOrigin] = useState<boolean>(false);
+
+  const currentOrigin =
+    typeof window !== 'undefined' && window.location.origin
+      ? window.location.origin
+      : 'https://adoptimize.app';
+  const isPreviewOrigin =
+    typeof window !== 'undefined' &&
+    Boolean(window.location.origin) &&
+    window.location.origin !== 'https://adoptimize.app';
+
+  const copyOriginToClipboard = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(currentOrigin);
+      setCopiedOrigin(true);
+      setTimeout(() => setCopiedOrigin(false), 2500);
+      showToast('Copied preview origin to clipboard!');
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -403,7 +424,10 @@ export default function AdOptimizeApp() {
     if (!tokenToUse || tokenStatus.isExpired) {
       showToast('Refreshing Google Ads OAuth token...');
       try {
-        const freshToken = await requestGoogleAdsAccessToken(user?.email || undefined);
+        const freshToken = await acquireGoogleAdsToken({
+          emailHint: user?.email || undefined,
+          preferredMethod: isPreviewOrigin ? 'firebase' : 'gis',
+        });
         if (freshToken) {
           tokenToUse = freshToken;
           setOauthToken(freshToken);
@@ -421,7 +445,9 @@ export default function AdOptimizeApp() {
       } catch (authErr: any) {
         if (authErr.code !== 'auth/popup-closed-by-user') {
           setApiIssue({
-            message: 'Google OAuth session expired. Please re-authenticate your Google Ads account.',
+            message: isPreviewOrigin
+              ? 'Google OAuth origin mismatch: This preview URL is not registered under Authorized JavaScript origins in Google Cloud Console. Authorize via Firebase flow or add the URL.'
+              : 'Google OAuth session expired. Please re-authenticate your Google Ads account.',
             cid: account.clientCustomerId,
             timestamp: new Date().toLocaleTimeString(),
             severity: 'warning',
@@ -566,13 +592,15 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Switch to another Google Account directly via Google Identity Services
+  // Switch to another Google Account directly
   const handleSwitchGoogleAccount = async () => {
     try {
       clearStoredGoogleAdsToken();
       setOauthToken(null);
       showToast('Opening Google authorization...');
-      const token = await requestGoogleAdsAccessToken();
+      const token = await acquireGoogleAdsToken({
+        preferredMethod: isPreviewOrigin ? 'firebase' : 'gis',
+      });
       if (token) {
         setOauthToken(token);
         showToast('Google account authorized. Opening account connector...');
@@ -585,14 +613,17 @@ export default function AdOptimizeApp() {
     }
   };
 
-  // Re-authorize with Google Identity Services and sync immediately
-  const handleReauthenticateAndSync = async () => {
+  // Re-authorize Google Ads OAuth and sync immediately
+  const handleReauthenticateAndSync = async (forceFirebase?: boolean) => {
     setIsSyncing(true);
     setApiIssue(null);
     try {
       showToast('Opening Google authorization to renew access...');
       clearStoredGoogleAdsToken();
-      const freshToken = await requestGoogleAdsAccessToken(user?.email || undefined);
+      const freshToken = await acquireGoogleAdsToken({
+        emailHint: user?.email || undefined,
+        preferredMethod: (forceFirebase || isPreviewOrigin) ? 'firebase' : 'gis',
+      });
       if (!freshToken) {
         showToast('Authorization was cancelled.');
         setIsSyncing(false);
@@ -1342,11 +1373,11 @@ export default function AdOptimizeApp() {
                       </div>
                     )}
 
-                    {(apiIssue.statusCode === 401 || apiIssue.isAuthExpired || apiIssue.message.toLowerCase().includes('authentication') || apiIssue.message.toLowerCase().includes('oauth')) && (
-                      <div className="bg-white/95 border border-rose-200 rounded-2xl p-4 text-xs text-rose-950 space-y-2.5 mt-2 max-w-3xl">
+                    {(apiIssue.statusCode === 401 || apiIssue.isAuthExpired || apiIssue.message.toLowerCase().includes('authentication') || apiIssue.message.toLowerCase().includes('oauth') || apiIssue.message.toLowerCase().includes('origin')) && (
+                      <div className="bg-white/95 border border-rose-200 rounded-2xl p-4 text-xs text-rose-950 space-y-3 mt-2 max-w-3xl">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="font-bold flex items-center gap-1.5 text-rose-900">
-                            <span>🔑 Resolve Expired Session / Authentication Error:</span>
+                            <span>🔑 Google Ads Authorization Session Renewal:</span>
                           </span>
                           <span className="text-[11px] text-rose-700 font-mono">
                             User: {user?.email || 'Authenticated user'}
@@ -1354,12 +1385,50 @@ export default function AdOptimizeApp() {
                         </div>
 
                         <p className="text-[11px] text-rose-900 leading-relaxed">
-                          Your Google Ads session token has expired or requires renewal. Re-authorizing will grant a fresh access token and resume synchronization:
+                          Your Google Ads session token has expired or requires renewal. Re-authorizing will grant a fresh access token and resume live synchronization:
                         </p>
 
+                        {/* Origin Mismatch Guidance for Preview Environments */}
+                        {isPreviewOrigin && (
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-[11px] text-amber-950">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="font-bold text-amber-900 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Preview Environment (Origin Mismatch):</span>
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <code className="bg-white px-2 py-0.5 rounded border border-amber-200 font-mono text-[10px] text-slate-800">
+                                  {currentOrigin}
+                                </code>
+                                <button
+                                  type="button"
+                                  onClick={copyOriginToClipboard}
+                                  className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  {copiedOrigin ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                                  <span>{copiedOrigin ? 'Copied' : 'Copy URI'}</span>
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-[10.5px] text-amber-800 leading-normal">
+                              In Google Cloud Console under <strong>Web client 2</strong> (Project <code>1019046039336</code>), <strong>https://adoptimize.app</strong> is authorized. To authorize from this preview URL without modifying Google Console, click <strong>Sync via Firebase Flow</strong> below!
+                            </p>
+                          </div>
+                        )}
+
                         <div className="pt-1 flex items-center gap-2 flex-wrap">
+                          {isPreviewOrigin && (
+                            <button
+                              onClick={() => handleReauthenticateAndSync(true)}
+                              disabled={isSyncing}
+                              className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c070] disabled:opacity-50 text-slate-950 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                            >
+                              <ShieldCheck className="w-4 h-4 text-slate-950" />
+                              <span>Sync via Firebase Flow (Preview Friendly)</span>
+                            </button>
+                          )}
                           <button
-                            onClick={handleReauthenticateAndSync}
+                            onClick={() => handleReauthenticateAndSync(false)}
                             disabled={isSyncing}
                             className="px-4 py-2 bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
                           >
@@ -1372,6 +1441,17 @@ export default function AdOptimizeApp() {
                           >
                             <span>Open Account Connector</span>
                           </button>
+                          {isPreviewOrigin && (
+                            <a
+                              href="https://console.cloud.google.com/apis/credentials"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl font-semibold text-xs inline-flex items-center gap-1 transition-colors"
+                            >
+                              <span>Google Cloud Console</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
