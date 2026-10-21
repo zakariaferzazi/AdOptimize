@@ -86,6 +86,7 @@ export function ConnectModal({
     }
     return null;
   });
+  const [manualToken, setManualToken] = useState('');
   const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(() => {
     if (userEmail) return userEmail;
     if (typeof window !== 'undefined' && auth.currentUser?.email) {
@@ -116,7 +117,8 @@ export function ConnectModal({
     provider.addScope('https://www.googleapis.com/auth/adwords');
     provider.addScope('email');
     provider.addScope('profile');
-    provider.setCustomParameters({ prompt: 'consent select_account' });
+    // Never use prompt: 'consent' - Google Ads OAuth mandates passkeys when consent is forced
+    provider.setCustomParameters({ prompt: 'select_account' });
 
     const result = await signInWithPopup(auth, provider);
     setAuthenticatedEmail(result.user.email);
@@ -264,22 +266,26 @@ export function ConnectModal({
 
     const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
 
-    // 1. Ensure fresh OAuth token
-    const tokenStatus = getStoredGoogleAdsToken();
-    let tokenToUse = oauthToken || tokenStatus.token;
+    // 1. Ensure fresh OAuth token (or use manualToken to bypass Google popup completely)
+    let tokenToUse = manualToken.trim() || oauthToken;
 
-    if (!tokenToUse || tokenStatus.isExpired) {
-      setIsLoading(true);
-      try {
-        tokenToUse = await acquireGoogleOAuthToken();
-      } catch (authErr: any) {
-        setIsLoading(false);
-        setErrorMessage(
-          authErr.code === 'auth/popup-closed-by-user'
-            ? 'Google sign-in popup was closed before completing authorization.'
-            : authErr.message || 'Google authorization was cancelled.'
-        );
-        return;
+    if (!tokenToUse) {
+      const tokenStatus = getStoredGoogleAdsToken();
+      tokenToUse = tokenStatus.token;
+
+      if (!tokenToUse || tokenStatus.isExpired) {
+        setIsLoading(true);
+        try {
+          tokenToUse = await acquireGoogleOAuthToken();
+        } catch (authErr: any) {
+          setIsLoading(false);
+          setErrorMessage(
+            authErr.code === 'auth/popup-closed-by-user'
+              ? 'Google sign-in popup was closed before completing authorization.'
+              : authErr.message || 'Google authorization was cancelled.'
+          );
+          return;
+        }
       }
     }
 
@@ -527,6 +533,21 @@ export function ConnectModal({
                   />
                   <span className="text-[10px] text-slate-500 block mt-0.5">
                     Required by Google Ads if your Google login only has access through a Manager Account (MCC).
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Direct OAuth Access Token (Optional — Bypass Google Passkey Prompt)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Bearer ya29... (optional token to bypass Google popup completely)"
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                  />
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    If Google asks you to create a passkey in the sign-in popup, you can either click <strong>&quot;Skip&quot;</strong> or paste an OAuth token here to bypass passkeys completely.
                   </span>
                 </div>
                 <div>

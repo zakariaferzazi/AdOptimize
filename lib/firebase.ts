@@ -44,7 +44,6 @@ function initDb(): Firestore {
 export const db: Firestore = initDb();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/adwords');
 googleProvider.addScope('email');
 googleProvider.addScope('profile');
 
@@ -167,8 +166,8 @@ export async function refreshGoogleAdsOAuthToken(): Promise<string | null> {
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/adwords');
     provider.addScope('email');
-    provider.addScope('profile');
-    provider.setCustomParameters({ prompt: 'consent select_account' });
+    // Never use prompt: 'consent' - Google's August 2026 Ads OAuth policy forces passkey creation if consent is mandated
+    provider.setCustomParameters({ prompt: 'select_account' });
 
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);

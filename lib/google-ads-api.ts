@@ -117,10 +117,13 @@ function extractGoogleAdsError(data: any, status: number, rawText: string): { er
       }
     }
 
-    const message = detailMsg || mainMsg || `Google Ads API Error (HTTP ${status})`;
+    let message = detailMsg || mainMsg || `Google Ads API Error (HTTP ${status})`;
+    if (status === 401 || String(message).toLowerCase().includes('invalid authentication credentials')) {
+      message = 'Google Ads Verification Error: Request had invalid or expired authentication credentials. Please re-authenticate your Google Ads account to renew your OAuth session.';
+    }
     return {
       error: errorCodeStr ? `${message} (${errorCodeStr})` : message,
-      details: data.error.details ? JSON.stringify(data.error.details) : undefined,
+      details: data.error.details ? JSON.stringify(data.error.details) : (data.error.message || undefined),
     };
   }
 
