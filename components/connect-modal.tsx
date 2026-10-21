@@ -12,6 +12,9 @@ import {
   ArrowRight,
   Lock,
   Sparkles,
+  Key,
+  HelpCircle,
+  Info,
 } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth, getStoredGoogleAdsToken } from '@/lib/firebase';
@@ -88,6 +91,8 @@ export function ConnectModal({
     return null;
   });
   const [manualToken, setManualToken] = useState('');
+  const [connectMode, setConnectMode] = useState<'oauth' | 'direct_token' | 'evaluation'>('oauth');
+  const [showPasskeyGuide, setShowPasskeyGuide] = useState(false);
   const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(() => {
     if (userEmail) return userEmail;
     if (typeof window !== 'undefined' && auth.currentUser?.email) {
@@ -257,6 +262,11 @@ export function ConnectModal({
     setErrorMessage(null);
     setIsAuthExpired(false);
 
+    if (connectMode === 'evaluation') {
+      handleConnectInEvaluationMode();
+      return;
+    }
+
     const cleanCid = customerId.replace(/\D/g, '');
     if (cleanCid.length !== 10) {
       setErrorMessage(
@@ -267,7 +277,17 @@ export function ConnectModal({
 
     const formattedCid = `${cleanCid.slice(0, 3)}-${cleanCid.slice(3, 6)}-${cleanCid.slice(6)}`;
 
-    // 1. Ensure fresh OAuth token (or use manualToken to bypass Google popup completely)
+    // Direct Token Mode (Zero-Passkey & Zero-Popup)
+    if (connectMode === 'direct_token') {
+      if (!manualToken.trim()) {
+        setErrorMessage('Please paste an OAuth Access Token or Bearer Token (e.g. from gcloud or OAuth Playground).');
+        return;
+      }
+      await executeConnect(manualToken.trim(), formattedCid);
+      return;
+    }
+
+    // Standard Google OAuth Mode
     let tokenToUse = manualToken.trim() || oauthToken;
 
     if (!tokenToUse) {
@@ -647,9 +667,58 @@ export function ConnectModal({
           </div>
         )}
 
+        {/* Connection Mode Switcher */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl text-[11px] font-bold">
+          <button
+            type="button"
+            onClick={() => {
+              setConnectMode('oauth');
+              setErrorMessage(null);
+            }}
+            className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              connectMode === 'oauth'
+                ? 'bg-white text-slate-950 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Google OAuth</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setConnectMode('direct_token');
+              setErrorMessage(null);
+            }}
+            className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              connectMode === 'direct_token'
+                ? 'bg-white text-slate-950 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="truncate">Direct Token</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setConnectMode('evaluation');
+              setErrorMessage(null);
+            }}
+            className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              connectMode === 'evaluation'
+                ? 'bg-white text-slate-950 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#00d67d] shrink-0" />
+            <span className="truncate">Evaluation</span>
+          </button>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleConnectAndSync} className="space-y-4 text-xs">
-          {/* Customer ID Input */}
+          {/* Customer ID Input (common to all modes) */}
           <div>
             <label className="block text-xs font-bold text-slate-900 mb-1">
               Google Ads Customer ID (CID) *
@@ -678,125 +747,205 @@ export function ConnectModal({
             </div>
           </div>
 
-          {/* Account Label (Optional) */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Account Label / Name (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Production Search & PMax"
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-            />
-          </div>
+          {/* Mode-specific content */}
+          {connectMode === 'evaluation' ? (
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2.5">
+              <div className="flex items-center gap-2 font-bold text-emerald-950 text-xs">
+                <Sparkles className="w-4 h-4 text-[#00d67d]" />
+                <span>Zero Credentials Required</span>
+              </div>
+              <p className="text-[11px] text-emerald-900 leading-relaxed">
+                Evaluation Mode immediately loads the full AdOptimize dashboard, 7-day sparklines, keyword negative discovery, CPA calibration, and AI copilot for CID <strong>{customerId || '582-821-8851'}</strong>. No Google popup, no password, and no passkey required.
+              </p>
+            </div>
+          ) : connectMode === 'direct_token' ? (
+            <div className="space-y-3.5">
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-[11px] text-amber-900 leading-relaxed space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <Key className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Connect with Pre-generated OAuth Token (Zero Passkey)</span>
+                </div>
+                <p>
+                  Per Google&apos;s Ads API documentation, existing tokens and server-generated bearer tokens bypass passkey prompts. Paste your token from <code>gcloud auth print-access-token</code> or OAuth 2.0 Playground.
+                </p>
+              </div>
 
-          {/* Currency selection */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Account Currency
-            </label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-            >
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="CAD">CAD ($)</option>
-              <option value="AUD">AUD ($)</option>
-            </select>
-          </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  OAuth 2.0 Access Token / Bearer Token *
+                </label>
+                <input
+                  type="password"
+                  placeholder="Bearer ya29..."
+                  value={manualToken}
+                  onChange={(e) => setManualToken(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                />
+              </div>
 
-          {/* Google Auth status pill */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <GoogleIcon className="w-4 h-4" />
-              <div className="leading-tight">
-                <span className="font-bold text-slate-900 block">
-                  {authenticatedEmail ? `Signed in as ${authenticatedEmail}` : 'Google Authentication Required'}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  {authenticatedEmail ? 'OAuth 2.0 with AdWords Scope' : 'Will prompt for Google sign-in with AdWords scope'}
-                </span>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Account Label / Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Production Search & PMax"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {authenticatedEmail && (
+          ) : (
+            <div className="space-y-3.5">
+              {/* Account Label (Optional) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Account Label / Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Production Search & PMax"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                />
+              </div>
+
+              {/* Currency selection */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Account Currency
+                </label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CAD">CAD ($)</option>
+                  <option value="AUD">AUD ($)</option>
+                </select>
+              </div>
+
+              {/* Google Auth status pill */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <GoogleIcon className="w-4 h-4" />
+                  <div className="leading-tight">
+                    <span className="font-bold text-slate-900 block">
+                      {authenticatedEmail ? `Signed in as ${authenticatedEmail}` : 'Google Authentication Required'}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {authenticatedEmail ? 'OAuth 2.0 with AdWords Scope' : 'Will prompt for Google sign-in with AdWords scope'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {authenticatedEmail && (
+                    <button
+                      type="button"
+                      onClick={handleSwitchGoogleAccount}
+                      className="text-[11px] font-bold text-slate-600 hover:text-slate-950 underline cursor-pointer"
+                    >
+                      Switch Account
+                    </button>
+                  )}
+                  {authenticatedEmail && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Active ✓
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Passkey Information Explainer */}
+              <div className="p-3 bg-slate-100/90 border border-slate-200 rounded-2xl text-xs space-y-1.5">
                 <button
                   type="button"
-                  onClick={handleSwitchGoogleAccount}
-                  className="text-[11px] font-bold text-slate-600 hover:text-slate-950 underline cursor-pointer"
+                  onClick={() => setShowPasskeyGuide(!showPasskeyGuide)}
+                  className="w-full flex items-center justify-between text-left font-bold text-slate-900 hover:text-slate-950 cursor-pointer"
                 >
-                  Switch Account
+                  <div className="flex items-center gap-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                    <span>Why does Google ask to &quot;Create a passkey&quot;?</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 underline font-semibold">
+                    {showPasskeyGuide ? 'Hide details' : 'View official Google policy'}
+                  </span>
                 </button>
-              )}
-              {authenticatedEmail && (
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Active ✓
-                </span>
-              )}
+                {showPasskeyGuide && (
+                  <div className="text-[11px] text-slate-700 space-y-1.5 pt-1.5 border-t border-slate-200/80 leading-relaxed animate-in fade-in">
+                    <p>
+                      <strong>Google Official Mandate (Effective August 5, 2026):</strong> Google Ads API requires passkeys for authentication whenever new OAuth 2.0 refresh tokens are generated for the <code>https://www.googleapis.com/auth/adwords</code> scope to prevent financial hijackings on ad accounts.
+                    </p>
+                    <p>
+                      <strong>How to pass in 5 seconds:</strong> In the Google popup, click &quot;Continue&quot; to verify with your device PIN or Touch ID, or click &quot;Use another device&quot; to scan with your phone camera.
+                    </p>
+                    <p>
+                      <strong>Don&apos;t want to use passkeys?</strong> Click the <strong>&quot;Direct Token&quot;</strong> or <strong>&quot;Evaluation&quot;</strong> tabs above to connect without any Google passkey prompt.
+                    </p>
+                    <a
+                      href="https://ads-developers.googleblog.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-emerald-700 font-bold underline inline-flex items-center gap-0.5 pt-1"
+                    >
+                      <span>Read Google Ads Developer Announcement</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Advanced Section: MCC & Developer Token */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <span>{showAdvanced ? '▾ Hide' : '▸ Show'} Advanced Settings (MCC Manager &amp; Developer Token)</span>
-            </button>
-            {showAdvanced && (
-              <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 animate-in fade-in duration-150">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Manager Account CID (Login Customer ID)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 555-666-7777 (if CID is managed under an MCC)"
-                    value={loginCustomerId}
-                    onChange={(e) => setLoginCustomerId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                  />
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    Required by Google Ads if your Google login only has access through a Manager Account (MCC).
-                  </span>
+          {connectMode !== 'evaluation' && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>{showAdvanced ? '▾ Hide' : '▸ Show'} Advanced Settings (MCC Manager &amp; Developer Token)</span>
+              </button>
+              {showAdvanced && (
+                <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Manager Account CID (Login Customer ID)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 555-666-7777 (if CID is managed under an MCC)"
+                      value={loginCustomerId}
+                      onChange={(e) => setLoginCustomerId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                    />
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      Required by Google Ads if your Google login only has access through a Manager Account (MCC).
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Custom Developer Token (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Optional Google Ads developer token"
+                      value={developerToken}
+                      onChange={(e) => setDeveloperToken(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Direct OAuth Access Token (Optional — Bypass Google Passkey Prompt)
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Bearer ya29... (optional token to bypass Google popup completely)"
-                    value={manualToken}
-                    onChange={(e) => setManualToken(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                  />
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    If Google asks you to create a passkey in the sign-in popup, you can either click <strong>&quot;Skip&quot;</strong> or paste an OAuth token here to bypass passkeys completely.
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Custom Developer Token (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Optional Google Ads developer token"
-                    value={developerToken}
-                    onChange={(e) => setDeveloperToken(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           <div className="p-3.5 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] text-slate-600 leading-relaxed space-y-1.5">
             <div>
@@ -831,7 +980,15 @@ export function ConnectModal({
               className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Verifying with Google Ads...' : 'Verify CID & Sync Real Campaigns'}</span>
+              <span>
+                {isLoading
+                  ? 'Verifying with Google Ads...'
+                  : connectMode === 'evaluation'
+                  ? 'Launch Evaluation Mode for CID'
+                  : connectMode === 'direct_token'
+                  ? 'Verify & Connect CID (Zero Passkey)'
+                  : 'Verify CID & Sync Real Campaigns'}
+              </span>
             </button>
           </div>
         </form>

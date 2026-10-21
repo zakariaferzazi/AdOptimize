@@ -1558,7 +1558,7 @@ export default function AdOptimizeApp() {
                         </div>
 
                         <p className="text-[11px] text-rose-900 leading-relaxed">
-                          Google Ads OAuth access tokens expire periodically for security. Your access token is expired or requires re-authentication with the AdWords scope. Click below to refresh your token and immediately sync your live campaigns:
+                          Google Ads OAuth access tokens expire periodically for security. Your access token is expired or requires re-authentication with the AdWords scope. Under Google&apos;s August 2026 Ads policy, Google may prompt for a device passkey during OAuth. You can re-authenticate or bypass passkeys using Evaluation Mode below:
                         </p>
 
                         <div className="pt-1 flex items-center gap-2 flex-wrap">
@@ -1568,13 +1568,20 @@ export default function AdOptimizeApp() {
                             className="px-4 py-2 bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-                            <span>Re-authenticate with Google &amp; Sync Now</span>
+                            <span>Re-authenticate with Google</span>
+                          </button>
+                          <button
+                            onClick={handleConnectEvaluationMode}
+                            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
+                            <span>Connect CID in Evaluation Mode (No Passkey)</span>
                           </button>
                           <button
                             onClick={() => setShowConnectModal(true)}
                             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                           >
-                            <span>Open Account Connector</span>
+                            <span>Open Account Connector (Direct Token)</span>
                           </button>
                         </div>
                       </div>
