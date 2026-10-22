@@ -5,6 +5,8 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   User
 } from 'firebase/auth';
 import {
@@ -226,6 +228,26 @@ export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<st
     return token || null;
   } catch (error) {
     console.error('Error refreshing Google Ads OAuth token:', error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmail(email: string, pass: string) {
+  try {
+    const res = await createUserWithEmailAndPassword(auth, email, pass);
+    return res.user;
+  } catch (error) {
+    console.error('Error signing up with email:', error);
+    throw error;
+  }
+}
+
+export async function signInWithEmail(email: string, pass: string) {
+  try {
+    const res = await signInWithEmailAndPassword(auth, email, pass);
+    return res.user;
+  } catch (error) {
+    console.error('Error signing in with email:', error);
     throw error;
   }
 }

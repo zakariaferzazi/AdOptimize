@@ -21,10 +21,10 @@ import { CopilotDrawer } from '@/components/copilot/copilot-drawer';
 import { AuditLogView } from '@/components/audit/audit-log-view';
 import { ReportsView } from '@/components/reports/reports-view';
 import { SettingsView } from '@/components/settings/settings-view';
-import { LandingPage } from '@/components/landing/landing-page';
 import { ConnectModal } from '@/components/connect-modal';
 import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
 import { AuthGate } from '@/components/auth/auth-gate';
+import { ConnectAccountsStep } from '@/components/onboarding/connect-accounts-step';
 import {
   DollarSign,
   TrendingUp,
@@ -110,7 +110,6 @@ import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup } from 'f
 export default function AdOptimizeApp() {
   const [state, setState] = useState<AdOptimizeState>(() => getInitialState());
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
-  const [showLanding, setShowLanding] = useState<boolean>(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
@@ -137,6 +136,7 @@ export default function AdOptimizeApp() {
   // Real Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -370,7 +370,6 @@ export default function AdOptimizeApp() {
   const handleSignInWithGoogle = async () => {
     try {
       await signInWithGoogle();
-      setShowLanding(false);
       showToast('Signed in successfully');
     } catch (err: any) {
       showToast('Sign-in cancelled or closed');
@@ -382,7 +381,7 @@ export default function AdOptimizeApp() {
     try {
       await logOut();
       setState((prev) => ({ ...prev, isDemoMode: false }));
-      setShowLanding(true);
+      setHasCompletedOnboarding(false);
       showToast('Signed out successfully');
     } catch (err: any) {
       showToast('Sign-out error');
@@ -1234,27 +1233,36 @@ export default function AdOptimizeApp() {
     );
   }
 
-  // When user is not logged in and not in demo mode, OR when landing page view is requested:
-  // Show the homepage with Sign Up / Log In options, which then seamlessly opens the dashboard
-  if (showLanding || (!user && !state.isDemoMode)) {
+  // 1. Unauthenticated: Show sleek, minimal AuthGate with Email or Google sign up/sign in
+  if (!user && !state.isDemoMode) {
     return (
-      <LandingPage
-        onOpenApp={() => {
-          setShowLanding(false);
-          if (!user && !state.isDemoMode) {
-            setState((prev) => ({ ...prev, isDemoMode: true }));
-          }
+      <AuthGate
+        onSignInSuccess={() => {}}
+        onExploreDemo={() => {
+          setState((prev) => ({ ...prev, isDemoMode: true }));
         }}
-        onConnectGoogleAds={() => {
-          if (!user) {
-            handleSignInWithGoogle();
-          } else {
-            setShowLanding(false);
-            setShowConnectModal(true);
-          }
-        }}
-        onSignInWithGoogle={handleSignInWithGoogle}
+      />
+    );
+  }
+
+  // 2. Authenticated but no ad account connected: Show Adspirer Step 2 (Connect Ad Accounts)
+  const isAccountConnected = Boolean(
+    account.isConnected &&
+    account.clientCustomerId &&
+    account.clientCustomerId !== 'Not Connected'
+  );
+
+  if (user && !isAccountConnected && !hasCompletedOnboarding) {
+    return (
+      <ConnectAccountsStep
         user={user}
+        account={account}
+        onConnectSuccess={(connectedAccount, syncedCampaigns, token, keywords, searchTerms) => {
+          handleConnectAccount(connectedAccount, syncedCampaigns, token, keywords, searchTerms);
+        }}
+        onContinueToDashboard={() => {
+          setHasCompletedOnboarding(true);
+        }}
         onSignOut={handleSignOut}
       />
     );
