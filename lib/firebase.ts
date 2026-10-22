@@ -178,24 +178,61 @@ export function getStoredGoogleAdsToken(): { token: string | null; isExpired: bo
 }
 
 // Auth helpers
-export async function signInWithGoogle() {
-  try {
-    googleProvider.setCustomParameters({ prompt: 'select_account' });
-    const result = await signInWithPopup(auth, googleProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const accessToken = credential?.accessToken || null;
-    if (accessToken) {
-      storeGoogleAdsToken(accessToken);
-    }
-    return {
-      user: result.user,
-      accessToken,
-      credential,
-    };
-  } catch (error) {
-    console.error('Error signing in with Google:', error);
-    throw error;
+let activeSignInPromise: Promise<{
+  user: any;
+  accessToken: string | null;
+  credential: any;
+} | null> | null = null;
+
+export async function signInWithGoogle(): Promise<{
+  user: any;
+  accessToken: string | null;
+  credential: any;
+} | null> {
+  // Prevent duplicate concurrent popup calls which trigger auth/cancelled-popup-request & assertion failures
+  if (activeSignInPromise) {
+    return activeSignInPromise;
   }
+
+  activeSignInPromise = (async () => {
+    try {
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken || null;
+      if (accessToken) {
+        storeGoogleAdsToken(accessToken);
+      }
+      return {
+        user: result.user,
+        accessToken,
+        credential,
+      };
+    } catch (error: any) {
+      const code = error?.code || '';
+      const msg = error?.message || '';
+
+      // User closed or superseded popup - handle gracefully without noisy crashes
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        msg.includes('cancelled')
+      ) {
+        return null;
+      }
+
+      if (code === 'auth/popup-blocked' || msg.includes('popup-blocked') || msg.includes('blocked')) {
+        throw new Error('Sign-in popup was blocked by your browser. Please allow popups or use email sign-in.');
+      }
+
+      console.warn('Notice during Google sign in:', code || msg);
+      throw error;
+    } finally {
+      activeSignInPromise = null;
+    }
+  })();
+
+  return activeSignInPromise;
 }
 
 export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<string | null> {

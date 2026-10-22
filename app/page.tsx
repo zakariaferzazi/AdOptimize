@@ -140,6 +140,8 @@ export default function AdOptimizeApp() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(false);
   const [showAuthGate, setShowAuthGate] = useState<boolean>(false);
 
+  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -151,14 +153,21 @@ export default function AdOptimizeApp() {
   useEffect(() => {
     let isSubscribed = true;
 
-    // Suppress benign abort signals (e.g. from hot reloads, navigation, or browser cancellations)
+    // Suppress benign abort signals and popup cancellations (e.g. user closed popup, browser popup blocked, hot reload)
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event?.reason;
       const msg = typeof reason === 'string' ? reason : reason?.message || '';
+      const code = reason?.code || '';
       if (
         reason?.name === 'AbortError' ||
         msg.includes('signal is aborted without reason') ||
-        msg.includes('aborted')
+        msg.includes('aborted') ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/popup-blocked' ||
+        msg.includes('cancelled-popup-request') ||
+        msg.includes('popup-blocked') ||
+        msg.includes('Pending promise was never set')
       ) {
         event.preventDefault();
       }
@@ -170,7 +179,10 @@ export default function AdOptimizeApp() {
       if (
         errName === 'AbortError' ||
         msg.includes('signal is aborted without reason') ||
-        msg.includes('aborted')
+        msg.includes('aborted') ||
+        msg.includes('cancelled-popup-request') ||
+        msg.includes('popup-blocked') ||
+        msg.includes('Pending promise was never set')
       ) {
         event.preventDefault();
       }
@@ -370,11 +382,26 @@ export default function AdOptimizeApp() {
 
   // Real Firebase Sign In with Google
   const handleSignInWithGoogle = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
     try {
-      await signInWithGoogle();
-      showToast('Signed in successfully');
+      const res = await signInWithGoogle();
+      if (res?.user) {
+        showToast('Signed in successfully');
+      }
     } catch (err: any) {
-      showToast('Sign-in cancelled or closed');
+      const msg = err?.message || '';
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        return;
+      }
+      if (err?.code === 'auth/popup-blocked' || msg.includes('blocked')) {
+        showToast('Popup was blocked by your browser. Opening login options...');
+        setShowAuthGate(true);
+        return;
+      }
+      showToast(msg || 'Sign-in cancelled or closed');
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
