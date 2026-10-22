@@ -8,9 +8,10 @@ import { GoogleIcon } from '@/components/ui/google-icon';
 interface AuthGateProps {
   onSignInSuccess?: () => void;
   onExploreDemo?: () => void;
+  onBack?: () => void;
 }
 
-export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
+export function AuthGate({ onSignInSuccess, onExploreDemo, onBack }: AuthGateProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,30 +69,38 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] flex flex-col justify-center items-center p-6 selection:bg-purple-100 selection:text-purple-900 font-sans">
-      <div className="max-w-sm w-full bg-white rounded-3xl p-8 sm:p-9 shadow-xl border border-slate-200/80 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col justify-center items-center p-6 selection:bg-[#00d67d]/20 selection:text-white font-sans relative">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-6 left-6 text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5"
+        >
+          <span>← Back to Homepage</span>
+        </button>
+      )}
+
+      <div className="max-w-sm w-full bg-[#111622] rounded-3xl p-8 sm:p-9 shadow-2xl border border-slate-800 space-y-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Brand Logo */}
         <div className="flex items-center justify-center">
-          <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-950 text-white font-bold text-sm tracking-tight shadow-md select-none">
+          <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-[#00d67d] text-slate-950 font-extrabold text-sm tracking-tight shadow-lg shadow-[#00d67d]/20 select-none">
             <span>AD</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] ml-0.5 mb-1" />
           </div>
         </div>
 
         {/* Title */}
         <div className="space-y-1.5 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-serif">
+          <h1 className="text-2xl font-extrabold tracking-tight text-white font-sans">
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </h1>
-          <p className="text-xs text-slate-500">
-            {isSignUp ? 'Get started with AI-driven Google Ads management' : 'Sign in to access your AdOptimize command center'}
+          <p className="text-xs text-slate-400">
+            {isSignUp ? 'Get started with automated Google Ads optimization' : 'Sign in to access your AdOptimize command center'}
           </p>
         </div>
 
         {/* Error notice */}
         {errorMessage && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs text-rose-200 flex items-start gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <p className="leading-tight">{errorMessage}</p>
           </div>
         )}
@@ -102,23 +111,23 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
             type="button"
             onClick={handleGoogleAuth}
             disabled={isLoading}
-            className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-2xs disabled:opacity-60"
+            className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs disabled:opacity-60"
           >
             <GoogleIcon className="w-4 h-4" />
             <span>Continue with Google</span>
           </button>
 
           <div className="flex items-center gap-3 my-2">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-[11px] text-slate-400 uppercase font-semibold">or</span>
-            <div className="flex-1 h-px bg-slate-200" />
+            <div className="flex-1 h-px bg-slate-800" />
+            <span className="text-[11px] text-slate-500 uppercase font-semibold">or</span>
+            <div className="flex-1 h-px bg-slate-800" />
           </div>
         </div>
 
         {/* Email & Password Form */}
         <form onSubmit={handleEmailAuth} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-300 mb-1">
               Email
             </label>
             <input
@@ -128,12 +137,12 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
               placeholder="you@company.com"
               required
               disabled={isLoading}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d67d] focus:border-[#00d67d] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-300 mb-1">
               Password
             </label>
             <input
@@ -143,14 +152,14 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
               placeholder="••••••••"
               required
               disabled={isLoading}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d67d] focus:border-[#00d67d] transition-all"
             />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-60 pt-2.5"
+            className="w-full py-2.5 px-4 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#00d67d]/20 disabled:opacity-60 pt-2.5"
           >
             {isLoading ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -161,25 +170,25 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
         </form>
 
         {/* Toggle sign in / sign up */}
-        <div className="text-center pt-1 border-t border-slate-100 text-xs">
+        <div className="text-center pt-1 border-t border-slate-800 text-xs">
           {isSignUp ? (
-            <p className="text-slate-500">
+            <p className="text-slate-400">
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => { setIsSignUp(false); setErrorMessage(null); }}
-                className="font-bold text-slate-900 hover:underline cursor-pointer"
+                className="font-bold text-[#00d67d] hover:underline cursor-pointer"
               >
                 Sign in
               </button>
             </p>
           ) : (
-            <p className="text-slate-500">
+            <p className="text-slate-400">
               Don&apos;t have an account?{' '}
               <button
                 type="button"
                 onClick={() => { setIsSignUp(true); setErrorMessage(null); }}
-                className="font-bold text-slate-900 hover:underline cursor-pointer"
+                className="font-bold text-[#00d67d] hover:underline cursor-pointer"
               >
                 Sign up
               </button>
@@ -192,9 +201,9 @@ export function AuthGate({ onSignInSuccess, onExploreDemo }: AuthGateProps) {
             <button
               type="button"
               onClick={onExploreDemo}
-              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              className="text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              Explore preview as guest →
+              Explore live preview as guest →
             </button>
           </div>
         )}

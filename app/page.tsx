@@ -25,6 +25,7 @@ import { ConnectModal } from '@/components/connect-modal';
 import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
 import { AuthGate } from '@/components/auth/auth-gate';
 import { ConnectAccountsStep } from '@/components/onboarding/connect-accounts-step';
+import { LandingPage } from '@/components/landing/landing-page';
 import {
   DollarSign,
   TrendingUp,
@@ -137,6 +138,7 @@ export default function AdOptimizeApp() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(false);
+  const [showAuthGate, setShowAuthGate] = useState<boolean>(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1233,14 +1235,30 @@ export default function AdOptimizeApp() {
     );
   }
 
-  // 1. Unauthenticated: Show sleek, minimal AuthGate with Email or Google sign up/sign in
+  // 1. Unauthenticated: Show LandingPage by default, or AuthGate when clicked
   if (!user && !state.isDemoMode) {
+    if (showAuthGate) {
+      return (
+        <AuthGate
+          onSignInSuccess={() => {}}
+          onExploreDemo={() => {
+            setState((prev) => ({ ...prev, isDemoMode: true }));
+          }}
+          onBack={() => setShowAuthGate(false)}
+        />
+      );
+    }
+
     return (
-      <AuthGate
-        onSignInSuccess={() => {}}
+      <LandingPage
+        onOpenApp={() => setShowAuthGate(true)}
+        onConnectGoogleAds={() => setShowAuthGate(true)}
+        onSignInWithGoogle={handleSignInWithGoogle}
         onExploreDemo={() => {
           setState((prev) => ({ ...prev, isDemoMode: true }));
         }}
+        user={user}
+        onSignOut={handleSignOut}
       />
     );
   }

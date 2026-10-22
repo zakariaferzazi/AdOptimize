@@ -46,7 +46,7 @@ export default function CompareDirectoryPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {PSEO_COMPARISONS.map((comp) => (
             <Link
               key={comp.slug}
@@ -55,7 +55,7 @@ export default function CompareDirectoryPage() {
             >
               <div className="space-y-3">
                 <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                  Head-to-Head
+                  Head-to-Head Comparison
                 </span>
 
                 <h2 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
@@ -65,14 +65,10 @@ export default function CompareDirectoryPage() {
                 <p className="text-xs text-slate-600 leading-relaxed">
                   {comp.tagline}
                 </p>
-
-                <div className="pt-2 text-xs text-slate-500 font-mono">
-                  Target Keyword: {comp.targetKeyword}
-                </div>
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-900 group-hover:text-emerald-700">
-                <span>Read Full Comparison</span>
+                <span>Read Full Comparison &amp; Data Breakdown</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>

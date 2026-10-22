@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { GoogleAdsLogo } from '@/components/ui/google-ads-logo';
 import { acquireGoogleAdsToken } from '@/lib/google-identity';
 import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
-import { Check, RefreshCw, Zap, ArrowRight, AlertCircle, LogOut } from 'lucide-react';
+import { Check, RefreshCw, ArrowRight, AlertCircle, LogOut, ShieldCheck, Zap } from 'lucide-react';
 import { User } from 'firebase/auth';
 
 interface ConnectAccountsStepProps {
@@ -97,164 +97,220 @@ export function ConnectAccountsStep({
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] text-slate-900 flex flex-col justify-between selection:bg-purple-100 selection:text-purple-900 relative">
-      {/* Top subtle progress indicator (matching adspirer design) */}
-      <div className="w-full h-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600" />
-
-      {/* Main Container */}
-      <div className="flex-1 max-w-4xl w-full mx-auto px-6 pt-12 pb-32">
-        {/* Header Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold tracking-widest text-slate-500 uppercase">
-              Connect Ad Accounts
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-[#00d67d]/30 selection:text-white font-sans relative">
+      {/* Top Navigation */}
+      <header className="border-b border-slate-800/80 px-6 py-4 bg-slate-950/60 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-emerald-600 flex items-center justify-center text-slate-950 font-bold text-xs shadow-sm">
+              AD
+            </div>
+            <span className="font-extrabold tracking-tight text-white text-base">
+              Ad<span className="text-[#00d67d]">Optimize</span>
             </span>
-            {onSignOut && (
-              <button
-                onClick={onSignOut}
-                className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <span>{user?.email || 'Sign out'}</span>
-                <LogOut className="w-3.5 h-3.5 ml-1" />
-              </button>
-            )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 font-serif">
-            Congratulations, connect your ad accounts.
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer px-3 py-1.5 rounded-lg hover:bg-slate-800"
+            >
+              <span>{user?.email || 'Sign out'}</span>
+              <LogOut className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-12 pb-32">
+        {/* Header Section */}
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-[11px] font-bold text-emerald-400 tracking-wider uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />
+            <span>Connect Ad Accounts</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            Connect your Google Ads account
           </h1>
 
-          <p className="text-sm text-slate-600 leading-relaxed">
-            OAuth-secured · revoke anytime · ~30 seconds per platform. AdOptimize never stores your credentials.
+          <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
+            Link your Google account in one click via official Google OAuth. AdOptimize will automatically detect your ad account, sync active campaigns, and begin continuous background monitoring.
           </p>
 
-          <p className="text-xs text-slate-400 leading-relaxed pt-1">
-            Connect individual ad accounts — Manager (MCC) accounts can&apos;t be activated, and blocked or deactivated accounts won&apos;t appear here.
-          </p>
+          <div className="flex items-center gap-4 text-xs text-slate-500 pt-1">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Official Google Ads API</span>
+            </span>
+            <span>·</span>
+            <span>Zero credentials stored</span>
+            <span>·</span>
+            <span>Revoke anytime</span>
+          </div>
         </div>
 
         {/* Error message (if any) */}
         {errorMessage && (
-          <div className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-start gap-2.5 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="mt-6 p-4 bg-rose-950/60 border border-rose-800/80 rounded-2xl text-xs text-rose-200 flex items-start gap-3 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <span className="font-bold text-rose-950 block">Connection Error</span>
-              <p className="text-rose-900">{errorMessage}</p>
+              <span className="font-bold text-rose-100 block">Connection Notice</span>
+              <p className="text-rose-300 leading-relaxed">{errorMessage}</p>
             </div>
           </div>
         )}
 
-        {/* Section: Available Now */}
-        <div className="mt-12 space-y-4">
-          <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase block">
-            Available Now
+        {/* Available Integrations Section */}
+        <div className="mt-10 space-y-4">
+          <span className="text-[11px] font-bold tracking-widest text-slate-400 uppercase block">
+            Ad Platforms
           </span>
 
-          <div className="flex flex-wrap gap-4 items-start">
-            {/* Google Ads Card (Adspirer format) */}
-            <div className="w-72 bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4 transition-all hover:border-slate-300">
-              <div className="flex items-start gap-3.5">
-                <div className="shrink-0 pt-0.5">
-                  <GoogleAdsLogo className="w-8 h-8" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            {/* Google Ads Card */}
+            <div className={`p-6 rounded-3xl border transition-all ${
+              isConnected
+                ? 'bg-slate-950/90 border-emerald-500/40 shadow-lg shadow-emerald-950/30'
+                : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 shadow-md'
+            }`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center p-2.5">
+                    <GoogleAdsLogo className="w-full h-full" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-white">Google Ads</h3>
+                    <p className="text-xs text-slate-400">Search, Performance Max, Display</p>
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <h3 className="font-bold text-sm text-slate-900">Google Ads</h3>
-                  <p className="text-[11px] text-slate-500 leading-tight">
-                    Search, PMax, Display, YouTube
-                  </p>
-                </div>
+
+                {isConnected && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-950 border border-emerald-500/30 text-[11px] font-bold text-emerald-400">
+                    <Check className="w-3 h-3 text-[#00d67d]" />
+                    <span>Active</span>
+                  </span>
+                )}
               </div>
 
-              {/* Multiple accounts selection dropdown */}
+              {/* Multiple accounts selector */}
               {multipleAccounts.length > 1 ? (
-                <div className="space-y-2 pt-1 animate-in fade-in">
-                  <p className="text-[11px] font-semibold text-slate-700">Choose account to connect:</p>
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                <div className="space-y-2 pt-2 animate-in fade-in border-t border-slate-800">
+                  <p className="text-xs font-semibold text-slate-300">Select Google Ads account:</p>
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {multipleAccounts.map((cid) => (
                       <button
                         key={cid}
                         onClick={() => handleConnectGoogleAds(cid)}
                         disabled={isConnecting}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 text-xs font-mono font-semibold text-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                        className="w-full text-left px-3 py-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800 hover:border-emerald-500/50 text-xs font-mono font-semibold text-slate-200 transition-colors flex items-center justify-between cursor-pointer group"
                       >
                         <span>{cid}</span>
-                        <span className="text-[10px] font-sans text-emerald-700 font-bold">Select →</span>
+                        <span className="text-[11px] font-sans text-emerald-400 font-bold group-hover:translate-x-0.5 transition-transform">
+                          Connect →
+                        </span>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : isConnected ? (
                 /* Connected State */
-                <div className="pt-1">
-                  <div className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5">
-                    <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
-                    <span>Connected ({account.clientCustomerId})</span>
+                <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Connected Customer ID:</span>
+                    <span className="font-mono font-bold text-white bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                      {account.clientCustomerId}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Synchronized Campaigns:</span>
+                    <span className="font-bold text-emerald-400">
+                      {account.totalCampaignsCount ?? 0} active
+                    </span>
                   </div>
                   <button
                     onClick={() => handleConnectGoogleAds()}
                     disabled={isConnecting}
-                    className="w-full text-center text-[10px] text-slate-400 hover:text-slate-600 font-medium mt-2 cursor-pointer transition-colors"
+                    className="w-full text-center text-xs text-slate-400 hover:text-slate-200 font-medium pt-1 cursor-pointer transition-colors"
                   >
-                    Reconnect or switch account
+                    Switch or reconnect account
                   </button>
                 </div>
               ) : (
                 /* Connect Button */
-                <div className="pt-1">
+                <div className="pt-2 border-t border-slate-800/80">
                   <button
                     onClick={() => handleConnectGoogleAds()}
                     disabled={isConnecting}
-                    className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-xs font-semibold text-slate-800 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 bg-white shadow-2xs"
+                    className="w-full py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-60"
                   >
                     {isConnecting ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 text-purple-600 animate-spin" />
-                        <span>Connecting...</span>
+                        <RefreshCw className="w-3.5 h-3.5 text-slate-950 animate-spin" />
+                        <span>Connecting with Google...</span>
                       </>
                     ) : (
-                      <span>Connect</span>
+                      <>
+                        <span>Connect Google Ads</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
+                      </>
                     )}
                   </button>
                 </div>
               )}
             </div>
+
+            {/* Meta Ads (Upcoming) */}
+            <div className="p-6 rounded-3xl border border-slate-800/60 bg-slate-950/40 opacity-70">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-blue-400 font-bold text-lg">
+                    ∞
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-slate-300">Meta Ads</h3>
+                    <p className="text-xs text-slate-500">Facebook &amp; Instagram Feeds</p>
+                  </div>
+                </div>
+
+                <span className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[10px] font-semibold text-slate-400">
+                  Coming Soon
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 pt-2 border-t border-slate-800/60">
+                Multi-platform budget balancing across Google and Meta is in development.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Floating Bottom Pill Bar (matches Adspirer screenshot) */}
+      {/* Floating Bottom Action Bar */}
       <div className="fixed bottom-6 inset-x-0 flex justify-center z-40 pointer-events-none px-4">
-        <div className="pointer-events-auto bg-white rounded-2xl shadow-xl border border-slate-200/90 px-4 py-2.5 flex items-center gap-4 max-w-md w-full justify-between">
+        <div className="pointer-events-auto bg-slate-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-800 px-5 py-3 flex items-center gap-5 max-w-lg w-full justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0">
-              <Zap className="w-3.5 h-3.5 fill-current" />
-            </div>
-            <span className="text-xs font-medium text-slate-700">
+            <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-[#00d67d] animate-pulse' : 'bg-slate-600'}`} />
+            <span className="text-xs font-semibold text-slate-300">
               {isConnected
-                ? 'Account connected! Ready to optimize.'
-                : "Connect your ad account to fully unlock your agent's power"}
+                ? `Google Ads ${account.clientCustomerId} linked`
+                : 'Google Ads Account'}
             </span>
           </div>
 
           <button
             onClick={onContinueToDashboard}
             disabled={!isConnected}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               isConnected
-                ? 'bg-slate-950 hover:bg-slate-800 text-white shadow-sm cursor-pointer'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                ? 'bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 shadow-md cursor-pointer'
+                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
             }`}
           >
-            <span>Continue</span>
-            {isConnected && <ArrowRight className="w-3.5 h-3.5" />}
+            <span>Continue to Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </div>
-
-      {/* Bottom Right Logo Mark (matches screenshot AD logo) */}
-      <div className="fixed bottom-6 right-6 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-slate-950 text-white font-bold text-xs tracking-tight shadow-md select-none">
-        <span>AD</span>
-        <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] ml-0.5 mb-1" />
       </div>
     </div>
   );
