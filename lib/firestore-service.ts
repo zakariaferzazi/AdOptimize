@@ -23,6 +23,30 @@ import {
   Keyword
 } from '@/types/adoptimize';
 
+/**
+ * Recursively sanitizes any payload destined for Firestore by stripping `undefined` fields.
+ * Firestore strictly forbids `undefined` values and throws:
+ * "Function setDoc() called with invalid data. Unsupported field value: undefined"
+ */
+export function cleanForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanForFirestore(item)) as any;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (val !== undefined) {
+        cleaned[key] = cleanForFirestore(val);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
 // 1. User Profile
 export async function syncUserProfile(user: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) {
   const path = `users/${user.uid}`;
@@ -73,7 +97,7 @@ export async function saveCampaignToFirestore(userId: string, campaign: Campaign
   const path = `users/${userId}/campaigns/${campaign.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'campaigns', campaign.id);
-    await setDoc(docRef, campaign, { merge: true });
+    await setDoc(docRef, cleanForFirestore(campaign), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -110,7 +134,7 @@ export async function saveInsightToFirestore(userId: string, insight: AIInsight)
   const path = `users/${userId}/insights/${insight.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'insights', insight.id);
-    await setDoc(docRef, insight, { merge: true });
+    await setDoc(docRef, cleanForFirestore(insight), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -137,7 +161,7 @@ export async function saveAnomalyToFirestore(userId: string, anomaly: AnomalyAle
   const path = `users/${userId}/anomalies/${anomaly.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'anomalies', anomaly.id);
-    await setDoc(docRef, anomaly, { merge: true });
+    await setDoc(docRef, cleanForFirestore(anomaly), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -262,7 +286,8 @@ export async function saveUserAccount(userId: string, account: GoogleAdsAccount)
   const path = `users/${userId}/accounts/primary`;
   try {
     const docRef = doc(db, 'users', userId, 'accounts', 'primary');
-    await setDoc(docRef, account, { merge: true });
+    const sanitized = cleanForFirestore(account);
+    await setDoc(docRef, sanitized, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -641,7 +666,7 @@ export async function saveKeywordToFirestore(userId: string, keyword: Keyword) {
   const path = `users/${userId}/keywords/${keyword.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'keywords', keyword.id);
-    await setDoc(docRef, keyword, { merge: true });
+    await setDoc(docRef, cleanForFirestore(keyword), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -678,7 +703,7 @@ export async function saveSearchTermToFirestore(userId: string, term: SearchTerm
   const path = `users/${userId}/searchTerms/${term.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'searchTerms', term.id);
-    await setDoc(docRef, term, { merge: true });
+    await setDoc(docRef, cleanForFirestore(term), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

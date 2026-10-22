@@ -500,8 +500,14 @@ export default function AdOptimizeApp() {
         syncStatus: 'SYNCED',
         isConnected: true,
         totalCampaignsCount: data.campaigns?.length ?? 0,
-        loginCustomerId: data.loginCustomerIdUsed || account.loginCustomerId,
       };
+
+      const loginCidToKeep = data.loginCustomerIdUsed || account.loginCustomerId;
+      if (loginCidToKeep) {
+        updatedAccount.loginCustomerId = loginCidToKeep;
+      } else {
+        delete updatedAccount.loginCustomerId;
+      }
 
       if (data.loginCustomerIdUsed && typeof window !== 'undefined') {
         sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);

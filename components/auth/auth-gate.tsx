@@ -10,7 +10,8 @@ import {
   ArrowRight,
   Lock,
   Database,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface AuthGateProps {
@@ -38,12 +39,27 @@ export function AuthGate({ onSignInWithGoogle, onExploreDemo, isLoading }: AuthG
             Connect Your Account
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
-            Sign in with your Google Account to access continuous 24/7 campaign monitoring, budget reallocation, and automated audit logs.
+            Sign in with your Google Account to authorize AdOptimize and your Google Ads campaigns in one unified step.
           </p>
         </div>
 
+        {/* Scope Transparency Card */}
+        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left text-xs space-y-1.5">
+          <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+            All-in-one Google Permissions:
+          </div>
+          <div className="flex items-center gap-2 text-slate-700 text-[11px]">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Google Account Profile &amp; Email</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-700 text-[11px]">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#00d67d] shrink-0" />
+            <span className="font-semibold text-slate-900">Google Ads Campaign Management (AdWords)</span>
+          </div>
+        </div>
+
         {/* Action Button: Sign In with Google */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-1">
           <button
             onClick={onSignInWithGoogle}
             disabled={isLoading}
@@ -52,9 +68,12 @@ export function AuthGate({ onSignInWithGoogle, onExploreDemo, isLoading }: AuthG
             <div className="w-5 h-5 rounded-full bg-white text-slate-900 flex items-center justify-center font-bold text-xs shrink-0">
               G
             </div>
-            <span>{isLoading ? 'Connecting to Google...' : 'Sign In with Google'}</span>
+            <span>{isLoading ? 'Connecting to Google...' : 'Sign In & Connect Google Ads'}</span>
             <ArrowRight className="w-4 h-4 text-[#00d67d] group-hover:translate-x-0.5 transition-transform" />
           </button>
+          <p className="text-[10px] text-slate-400">
+            Single prompt: Requests all permissions upfront to prevent passkey challenges.
+          </p>
 
           {onExploreDemo && (
             <button
@@ -65,6 +84,7 @@ export function AuthGate({ onSignInWithGoogle, onExploreDemo, isLoading }: AuthG
             </button>
           )}
         </div>
+
 
         {/* Trust Badges */}
         <div className="pt-6 border-t border-slate-100 grid grid-cols-2 gap-3 text-left">

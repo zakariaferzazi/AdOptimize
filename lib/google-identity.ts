@@ -252,12 +252,39 @@ export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): P
 }
 
 /**
+ * Helper to store token in both sessionStorage and localStorage
+ */
+export function storeGoogleAdsToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  const now = String(Date.now());
+  sessionStorage.setItem('google_ads_oauth_token', token);
+  sessionStorage.setItem('google_ads_oauth_token_timestamp', now);
+  try {
+    localStorage.setItem('google_ads_oauth_token', token);
+    localStorage.setItem('google_ads_oauth_token_timestamp', now);
+    localStorage.setItem(
+      'google_ads_oauth_token_broadcast',
+      JSON.stringify({ token, time: Date.now() })
+    );
+  } catch {}
+}
+
+/**
  * Helper to retrieve stored token and check freshness (Google tokens expire in 60 mins; renew after 50 mins).
  */
 export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
   if (typeof window === 'undefined') return { token: null, isExpired: true };
-  const token = sessionStorage.getItem('google_ads_oauth_token');
-  const timestampStr = sessionStorage.getItem('google_ads_oauth_token_timestamp');
+  let token = sessionStorage.getItem('google_ads_oauth_token');
+  let timestampStr = sessionStorage.getItem('google_ads_oauth_token_timestamp');
+
+  // Fallback to localStorage
+  if (!token) {
+    try {
+      token = localStorage.getItem('google_ads_oauth_token');
+      timestampStr = localStorage.getItem('google_ads_oauth_token_timestamp');
+    } catch {}
+  }
+
   if (!token) return { token: null, isExpired: true };
   if (timestampStr) {
     const ageMs = Date.now() - parseInt(timestampStr, 10);
@@ -269,13 +296,15 @@ export function getStoredGoogleAdsToken(): { token: string | null; isExpired: bo
 }
 
 /**
- * Clears stored Google Ads OAuth tokens from session storage.
+ * Clears stored Google Ads OAuth tokens from storage.
  */
 export function clearStoredGoogleAdsToken(): void {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem('google_ads_oauth_token');
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
     try {
+      localStorage.removeItem('google_ads_oauth_token');
+      localStorage.removeItem('google_ads_oauth_token_timestamp');
       localStorage.removeItem('google_ads_oauth_token_broadcast');
     } catch {}
   }
@@ -284,19 +313,51 @@ export function clearStoredGoogleAdsToken(): void {
 /**
  * Main Function: Acquire Google Ads OAuth token cleanly.
  * Automatically chooses the optimal flow without ever forcing passkey creation:
- * - If running on https://adoptimize.app, tries GIS first.
- * - If on any preview/local environment, or if GIS is unavailable, seamlessly uses
- *   the approved OAuth 2.0 popup with the registered redirect URI.
+ * - Checks stored token first
+ * - Uses Firebase GoogleAuthProvider with AdWords scope (unified consent, no origin mismatch, no passkeys)
+ * - If on https://adoptimize.app, can use GIS
+ * - Otherwise falls back to approved redirect popup
  */
 export async function acquireGoogleAdsToken(options?: {
   emailHint?: string;
   preferredMethod?: 'gis' | 'firebase';
   forceFirebase?: boolean;
 }): Promise<string> {
+  // Check if existing token is still valid
+  const stored = getStoredGoogleAdsToken();
+  if (stored.token && !stored.isExpired) {
+    return stored.token;
+  }
+
+  // 1. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
+  try {
+    const { auth, googleProvider } = await import('@/lib/firebase');
+    const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+    googleProvider.setCustomParameters(
+      options?.emailHint
+        ? { prompt: 'select_account', login_hint: options.emailHint }
+        : { prompt: 'select_account' }
+    );
+    const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      storeGoogleAdsToken(credential.accessToken);
+      return credential.accessToken;
+    }
+  } catch (fbErr: any) {
+    if (
+      fbErr?.code === 'auth/popup-closed-by-user' ||
+      fbErr?.code === 'auth/cancelled-popup-request'
+    ) {
+      throw new Error('Google authorization window was closed.');
+    }
+    console.warn('Firebase token acquisition notice:', fbErr?.message || fbErr);
+  }
+
   const isProduction =
     typeof window !== 'undefined' && window.location.origin === 'https://adoptimize.app';
 
-  // 1. If on adoptimize.app, attempt GIS
+  // 2. If on adoptimize.app, attempt GIS
   if (isProduction && options?.preferredMethod !== 'firebase') {
     try {
       const token = await requestGoogleAdsAccessToken(options?.emailHint);
@@ -306,7 +367,7 @@ export async function acquireGoogleAdsToken(options?: {
     }
   }
 
-  // 2. Standard OAuth popup flow (uses approved redirect URI https://adoptimize.app/api/google-ads/oauth-callback)
+  // 3. Fallback: Standard OAuth popup flow (uses approved redirect URI https://adoptimize.app/api/google-ads/oauth-callback)
   return requestGoogleAdsAccessTokenViaPopup(options?.emailHint);
 }
 
@@ -316,3 +377,4 @@ export async function acquireGoogleAdsToken(options?: {
 export async function acquireGoogleAdsTokenViaFirebase(emailHint?: string): Promise<string> {
   return acquireGoogleAdsToken({ emailHint });
 }
+
