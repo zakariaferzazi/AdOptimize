@@ -1,620 +1,876 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowUp,
-  Plus,
-  Clock,
-  Sparkles,
+  Sidebar as SidebarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Share,
   CheckCircle2,
-  AlertCircle,
-  RotateCcw,
-  Sliders,
-  ChevronDown,
-  ArrowRight,
-  ExternalLink,
-  ShieldCheck,
-  Zap,
+  Wrench,
   Terminal,
-  Paperclip,
-  Check
+  Sparkles,
+  RotateCw,
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 
-export type SupportedModel = 'claude' | 'chatgpt' | 'gemini';
+export type SupportedModel = 'deepseek' | 'chatgpt' | 'gemini';
 
-interface ModelPreset {
-  id: SupportedModel;
-  name: string;
-  creator: string;
-  accentColor: string;
-  themeBg: string;
-  themeBorder: string;
-  activePillBg: string;
-  activePillText: string;
-  versions: string[];
-  defaultPrompt: string;
-  headline: string;
-  disclaimer: string;
-  quickPrompts: { label: string; text: string }[];
-  sampleResult: {
+export interface ConversationalScenario {
+  id: string;
+  topicTitle: string;
+  userMessage1: string;
+  toolName1: string;
+  assistantMessage1: {
     title: string;
-    actionBadge: string;
-    account: string;
-    summary: string;
+    statusLine: string;
+    checksHeader: string;
     checks: string[];
-    details: { label: string; value: string; highlight?: boolean }[];
+    footer: string;
+  };
+  userMessage2: string;
+  toolName2: string;
+  assistantMessage2: {
+    title: string;
+    statusLine: string;
+    footer: string;
   };
 }
 
-const MODEL_PRESETS: Record<SupportedModel, ModelPreset> = {
-  claude: {
-    id: 'claude',
-    name: 'Claude',
-    creator: 'Anthropic',
-    accentColor: '#D97706', // warm amber / terracotta
-    themeBg: 'bg-amber-500/5',
-    themeBorder: 'border-amber-200/60',
-    activePillBg: 'bg-amber-900 text-amber-50 border-amber-800 shadow-sm',
-    activePillText: 'text-amber-950 font-semibold',
-    versions: ['Claude 3.7 Sonnet', 'Claude Opus 4.5', 'Claude 3.5 Haiku'],
-    headline: 'What shall we optimize in Google Ads today?',
-    defaultPrompt: 'Build the approved Q3 search campaign. Keep CPC under $8 and create it paused with 4 ad groups.',
-    disclaimer: 'Claude generates paused campaigns and negative keyword lists with safe human approval.',
-    quickPrompts: [
-      {
-        label: 'Build Q3 Search Campaign',
-        text: 'Build the approved Q3 search campaign. Keep CPC under $8 and create it paused with 4 ad groups.'
-      },
-      {
-        label: 'Audit Wasted Spend > $150',
-        text: 'Audit search queries with spend > $150 and 0 conversions in the last 30 days. Draft negative keywords.'
-      },
-      {
-        label: 'Quality Score & RSA Check',
-        text: 'Review ad groups with Quality Score below 5 and generate 3 dynamic keyword insertion headlines.'
-      }
-    ],
-    sampleResult: {
-      title: 'Q3 Search Campaign Structure Created',
-      actionBadge: 'Campaign Drafted (Paused)',
-      account: 'Growth Portfolio (CID: 482-192-8012)',
-      summary: 'Generated 4 ad groups (High-Intent B2B, Solutions, Enterprise, Features) with 12 Responsive Search Ads. CPC cap enforced at $7.85.',
+export const CONVERSATIONAL_SCENARIOS: ConversationalScenario[] = [
+  {
+    id: 'q3-campaign-launch',
+    topicTitle: 'Q3 search campaign — ready for review',
+    userMessage1: 'Build the approved Q3 search campaign. Keep CPC under $8 and create it paused.',
+    toolName1: 'Build Google Search Campaign',
+    assistantMessage1: {
+      title: 'Campaign built and verified.',
+      statusLine: 'Status: PAUSED · 7 ad groups · 126 keywords · ready for review.',
+      checksHeader: 'Checks completed:',
       checks: [
-        'Max CPC bid cap respected: $7.85 (Target < $8.00)',
-        'Initial deployment status: PAUSED (safe review mode)',
-        'Negative exact match list attached (38 excluded search terms)',
-        '1-click instant rollback snapshot created in audit log'
+        '126 keywords grouped into 7 intent-led ad groups',
+        'Budget, bidding, copy, and extensions match the brief',
+        'Campaign is paused — nothing spends until you approve'
       ],
-      details: [
-        { label: 'Target CPC Cap', value: '$7.85 max', highlight: true },
-        { label: 'Campaign Status', value: 'PAUSED' },
-        { label: 'Ad Groups Created', value: '4 groups' },
-        { label: 'RSAs Composed', value: '12 responsive ads' }
-      ]
+      footer: 'Nothing is live. Approve the build when you are ready.'
+    },
+    userMessage2: 'Approved. Launch it.',
+    toolName2: 'Update Campaign Status',
+    assistantMessage2: {
+      title: 'Campaign live.',
+      statusLine: 'Status: ENABLED — serving on Google Search.',
+      footer: 'I’ll watch pacing and CPA, then bring you the next decision.'
     }
+  },
+  {
+    id: 'negative-keyword-bleed',
+    topicTitle: 'Search query waste & negative keyword bleed',
+    userMessage1: 'Audit search queries from the last 14 days. Find irrelevant traffic spending budget with 0 conversions.',
+    toolName1: 'Audit Search Query Performance',
+    assistantMessage1: {
+      title: 'Search query audit complete. 19 non-converting queries flagged.',
+      statusLine: 'Status: AUDITED · $642.50 wasted spend found across 19 queries.',
+      checksHeader: 'Top non-converting bleed terms:',
+      checks: [
+        "'free software download crack' — $214.20 spend · 0 conv",
+        "'customer service 1800 phone number' — $182.50 spend · 0 conv",
+        "'undergrad student internship jobs' — $128.00 spend · 0 conv"
+      ],
+      footer: "Drafted account negative list 'Q3_Waste_Exclusions'. Apply negative exact match?"
+    },
+    userMessage2: 'Approved. Add them to negatives immediately.',
+    toolName2: 'Add Negative Keywords List',
+    assistantMessage2: {
+      title: '19 negative exact match terms applied.',
+      statusLine: 'Status: ACTIVE · Exclusions deployed to all 4 Search campaigns.',
+      footer: 'Projected monthly savings: ~$1,350. Converting high-intent search terms remain untouched.'
+    }
+  },
+  {
+    id: 'pmax-brand-cannibalization',
+    topicTitle: 'Performance Max brand cannibalization & mobile app purge',
+    userMessage1: 'Performance Max is claiming our branded search conversions and burning budget on random mobile gaming apps.',
+    toolName1: 'Diagnose Performance Max Placements & Channels',
+    assistantMessage1: {
+      title: 'Performance Max diagnostic complete.',
+      statusLine: 'Status: DIAGNOSED · 36% brand query overlap · 42 low-engagement app placements.',
+      checksHeader: 'Findings verified:',
+      checks: [
+        '36% of PMax conversion credit is cannibalizing brand exact search',
+        '$490 spent on casual mobile games with 0.02% conversion rate',
+        'Drafted Brand Exclusion List + account-level mobile app category purge'
+      ],
+      footer: 'Ready to attach brand exclusion and block 140 mobile app categories.'
+    },
+    userMessage2: 'Approved. Deploy both exclusions now.',
+    toolName2: 'Apply Brand Exclusions & App Category Purge',
+    assistantMessage2: {
+      title: 'Exclusions deployed successfully.',
+      statusLine: 'Status: ENFORCED · Brand list attached · 140 mobile app categories blocked.',
+      footer: 'PMax will now strictly acquire incremental net-new customers. Branded search routes to Brand Search.'
+    }
+  },
+  {
+    id: 'target-cpa-spike',
+    topicTitle: 'Target CPA runaway spike & bid cap reset',
+    userMessage1: 'Our CPA jumped from $38 to $92 this week on Core US Search. Diagnose and fix the runaway spend.',
+    toolName1: 'Run Auction & Target CPA Diagnostics',
+    assistantMessage1: {
+      title: 'Diagnostic complete. Auction anomaly identified.',
+      statusLine: 'Status: IDENTIFIED · Target CPA loosened after two broad match queries spiked bids.',
+      checksHeader: 'Root causes & guardrails:',
+      checks: [
+        'Two broad match queries consumed 42% of daily budget at $14.80/click',
+        'Smart Bidding overbid in off-peak hours after a competitor exited the auction',
+        'Prepared guardrails: pause broad bleed and lock Max CPC bid cap at $7.50'
+      ],
+      footer: 'Ready to enforce the $7.50 safety bid cap and pause runaway broad match terms.'
+    },
+    userMessage2: 'Approved. Apply the bid cap and pause those broad queries.',
+    toolName2: 'Enforce Bid Cap Guardrail & Pause Queries',
+    assistantMessage2: {
+      title: 'Bid cap guardrail enforced.',
+      statusLine: 'Status: STABILIZED · Max CPC capped at $7.50 · Broad queries paused.',
+      footer: 'Projected CPA returning to $38–$42 range within 24 hours. Auction pacing secured.'
+    }
+  },
+  {
+    id: 'broken-url-disapproval',
+    topicTitle: 'Broken destination URLs & 404 policy disapproval fix',
+    userMessage1: 'Google disapproved 14 ads for Destination Mismatch / 404 URL after our website release.',
+    toolName1: 'Scan Final URLs & Policy Disapprovals',
+    assistantMessage1: {
+      title: 'Policy scan complete. 14 broken URLs detected.',
+      statusLine: 'Status: FLAGGED · 14 ads returning HTTP 404 on legacy "/pricing-plans".',
+      checksHeader: 'Resolution verified:',
+      checks: [
+        'Live target confirmed: https://app.example.com/pricing (HTTP 200 OK)',
+        'Ad copy, extensions, and tracking templates preserved intact',
+        'Automated batch update and policy review trigger prepared'
+      ],
+      footer: 'Ready to update all 14 final URLs and resubmit for expedited review.'
+    },
+    userMessage2: 'Approved. Update URLs and resubmit for review.',
+    toolName2: 'Batch Update Final URLs & Resubmit',
+    assistantMessage2: {
+      title: 'All 14 ad destinations updated and resubmitted.',
+      statusLine: 'Status: PENDING REVIEW · 0 broken links remaining in account.',
+      footer: 'Ads typically re-enable within 2 hours. I’ll confirm when impressions resume.'
+    }
+  }
+];
+
+interface ModelThemeConfig {
+  id: SupportedModel;
+  name: string;
+  version: string;
+  windowBg: string;
+  titleBarBg: string;
+  titleBarBorder: string;
+  textColor: string;
+  mutedTextColor: string;
+  userBubbleBg: string;
+  userBubbleText: string;
+  assistantBubbleBg: string;
+  assistantBubbleBorder: string;
+  assistantText: string;
+  toolChipBg: string;
+  toolChipBorder: string;
+  toolChipText: string;
+  toolPrefix: string;
+  fontClass: string;
+  sendBtnBg: string;
+  sendBtnText: string;
+  accentColor: string;
+}
+
+const MODEL_THEMES: Record<SupportedModel, ModelThemeConfig> = {
+  deepseek: {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    version: 'DeepSeek-V3',
+    windowBg: 'bg-[#F4F6FB]', // DeepSeek clean high-tech canvas
+    titleBarBg: 'bg-[#F4F6FB]',
+    titleBarBorder: 'border-[#D9E1F0]',
+    textColor: 'text-slate-900',
+    mutedTextColor: 'text-slate-500',
+    userBubbleBg: 'bg-[#1E293B]',
+    userBubbleText: 'text-white',
+    assistantBubbleBg: 'bg-white',
+    assistantBubbleBorder: 'border-[#D9E1F0]',
+    assistantText: 'text-slate-900',
+    toolChipBg: 'bg-blue-50/90',
+    toolChipBorder: 'border-blue-200/90',
+    toolChipText: 'text-[#1E40AF]',
+    toolPrefix: 'DeepSeek Tool Call',
+    fontClass: 'font-sans',
+    sendBtnBg: 'bg-[#1E40AF]',
+    sendBtnText: 'text-white',
+    accentColor: '#1E40AF'
   },
   chatgpt: {
     id: 'chatgpt',
     name: 'ChatGPT',
-    creator: 'OpenAI',
-    accentColor: '#10A37F', // OpenAI green
-    themeBg: 'bg-emerald-500/5',
-    themeBorder: 'border-emerald-200/60',
-    activePillBg: 'bg-emerald-900 text-emerald-50 border-emerald-800 shadow-sm',
-    activePillText: 'text-emerald-950 font-semibold',
-    versions: ['GPT-4o', 'o3-mini (Reasoning)', 'GPT-4.5 Turbo'],
-    headline: 'How can I assist your Google Ads campaigns today?',
-    defaultPrompt: 'Audit high-CPA search queries with zero conversions and generate an exact-match negative keyword list.',
-    disclaimer: 'ChatGPT analyzes Google Ads SearchStream API logs. Changes require your explicit approval.',
-    quickPrompts: [
-      {
-        label: 'Audit High-CPA Queries',
-        text: 'Audit high-CPA search queries with zero conversions and generate an exact-match negative keyword list.'
-      },
-      {
-        label: 'Rebalance PMax to Search',
-        text: 'Reallocate $1,500/mo ad spend from low-ROAS PMax asset groups into high-converting exact search keywords.'
-      },
-      {
-        label: 'Competitive Headline Polish',
-        text: 'Scan competitor positioning and write 5 high-converting RSA headlines emphasizing free trial and no card required.'
-      }
-    ],
-    sampleResult: {
-      title: 'Search Query Audit & Negative Keyword Harvest',
-      actionBadge: '24 Negative Terms Flagged',
-      account: 'SaaS Growth (CID: 319-804-9912)',
-      summary: 'Scanned 1,480 search terms from past 30 days. Found 24 irrelevant queries (support logins, crack downloads, jobs) burning $412.80.',
-      checks: [
-        'Waste elimination estimated: $412.80/month saved',
-        'Filtered irrelevant non-converting search intents',
-        'Prepared account-level negative keyword list: "B2B_Waste_Filter_Auto"',
-        'Zero impact on existing converting keyword phrases'
-      ],
-      details: [
-        { label: 'Wasted Spend Found', value: '$412.80', highlight: true },
-        { label: 'Queries Scanned', value: '1,480 terms' },
-        { label: 'Negative Keywords', value: '24 filtered' },
-        { label: 'Projected ROAS Lift', value: '+18.4%' }
-      ]
-    }
+    version: 'GPT-4o',
+    windowBg: 'bg-[#F9F9FB]', // Clean OpenAI neutral
+    titleBarBg: 'bg-[#F9F9FB]',
+    titleBarBorder: 'border-slate-200/80',
+    textColor: 'text-slate-900',
+    mutedTextColor: 'text-slate-500',
+    userBubbleBg: 'bg-slate-900',
+    userBubbleText: 'text-white',
+    assistantBubbleBg: 'bg-white',
+    assistantBubbleBorder: 'border-slate-200/90',
+    assistantText: 'text-slate-900',
+    toolChipBg: 'bg-slate-100',
+    toolChipBorder: 'border-slate-200',
+    toolChipText: 'text-slate-700',
+    toolPrefix: 'Ran tool',
+    fontClass: 'font-sans',
+    sendBtnBg: 'bg-slate-900',
+    sendBtnText: 'text-white',
+    accentColor: '#10A37F'
   },
   gemini: {
     id: 'gemini',
     name: 'Gemini',
-    creator: 'Google DeepMind',
-    accentColor: '#2563EB', // Google blue
-    themeBg: 'bg-blue-500/5',
-    themeBorder: 'border-blue-200/60',
-    activePillBg: 'bg-blue-900 text-blue-50 border-blue-800 shadow-sm',
-    activePillText: 'text-blue-950 font-semibold',
-    versions: ['Gemini 2.5 Pro', 'Gemini 2.5 Flash', 'Gemini 2.0 Ultra'],
-    headline: 'Ask Gemini to inspect your Google Ads auction.',
-    defaultPrompt: 'Detect ROAS anomalies across Performance Max campaigns and simulate reallocating budget to Top Search.',
-    disclaimer: 'Gemini connects natively to Google Ads SearchStream API v25 with real-time auction telemetry.',
-    quickPrompts: [
-      {
-        label: 'Performance Max Anomaly Scan',
-        text: 'Detect ROAS anomalies across Performance Max campaigns and simulate reallocating budget to Top Search.'
-      },
-      {
-        label: 'Marginal ROAS Simulation',
-        text: 'Simulate the conversion impact of raising target ROAS by 15% on high-volume search campaigns.'
-      },
-      {
-        label: 'Auction Impression Share Drop',
-        text: 'Identify campaigns that lost >20% search lost impression share to rank over the last 14 days.'
-      }
-    ],
-    sampleResult: {
-      title: 'PMax Diagnostic & Budget Rebalance Plan',
-      actionBadge: 'Capital Rebalancing Recommended',
-      account: 'Primary Production (CID: 601-445-1209)',
-      summary: 'Detected asset group cannibalization in Performance Max. Moving $85/day to High-Intent Brand & Core Search yields +31.2% incremental conversions.',
-      checks: [
-        'Live SearchStream v25 auction data synchronized',
-        'Search Impression Share gain projected: +14.6%',
-        'Budget velocity cap set to maximum 10% daily variation',
-        'Full snapshot stored for 1-click rollback restoration'
-      ],
-      details: [
-        { label: 'Shift Recommendation', value: '$85.00 / day', highlight: true },
-        { label: 'Primary Destination', value: 'Top Core Search' },
-        { label: 'Expected Conv. Gain', value: '+31.2%' },
-        { label: 'Auction Overlap', value: 'Resolved' }
-      ]
-    }
+    version: '2.5 Pro',
+    windowBg: 'bg-[#F2F5FA]', // Google soft ice-blue canvas
+    titleBarBg: 'bg-[#F2F5FA]',
+    titleBarBorder: 'border-[#D9E2EE]',
+    textColor: 'text-slate-900',
+    mutedTextColor: 'text-slate-500',
+    userBubbleBg: 'bg-[#152338]',
+    userBubbleText: 'text-white',
+    assistantBubbleBg: 'bg-white',
+    assistantBubbleBorder: 'border-blue-100',
+    assistantText: 'text-slate-900',
+    toolChipBg: 'bg-blue-50/90',
+    toolChipBorder: 'border-blue-200/70',
+    toolChipText: 'text-blue-900',
+    toolPrefix: 'Function Call',
+    fontClass: 'font-sans',
+    sendBtnBg: 'bg-[#1A73E8]',
+    sendBtnText: 'text-white',
+    accentColor: '#1A73E8'
   }
 };
+
+export interface ModelDemoSimulatorProps {
+  onConnectGoogleAds?: () => void;
+  onOpenApp?: () => void;
+}
 
 export function ModelDemoSimulator({
   onConnectGoogleAds,
   onOpenApp
-}: {
-  onConnectGoogleAds?: () => void;
-  onOpenApp?: () => void;
-}) {
-  const [selectedModel, setSelectedModel] = useState<SupportedModel>('claude');
-  const [selectedVersion, setSelectedVersion] = useState<string>(MODEL_PRESETS['claude'].versions[0]);
-  const [promptText, setPromptText] = useState<string>(MODEL_PRESETS['claude'].defaultPrompt);
-  const [isVersionDropdownOpen, setIsVersionDropdownOpen] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-  const [executionResult, setExecutionResult] = useState<typeof MODEL_PRESETS['claude']['sampleResult'] | null>(null);
-  const [isApplied, setIsApplied] = useState(false);
-  const [hasAttachment, setHasAttachment] = useState(false);
-  const [hasSchedule, setHasSchedule] = useState(false);
+}: ModelDemoSimulatorProps = {}) {
+  const [selectedModel, setSelectedModel] = useState<SupportedModel>('deepseek');
+  const [scenarioIndex, setScenarioIndex] = useState<number>(0);
 
-  const activePreset = MODEL_PRESETS[selectedModel];
+  // Input bar typing state
+  const [typedInputField, setTypedInputField] = useState<string>('');
+  const [isSendPressed, setIsSendPressed] = useState<boolean>(false);
 
-  // When switching model, update default prompt and version
-  const handleModelChange = (model: SupportedModel) => {
+  // Progressive chat messages state
+  const [user1Message, setUser1Message] = useState<string | null>(null);
+  const [tool1State, setTool1State] = useState<{ name: string; isRunning: boolean } | null>(null);
+
+  // AI 1 streaming state (streams from left to right)
+  const [ai1Visible, setAi1Visible] = useState<boolean>(false);
+  const [ai1StreamedTitle, setAi1StreamedTitle] = useState<string>('');
+  const [ai1ShowStatus, setAi1ShowStatus] = useState<boolean>(false);
+  const [ai1CompletedChecks, setAi1CompletedChecks] = useState<string[]>([]);
+  const [ai1CurrentCheck, setAi1CurrentCheck] = useState<string>('');
+  const [ai1StreamedFooter, setAi1StreamedFooter] = useState<string>('');
+  const [ai1IsStreaming, setAi1IsStreaming] = useState<boolean>(false);
+
+  // User 2 & Tool 2 state
+  const [user2Message, setUser2Message] = useState<string | null>(null);
+  const [tool2State, setTool2State] = useState<{ name: string; isRunning: boolean } | null>(null);
+
+  // AI 2 streaming state
+  const [ai2Visible, setAi2Visible] = useState<boolean>(false);
+  const [ai2StreamedTitle, setAi2StreamedTitle] = useState<string>('');
+  const [ai2ShowStatus, setAi2ShowStatus] = useState<boolean>(false);
+  const [ai2StreamedFooter, setAi2StreamedFooter] = useState<string>('');
+  const [ai2IsStreaming, setAi2IsStreaming] = useState<boolean>(false);
+
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const theme = MODEL_THEMES[selectedModel];
+  const scenario = CONVERSATIONAL_SCENARIOS[scenarioIndex % CONVERSATIONAL_SCENARIOS.length];
+
+  // Auto-scroll inside chat thread as text streams in
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [
+    user1Message,
+    tool1State,
+    ai1StreamedTitle,
+    ai1CurrentCheck,
+    ai1StreamedFooter,
+    user2Message,
+    tool2State,
+    ai2StreamedTitle,
+    ai2StreamedFooter
+  ]);
+
+  // Main automated conversation runner
+  useEffect(() => {
+    let isCancelled = false;
+    let activeTimer: NodeJS.Timeout | null = null;
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        activeTimer = setTimeout(() => {
+          if (!isCancelled) resolve();
+        }, ms);
+      });
+
+    const streamIntoInput = async (text: string, speed = 24) => {
+      for (let i = 0; i <= text.length; i++) {
+        if (isCancelled) return;
+        setTypedInputField(text.slice(0, i));
+        await wait(speed);
+      }
+    };
+
+    const streamText = async (text: string, onUpdate: (val: string) => void, speed = 18) => {
+      for (let i = 0; i <= text.length; i++) {
+        if (isCancelled) return;
+        onUpdate(text.slice(0, i));
+        await wait(speed);
+      }
+    };
+
+    const runSimulation = async () => {
+      // 1. Initial reset
+      await wait(50);
+      if (isCancelled) return;
+
+      setUser1Message(null);
+      setTool1State(null);
+      setAi1Visible(false);
+      setAi1StreamedTitle('');
+      setAi1ShowStatus(false);
+      setAi1CompletedChecks([]);
+      setAi1CurrentCheck('');
+      setAi1StreamedFooter('');
+      setAi1IsStreaming(false);
+
+      setUser2Message(null);
+      setTool2State(null);
+      setAi2Visible(false);
+      setAi2StreamedTitle('');
+      setAi2ShowStatus(false);
+      setAi2StreamedFooter('');
+      setAi2IsStreaming(false);
+
+      // 2. Type user message 1 into the bottom sending field
+      await wait(300);
+      await streamIntoInput(scenario.userMessage1, 24);
+      if (isCancelled) return;
+
+      // 3. Send button pressed animation
+      setIsSendPressed(true);
+      await wait(220);
+      if (isCancelled) return;
+      setIsSendPressed(false);
+      setTypedInputField('');
+
+      // 4. User 1 message appears in chat thread
+      setUser1Message(scenario.userMessage1);
+      await wait(450);
+      if (isCancelled) return;
+
+      // 5. Tool 1 running execution indicator
+      setTool1State({ name: scenario.toolName1, isRunning: true });
+      await wait(650);
+      if (isCancelled) return;
+      setTool1State({ name: scenario.toolName1, isRunning: false });
+      await wait(350);
+      if (isCancelled) return;
+
+      // 6. AI 1 streams replying from left to right like real AI
+      setAi1Visible(true);
+      setAi1IsStreaming(true);
+
+      // Stream title
+      await streamText(scenario.assistantMessage1.title, setAi1StreamedTitle, 16);
+      if (isCancelled) return;
+      await wait(200);
+
+      // Status badge reveals
+      setAi1ShowStatus(true);
+      await wait(250);
+
+      // Stream checks one by one
+      for (const check of scenario.assistantMessage1.checks) {
+        if (isCancelled) return;
+        await streamText(check, setAi1CurrentCheck, 14);
+        if (isCancelled) return;
+        setAi1CompletedChecks((prev) => [...prev, check]);
+        setAi1CurrentCheck('');
+        await wait(180);
+      }
+
+      // Stream footer
+      await streamText(scenario.assistantMessage1.footer, setAi1StreamedFooter, 15);
+      if (isCancelled) return;
+      setAi1IsStreaming(false);
+
+      // 7. Pause before user 2 turn
+      await wait(1500);
+      if (isCancelled) return;
+
+      // 8. Type user message 2 into the bottom sending field
+      await streamIntoInput(scenario.userMessage2, 26);
+      if (isCancelled) return;
+
+      // 9. Send button pressed
+      setIsSendPressed(true);
+      await wait(200);
+      if (isCancelled) return;
+      setIsSendPressed(false);
+      setTypedInputField('');
+
+      // 10. User 2 message pops into chat thread
+      setUser2Message(scenario.userMessage2);
+      await wait(400);
+      if (isCancelled) return;
+
+      // 11. Tool 2 execution
+      setTool2State({ name: scenario.toolName2, isRunning: true });
+      await wait(650);
+      if (isCancelled) return;
+      setTool2State({ name: scenario.toolName2, isRunning: false });
+      await wait(300);
+      if (isCancelled) return;
+
+      // 12. AI 2 streams replying from left to right
+      setAi2Visible(true);
+      setAi2IsStreaming(true);
+      await streamText(scenario.assistantMessage2.title, setAi2StreamedTitle, 16);
+      if (isCancelled) return;
+      await wait(200);
+      setAi2ShowStatus(true);
+      await wait(250);
+      await streamText(scenario.assistantMessage2.footer, setAi2StreamedFooter, 15);
+      if (isCancelled) return;
+      setAi2IsStreaming(false);
+
+      // 13. Completed hold time so viewer can read the resolution
+      await wait(6500);
+      if (isCancelled) return;
+
+      // 14. Advance to next scenario
+      setScenarioIndex((prev) => prev + 1);
+    };
+
+    runSimulation();
+
+    return () => {
+      isCancelled = true;
+      if (activeTimer) clearTimeout(activeTimer);
+    };
+  }, [scenarioIndex, selectedModel, scenario]);
+
+  // Handle switching tabs (DeepSeek / ChatGPT / Gemini)
+  const handleModelSelect = (model: SupportedModel) => {
+    if (model === selectedModel) return;
     setSelectedModel(model);
-    setSelectedVersion(MODEL_PRESETS[model].versions[0]);
-    setPromptText(MODEL_PRESETS[model].defaultPrompt);
-    setExecutionResult(null);
-    setIsApplied(false);
-    setIsVersionDropdownOpen(false);
+    setScenarioIndex((prev) => prev + 1);
   };
 
-  const handleSelectQuickPrompt = (text: string) => {
-    setPromptText(text);
-    setExecutionResult(null);
-    setIsApplied(false);
-  };
-
-  const handleExecute = () => {
-    if (!promptText.trim()) return;
-    setIsThinking(true);
-    setExecutionResult(null);
-    setIsApplied(false);
-
-    setTimeout(() => {
-      setIsThinking(false);
-      setExecutionResult(activePreset.sampleResult);
-    }, 750);
+  const handleNextScenario = () => {
+    setScenarioIndex((prev) => prev + 1);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      {/* 1. FLOATING MODEL SELECTOR DOCK */}
-      <div className="flex justify-center mb-4">
-        <div className="inline-flex items-center gap-1.5 p-1.5 bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800">
-          {/* Claude Tab */}
+    <div className="w-full max-w-3xl mx-auto">
+      {/* 1. FLOATING MODEL SELECTOR PILL */}
+      <div className="flex justify-center mb-6">
+        <div className="inline-flex items-center gap-1.5 p-1 bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-slate-200/80 border border-slate-200/90">
+          {/* DeepSeek Tab */}
           <button
-            onClick={() => handleModelChange('claude')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
-              selectedModel === 'claude'
-                ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40 shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            type="button"
+            onClick={() => handleModelSelect('deepseek')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              selectedModel === 'deepseek'
+                ? 'bg-[#1E40AF] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            {/* Claude Asterisk icon */}
-            <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2a1 1 0 0 1 1 1v4.07l2.88-2.88a1 1 0 1 1 1.41 1.41L14.41 8.5H18.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4.09l2.88 2.88a1 1 0 1 1-1.41 1.41L13 13.91V18a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-4.09l-2.88 2.88a1 1 0 0 1-1.41-1.41L7.59 13.5H3.5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h4.09L4.71 6.6a1 1 0 0 1 1.41-1.41L9 8.07V4a1 1 0 0 1 1-1h2Z" />
+            {/* DeepSeek Stylized Whale Logo */}
+            <svg
+              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'deepseek' ? 'text-white' : 'text-[#1E40AF]'}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M21.5 12.8c-.4-1.9-1.6-3.5-3.3-4.5-2-1.2-4.5-1.5-6.8-1-2.5.6-4.7 2.2-6 4.4-1.1 1.9-1.3 4.1-.7 6.1.5 1.8 1.8 3.3 3.5 4.1 1.5.7 3.2.9 4.9.6 2.2-.4 4.2-1.7 5.5-3.5.7-.9 1.1-2 1.3-3.2.1-.6-.2-1.3-.8-1.5-.6-.2-1.3.2-1.5.8-.2.9-.5 1.7-1.1 2.5-.9 1.4-2.5 2.3-4.2 2.6-1.3.2-2.7.1-3.8-.5-1.3-.6-2.2-1.8-2.6-3.2-.5-1.6-.3-3.3.6-4.8 1.1-1.7 2.8-3 4.8-3.5 1.8-.4 3.7-.2 5.3.8 1.3.8 2.2 2.1 2.5 3.6.1.7.7 1.2 1.5 1.1.7-.1 1.2-.7 1-1.4z" />
+              <circle cx="9.2" cy="11.5" r="1.3" />
+              <path d="M19.8 8c1.1-.8 2.3-1.2 3.7-1.3-.4 1.3-1 2.3-1.9 3.1-.4-.6-1-1.2-1.8-1.8z" />
             </svg>
-            <span className="font-semibold">Claude</span>
-            {selectedModel === 'claude' && (
-              <span className="text-[10px] px-1.5 py-0.2 bg-amber-400/20 text-amber-300 rounded font-mono">
-                Opus 4.5
-              </span>
-            )}
+            <span>DeepSeek</span>
           </button>
 
           {/* ChatGPT Tab */}
           <button
-            onClick={() => handleModelChange('chatgpt')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
+            type="button"
+            onClick={() => handleModelSelect('chatgpt')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
               selectedModel === 'chatgpt'
-                ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-[#10A37F] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
             {/* OpenAI Spiral */}
-            <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg
+              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'chatgpt' ? 'text-white' : 'text-slate-800'}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
               <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
             </svg>
-            <span className="font-semibold">ChatGPT</span>
-            {selectedModel === 'chatgpt' && (
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-400/20 text-emerald-300 rounded font-mono">
-                GPT-4o
-              </span>
-            )}
+            <span>ChatGPT</span>
           </button>
 
           {/* Gemini Tab */}
           <button
-            onClick={() => handleModelChange('gemini')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
+            type="button"
+            onClick={() => handleModelSelect('gemini')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
               selectedModel === 'gemini'
-                ? 'bg-blue-500/20 text-blue-200 border border-blue-500/40 shadow-xs'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                ? 'bg-[#1A73E8] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            {/* Google DeepMind Radiant Sparkle */}
-            <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            {/* Google Gemini 4-Point Radiant Star */}
+            <svg
+              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'gemini' ? 'text-white' : 'text-[#1A73E8]'}`}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
               <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
             </svg>
-            <span className="font-semibold">Gemini</span>
-            {selectedModel === 'gemini' && (
-              <span className="text-[10px] px-1.5 py-0.2 bg-blue-400/20 text-blue-300 rounded font-mono">
-                2.5 Pro
-              </span>
-            )}
+            <span>Gemini</span>
           </button>
         </div>
       </div>
 
-      {/* 2. THE SIMULATION WINDOW */}
-      <div className="bg-[#FAF9F6] border border-slate-200/90 rounded-2xl shadow-2xl shadow-slate-300/40 overflow-hidden transition-all duration-300">
-        {/* Window Chrome / Title Bar */}
-        <div className="bg-white/80 border-b border-slate-200/80 px-4 py-3 flex items-center justify-between text-xs text-slate-500">
+      {/* 2. THE CLEAN WINDOW CONTAINER */}
+      <div
+        className={`w-full rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xl shadow-slate-300/40 overflow-hidden transition-colors duration-500 flex flex-col ${theme.windowBg}`}
+      >
+        {/* macOS Minimal Window Titlebar */}
+        <div
+          className={`px-4 sm:px-5 py-3 border-b ${theme.titleBarBorder} ${theme.titleBarBg} flex items-center justify-between select-none`}
+        >
+          {/* Window Traffic Lights & Controls */}
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] inline-block" />
-            <span className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] inline-block" />
-            <span className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] inline-block" />
-            
-            <div className="ml-3 flex items-center gap-1.5 text-slate-400">
-              <span className="text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                AdOptimize Engine · {activePreset.name} Bridge
-              </span>
+            <span className="w-3 h-3 rounded-full bg-[#FF5F56] inline-block shadow-2xs" />
+            <span className="w-3 h-3 rounded-full bg-[#FFBD2E] inline-block shadow-2xs" />
+            <span className="w-3 h-3 rounded-full bg-[#27C93F] inline-block shadow-2xs" />
+
+            <div className="flex items-center gap-1.5 ml-3 sm:ml-4 text-slate-400">
+              <SidebarIcon className="w-3.5 h-3.5 text-slate-400/80" />
+              <ChevronLeft className="w-3.5 h-3.5 text-slate-400/80" />
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400/80" />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100/80 border border-slate-200 px-2 py-0.5 rounded-full font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>SearchStream API v25</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Window Content Body */}
-        <div className="p-6 sm:p-8 space-y-6">
-          {/* Brand Glyph & Model Headline */}
-          <div className="text-center space-y-2 pt-2">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 mx-auto">
-              {selectedModel === 'claude' && (
-                <svg className="w-5 h-5 text-amber-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2a1 1 0 0 1 1 1v4.07l2.88-2.88a1 1 0 1 1 1.41 1.41L14.41 8.5H18.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4.09l2.88 2.88a1 1 0 1 1-1.41 1.41L13 13.91V18a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-4.09l-2.88 2.88a1 1 0 0 1-1.41-1.41L7.59 13.5H3.5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h4.09L4.71 6.6a1 1 0 0 1 1.41-1.41L9 8.07V4a1 1 0 0 1 1-1h2Z" />
-                </svg>
-              )}
-              {selectedModel === 'chatgpt' && (
-                <svg className="w-5 h-5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
-                </svg>
-              )}
-              {selectedModel === 'gemini' && (
-                <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
-                </svg>
-              )}
-            </div>
-
-            <h3 className="text-xl sm:text-2xl font-serif text-slate-800 tracking-tight font-medium">
-              {activePreset.headline}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Simulate plain-English campaign orchestration directly connected to Google Ads guardrails.
-            </p>
-          </div>
-
-          {/* Quick Prompt Recommendation Chips */}
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
-            {activePreset.quickPrompts.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSelectQuickPrompt(item.text)}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                  promptText === item.text
-                    ? 'bg-slate-900 text-white border-slate-900 font-medium shadow-xs'
-                    : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200/80 shadow-2xs'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 3. INTERACTIVE CHAT / PROMPT BOX */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-md shadow-slate-200/50 p-3 sm:p-4 transition-all focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100">
-            {/* Textarea */}
-            <textarea
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              placeholder="Ask AdOptimize to audit queries, cap bids, or balance budgets..."
-              rows={2}
-              className="w-full text-slate-800 text-sm placeholder:text-slate-400 focus:outline-hidden resize-none bg-transparent leading-relaxed"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleExecute();
-                }
-              }}
-            />
-
-            {/* Prompt Box Bottom Controls Bar */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2 gap-2">
-              <div className="flex items-center gap-1 sm:gap-2">
-                {/* Attach File / Data Pill */}
-                <button
-                  type="button"
-                  onClick={() => setHasAttachment(!hasAttachment)}
-                  title="Attach Google Ads Report / CSV"
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs ${
-                    hasAttachment
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  {hasAttachment && <span className="text-[11px] font-medium hidden sm:inline">SearchTerms.csv</span>}
-                </button>
-
-                {/* Schedule Run Pill */}
-                <button
-                  type="button"
-                  onClick={() => setHasSchedule(!hasSchedule)}
-                  title="Schedule automated recurring execution"
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs ${
-                    hasSchedule
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Clock className="w-4 h-4" />
-                  {hasSchedule && <span className="text-[11px] font-medium hidden sm:inline">Hourly Guard</span>}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Sub-model selector dropdown */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsVersionDropdownOpen(!isVersionDropdownOpen)}
-                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer transition-colors"
-                  >
-                    <span>{selectedVersion}</span>
-                    <ChevronDown className="w-3 h-3 text-slate-400" />
-                  </button>
-
-                  {isVersionDropdownOpen && (
-                    <div className="absolute right-0 bottom-full mb-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 text-xs">
-                      {activePreset.versions.map((ver) => (
-                        <button
-                          key={ver}
-                          type="button"
-                          onClick={() => {
-                            setSelectedVersion(ver);
-                            setIsVersionDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-1.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer ${
-                            selectedVersion === ver ? 'text-slate-900 font-semibold bg-slate-50' : 'text-slate-600'
-                          }`}
-                        >
-                          <span>{ver}</span>
-                          {selectedVersion === ver && <Check className="w-3 h-3 text-emerald-600" />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Execute Button */}
-                <button
-                  type="button"
-                  onClick={handleExecute}
-                  disabled={isThinking || !promptText.trim()}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
-                    promptText.trim() && !isThinking
-                      ? 'bg-slate-900 hover:bg-black text-white hover:scale-105'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                  aria-label="Execute simulation"
-                >
-                  {isThinking ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <ArrowUp className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Model Disclaimer */}
-          <div className="text-center">
-            <span className="text-[11px] text-slate-400">
-              {activePreset.disclaimer}
+          {/* Conversation Topic in Header */}
+          <div className="flex items-center gap-2 max-w-[280px] sm:max-w-md truncate">
+            <span className="text-xs font-medium text-slate-600 truncate">
+              {scenario.topicTitle}
             </span>
           </div>
 
-          {/* 4. EXECUTION / REASONING SIMULATION RESULT */}
-          {isThinking && (
-            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs animate-pulse flex items-center gap-3">
-              <div className="w-4 h-4 border-2 border-slate-800 border-t-transparent rounded-full animate-spin shrink-0" />
-              <div className="text-xs text-slate-600 font-mono">
-                {activePreset.name} {selectedVersion} is querying SearchStream logs & enforcing budget guardrails...
+          {/* Quick Shuffle & Share */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleNextScenario}
+              title="Next simulation scenario"
+              className="p-1 rounded-md hover:bg-black/[0.05] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+            <Share className="w-3.5 h-3.5 text-slate-400/80" />
+          </div>
+        </div>
+
+        {/* 3. WINDOW INTERIOR CONVERSATION THREAD */}
+        <div
+          ref={chatContainerRef}
+          className="p-4 sm:p-6 min-h-[440px] max-h-[520px] overflow-y-auto space-y-4 sm:space-y-5 text-left text-xs sm:text-sm"
+        >
+          {/* User Turn 1 (Revealed once sent from bottom field) */}
+          {user1Message && (
+            <div className="flex justify-end animate-in fade-in duration-300">
+              <div
+                className={`max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-tr-xs px-4 py-3 leading-relaxed shadow-xs ${theme.userBubbleBg} ${theme.userBubbleText}`}
+              >
+                <p className="font-normal text-xs sm:text-[13px] leading-relaxed">
+                  {user1Message}
+                </p>
               </div>
             </div>
           )}
 
-          {executionResult && !isThinking && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 text-left animate-in fade-in slide-in-from-top-2 duration-300">
-              {/* Header with status badge */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <h4 className="font-semibold text-sm text-slate-900">
-                    {executionResult.title}
-                  </h4>
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {executionResult.actionBadge}
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-400 font-mono">
-                  {executionResult.account}
-                </div>
+          {/* Tool Call 1 Chip */}
+          {tool1State && (
+            <div className="flex items-center gap-2 animate-in fade-in duration-200 my-1">
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
+              >
+                {selectedModel === 'deepseek' && (
+                  <Terminal className="w-3 h-3 text-[#1E40AF]" />
+                )}
+                {selectedModel === 'chatgpt' && (
+                  <Wrench className="w-3 h-3 text-emerald-600" />
+                )}
+                {selectedModel === 'gemini' && (
+                  <Sparkles className="w-3 h-3 text-blue-600" />
+                )}
+                <span>
+                  {theme.toolPrefix}: <strong className="font-semibold">{tool1State.name}</strong>
+                </span>
+                {tool1State.isRunning ? (
+                  <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                ) : (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-1" />
+                )}
               </div>
+            </div>
+          )}
 
-              {/* Summary Description */}
-              <p className="text-xs text-slate-600 leading-relaxed">
-                {executionResult.summary}
-              </p>
-
-              {/* Guardrail & Compliance Checks */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3 space-y-1.5">
-                <div className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Google Ads Safety & Compliance Passed</span>
-                </div>
-                <div className="space-y-1 pt-1">
-                  {executionResult.checks.map((chk, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-600">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{chk}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Metric Breakdown Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {executionResult.details.map((d, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-2.5 rounded-lg border text-left ${
-                      d.highlight
-                        ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
-                        : 'bg-white border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                      {d.label}
-                    </div>
-                    <div className="text-sm font-bold mt-0.5">
-                      {d.value}
-                    </div>
+          {/* Assistant Turn 1 (Types from left to right like real AI) */}
+          {ai1Visible && (
+            <div className="flex items-start gap-3 animate-in fade-in zoom-in-99 duration-300">
+              {/* Model Avatar */}
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 select-none">
+                {selectedModel === 'deepseek' && (
+                  <div className="w-6 h-6 rounded-full bg-[#1E40AF] text-white flex items-center justify-center font-bold text-[9px] shadow-2xs">
+                    DS
                   </div>
-                ))}
+                )}
+                {selectedModel === 'chatgpt' && (
+                  <svg className="w-4 h-4 text-slate-800" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
+                  </svg>
+                )}
+                {selectedModel === 'gemini' && (
+                  <svg className="w-4 h-4 text-[#1A73E8]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
+                  </svg>
+                )}
               </div>
 
-              {/* Action Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setIsApplied(true);
-                    }}
-                    disabled={isApplied}
-                    className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                      isApplied
-                        ? 'bg-emerald-600 text-white cursor-default'
-                        : 'bg-slate-900 hover:bg-black text-white shadow-xs'
-                    }`}
-                  >
-                    {isApplied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Simulated Approval Active (Paused)</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Approve & Push to Google Ads</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
+              {/* Conversational Assistant Card */}
+              <div
+                className={`flex-1 rounded-2xl rounded-tl-xs p-4 sm:p-5 border shadow-xs space-y-3 ${theme.assistantBubbleBg} ${theme.assistantBubbleBorder} ${theme.assistantText}`}
+              >
+                <div>
+                  <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">
+                    {ai1StreamedTitle}
+                    {ai1IsStreaming && !ai1ShowStatus && (
+                      <span className="inline-block w-[2px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
                     )}
-                  </button>
+                  </h4>
 
-                  {isApplied && onConnectGoogleAds && (
-                    <button
-                      onClick={onConnectGoogleAds}
-                      className="px-3.5 py-2 text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Connect Live Account</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+                  {ai1ShowStatus && (
+                    <div className="mt-1 text-xs text-slate-700 font-mono bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 inline-block animate-in fade-in duration-200">
+                      {scenario.assistantMessage1.statusLine}
+                    </div>
                   )}
-
-                  <button
-                    onClick={() => {
-                      setExecutionResult(null);
-                      setIsApplied(false);
-                    }}
-                    className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Edit Instructions
-                  </button>
                 </div>
 
-                <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <RotateCcw className="w-3 h-3 text-slate-400" />
-                  <span>1-click rollback active</span>
-                </div>
+                {ai1ShowStatus && (
+                  <div className="space-y-1 pt-1 animate-in fade-in duration-200">
+                    <p className="text-xs font-medium text-slate-600">
+                      {scenario.assistantMessage1.checksHeader}
+                    </p>
+                    <ul className="space-y-1 text-xs text-slate-700 pl-1">
+                      {ai1CompletedChecks.map((check, idx) => (
+                        <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                          <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                          <span>{check}</span>
+                        </li>
+                      ))}
+                      {ai1CurrentCheck && (
+                        <li className="flex items-start gap-2 leading-relaxed">
+                          <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                          <span>
+                            {ai1CurrentCheck}
+                            <span className="inline-block w-[1.5px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {ai1StreamedFooter && (
+                  <p className="text-xs text-slate-600 pt-1 border-t border-slate-100/90 leading-relaxed font-medium">
+                    {ai1StreamedFooter}
+                    {ai1IsStreaming && (
+                      <span className="inline-block w-[1.5px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           )}
+
+          {/* User Turn 2 (Revealed once sent from bottom field) */}
+          {user2Message && (
+            <div className="flex justify-end animate-in fade-in duration-300">
+              <div
+                className={`max-w-[85%] rounded-2xl rounded-tr-xs px-4 py-2.5 shadow-xs ${theme.userBubbleBg} ${theme.userBubbleText}`}
+              >
+                <p className="font-medium text-xs sm:text-[13px] leading-relaxed">
+                  {user2Message}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Tool Call 2 Chip */}
+          {tool2State && (
+            <div className="flex items-center gap-2 animate-in fade-in duration-200 my-1">
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
+              >
+                {selectedModel === 'deepseek' && (
+                  <Terminal className="w-3 h-3 text-[#1E40AF]" />
+                )}
+                {selectedModel === 'chatgpt' && (
+                  <Wrench className="w-3 h-3 text-emerald-600" />
+                )}
+                {selectedModel === 'gemini' && (
+                  <Sparkles className="w-3 h-3 text-blue-600" />
+                )}
+                <span>
+                  {theme.toolPrefix}: <strong className="font-semibold">{tool2State.name}</strong>
+                </span>
+                {tool2State.isRunning ? (
+                  <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                ) : (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-1" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Assistant Turn 2 (Confirmation streaming from left to right) */}
+          {ai2Visible && (
+            <div className="flex items-start gap-3 animate-in fade-in zoom-in-99 duration-300">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 select-none">
+                {selectedModel === 'deepseek' && (
+                  <div className="w-6 h-6 rounded-full bg-[#1E40AF] text-white flex items-center justify-center font-bold text-[9px] shadow-2xs">
+                    DS
+                  </div>
+                )}
+                {selectedModel === 'chatgpt' && (
+                  <svg className="w-4 h-4 text-slate-800" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
+                  </svg>
+                )}
+                {selectedModel === 'gemini' && (
+                  <svg className="w-4 h-4 text-[#1A73E8]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
+                  </svg>
+                )}
+              </div>
+
+              <div
+                className={`flex-1 rounded-2xl rounded-tl-xs p-4 sm:p-5 border shadow-xs space-y-2.5 ${theme.assistantBubbleBg} ${theme.assistantBubbleBorder} ${theme.assistantText}`}
+              >
+                <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">
+                  {ai2StreamedTitle}
+                  {ai2IsStreaming && !ai2ShowStatus && (
+                    <span className="inline-block w-[2px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
+                  )}
+                </h4>
+
+                {ai2ShowStatus && (
+                  <div className="text-xs text-emerald-800 font-mono bg-emerald-50 border border-emerald-200/60 rounded-md px-2.5 py-1.5 inline-block font-medium animate-in fade-in duration-200">
+                    {scenario.assistantMessage2.statusLine}
+                  </div>
+                )}
+
+                {ai2StreamedFooter && (
+                  <p className="text-xs text-slate-700 leading-relaxed pt-1">
+                    {ai2StreamedFooter}
+                    {ai2IsStreaming && (
+                      <span className="inline-block w-[1.5px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. BOTTOM SENDING FIELD (Starts typing user message, then sends it) */}
+        <div className="p-3 sm:p-4 border-t border-black/[0.06] bg-white/70 backdrop-blur-xs select-none">
+          <div
+            className={`w-full bg-white rounded-xl border ${theme.assistantBubbleBorder} shadow-2xs px-3.5 py-2.5 flex items-center justify-between pointer-events-none select-none`}
+          >
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-normal min-w-0 flex-1 mr-3">
+              <Plus className="w-4 h-4 text-slate-400 shrink-0" />
+              {typedInputField ? (
+                <div className="text-slate-900 font-normal truncate">
+                  <span>{typedInputField}</span>
+                  <span
+                    className={`inline-block w-[1.5px] h-3.5 ml-0.5 align-middle animate-pulse ${
+                      selectedModel === 'deepseek'
+                        ? 'bg-[#1E40AF]'
+                        : selectedModel === 'chatgpt'
+                        ? 'bg-slate-900'
+                        : 'bg-[#1A73E8]'
+                    }`}
+                  />
+                </div>
+              ) : (
+                <span className="text-slate-400 truncate">
+                  {user1Message && !user2Message
+                    ? 'Awaiting decision or approval...'
+                    : 'Ask anything or simulate Google Ads automation...'}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 font-mono font-medium">
+                <span>{theme.version}</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </div>
+
+              {/* Send Button: Pulses/clicks when message is sent into the chat */}
+              <div
+                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all duration-150 ${
+                  theme.sendBtnBg
+                } ${theme.sendBtnText} ${
+                  isSendPressed
+                    ? 'scale-85 ring-4 ring-blue-500/30 shadow-md'
+                    : typedInputField
+                    ? 'opacity-100 shadow-2xs'
+                    : 'opacity-70 shadow-2xs'
+                }`}
+              >
+                <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
