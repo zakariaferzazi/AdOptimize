@@ -45,10 +45,19 @@ function initDb(): Firestore {
 
 export const db: Firestore = initDb();
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('email');
-googleProvider.addScope('profile');
-googleProvider.addScope('https://www.googleapis.com/auth/adwords');
+
+export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.addScope('email');
+googleAuthProvider.addScope('profile');
+
+// Backwards-compatible alias for standard Google login/signup
+export const googleProvider = googleAuthProvider;
+
+// Dedicated provider specifically for Google Ads authorization (used ONLY when user clicks 'Connect My Google Ads Account')
+export const googleAdsProvider = new GoogleAuthProvider();
+googleAdsProvider.addScope('email');
+googleAdsProvider.addScope('profile');
+googleAdsProvider.addScope('https://www.googleapis.com/auth/adwords');
 
 export enum OperationType {
   CREATE = 'create',
@@ -196,16 +205,13 @@ export async function signInWithGoogle(): Promise<{
 
   activeSignInPromise = (async () => {
     try {
-      googleProvider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, googleProvider);
+      googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
+      // Standard Google user sign-in/sign-up (email & profile only, no Google Ads access requested)
+      const result = await signInWithPopup(auth, googleAuthProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken || null;
-      if (accessToken) {
-        storeGoogleAdsToken(accessToken);
-      }
       return {
         user: result.user,
-        accessToken,
+        accessToken: null,
         credential,
       };
     } catch (error: any) {
@@ -239,12 +245,12 @@ export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<st
   try {
     clearStoredGoogleAdsToken();
 
-    // 1. First attempt: Firebase Auth with unified GoogleAuthProvider (has AdWords scope)
+    // 1. First attempt: Firebase Auth with dedicated googleAdsProvider (has AdWords scope)
     try {
-      googleProvider.setCustomParameters(
+      googleAdsProvider.setCustomParameters(
         emailHint ? { prompt: 'select_account', login_hint: emailHint } : { prompt: 'select_account' }
       );
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleAdsProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         storeGoogleAdsToken(credential.accessToken);

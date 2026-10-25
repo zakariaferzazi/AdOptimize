@@ -248,11 +248,11 @@ export function ConnectAccountsStep({
                     {isConnecting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 text-slate-950 animate-spin" />
-                        <span>Connecting with Google...</span>
+                        <span>Connecting Google Ads...</span>
                       </>
                     ) : (
                       <>
-                        <span>Connect Google Ads</span>
+                        <span>Connect My Google Ads Account</span>
                         <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
                       </>
                     )}

@@ -258,7 +258,7 @@ export function LandingPage({
                   className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
-                  <span>Connect Google Ads</span>
+                  <span>Sign in with Google</span>
                 </button>
               </div>
             )}
@@ -288,7 +288,7 @@ export function LandingPage({
               className="px-6 py-3.5 bg-slate-900 hover:bg-black text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-2.5 cursor-pointer hover:translate-y-[-1px]"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Connect Google Ads</span>
+              <span>Sign in with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </button>
 
@@ -306,7 +306,7 @@ export function LandingPage({
             <span aria-hidden="true" className="text-slate-300">·</span>
             <span>Read-only audit mode</span>
             <span aria-hidden="true" className="text-slate-300">·</span>
-            <span>Connect in 30 seconds</span>
+            <span>Connect Google Ads in next step</span>
             <span aria-hidden="true" className="text-slate-300">·</span>
             <span>1-click rollback on all actions</span>
           </div>
@@ -937,7 +937,7 @@ export function LandingPage({
               className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Connect Google Ads</span>
+              <span>Sign in with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </button>
             <button

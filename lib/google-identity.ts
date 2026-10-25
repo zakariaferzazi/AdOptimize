@@ -331,14 +331,14 @@ export async function acquireGoogleAdsToken(options?: {
 
   // 1. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
   try {
-    const { auth, googleProvider } = await import('@/lib/firebase');
+    const { auth, googleAdsProvider } = await import('@/lib/firebase');
     const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-    googleProvider.setCustomParameters(
+    googleAdsProvider.setCustomParameters(
       options?.emailHint
         ? { prompt: 'select_account', login_hint: options.emailHint }
         : { prompt: 'select_account' }
     );
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleAdsProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
       storeGoogleAdsToken(credential.accessToken);
