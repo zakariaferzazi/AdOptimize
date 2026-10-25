@@ -153,7 +153,7 @@ export function CampaignBoostModal({
                   <div className={`mt-2.5 pt-2 border-t text-[11px] font-medium flex items-center gap-1.5 ${
                     isSelected ? 'border-slate-800 text-emerald-400' : 'border-slate-100 text-emerald-600'
                   }`}>
-                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                     <span>{opt.expectedOutcome}</span>
                   </div>
                 </div>
@@ -178,8 +178,8 @@ export function CampaignBoostModal({
             onClick={handleExecute}
             className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-            <span>{isSubmitting ? 'Applying Optimization...' : 'Execute Boost'}</span>
+            <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+            <span>{isSubmitting ? 'Applying Optimization...' : 'Apply Optimization'}</span>
           </button>
         </div>
       </div>

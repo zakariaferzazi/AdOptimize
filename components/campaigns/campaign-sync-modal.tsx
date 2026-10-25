@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, RefreshCw, ExternalLink, Sparkles, CheckCircle2, ShieldCheck, ArrowRight, Play, Pause } from 'lucide-react';
+import { X, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 
 interface CampaignSyncModalProps {
@@ -37,7 +37,7 @@ export function CampaignSyncModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Sync Google Ads Campaigns</h3>
-              <p className="text-xs text-slate-500">Live SearchStream API v25 (Enabled &amp; Paused)</p>
+              <p className="text-xs text-slate-500">Active and Paused Campaigns</p>
             </div>
           </div>
           <button
@@ -55,36 +55,35 @@ export function CampaignSyncModal({
             <span className="font-bold text-slate-900">{account.accountName}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Customer ID (CID):</span>
+            <span className="text-slate-500 font-medium">Account ID:</span>
             <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800">
               {account.clientCustomerId}
             </span>
           </div>
           {account.loginCustomerId && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 font-medium">Manager Account (MCC):</span>
+              <span className="text-slate-500 font-medium">Manager Account:</span>
               <span className="font-mono font-bold text-slate-800">{account.loginCustomerId}</span>
             </div>
           )}
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
-            <span className="text-slate-500 font-medium">Data Source:</span>
+            <span className="text-slate-500 font-medium">Connection:</span>
             <span className="text-emerald-700 font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Official Google Ads REST API v25</span>
+              <span>Direct Google Ads Connection</span>
             </span>
           </div>
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
-            <span className="text-slate-500 font-medium">OAuth Session:</span>
+            <span className="text-slate-500 font-medium">Status:</span>
             <span className="text-emerald-700 font-semibold flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>OAuth 2.0 (Auto-refreshed with AdWords scope)</span>
+              <span>Connected &amp; Authorized</span>
             </span>
           </div>
         </div>
 
         <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 leading-relaxed">
-          Clicking <strong>Sync Real Campaigns Now</strong> queries Google Ads for CID{' '}
-          <strong>{account.clientCustomerId}</strong>. It pulls all live Search, Performance Max, Display, and Video campaigns with real spend, clicks, conversions, and ROAS. If your token has expired, Google sign-in will renew it automatically.
+          AdOptimize will synchronize your active Search, Performance Max, Display, and Video campaigns with current spend, clicks, conversions, and performance metrics.
         </div>
 
         {/* Action buttons */}

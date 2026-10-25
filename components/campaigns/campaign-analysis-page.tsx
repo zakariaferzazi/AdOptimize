@@ -261,7 +261,7 @@ export function CampaignAnalysisPage({
         headline1: `${w1} Solutions 2026`,
         headline2: 'Automate & Optimize Today',
         headline3: 'Official Partner Site',
-        description1: `Award-winning ${w1} performance platform. Start optimizing conversions with 24/7 telemetry.`,
+        description1: `Award-winning ${w1} performance platform. Start optimizing conversions with active monitoring.`,
         description2: 'Trusted by 10,000+ businesses worldwide. Free initial audit and instant setup.',
         finalUrl: `https://${w1.toLowerCase()}.com/overview`,
         adStrength: 'EXCELLENT' as const,
@@ -523,7 +523,7 @@ export function CampaignAnalysisPage({
               {campaign.healthScore || 85}
             </div>
             <div>
-              <div className="text-xs text-slate-400 font-medium">AI Health &amp; Efficiency Score</div>
+              <div className="text-xs text-slate-400 font-medium">Campaign Performance Score</div>
               <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
                 <span>{campaign.healthStatus || 'HEALTHY'}</span>
                 <span className="text-xs text-slate-400 font-normal">
@@ -689,14 +689,14 @@ export function CampaignAnalysisPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-slate-950 text-[#00d67d] flex items-center justify-center shadow-xs">
-              <Sparkles className="w-5 h-5" />
+              <TrendingUp className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 Action to Improve This Campaign
               </h3>
               <p className="text-xs text-slate-600">
-                Grounded root-cause optimizations to eliminate waste, improve Quality Score, and maximize ROAS.
+                Targeted optimizations to eliminate waste, improve Quality Score, and maximize ROAS.
               </p>
             </div>
           </div>
@@ -798,8 +798,8 @@ export function CampaignAnalysisPage({
                     onClick={() => onApplyInsight(ins)}
                     className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-                    <span>Execute 1-Click Optimization</span>
+                    <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                    <span>Apply Recommendation</span>
                   </button>
                 )}
               </div>
@@ -845,7 +845,7 @@ export function CampaignAnalysisPage({
                       7-Day Performance Trend Curve
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Day-by-day telemetry for active auction pacing
+                      Day-by-day metrics for active campaign pacing
                     </p>
                   </div>
 
@@ -1113,11 +1113,11 @@ export function CampaignAnalysisPage({
                     </div>
                   </div>
 
-                  {/* AI Critique */}
+                  {/* Copy Recommendation */}
                   <div className="text-xs text-slate-600 bg-white/70 p-3 rounded-xl border border-slate-200/60 flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-[#00d67d] shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-slate-800">AI Copy Critique: </span>
+                      <span className="font-bold text-slate-800">Copy Recommendation: </span>
                       {ad.aiCritique}
                     </div>
                   </div>
@@ -1239,8 +1239,8 @@ export function CampaignAnalysisPage({
                         onClick={() => onApplyInsight(ins)}
                         className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-                        <span>One-Click Execute Optimization</span>
+                        <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                        <span>Apply Recommendation</span>
                       </button>
                     )}
                   </div>

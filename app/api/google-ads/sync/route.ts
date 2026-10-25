@@ -53,12 +53,12 @@ export async function POST(req: NextRequest) {
         lastSyncAt: syncTimestamp,
         syncStatus: 'SYNCED',
         isLiveApi: true,
-        freshness: '100% Live data from Google Ads SearchStream API v25',
+        freshness: 'Live data from Google Ads',
         campaignsCount: realCampaigns.length,
         loginCustomerIdUsed: liveResult.loginCustomerIdUsed,
         message: realCampaigns.length > 0
-          ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for CID ${formattedCid}.`
-          : `Google Ads account ${formattedCid} is connected. No campaigns found in ads.google.com for this CID.`,
+          ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for account ${formattedCid}.`
+          : `Google Ads account ${formattedCid} is connected. No campaigns found in this account.`,
         campaigns: realCampaigns,
         keywords: realKeywords,
         searchTerms: realSearchTerms,
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         isAuthExpired: liveResult.statusCode === 401 || liveResult.isAuthExpired,
         cid: formattedCid,
         accessibleCustomers: liveResult.accessibleCustomers || [],
-        message: `Google Ads API Error for CID ${formattedCid}: ${cleanErr}`,
+        message: `Google Ads notice for account ${formattedCid}: ${cleanErr}`,
         campaigns: [],
       },
       { status: liveResult.statusCode && liveResult.statusCode >= 400 ? liveResult.statusCode : 400 }

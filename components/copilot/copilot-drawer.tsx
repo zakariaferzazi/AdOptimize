@@ -2,10 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Bot,
+  MessageSquare,
   X,
   Send,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   AlertTriangle,
@@ -47,17 +46,17 @@ export function CopilotDrawer({
   const getInitialGreeting = (): string => {
     const name = userName || 'there';
     const accLabel = account?.clientCustomerId && account.clientCustomerId !== 'Not Connected'
-      ? ` (**Customer ID: ${account.clientCustomerId}**)`
+      ? ` (**Account ID: ${account.clientCustomerId}**)`
       : '';
 
     if (campaigns.length === 0) {
-      return `Hello ${name}! I am your **AdOptimize Copilot**${accLabel}.\n\nNo active campaigns are currently synchronized in this account. Connect your Google Ads account or click **+ New Campaign** to begin live monitoring, CPA anomaly detection, and AI recommendations.`;
+      return `Hello ${name}! I am your **Campaign Advisor**${accLabel}.\n\nNo active campaigns are currently synchronized in this account. Connect your Google Ads account to begin monitoring performance, detecting CPA fluctuations, and receiving optimization recommendations.`;
     }
 
     const highestRoas = [...campaigns].sort((a, b) => b.roas - a.roas)[0];
     const lowestRoas = [...campaigns].sort((a, b) => a.roas - b.roas)[0];
 
-    let summary = `Hello ${name}! I am your **AdOptimize Copilot**${accLabel}. I am actively monitoring ${campaigns.length} campaigns.\n\n`;
+    let summary = `Hello ${name}! I am your **Campaign Advisor**${accLabel}. I am actively monitoring ${campaigns.length} campaigns.\n\n`;
     if (highestRoas && highestRoas.roas > 0) {
       summary += `- **Top Performer:** "${highestRoas.name}" is leading at **${highestRoas.roas.toFixed(2)}x ROAS** ($${highestRoas.cpa.toFixed(2)} CPA).\n`;
     }
@@ -166,18 +165,18 @@ export function CopilotDrawer({
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-950 text-white">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 flex items-center justify-center">
-              <Bot className="w-5 h-5 stroke-[2.2]" />
+              <MessageSquare className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">AI Marketing Copilot</h3>
-                <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-[#00d67d] px-2 py-0.5 rounded-full font-bold">
-                  Grounded
+                <h3 className="text-sm font-bold text-white">Campaign Advisor</h3>
+                <span className="text-[10px] uppercase bg-emerald-500/20 text-[#00d67d] px-2 py-0.5 rounded-full font-bold">
+                  Active
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
                 {account?.clientCustomerId && account.clientCustomerId !== 'Not Connected'
-                  ? `Connected to Google Ads (Account ${account.clientCustomerId})`
+                  ? `Google Ads Account (${account.clientCustomerId})`
                   : 'Google Ads Account Intelligence'}
               </p>
             </div>
@@ -205,7 +204,7 @@ export function CopilotDrawer({
               >
                 {!isUser && (
                   <div className="w-7 h-7 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-3.5 h-3.5" />
                   </div>
                 )}
 

@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  Sparkles,
   Search,
   Filter,
   ArrowRight,
@@ -208,7 +207,7 @@ export function CampaignDetailDrawer({
               {/* Health Score & Diagnostic Banner */}
               <div className="p-4 bg-slate-950 text-white rounded-2xl flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-slate-400 font-medium">AI Health Score</div>
+                  <div className="text-xs text-slate-400 font-medium">Campaign Health Score</div>
                   <div className="text-2xl font-bold text-white flex items-center gap-2 mt-0.5 font-mono">
                     <span>{campaign.healthScore || 85}/100</span>
                     <span
@@ -231,7 +230,7 @@ export function CampaignDetailDrawer({
                 ) : (
                   <div className="text-right text-xs text-slate-400">
                     <div>All-time Spend: ${Number(campaign.allTimeSpend || campaign.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                    <div className="text-emerald-400 font-semibold mt-0.5">7-day active telemetry</div>
+                    <div className="text-emerald-400 font-semibold mt-0.5">7-day active performance</div>
                   </div>
                 )}
               </div>
@@ -439,11 +438,11 @@ export function CampaignDetailDrawer({
                     </div>
                   </div>
 
-                  {/* AI Critique */}
+                  {/* Copy Recommendation */}
                   <div className="text-xs text-slate-600 bg-white/60 p-2.5 rounded-xl border border-slate-100 flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-slate-800">AI Ad Critique: </span>
+                      <span className="font-bold text-slate-800">Copy Recommendation: </span>
                       {ad.aiCritique}
                     </div>
                   </div>
@@ -566,8 +565,8 @@ export function CampaignDetailDrawer({
                         onClick={() => onApplyInsight(ins)}
                         className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-[#00d67d]" />
-                        <span>One-Click Execute Optimization</span>
+                        <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                        <span>Apply Recommendation</span>
                       </button>
                     )}
                   </div>
@@ -580,7 +579,7 @@ export function CampaignDetailDrawer({
         {/* Drawer Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
           <div>
-            Customer ID:{' '}
+            Account ID:{' '}
             <span className="font-mono text-slate-700 font-semibold">
               {account?.clientCustomerId && account.clientCustomerId !== 'Not Connected'
                 ? account.clientCustomerId

@@ -6,16 +6,15 @@ import Link from 'next/link';
 import {
   LayoutDashboard,
   Layers,
-  Sparkles,
+  TrendingUp,
   SlidersHorizontal,
-  Bot,
+  MessageSquare,
   Zap,
   History,
   FileText,
   Settings,
   HelpCircle,
   ChevronRight,
-  TrendingUp,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -57,8 +56,8 @@ export function Sidebar({
     },
     {
       id: 'insights' as NavTab,
-      label: 'AI Insights',
-      icon: Sparkles,
+      label: 'Performance Insights',
+      icon: TrendingUp,
       badge: anomaliesCount > 0 ? anomaliesCount : undefined,
     },
     {
@@ -74,8 +73,8 @@ export function Sidebar({
     },
     {
       id: 'copilot' as NavTab,
-      label: 'AI Copilot',
-      icon: Bot,
+      label: 'Campaign Advisor',
+      icon: MessageSquare,
     },
     {
       id: 'reports' as NavTab,
@@ -166,7 +165,7 @@ export function Sidebar({
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-white truncate">AI Safeguards Active</div>
+            <div className="text-xs font-semibold text-white truncate">Budget Safeguards Active</div>
             <div className="text-[11px] text-slate-400 truncate">Max shift limit: ±15%</div>
           </div>
         </div>
@@ -189,7 +188,7 @@ export function Sidebar({
               Privacy
             </Link>
           </div>
-          <span className="text-[11px] font-mono text-slate-400">v2.4 Pro</span>
+          <span className="text-[11px] font-mono text-slate-400">Pro Plan</span>
         </div>
       </div>
     </aside>

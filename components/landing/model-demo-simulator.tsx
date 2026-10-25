@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Wrench,
   Terminal,
-  Sparkles,
+  Zap,
   RotateCw,
   Plus,
   ChevronDown
@@ -638,7 +638,7 @@ export function ModelDemoSimulator({
                   <Wrench className="w-3 h-3 text-emerald-600" />
                 )}
                 {selectedModel === 'gemini' && (
-                  <Sparkles className="w-3 h-3 text-blue-600" />
+                  <Zap className="w-3 h-3 text-blue-600" />
                 )}
                 <span>
                   {theme.toolPrefix}: <strong className="font-semibold">{tool1State.name}</strong>
@@ -756,7 +756,7 @@ export function ModelDemoSimulator({
                   <Wrench className="w-3 h-3 text-emerald-600" />
                 )}
                 {selectedModel === 'gemini' && (
-                  <Sparkles className="w-3 h-3 text-blue-600" />
+                  <Zap className="w-3 h-3 text-blue-600" />
                 )}
                 <span>
                   {theme.toolPrefix}: <strong className="font-semibold">{tool2State.name}</strong>

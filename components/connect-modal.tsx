@@ -9,7 +9,6 @@ import {
   RefreshCw,
   AlertCircle,
   ArrowRight,
-  Sparkles,
   ShieldCheck,
   Check,
 } from 'lucide-react';
@@ -179,7 +178,7 @@ export function ConnectModal({
               <h3 className="text-base font-bold text-slate-900">
                 {isConnected ? 'Google Ads Connected' : 'Connect Google Ads'}
               </h3>
-              <p className="text-xs text-slate-500">Official Google Ads API (1-Click Sync)</p>
+              <p className="text-xs text-slate-500">Direct Google Ads Sync</p>
             </div>
           </div>
           <button
@@ -289,9 +288,9 @@ export function ConnectModal({
           /* State C: 1-Click Connect (Adspirer experience - no forms, no manual CID entry) */
           <div className="space-y-5 text-center py-2">
             <div className="space-y-2 max-w-sm mx-auto">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>1-Click Auto Connect</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Fast Account Setup</span>
               </div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">
                 Connect your Google Ads account
@@ -331,13 +330,13 @@ export function ConnectModal({
               <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                 <span className="text-[11px] text-slate-600 font-medium leading-tight">
-                  Zero manual CID entry — Instant account detection
+                  Automatic account discovery
                 </span>
               </div>
               <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                 <span className="text-[11px] text-slate-600 font-medium leading-tight">
-                  Official Google Ads API v25 OAuth security
+                  Secure Google authorization
                 </span>
               </div>
             </div>
@@ -349,14 +348,14 @@ export function ConnectModal({
                 onClick={() => setShowManualFallback(!showManualFallback)}
                 className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-medium cursor-pointer block mx-auto"
               >
-                {showManualFallback ? '▾ Hide specific CID / Manager MCC' : '▸ Agency MCC or specific CID?'}
+                {showManualFallback ? '▾ Hide specific Account ID / Manager Account' : '▸ Agency Manager Account or specific Account ID?'}
               </button>
 
               {showManualFallback && (
                 <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 animate-in fade-in">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Customer ID (CID) (Optional)
+                      Account ID (Optional)
                     </label>
                     <input
                       type="text"
@@ -368,7 +367,7 @@ export function ConnectModal({
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Manager MCC CID (Optional)
+                      Manager Account ID (Optional)
                     </label>
                     <input
                       type="text"

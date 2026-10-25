@@ -188,11 +188,11 @@ export default async function SolutionDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Recommended Automated Guardrails */}
+        {/* Recommended Safeguards */}
         <div className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
-            <span>Recommended AdOptimize Guardrails</span>
+            <span>Recommended Optimization Safeguards</span>
           </h2>
           <div className="space-y-2.5">
             {sol.recommendedRules.map((rule, i) => (

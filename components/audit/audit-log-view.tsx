@@ -5,7 +5,7 @@ import {
   History,
   RotateCcw,
   CheckCircle2,
-  Bot,
+  Sliders,
   User,
   Zap,
   ShieldCheck,
@@ -109,7 +109,7 @@ export function AuditLogView({ logs, onRevertLog }: AuditLogViewProps) {
                         ) : log.source === 'AUTOMATION_RULE' ? (
                           <Zap className="w-3.5 h-3.5 text-amber-500" />
                         ) : (
-                          <Bot className="w-3.5 h-3.5 text-[#00d67d]" />
+                          <Sliders className="w-3.5 h-3.5 text-[#00d67d]" />
                         )}
                         <span className="truncate max-w-[140px]">{log.userOrSystem}</span>
                       </div>

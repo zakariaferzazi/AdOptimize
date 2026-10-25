@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   Search,
   Layers,
-  Sparkles,
   ChevronRight,
   TrendingUp,
   TrendingDown,
@@ -92,7 +91,7 @@ export function CampaignsTable({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Live Google Ads campaign telemetry, metrics, and status from your connected Google Ads account.
+            Performance metrics, spend, and status from your connected Google Ads account.
           </p>
         </div>
 

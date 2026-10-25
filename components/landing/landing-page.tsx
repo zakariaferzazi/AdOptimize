@@ -147,7 +147,7 @@ export function LandingPage({
     {
       slug: 'adspirer-alternative',
       name: 'Adspirer Alternative',
-      tagline: 'Deep Google Ads SearchStream API intelligence, negative keyword mining, and guarded execution.',
+      tagline: 'Deep Google Ads search query intelligence, negative keyword mining, and guarded execution.',
       highlight: 'Specialized Google Ads vs general chat',
     },
     {
@@ -167,7 +167,7 @@ export function LandingPage({
   const faqs = [
     {
       q: 'How does AdOptimize connect to my Google Ads account?',
-      a: 'AdOptimize connects securely through Google OAuth 2.0 with official Google Ads API verification. You simply click Connect and approve access in the official Google popup. We never ask for passwords, credit cards, or developer tokens.',
+      a: 'AdOptimize connects securely through Google OAuth with direct Google authorization. You simply click Connect and approve access in the official Google popup. We never ask for passwords, credit cards, or developer tokens.',
     },
     {
       q: 'Will AdOptimize make changes to my campaigns without my permission?',
@@ -183,7 +183,7 @@ export function LandingPage({
     },
     {
       q: 'How is AdOptimize different from conversational tools like Adspirer?',
-      a: 'While general conversational tools answer broad questions across multiple platforms, AdOptimize is deeply specialized for Google Ads: analyzing SearchStream API v25 query logs, diagnosing Performance Max asset groups, detecting CPA anomalies in real-time, and calculating marginal ROAS.',
+      a: 'While general conversational tools answer broad questions across multiple platforms, AdOptimize is deeply specialized for Google Ads: analyzing live search queries, diagnosing Performance Max asset groups, detecting CPA anomalies in real time, and optimizing ROAS.',
     },
     {
       q: 'Is there a contract or cancellation penalty?',
@@ -215,7 +215,7 @@ export function LandingPage({
           </div>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
-            <a href="#simulator" className="hover:text-slate-900 transition-colors">AI Simulation</a>
+            <a href="#simulator" className="hover:text-slate-900 transition-colors">Interactive Preview</a>
             <a href="#demo" className="hover:text-slate-900 transition-colors">Live Audit</a>
             <Link href="/compare" className="hover:text-slate-900 transition-colors">
               Comparisons

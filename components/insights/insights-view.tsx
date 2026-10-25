@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  Sparkles,
   Filter,
   CheckCircle2,
   XCircle,
@@ -54,14 +53,14 @@ export function InsightsView({
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-semibold mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Marketing Analyst · Strictly Grounded Root-Cause Engine</span>
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Performance Diagnostics &amp; Analysis</span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white">
-            Campaign Diagnostics & Evidence
+            Campaign Diagnostics &amp; Evidence
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Every recommendation is calculated from your live Google Ads performance, query logs, and auction data. Never fabricated or speculative.
+            Every recommendation is calculated from your active Google Ads performance, search queries, and auction data.
           </p>
         </div>
 
@@ -201,7 +200,7 @@ export function InsightsView({
                 {(() => {
                   const ev = item.evidence;
                   const isObj = typeof ev === 'object' && ev !== null;
-                  const metric = isObj ? ev.metric : 'Account Telemetry';
+                  const metric = isObj ? ev.metric : 'Performance Metric';
                   const context = isObj ? ev.context : typeof ev === 'string' ? ev : 'Performance audit';
                   const beforeVal = isObj ? ev.before : 'Target';
                   const currentVal = isObj ? ev.current : 'Active';
@@ -212,7 +211,7 @@ export function InsightsView({
                       <div>
                         <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Data Evidence · {metric}</span>
+                          <span>Performance Evidence · {metric}</span>
                         </div>
                         <div className="text-xs text-emerald-800 mt-1">
                           {context}

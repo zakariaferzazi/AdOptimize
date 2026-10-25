@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { GoogleAdsLogo } from '@/components/ui/google-ads-logo';
 import { acquireGoogleAdsToken } from '@/lib/google-identity';
 import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
-import { Check, RefreshCw, ArrowRight, AlertCircle, LogOut, ShieldCheck, Zap } from 'lucide-react';
+import { Check, RefreshCw, ArrowRight, AlertCircle, LogOut, ShieldCheck, Zap, CheckCircle2 } from 'lucide-react';
 import { User } from 'firebase/auth';
 
 interface ConnectAccountsStepProps {
@@ -141,13 +141,13 @@ export function ConnectAccountsStep({
 
           <div className="flex items-center gap-4 text-xs text-slate-500 pt-1">
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Official Google Ads API</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Direct Google Ads Connection</span>
             </span>
             <span>·</span>
-            <span>Zero credentials stored</span>
+            <span>Read-only analysis mode</span>
             <span>·</span>
-            <span>Revoke anytime</span>
+            <span>Disconnect anytime</span>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, TrendingUp, Sparkles, SlidersHorizontal, ShieldCheck, Zap, Bot, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, SlidersHorizontal, ShieldCheck, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Features - Google Ads Audit & Budget Optimization | AdOptimize',
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function FeaturesPage() {
   const capabilities = [
     {
-      icon: Sparkles,
+      icon: CheckCircle2,
       title: 'Continuous Google Ads Audit',
       desc: 'Scans your Search, Performance Max (PMax), and Display campaigns every 15 minutes. Uncovers non-converting queries, budget caps, and negative keyword leaks.',
     },
@@ -25,7 +25,7 @@ export default function FeaturesPage() {
       desc: 'Detects sudden cost per conversion spikes before they drain weekly budgets. Delivers exact data evidence citing query logs and competitor auction pressure.',
     },
     {
-      icon: Bot,
+      icon: Zap,
       title: 'Negative Keyword Automation',
       desc: 'Automatically isolates career, student, crack, and login queries from your search traffic. Protects broad match campaigns from wasting click spend.',
     },

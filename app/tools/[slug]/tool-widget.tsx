@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Percent,
   Search,
-  Sparkles,
   ArrowRight,
   CheckCircle2,
   AlertTriangle,

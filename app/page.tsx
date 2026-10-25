@@ -30,7 +30,6 @@ import {
   DollarSign,
   TrendingUp,
   Target,
-  Sparkles,
   MousePointerClick,
   Percent,
   Layers,
@@ -1566,19 +1565,19 @@ export default function AdOptimizeApp() {
               {/* If no campaigns created yet, show welcoming real setup card */}
               {campaigns.length === 0 && (
                 <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-5 text-center animate-in fade-in duration-200">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center font-bold text-xl mx-auto shadow-sm">
-                    ✦
+                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center mx-auto shadow-sm">
+                    <Layers className="w-6 h-6 text-[#00d67d]" />
                   </div>
                   <div className="max-w-md mx-auto space-y-1.5">
                     <h3 className="text-lg font-bold text-slate-900">
                       {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                        ? `Connected to CID: ${account.clientCustomerId}`
+                        ? `Connected to Account: ${account.clientCustomerId}`
                         : 'Welcome to your Google Ads Command Center'}
                     </h3>
                     <p className="text-xs text-slate-500 leading-relaxed">
                       {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                        ? 'Your Customer ID is connected. No active campaigns are detected yet in Google Ads. Click below to auto-sync or specify your active campaign names to monitor.'
-                        : 'Connect your Google Ads Customer ID (CID) to pull your active campaigns, activate 24/7 AI telemetry, and boost performance.'}
+                        ? 'Your account is connected. No active campaigns are detected yet in Google Ads. Click below to synchronize your active campaigns.'
+                        : 'Connect your Google Ads account to pull your active campaigns, enable performance monitoring, and boost conversion efficiency.'}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -1594,7 +1593,7 @@ export default function AdOptimizeApp() {
                       onClick={() => setShowConnectModal(true)}
                       className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span>Connect Google Ads CID</span>
+                      <span>Connect Google Ads Account</span>
                     </button>
 
                     <a
@@ -1610,13 +1609,13 @@ export default function AdOptimizeApp() {
                 </div>
               )}
 
-              {/* Performance Telemetry Window Toggle Bar */}
+              {/* Performance Period Toggle Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-900">Telemetry Period:</span>
+                  <span className="font-bold text-slate-900">Performance Period:</span>
                   <span className="text-slate-500">
                     {selectedPeriod === 'LAST_7_DAYS'
-                      ? 'Live 7-day active telemetry. Only spend and conversions recorded within the last 7 days.'
+                      ? '7-day performance active. Only spend and conversions recorded within the last 7 days.'
                       : 'Lifetime totals. Cumulative all-time historical performance across all campaigns.'}
                   </span>
                 </div>

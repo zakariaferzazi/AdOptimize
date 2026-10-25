@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { TrendingUp, ArrowRight, CheckCircle2, Sparkles, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
+import { TrendingUp, ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
 import { PSEO_TOOLS, PSEOTool } from '@/lib/pseo-data';
 import { ToolInteractiveWidget } from './tool-widget';
 
@@ -145,9 +144,9 @@ export default async function ToolDetailPage({ params }: Props) {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Tool Header */}
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Target Keyword: {tool.targetKeyword}</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Interactive PPC Utility</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
             {tool.headline}

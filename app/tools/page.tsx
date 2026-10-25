@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { TrendingUp, ArrowRight, Wrench, Sparkles, CheckCircle2 } from 'lucide-react';
-import { PSEO_TOOLS } from '@/lib/pseo-data';
+import { TrendingUp, ArrowRight, Wrench, CheckCircle2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Free Google Ads Tools & Calculators - AdOptimize',

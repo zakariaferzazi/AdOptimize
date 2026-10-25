@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ExternalLink,
-  Bot,
   LogOut,
   LogIn,
   User as UserIcon,
@@ -162,7 +161,7 @@ export function Header({
         <button
           onClick={onRefreshSync}
           disabled={isSyncing}
-          title="Force refresh Google Ads API data"
+          title="Refresh Google Ads campaigns"
           className="flex items-center gap-1.5 px-3.5 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-60 cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -234,7 +233,7 @@ export function Header({
           )}
         </div>
 
-        {/* Real Firebase User Profile / Google Sign-In */}
+        {/* User Profile / Google Sign-In */}
         <div className="relative pl-2 border-l border-slate-200/80">
           {authLoading ? (
             <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
@@ -262,8 +261,8 @@ export function Header({
                     {user.displayName || 'Google Ads User'}
                   </div>
                   <div className="text-[10px] text-emerald-600 font-semibold leading-tight flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>Firebase Auth</span>
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Active Account</span>
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden lg:block" />

@@ -54,7 +54,7 @@ export function SettingsView({
             Settings & Account Controls
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Manage your Google Ads OAuth credentials, AI confidence gates, automated safeguards, and subscription plan.
+            Manage your Google Ads account connection, optimization thresholds, automated safeguards, and subscription plan.
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export function SettingsView({
           {[
             { id: 'connections' as const, label: 'Google Ads Connections' },
             { id: 'billing' as const, label: 'Subscription & Plans' },
-            { id: 'ai_config' as const, label: 'AI Model & Gates' },
+            { id: 'ai_config' as const, label: 'Optimization Rules' },
             { id: 'notifications' as const, label: 'Alerts & Webhooks' },
             { id: 'security' as const, label: 'Security & Privacy' },
           ].map((tab) => (
@@ -259,24 +259,17 @@ export function SettingsView({
         </div>
       )}
 
-      {/* TAB 3: AI CONFIGURATION */}
+      {/* TAB 3: OPTIMIZATION RULES */}
       {activeTab === 'ai_config' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div className="pb-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900">AI Intelligence & Confidence Gates</h3>
+            <h3 className="text-base font-bold text-slate-900">Optimization Rules &amp; Quality Thresholds</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Control the reasoning parameters, model aliases, and minimum confidence required for recommendations.
+              Control the minimum confidence and performance thresholds required before recommendations are generated.
             </p>
           </div>
 
           <div className="space-y-4 max-w-xl text-xs">
-            <div>
-              <label className="block font-bold text-slate-800 mb-1">Underlying AI Model</label>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-slate-800">
-                gemini-3.8-flash (via @google/genai server-side SDK)
-              </div>
-            </div>
-
             <div>
               <div className="flex items-center justify-between mb-1 font-bold text-slate-800">
                 <span>Minimum Confidence Threshold for Auto-Recommendations</span>
@@ -344,7 +337,7 @@ export function SettingsView({
             <div>
               <h3 className="text-base font-bold text-slate-900">Security &amp; Data Protection</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Bank-grade encryption, zero client-side token exposure, and Google API User Data compliance.
+                Encrypted connections and strict compliance with Google Ads API data policies.
               </p>
             </div>
             <Link
@@ -362,9 +355,9 @@ export function SettingsView({
               <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-100 flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-bold text-emerald-950">Zero Client-Side Token Exposure</div>
+                  <div className="font-bold text-emerald-950">Secure Google Authorization</div>
                   <div className="text-emerald-800 mt-0.5 leading-relaxed text-[11px]">
-                    All Google Ads OAuth tokens are held in server-isolated environments. Tokens are never passed to the client browser or stored in localStorage.
+                    All Google Ads authorizations are managed securely. Your credentials remain private and can be disconnected at any time.
                   </div>
                 </div>
               </div>
@@ -372,9 +365,9 @@ export function SettingsView({
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-start gap-3">
                 <Lock className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-bold text-slate-900">AES-256 at Rest &amp; TLS 1.3 in Transit</div>
+                  <div className="font-bold text-slate-900">End-to-End Encryption</div>
                   <div className="text-slate-600 mt-0.5 leading-relaxed text-[11px]">
-                    All data in transit is encrypted with TLS 1.3/1.2 over HTTPS. Persistent records and database snapshots use AES-256 cloud encryption.
+                    All data communications are encrypted over modern HTTPS protocols and stored in secure cloud infrastructure.
                   </div>
                 </div>
               </div>

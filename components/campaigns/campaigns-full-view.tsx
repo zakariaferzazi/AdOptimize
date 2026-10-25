@@ -7,7 +7,6 @@ import {
   Filter,
   ArrowUpRight,
   TrendingUp,
-  Sparkles,
   Play,
   Pause,
   SlidersHorizontal,
@@ -163,7 +162,7 @@ export function CampaignsFullView({
                 <th className="py-3 px-3 text-right">Conv</th>
                 <th className="py-3 px-3 text-right">CPA</th>
                 <th className="py-3 px-3 text-right">ROAS</th>
-                <th className="py-3 px-3 text-center">AI Health</th>
+                <th className="py-3 px-3 text-center">Health Score</th>
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Wifi, Sparkles, TrendingUp, Sliders } from 'lucide-react';
+import { ShieldCheck, Wifi, TrendingUp, Sliders } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 
 interface AccountMonitorCardProps {
@@ -40,7 +40,7 @@ export function AccountMonitorCard({
             <span className="text-[#00d67d]">Optimize</span>
           </div>
           <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-[#00d67d] px-2 py-0.5 rounded-full border border-emerald-500/30">
-            Live Guard
+            Active Monitoring
           </span>
         </div>
 
@@ -49,24 +49,24 @@ export function AccountMonitorCard({
         </div>
       </div>
 
-      {/* Middle: Formatted Customer ID (formatted like card numbers in reference) */}
+      {/* Middle: Formatted Account ID */}
       <div className="z-10 my-auto">
         <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
-          Google Ads Customer ID (CID)
+          Google Ads Account ID
         </div>
         <div className="text-xl font-mono tracking-wider font-bold text-white mt-1 flex items-center gap-2">
           <span>{account.clientCustomerId || 'Not Connected'}</span>
           {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
             <span className="text-[11px] text-[#00d67d] font-sans font-bold flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
-              <span>Active CID</span>
+              <span>Connected</span>
             </span>
           ) : (
             <button
               onClick={onOpenSettings}
               className="text-xs text-amber-400 hover:text-amber-300 font-sans font-semibold underline decoration-amber-400/50 cursor-pointer"
             >
-              ● Connect CID
+              ● Connect Account
             </button>
           )}
         </div>
