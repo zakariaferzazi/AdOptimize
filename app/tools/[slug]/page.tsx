@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { TrendingUp, ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
 import { PSEO_TOOLS, PSEOTool } from '@/lib/pseo-data';
 import { ToolInteractiveWidget } from './tool-widget';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -112,14 +113,8 @@ export default async function ToolDetailPage({ params }: Props) {
 
       <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold">
-              <TrendingUp className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight flex items-baseline">
-              <span className="text-white">Ad</span>
-              <span className="text-[#00d67d]">Optimize</span>
-            </div>
+          <Link href="/">
+            <BrandLogo />
           </Link>
 
           <Link

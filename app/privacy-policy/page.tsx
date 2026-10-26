@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
-  TrendingUp,
   ShieldCheck,
   Lock,
   Key,
@@ -16,6 +15,7 @@ import {
   RefreshCw,
   EyeOff,
 } from 'lucide-react';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - AdOptimize | Google Ads API Data Protection, Retention & Deletion',
@@ -29,14 +29,8 @@ export default function PrivacyPolicyPage() {
       {/* Top Header */}
       <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold shadow-md shadow-[#00d67d]/20">
-              <TrendingUp className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight flex items-baseline">
-              <span className="text-white">Ad</span>
-              <span className="text-[#00d67d]">Optimize</span>
-            </div>
+          <Link href="/">
+            <BrandLogo />
           </Link>
 
           <div className="flex items-center gap-3">

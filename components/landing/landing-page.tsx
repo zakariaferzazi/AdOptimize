@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { GoogleIcon } from '@/components/ui/google-icon';
 import { ModelDemoSimulator } from './model-demo-simulator';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 interface LandingPageProps {
   onOpenApp: () => void;
@@ -202,14 +203,8 @@ export function LandingPage({
       {/* 1. TOP NAVIGATION */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={onOpenApp}>
-            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-              AD
-            </div>
-            <div className="text-xl font-bold tracking-tight text-slate-900 flex items-baseline">
-              <span>Ad</span>
-              <span className="text-emerald-600">Optimize</span>
-            </div>
+          <div className="cursor-pointer" onClick={onOpenApp}>
+            <BrandLogo theme="light" />
           </div>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
@@ -954,11 +949,8 @@ export function LandingPage({
       <footer className="py-12 px-6 bg-white border-t border-slate-200 text-xs text-slate-500">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-              <div className="w-5 h-5 rounded bg-slate-900 text-white flex items-center justify-center text-[10px]">
-                AD
-              </div>
-              <span>AdOptimize</span>
+            <div className="cursor-pointer" onClick={onOpenApp}>
+              <BrandLogo iconSize={22} iconClassName="w-5 h-5 rounded-lg" textClassName="text-sm font-bold" theme="light" />
             </div>
             <p className="text-slate-500 text-[11px]">
               Continuous search query intelligence and guarded budget protection for Google Ads.

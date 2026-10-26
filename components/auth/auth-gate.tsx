@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { signInWithGoogle, signInWithEmail, signUpWithEmail } from '@/lib/firebase';
 import { GoogleIcon } from '@/components/ui/google-icon';
+import { BrandLogoIcon } from '@/components/ui/brand-logo';
 
 interface AuthGateProps {
   onSignInSuccess?: () => void;
@@ -81,9 +82,7 @@ export function AuthGate({ onSignInSuccess, onBack }: AuthGateProps) {
       <div className="max-w-sm w-full bg-[#111622] rounded-3xl p-8 sm:p-9 shadow-2xl border border-slate-800 space-y-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Brand Logo */}
         <div className="flex items-center justify-center">
-          <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-[#00d67d] text-slate-950 font-extrabold text-sm tracking-tight shadow-lg shadow-[#00d67d]/20 select-none">
-            <span>AD</span>
-          </div>
+          <BrandLogoIcon size={48} className="w-12 h-12 rounded-2xl shadow-xl shadow-[#00d67d]/25" />
         </div>
 
         {/* Title */}

@@ -283,15 +283,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* 1. Desktop Persistent / Collapsible Sidebar (Transitions smoothly inside & outside) */}
+      {/* 1. Desktop Persistent / Collapsible Sidebar (Responsive full page height with sticky viewport dock) */}
       <aside
-        className={`hidden lg:flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30 transition-all duration-300 ease-in-out bg-[#0d1117] text-slate-300 ${
+        className={`hidden lg:flex flex-col shrink-0 min-h-screen self-stretch select-none border-r border-slate-800/60 z-30 transition-all duration-300 ease-in-out bg-[#0d1117] text-slate-300 ${
           isDesktopCollapsed
             ? 'w-0 -translate-x-full border-r-0 overflow-hidden opacity-0 pointer-events-none'
             : 'w-64 translate-x-0 opacity-100'
         }`}
       >
-        <div className="w-64 flex flex-col justify-between h-full">
+        <div className="w-64 sticky top-0 max-h-screen flex flex-col justify-between overflow-y-auto">
           {renderNavContent(false)}
         </div>
       </aside>
@@ -307,7 +307,7 @@ export function Sidebar({
           />
 
           {/* Drawer Panel */}
-          <aside className="relative flex flex-col justify-between w-72 max-w-[85vw] bg-[#0d1117] text-slate-300 h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 select-none border-r border-slate-800/80">
+          <aside className="relative flex flex-col justify-between w-72 max-w-[85vw] bg-[#0d1117] text-slate-300 h-full min-h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 select-none border-r border-slate-800/80 overflow-y-auto">
             {renderNavContent(true)}
           </aside>
         </div>

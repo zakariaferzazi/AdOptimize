@@ -6,6 +6,7 @@ import { acquireGoogleAdsToken } from '@/lib/google-identity';
 import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
 import { Check, RefreshCw, ArrowRight, AlertCircle, LogOut, ShieldCheck, Zap, CheckCircle2 } from 'lucide-react';
 import { User } from 'firebase/auth';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 interface ConnectAccountsStepProps {
   user: User | null;
@@ -101,14 +102,7 @@ export function ConnectAccountsStep({
       {/* Top Navigation */}
       <header className="border-b border-slate-800/80 px-6 py-4 bg-slate-950/60 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-emerald-600 flex items-center justify-center text-slate-950 font-bold text-xs shadow-sm">
-              AD
-            </div>
-            <span className="font-extrabold tracking-tight text-white text-base">
-              Ad<span className="text-[#00d67d]">Optimize</span>
-            </span>
-          </div>
+          <BrandLogo textClassName="text-base" theme="dark" />
 
           {onSignOut && (
             <button

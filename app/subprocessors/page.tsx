@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { TrendingUp, Database, ArrowRight } from 'lucide-react';
+import { Database, ArrowRight } from 'lucide-react';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Subprocessors - AdOptimize | Third-Party Infrastructure Disclosure',
@@ -30,14 +31,8 @@ export default function SubprocessorsPage() {
     <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
       <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00d67d] to-[#059669] flex items-center justify-center text-slate-950 font-bold">
-              <TrendingUp className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <div className="text-xl font-bold tracking-tight flex items-baseline">
-              <span className="text-white">Ad</span>
-              <span className="text-[#00d67d]">Optimize</span>
-            </div>
+          <Link href="/">
+            <BrandLogo />
           </Link>
 
           <Link
