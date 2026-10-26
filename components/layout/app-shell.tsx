@@ -29,6 +29,7 @@ interface AppShellProps {
 export function AppShell({ children, title, headerExtra }: AppShellProps) {
   const pathname = usePathname();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [prevPathname, setPrevPathname] = useState(pathname);
 
   // Close mobile sidebar if route changed
@@ -128,17 +129,19 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
 
   return (
     <div className="min-h-screen flex bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
-      {/* 1. Sidebar Navigation (Desktop sticky + Mobile slide-over drawer) */}
+      {/* 1. Sidebar Navigation (Desktop collapsible + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}
         anomaliesCount={anomalies.filter((a) => !a.resolved).length}
         recommendationsCount={budgetRecommendations.filter((b) => b.status === 'PENDING').length}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        isDesktopCollapsed={isDesktopSidebarCollapsed}
+        onToggleDesktop={() => setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed)}
       />
 
       {/* 2. Main Content Canvas */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden transition-all duration-300">
         {/* Top Header */}
         <Header
           title={title || currentTab}
@@ -159,6 +162,8 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           onClearData={handleResetData}
           headerExtra={headerExtra}
           onToggleMobileMenu={() => setIsMobileSidebarOpen((prev) => !prev)}
+          isDesktopSidebarCollapsed={isDesktopSidebarCollapsed}
+          onToggleDesktopSidebar={() => setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed)}
         />
 
         {/* Dynamic View Container */}

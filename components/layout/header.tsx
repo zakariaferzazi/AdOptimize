@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Trash2,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { GoogleAdsAccount, AnomalyAlert } from '@/types/adoptimize';
 import { User } from 'firebase/auth';
@@ -36,6 +38,8 @@ interface HeaderProps {
   onClearData?: () => void;
   headerExtra?: React.ReactNode;
   onToggleMobileMenu?: () => void;
+  isDesktopSidebarCollapsed?: boolean;
+  onToggleDesktopSidebar?: () => void;
 }
 
 export function Header({
@@ -55,6 +59,8 @@ export function Header({
   onClearData,
   headerExtra,
   onToggleMobileMenu,
+  isDesktopSidebarCollapsed = false,
+  onToggleDesktopSidebar,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -101,14 +107,33 @@ export function Header({
     <header className="h-16 lg:h-20 bg-transparent px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 select-none z-20">
       {/* Left: View Title & Account Badge */}
       <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+        {/* Mobile menu toggle */}
         {onToggleMobileMenu && (
           <button
             type="button"
             onClick={onToggleMobileMenu}
             className="lg:hidden p-2 -ml-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
             aria-label="Open navigation menu"
+            title="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Desktop sidebar toggle (inside / outside) */}
+        {onToggleDesktopSidebar && (
+          <button
+            type="button"
+            onClick={onToggleDesktopSidebar}
+            className="hidden lg:flex p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
+            aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isDesktopSidebarCollapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-slate-700 hover:text-[#00d67d]" />
+            ) : (
+              <PanelLeftClose className="w-5 h-5" />
+            )}
           </button>
         )}
 

@@ -55,12 +55,6 @@ export function ConnectModal({
   const [loadingState, setLoadingState] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [discoveredAccounts, setDiscoveredAccounts] = useState<string[]>([]);
-  const [showManualFallback, setShowManualFallback] = useState(false);
-  const [manualCid, setManualCid] = useState('');
-  const [managerCid, setManagerCid] = useState(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('google_ads_login_cid') || '';
-    return '';
-  });
 
   if (!isOpen) return null;
 
@@ -93,9 +87,8 @@ export function ConnectModal({
         body: JSON.stringify({
           action: 'auto_connect',
           accessToken: token,
-          customerId: selectedCid || manualCid.trim() || undefined,
+          customerId: selectedCid || undefined,
           userEmail: userEmail || undefined,
-          loginCustomerId: managerCid.trim() || undefined,
         }),
       });
 
@@ -113,7 +106,7 @@ export function ConnectModal({
         if (onApiError) {
           onApiError({
             message: errMsg,
-            cid: selectedCid || manualCid || currentAccount.clientCustomerId,
+            cid: selectedCid || currentAccount.clientCustomerId,
             timestamp: new Date().toLocaleTimeString(),
             severity: 'error',
             statusCode: data.statusCode || res.status,
@@ -288,10 +281,7 @@ export function ConnectModal({
           /* State C: 1-Click Connect (Adspirer experience - no forms, no manual CID entry) */
           <div className="space-y-5 text-center py-2">
             <div className="space-y-2 max-w-sm mx-auto">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Fast Account Setup</span>
-              </div>
+             
               <h4 className="text-xl font-bold tracking-tight text-slate-900">
                 Connect your Google Ads account
               </h4>
@@ -325,61 +315,8 @@ export function ConnectModal({
               </button>
             </div>
 
-            {/* Trust highlights */}
-            <div className="pt-3 grid grid-cols-2 gap-2 text-left">
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span className="text-[11px] text-slate-600 font-medium leading-tight">
-                  Automatic account discovery
-                </span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span className="text-[11px] text-slate-600 font-medium leading-tight">
-                  Secure Google authorization
-                </span>
-              </div>
-            </div>
 
-            {/* Optional Collapsed Fallback for Manager MCC or specific CID */}
-            <div className="pt-2 border-t border-slate-100 text-left">
-              <button
-                type="button"
-                onClick={() => setShowManualFallback(!showManualFallback)}
-                className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-medium cursor-pointer block mx-auto"
-              >
-                {showManualFallback ? '▾ Hide specific Account ID / Manager Account' : '▸ Agency Manager Account or specific Account ID?'}
-              </button>
 
-              {showManualFallback && (
-                <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 animate-in fade-in">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Account ID (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 123-456-7890"
-                      value={manualCid}
-                      onChange={(e) => setManualCid(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Manager Account ID (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 555-666-7777 (if access is through an MCC)"
-                      value={managerCid}
-                      onChange={(e) => setManagerCid(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>

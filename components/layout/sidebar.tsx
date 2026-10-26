@@ -15,6 +15,9 @@ import {
   Settings,
   BarChart3,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelLeft,
 } from 'lucide-react';
 
 export type NavTab =
@@ -39,6 +42,8 @@ interface SidebarProps {
   recommendationsCount?: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  isDesktopCollapsed?: boolean;
+  onToggleDesktop?: () => void;
 }
 
 export function Sidebar({
@@ -48,6 +53,8 @@ export function Sidebar({
   recommendationsCount = 0,
   isMobileOpen = false,
   onCloseMobile,
+  isDesktopCollapsed = false,
+  onToggleDesktop,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -141,7 +148,7 @@ export function Sidebar({
             </div>
           </Link>
 
-          {isMobile && (
+          {isMobile ? (
             <button
               type="button"
               onClick={onCloseMobile}
@@ -150,7 +157,17 @@ export function Sidebar({
             >
               <X className="w-5 h-5" />
             </button>
-          )}
+          ) : onToggleDesktop ? (
+            <button
+              type="button"
+              onClick={onToggleDesktop}
+              title="Collapse sidebar"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          ) : null}
         </div>
 
         {/* 6 Essential Main Navigation Items */}
@@ -199,60 +216,59 @@ export function Sidebar({
         </nav>
       </div>
 
-      {/* Bottom Section: Compact Secondary Access */}
-      <div className="p-5 flex flex-col gap-3 border-t border-slate-800/60">
-        <div className="flex items-center justify-between px-2 pt-1 text-xs text-slate-400">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href="/activity-log"
-              onClick={() => {
-                if (onSelectTab) onSelectTab('activity_log');
-                if (isMobile && onCloseMobile) onCloseMobile();
-              }}
-              className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
-                pathname === '/activity-log' || currentTab === 'activity_log'
-                  ? 'text-white font-semibold'
-                  : 'hover:text-white'
-              }`}
-              title="Recent Account Activity & Audit History"
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>Activity</span>
-            </Link>
-            <span>•</span>
-            <Link
-              href="/reports"
-              onClick={() => {
-                if (onSelectTab) onSelectTab('reports');
-                if (isMobile && onCloseMobile) onCloseMobile();
-              }}
-              className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
-                pathname === '/reports' || currentTab === 'reports'
-                  ? 'text-white font-semibold'
-                  : 'hover:text-white'
-              }`}
-              title="Performance Reports"
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Reports</span>
-            </Link>
-            <span>•</span>
-            <Link
-              href="/settings"
-              onClick={() => {
-                if (onSelectTab) onSelectTab('settings');
-                if (isMobile && onCloseMobile) onCloseMobile();
-              }}
-              className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
-                pathname === '/settings' || currentTab === 'settings'
-                  ? 'text-white font-semibold'
-                  : 'hover:text-white'
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Settings</span>
-            </Link>
-          </div>
+      {/* Bottom Section: Compact Secondary Access Dock (Settings strictly inside box) */}
+      <div className="p-3.5 flex flex-col gap-2.5 border-t border-slate-800/60">
+        <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1 rounded-2xl border border-slate-800/80">
+          <Link
+            href="/activity-log"
+            onClick={() => {
+              if (onSelectTab) onSelectTab('activity_log');
+              if (isMobile && onCloseMobile) onCloseMobile();
+            }}
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+              pathname === '/activity-log' || currentTab === 'activity_log'
+                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Recent Account Activity & Audit History"
+          >
+            <History className="w-3.5 h-3.5 mb-1 shrink-0" />
+            <span className="truncate max-w-full text-[10px]">Activity</span>
+          </Link>
+
+          <Link
+            href="/reports"
+            onClick={() => {
+              if (onSelectTab) onSelectTab('reports');
+              if (isMobile && onCloseMobile) onCloseMobile();
+            }}
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+              pathname === '/reports' || currentTab === 'reports'
+                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Performance Reports"
+          >
+            <BarChart3 className="w-3.5 h-3.5 mb-1 shrink-0" />
+            <span className="truncate max-w-full text-[10px]">Reports</span>
+          </Link>
+
+          <Link
+            href="/settings"
+            onClick={() => {
+              if (onSelectTab) onSelectTab('settings');
+              if (isMobile && onCloseMobile) onCloseMobile();
+            }}
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+              pathname === '/settings' || currentTab === 'settings'
+                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Account Settings"
+          >
+            <Settings className="w-3.5 h-3.5 mb-1 shrink-0" />
+            <span className="truncate max-w-full text-[10px]">Settings</span>
+          </Link>
         </div>
 
         <div className="px-2 pt-1 text-[11px] text-slate-500 flex items-center justify-between">
@@ -286,9 +302,17 @@ export function Sidebar({
 
   return (
     <>
-      {/* 1. Desktop Persistent Sidebar (Hidden on mobile / tablet < lg) */}
-      <aside className="hidden lg:flex w-64 bg-[#0d1117] text-slate-300 flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30">
-        {renderNavContent(false)}
+      {/* 1. Desktop Persistent / Collapsible Sidebar (Transitions smoothly inside & outside) */}
+      <aside
+        className={`hidden lg:flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30 transition-all duration-300 ease-in-out bg-[#0d1117] text-slate-300 ${
+          isDesktopCollapsed
+            ? 'w-0 -translate-x-full border-r-0 overflow-hidden opacity-0 pointer-events-none'
+            : 'w-64 translate-x-0 opacity-100'
+        }`}
+      >
+        <div className="w-64 flex flex-col justify-between h-full">
+          {renderNavContent(false)}
+        </div>
       </aside>
 
       {/* 2. Mobile / Tablet Slide-over Drawer with Backdrop */}
