@@ -8,7 +8,6 @@ import {
   DollarSign,
   CheckCircle2,
   XCircle,
-  Sparkles,
   ShieldCheck,
   AlertCircle,
   HelpCircle,

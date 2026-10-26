@@ -6,7 +6,6 @@ import {
   Download,
   Printer,
   Calendar,
-  Sparkles,
   TrendingUp,
   CheckCircle2,
   AlertCircle,
@@ -101,7 +100,7 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
               <span className="text-slate-400 font-normal text-sm ml-2">Executive Performance Audit</span>
             </div>
             <div className="text-xs text-slate-500 mt-1 font-mono">
-              Account: {account.accountName} (Customer ID: {account.clientCustomerId})
+              Account: {account.accountName} (Account ID: {account.clientCustomerId})
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { TrendingUp, ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
 import { PSEO_TOOLS, PSEOTool } from '@/lib/pseo-data';
 import { ToolInteractiveWidget } from './tool-widget';
