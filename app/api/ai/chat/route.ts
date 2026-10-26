@@ -9,9 +9,12 @@ export async function POST(req: NextRequest) {
     const {
       message,
       conversationHistory = [],
-      modelTier = 'analysis',
+      model = 'gemini',
+      modelTier,
       context = {},
     } = body;
+
+    const selectedModel = (model || modelTier || 'gemini');
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -66,7 +69,8 @@ RULES:
 
     // First model pass with tool definitions
     const firstResponse = await sendOpenRouterChat({
-      tier: modelTier as ModelTier,
+      model: selectedModel,
+      tier: selectedModel as any,
       messages: formattedMessages,
       tools: GOOGLE_ADS_TOOL_DEFINITIONS,
       temperature: 0.2,
@@ -126,7 +130,8 @@ RULES:
 
       // Second pass to synthesize results into natural response
       const secondResponse = await sendOpenRouterChat({
-        tier: modelTier as ModelTier,
+        model: selectedModel,
+        tier: selectedModel as any,
         messages: toolMessages,
         temperature: 0.2,
       });

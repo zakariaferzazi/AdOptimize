@@ -48,33 +48,38 @@ import {
 
 interface CampaignAnalysisPageProps {
   campaign: Campaign;
-  keywords: Keyword[];
-  searchTerms: SearchTerm[];
-  ads: AdCreative[];
-  deviceBreakdown: BreakdownItem[];
-  locationBreakdown: BreakdownItem[];
-  insights: AIInsight[];
+  keywords?: Keyword[];
+  searchTerms?: SearchTerm[];
+  ads?: AdCreative[];
+  deviceBreakdown?: BreakdownItem[];
+  locationBreakdown?: BreakdownItem[];
+  insights?: AIInsight[];
   account?: GoogleAdsAccount;
   onBack: () => void;
   onApplyInsight?: (insight: AIInsight) => void;
   onAddNegativeKeyword?: (term: SearchTerm) => void;
   onToggleCampaignStatus?: (campaignId: string) => void;
+  onToggleStatus?: () => void;
+  onUpdateBudget?: (newBudget: number) => void;
   onSyncCampaign?: () => void;
+  userEmail?: string | null;
 }
 
 export function CampaignAnalysisPage({
   campaign,
-  keywords,
-  searchTerms,
-  ads,
-  deviceBreakdown,
-  locationBreakdown,
-  insights,
+  keywords = [],
+  searchTerms = [],
+  ads = [],
+  deviceBreakdown = [],
+  locationBreakdown = [],
+  insights = [],
   account,
   onBack,
   onApplyInsight,
   onAddNegativeKeyword,
   onToggleCampaignStatus,
+  onToggleStatus,
+  onUpdateBudget,
   onSyncCampaign,
 }: CampaignAnalysisPageProps) {
   // Period toggle: '7D' vs 'ALL_TIME'

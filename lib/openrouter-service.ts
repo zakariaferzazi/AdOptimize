@@ -1,41 +1,63 @@
 import { getGeminiClient } from './gemini-server';
 
-export type ModelTier = 'fast' | 'analysis' | 'advanced';
+export type SupportedModel = 'deepseek' | 'chatgpt' | 'gemini';
+export type ModelTier = SupportedModel | 'fast' | 'analysis' | 'advanced';
 
 export interface ModelConfig {
   id: string;
   name: string;
-  tier: ModelTier;
+  model: SupportedModel;
   description: string;
+  provider: string;
+  badge: string;
 }
 
 export function getAvailableModels(): ModelConfig[] {
   return [
     {
-      id: process.env.MODEL_FAST || 'google/gemini-2.0-flash-001',
-      name: 'Fast Assistant',
-      tier: 'fast',
-      description: 'Quick questions, summaries, and direct metric queries.',
+      id: process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat',
+      name: 'DeepSeek',
+      model: 'deepseek',
+      provider: 'DeepSeek',
+      badge: 'Reasoning & Math',
+      description: 'Deep mathematical reasoning, complex search term clustering, and cost-per-acquisition diagnostics.',
     },
     {
-      id: process.env.MODEL_ANALYSIS || 'google/gemini-2.5-pro',
-      name: 'Performance Analyst',
-      tier: 'analysis',
-      description: 'Account diagnostics, finding wasted spend, and campaign evaluations.',
+      id: process.env.MODEL_CHATGPT || 'openai/gpt-4o',
+      name: 'ChatGPT',
+      model: 'chatgpt',
+      provider: 'OpenAI',
+      badge: 'GPT-4o',
+      description: 'OpenAI flagship model for PPC strategy, ad creative analysis, and conversion rate optimization.',
     },
     {
-      id: process.env.MODEL_ADVANCED || 'anthropic/claude-3.7-sonnet',
-      name: 'Advanced Strategist',
-      tier: 'advanced',
-      description: 'Complex multi-step optimizations, budget modeling, and strategic plans.',
+      id: process.env.MODEL_GEMINI || 'google/gemini-2.5-flash',
+      name: 'Gemini',
+      model: 'gemini',
+      provider: 'Google',
+      badge: 'Gemini 2.5',
+      description: 'Ultra-fast search stream querying, campaign status checks, and instant Google Ads API execution.',
     },
   ];
 }
 
-export function resolveModelId(tier: ModelTier = 'analysis'): string {
-  const models = getAvailableModels();
-  const matched = models.find((m) => m.tier === tier);
-  return matched ? matched.id : models[1].id;
+export function resolveModelId(modelOrTier: string = 'gemini'): string {
+  const normalized = modelOrTier.toLowerCase();
+  if (normalized === 'deepseek' || normalized === 'analysis') {
+    return process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat';
+  }
+  if (normalized === 'chatgpt' || normalized === 'advanced') {
+    return process.env.MODEL_CHATGPT || 'openai/gpt-4o';
+  }
+  // Default to Gemini
+  return process.env.MODEL_GEMINI || 'google/gemini-2.5-flash';
+}
+
+export function getModelDisplayName(modelOrTier: string = 'gemini'): string {
+  const normalized = modelOrTier.toLowerCase();
+  if (normalized === 'deepseek' || normalized === 'analysis') return 'DeepSeek';
+  if (normalized === 'chatgpt' || normalized === 'advanced') return 'ChatGPT';
+  return 'Gemini';
 }
 
 export interface ChatCompletionMessage {
@@ -63,6 +85,7 @@ export interface ToolDefinition {
 }
 
 export interface OpenRouterChatOptions {
+  model?: SupportedModel;
   tier?: ModelTier;
   modelOverride?: string;
   messages: ChatCompletionMessage[];
@@ -83,11 +106,15 @@ export interface OpenRouterResponse {
 }
 
 /**
- * Dispatches chat completion to OpenRouter API (or graceful fallback to Gemini if OpenRouter key not set).
+ * Dispatches chat completion to selected model (DeepSeek, ChatGPT, or Gemini).
+ * Uses OpenRouter API when available, or direct Gemini client fallback.
  */
 export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promise<OpenRouterResponse> {
+  const chosenKey = options.model || (options.tier as SupportedModel) || 'gemini';
+  const targetModel = options.modelOverride || resolveModelId(chosenKey);
+  const displayName = getModelDisplayName(chosenKey);
+
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const targetModel = options.modelOverride || resolveModelId(options.tier || 'analysis');
 
   if (apiKey) {
     try {
@@ -111,8 +138,7 @@ export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promis
       if (!response.ok) {
         const errorText = await response.text();
         console.warn(`[OpenRouter API Error ${response.status}]:`, errorText);
-        // Fall back to server gemini if OpenRouter rate-limited or failed
-        return await fallbackGeminiChat(options, targetModel);
+        return await fallbackGeminiChat(options, displayName);
       }
 
       const data = await response.json();
@@ -141,22 +167,17 @@ export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promis
       return {
         reply: message?.content || '',
         toolCalls,
-        modelUsed:
-          options.tier === 'fast'
-            ? 'Fast Processing Engine'
-            : options.tier === 'advanced'
-            ? 'Advanced Strategic Engine'
-            : 'Analysis Engine',
+        modelUsed: displayName,
         finishReason: choice?.finish_reason,
       };
     } catch (err: any) {
-      console.warn('[OpenRouter Fetch Exception]:', err.message);
-      return await fallbackGeminiChat(options, targetModel);
+      console.warn('[OpenRouter Exception]:', err.message);
+      return await fallbackGeminiChat(options, displayName);
     }
   }
 
-  // Graceful fallback when OPENROUTER_API_KEY is not configured
-  return await fallbackGeminiChat(options, targetModel);
+  // When OPENROUTER_API_KEY is not present, use server Gemini
+  return await fallbackGeminiChat(options, displayName);
 }
 
 /**
@@ -167,23 +188,20 @@ async function fallbackGeminiChat(options: OpenRouterChatOptions, requestedModel
     const ai = getGeminiClient();
     if (!ai) {
       return {
-        reply: 'AI service credentials are not configured. Please set OPENROUTER_API_KEY or GEMINI_API_KEY in the environment.',
-        modelUsed: 'Offline Mode',
+        reply: 'AI credentials are not configured. Please set GEMINI_API_KEY or OPENROUTER_API_KEY in the server environment.',
+        modelUsed: `${requestedModelName} (Offline)`,
       };
     }
 
-    // Map system and user messages into prompt
     const systemPrompt = options.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
     const conversation = options.messages.filter((m) => m.role !== 'system');
 
-    // Create function definitions for Gemini if tools are supplied
     const functionDeclarations = options.tools?.map((t) => ({
       name: t.function.name,
       description: t.function.description,
       parameters: t.function.parameters,
     }));
 
-    // Convert messages for Gemini
     const contents = conversation.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content || '' }],
@@ -211,18 +229,13 @@ async function fallbackGeminiChat(options: OpenRouterChatOptions, requestedModel
     return {
       reply: textPart,
       toolCalls: functionCalls && functionCalls.length > 0 ? functionCalls : undefined,
-      modelUsed:
-        options.tier === 'fast'
-          ? 'Fast Processing Engine'
-          : options.tier === 'advanced'
-          ? 'Advanced Strategic Engine'
-          : 'Analysis Engine',
+      modelUsed: requestedModelName === 'Gemini' ? 'Gemini' : `${requestedModelName} (via Gemini Engine)`,
     };
   } catch (err: any) {
     console.error('[Fallback Chat Error]:', err);
     return {
       reply: 'I am unable to complete this analysis right now. Please verify your connection or try again in a moment.',
-      modelUsed: 'Analysis Engine',
+      modelUsed: requestedModelName,
     };
   }
 }

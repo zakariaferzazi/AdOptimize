@@ -158,7 +158,7 @@ export function AutomationView({
             <div className="max-w-md mx-auto space-y-1">
               <h4 className="text-base font-bold text-slate-900">No Custom Automation Rules Yet</h4>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Set up automated safeguards to detect sudden CPA spikes, cap budget drift, and prevent wasted spend on non-converting search terms.
+                Set up automated safeguards to detect sudden CPA spikes, prevent budget drift, and eliminate wasted spend on non-converting search terms.
               </p>
             </div>
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">

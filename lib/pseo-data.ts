@@ -549,3 +549,209 @@ export const PSEO_COMPARISONS: PSEOComparison[] = [
     ],
   },
 ];
+
+export interface PSEOFeature {
+  slug: string;
+  title: string;
+  metaTitle: string;
+  metaDescription: string;
+  targetKeyword: string;
+  headline: string;
+  subheadline: string;
+  badge: string;
+  benefits: string[];
+  capabilities: { title: string; desc: string }[];
+  faqs: { q: string; a: string }[];
+}
+
+export const PSEO_FEATURES: PSEOFeature[] = [
+  {
+    slug: 'google-ads-anomaly-detection',
+    title: 'Google Ads Anomaly Detection',
+    metaTitle: 'Google Ads Anomaly Detection - Detect Runaway CPA Spikes Early',
+    metaDescription: 'Detect CPA spikes, sudden conversion drops, and budget exhaustion in your Google Ads account before they drain ad spend.',
+    targetKeyword: 'Google Ads anomaly detection',
+    headline: 'Real-Time Google Ads Anomaly Detection',
+    subheadline: 'Continuous background monitoring scans your search queries and bidding metrics every 15 minutes to catch runaway spend and auction shifts.',
+    badge: 'Proactive Alert Engine',
+    benefits: [
+      'Pinpoint rapid Cost per Acquisition (CPA) spikes within hours of occurrence',
+      'Detect sudden conversion tracking drop-offs before weekly reports',
+      'Flag competitor bid surges causing unexpected CPC increases',
+      'Instant notifications via Slack and email',
+    ],
+    capabilities: [
+      {
+        title: 'Query-Level Cost Velocity Scanning',
+        desc: 'Identifies individual search queries consuming excessive daily budget without generating conversions.',
+      },
+      {
+        title: 'Bidding Anomaly Diagnostics',
+        desc: 'Detects when Smart Bidding algorithms overbid in off-peak auction hours due to competitor shifts.',
+      },
+      {
+        title: '1-Click Guardrail Response',
+        desc: 'Applies protective bid ceilings or pauses affected ad groups with a single click from the alert card.',
+      },
+    ],
+    faqs: [
+      {
+        q: 'How frequently does AdOptimize check for Google Ads anomalies?',
+        a: 'AdOptimize queries the Google Ads SearchStream API on a continuous schedule (up to every 15 minutes on Growth plans) to detect irregularities in near real time.',
+      },
+      {
+        q: 'Will anomaly alerts make changes to my account automatically?',
+        a: 'Only if you explicitly enable auto-remedy rules. By default, every alert presents clear evidence with a human-in-the-loop approval button.',
+      },
+    ],
+  },
+  {
+    slug: 'ai-budget-optimizer',
+    title: 'AI Budget Optimizer',
+    metaTitle: 'AI Google Ads Budget Optimizer - Scale High-ROAS Campaigns',
+    metaDescription: 'Automatically reallocate ad budget from low-performing ad groups to high-converting search campaigns with unmet demand.',
+    targetKeyword: 'AI Google Ads budget optimizer',
+    headline: 'Autonomous Google Ads Budget & Bid Optimizer',
+    subheadline: 'Stop starving winning campaigns. Rebalance daily spend toward high-ROAS ad groups with verified marginal efficiency modeling.',
+    badge: 'Capital Efficiency Engine',
+    benefits: [
+      'Eliminate impression share lost to daily budget limits on top converters',
+      'Cut wasted ad spend on plateaued or dying campaigns',
+      'Human-in-the-loop single change guardrail limit (±15%–30%)',
+      'Full before/after audit trail with 1-click revert capability',
+    ],
+    capabilities: [
+      {
+        title: 'Cross-Campaign Capital Rebalancing',
+        desc: 'Analyzes marginal cost-per-acquisition across campaigns to shift capital to where it generates maximum return.',
+      },
+      {
+        title: 'Impression Share Recovery',
+        desc: 'Calculates exact budget required to capture high-intent search impression share lost to budget restrictions.',
+      },
+      {
+        title: 'Pacing Guardrails',
+        desc: 'Prevents sudden algorithmic volatility by enforcing calibrated adjustment steps on daily budgets.',
+      },
+    ],
+    faqs: [
+      {
+        q: 'How does the Budget Optimizer choose where to reallocate funds?',
+        a: 'The algorithm evaluates 30-day conversion volume, current CPA relative to target, and impression share lost to budget to identify where each additional dollar generates the highest return.',
+      },
+      {
+        q: 'Can I undo a budget reallocation?',
+        a: 'Yes. Every budget update is recorded in the immutable audit trail and can be rolled back to the exact previous value with one click.',
+      },
+    ],
+  },
+  {
+    slug: 'negative-keyword-harvester',
+    title: 'Negative Keyword Harvester',
+    metaTitle: 'Google Ads Negative Keyword Harvester - Stop Click Bleeds',
+    metaDescription: 'Automatically detect irrelevant search queries eating your budget. Add negative keywords with 1 click to lower CPA.',
+    targetKeyword: 'Google Ads negative keyword tool',
+    headline: 'Instant Negative Keyword Harvester',
+    subheadline: 'Protect your broad match campaigns. Isolate and eliminate career, login, and irrelevant search query click waste.',
+    badge: 'Waste Reduction',
+    benefits: [
+      'Automatically cluster non-converting queries by semantic intent',
+      'Detect high-cost low-intent variations before they spend hundreds',
+      'Apply negatives to campaign lists or shared account sets with 1 click',
+      'Preserve Quality Score and maximize broad match efficiency',
+    ],
+    capabilities: [
+      {
+        title: 'Zero-Conversion Spend Flagging',
+        desc: 'Surfaces all search terms exceeding your threshold spend with zero attributed conversions.',
+      },
+      {
+        title: 'Competitor Brand Filtration',
+        desc: 'Distinguishes between high-intent generic searches and expensive low-converting competitor brand clicks.',
+      },
+      {
+        title: 'Batch Negative Addition',
+        desc: 'Push selected negative keywords directly to Google Ads via API in exact, phrase, or broad match types.',
+      },
+    ],
+    faqs: [
+      {
+        q: 'Does adding negative keywords hurt broad match reach?',
+        a: 'No. Adding negative keywords sculpts broad match traffic so your budget is only spent on relevant queries with purchase intent.',
+      },
+    ],
+  },
+  {
+    slug: 'automated-ad-safeguards',
+    title: 'Automated Ad Safeguards',
+    metaTitle: 'Automated Google Ads Safeguards & 24/7 Rules | AdOptimize',
+    metaDescription: 'Set up automated safeguards to detect sudden CPA spikes, prevent budget drift, and pause non-converting bleeders around the clock.',
+    targetKeyword: 'automated Google Ads rules',
+    headline: '24/7 Automated Google Ads Safeguards',
+    subheadline: 'Keep your ad account protected around the clock with rules that pause non-converting bleeders and notify you instantly.',
+    badge: 'Automated Safety',
+    benefits: [
+      'Auto-pause bleeding campaigns when spend exceeds target with 0 conversions',
+      'CPA spike circuit breakers to stop runaway Smart Bidding',
+      'Zero silent changes — every trigger is logged and reversible',
+      'Customizable threshold rules for any account KPI',
+    ],
+    capabilities: [
+      {
+        title: 'Custom Condition Builder',
+        desc: 'Create rules based on CPA, ROAS, spend without conversions, or rapid CPC jumps.',
+      },
+      {
+        title: 'Tiered Enforcement Modes',
+        desc: 'Choose between Notify Only, Suggest Recommendation, or Autonomous Action with Rollback.',
+      },
+      {
+        title: 'Execution Log & Audit Proof',
+        desc: 'Detailed history showing exact rule trigger condition, campaign affected, and status.',
+      },
+    ],
+    faqs: [
+      {
+        q: 'What happens if a safeguard pauses a campaign by mistake?',
+        a: 'You can restore the campaign status immediately with a single click from the Activity Log or Notification email.',
+      },
+    ],
+  },
+  {
+    slug: 'audit-log-rollback-trail',
+    title: 'Audit Log & 1-Click Rollback Trail',
+    metaTitle: 'Google Ads Audit Log & 1-Click Rollback | AdOptimize',
+    metaDescription: 'Complete verifiable changelog of all Google Ads actions, budget shifts, negative keyword exclusions, and automated rules with instant 1-click rollback.',
+    targetKeyword: 'Google Ads change history audit log',
+    headline: 'Immutable Change History & 1-Click Rollback',
+    subheadline: 'Total visibility and accountability. Every modification is logged with actor, timestamp, previous value, and instant restore.',
+    badge: 'Accountability First',
+    benefits: [
+      'Complete changelog of all AI and user modifications',
+      'Before and after value comparisons for every parameter change',
+      '1-click instant rollback for supported campaign edits',
+      'Enterprise-grade change management for marketing teams and agencies',
+    ],
+    capabilities: [
+      {
+        title: 'Granular Diff Tracking',
+        desc: 'Inspect exact parameter changes, from budget dollars to campaign status and keyword match types.',
+      },
+      {
+        title: 'Attribution & Actor Logging',
+        desc: 'Know whether a change was made by a team member, an automated safeguard, or an approved AI suggestion.',
+      },
+      {
+        title: 'Rollback Action Queue',
+        desc: 'Restore previous configurations seamlessly via Google Ads API calls without manually digging through Google Ads Change History.',
+      },
+    ],
+    faqs: [
+      {
+        q: 'How long does AdOptimize retain audit logs?',
+        a: 'Audit logs are stored securely in Firestore and retained for the lifetime of your account.',
+      },
+    ],
+  },
+];
+

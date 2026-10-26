@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AdOptimizeProvider } from '@/context/adoptimize-context';
+
 export default function RootLayout({children}: {children: React.ReactNode}) {
   const globalSchema = {
     '@context': 'https://schema.org',
@@ -106,7 +108,9 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         />
       </head>
       <body className="h-full bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans" suppressHydrationWarning>
-        {children}
+        <AdOptimizeProvider>
+          {children}
+        </AdOptimizeProvider>
       </body>
     </html>
   );

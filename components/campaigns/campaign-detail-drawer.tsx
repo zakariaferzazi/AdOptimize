@@ -35,27 +35,31 @@ import {
 
 interface CampaignDetailDrawerProps {
   campaign: Campaign | null;
-  keywords: Keyword[];
-  searchTerms: SearchTerm[];
-  ads: AdCreative[];
-  deviceBreakdown: BreakdownItem[];
-  locationBreakdown: BreakdownItem[];
-  insights: AIInsight[];
+  keywords?: Keyword[];
+  searchTerms?: SearchTerm[];
+  ads?: AdCreative[];
+  deviceBreakdown?: BreakdownItem[];
+  locationBreakdown?: BreakdownItem[];
+  insights?: AIInsight[];
   account?: GoogleAdsAccount;
   onClose: () => void;
   onApplyInsight?: (insight: AIInsight) => void;
   onAddNegativeKeyword?: (term: SearchTerm) => void;
   onToggleCampaignStatus?: (campaignId: string) => void;
+  onToggleStatus?: () => void;
+  onUpdateBudget?: (newBudget: number) => void;
+  userEmail?: string | null;
+  isOpen?: boolean;
 }
 
 export function CampaignDetailDrawer({
   campaign,
-  keywords,
-  searchTerms,
-  ads,
-  deviceBreakdown,
-  locationBreakdown,
-  insights,
+  keywords = [],
+  searchTerms = [],
+  ads = [],
+  deviceBreakdown = [],
+  locationBreakdown = [],
+  insights = [],
   account,
   onClose,
   onApplyInsight,

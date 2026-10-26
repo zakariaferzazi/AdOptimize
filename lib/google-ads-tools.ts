@@ -435,7 +435,7 @@ export async function executeGoogleAdsTool(
       const rows = [
         ['Account ID', account.clientCustomerId || 'Not Connected', account.isConnected ? 'Connected' : 'Offline'],
         ['Active Campaigns', `${campaigns.filter((c) => c.status === 'ENABLED').length} of ${campaigns.length} Enabled`, 'Monitored'],
-        ['Total Spend (7d)', `$${totalSpend.toFixed(2)}`, 'Within monthly cap'],
+        ['Total Spend (7d)', `$${totalSpend.toFixed(2)}`, 'Active Tracking'],
         ['Total Conversions', `${totalConv}`, totalConv > 10 ? 'Healthy volume' : 'Low volume'],
         ['Blended CPA', `$${blendedCpa.toFixed(2)}`, blendedCpa < 45 ? 'Optimal (<$45)' : 'Needs reduction'],
         ['Account ROAS', `${accountRoas.toFixed(2)}x`, accountRoas >= 3.0 ? 'Strong (>3.0x)' : 'Moderate'],

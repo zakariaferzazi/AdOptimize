@@ -1,11 +1,20 @@
 import { MetadataRoute } from 'next';
-import { PSEO_TOOLS, PSEO_SOLUTIONS, PSEO_COMPARISONS } from '@/lib/pseo-data';
+import { PSEO_TOOLS, PSEO_SOLUTIONS, PSEO_COMPARISONS, PSEO_FEATURES } from '@/lib/pseo-data';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
 
   const staticRoutes = [
     '',
+    '/dashboard',
+    '/campaigns',
+    '/audit',
+    '/optimizer',
+    '/automations',
+    '/chat',
+    '/activity-log',
+    '/settings',
+    '/reports',
     '/features',
     '/pricing',
     '/about',
@@ -26,8 +35,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: route === '' ? 'daily' : 'weekly',
-    priority: route === '' ? 1.0 : route.startsWith('/tools') || route.startsWith('/pricing') ? 0.9 : 0.8,
+    priority: route === '' ? 1.0 : route.startsWith('/tools') || route.startsWith('/pricing') || route.startsWith('/dashboard') ? 0.9 : 0.8,
   }));
+
+  // Add Programmatic SEO Features routes
+  PSEO_FEATURES.forEach((feat) => {
+    entries.push({
+      url: `${baseUrl}/features/${feat.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.85,
+    });
+  });
 
   // Add Programmatic SEO Tools routes
   PSEO_TOOLS.forEach((tool) => {

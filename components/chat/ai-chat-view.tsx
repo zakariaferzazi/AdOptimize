@@ -19,7 +19,8 @@ import {
   Check,
   X,
   Sparkles,
-  Cpu
+  Cpu,
+  Zap,
 } from 'lucide-react';
 import {
   ChatMessage,
@@ -69,7 +70,7 @@ export function AiChatView({
   onSelectCampaign,
   onSelectCampaignByName,
 }: AiChatViewProps) {
-  const [modelTier, setModelTier] = useState<'fast' | 'analysis' | 'advanced'>('analysis');
+  const [activeModel, setActiveModel] = useState<'deepseek' | 'chatgpt' | 'gemini'>('deepseek');
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [executingProposalId, setExecutingProposalId] = useState<string | null>(null);
@@ -93,7 +94,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
       role: 'assistant',
       content: getWelcomeContent(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      modelUsed: 'Analysis Engine',
+      modelUsed: 'DeepSeek',
     },
   ]);
 
@@ -166,7 +167,8 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
         signal: controller.signal,
         body: JSON.stringify({
           message: query,
-          modelTier,
+          model: activeModel,
+          modelTier: activeModel,
           conversationHistory: messages.map((m) => ({
             role: m.role,
             content: m.content,
@@ -223,7 +225,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
           {
             id: `err-${Date.now()}`,
             role: 'assistant',
-            content: `I encountered an issue processing your request: ${err.message || 'Unknown error'}. Please try again or switch model tiers.`,
+            content: `I encountered an issue processing your request: ${err.message || 'Unknown error'}. Please try again or switch model (DeepSeek, ChatGPT, Gemini).`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -247,7 +249,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
         role: 'assistant',
         content: getWelcomeContent(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        modelUsed: 'Analysis Engine',
+        modelUsed: activeModel === 'deepseek' ? 'DeepSeek' : activeModel === 'chatgpt' ? 'ChatGPT' : 'Gemini',
       },
     ]);
   };
@@ -376,42 +378,45 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
           </div>
         </div>
 
-        {/* Model Tier Selector */}
+        {/* Model Selector: DeepSeek, ChatGPT, Gemini */}
         <div className="flex items-center gap-3">
           <div className="flex items-center p-1 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
             <span className="px-2 text-[11px] font-semibold text-slate-400">Model:</span>
             <button
-              onClick={() => setModelTier('fast')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                modelTier === 'fast'
+              onClick={() => setActiveModel('deepseek')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeModel === 'deepseek'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="Fast Model: quick questions and simple data retrieval"
+              title="DeepSeek: Deep analytical reasoning, search term clustering, and CPA math"
             >
-              Fast
+              <Cpu className="w-3 h-3 text-[#00d67d]" />
+              <span>DeepSeek</span>
             </button>
             <button
-              onClick={() => setModelTier('analysis')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                modelTier === 'analysis'
+              onClick={() => setActiveModel('chatgpt')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeModel === 'chatgpt'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="Analysis Model: in-depth diagnostics, search terms, wasted spend"
+              title="ChatGPT: OpenAI GPT-4o for strategic campaign planning and ad copy analysis"
             >
-              Analysis
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>ChatGPT</span>
             </button>
             <button
-              onClick={() => setModelTier('advanced')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                modelTier === 'advanced'
+              onClick={() => setActiveModel('gemini')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeModel === 'gemini'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="Advanced Model: complex multi-step reasoning and deep optimization"
+              title="Gemini: Google Gemini 2.5 for fast auction SearchStream diagnostics"
             >
-              Advanced
+              <Zap className="w-3 h-3 text-amber-400" />
+              <span>Gemini</span>
             </button>
           </div>
 
@@ -761,7 +766,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
             Read-only queries execute instantly. Consequential campaign changes always require approval.
           </span>
           <span className="font-mono text-slate-400">
-            Tier: {modelTier.toUpperCase()}
+            Model: {activeModel === 'deepseek' ? 'DeepSeek' : activeModel === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Gemini'}
           </span>
         </div>
       </div>

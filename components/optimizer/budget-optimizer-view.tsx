@@ -52,7 +52,7 @@ export function BudgetOptimizerView({
         <div className="relative z-10 mt-6 pt-5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-[#00d67d]" />
-            <span>Safeguard: Single change cap ±15%–30% · Audit log recorded</span>
+            <span>Safeguard: Guardrail limit ±15%–30% · Audit log recorded</span>
           </div>
           <div className="text-slate-400">
             {pendingRecs.length} pending reallocation proposals

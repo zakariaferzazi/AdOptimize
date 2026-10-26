@@ -94,7 +94,7 @@ export function LandingPage({
         '1 connected Google Ads account',
         'Continuous hourly background audit',
         '1-click negative keyword harvester',
-        'Daily budget pacing & cap alerts',
+        'Daily budget pacing & runaway alerts',
         'Audit log with instant 1-click rollback',
         'Search & Performance Max auditing',
       ],
@@ -587,7 +587,7 @@ export function LandingPage({
                             : 'bg-slate-900 hover:bg-black text-white'
                         }`}
                       >
-                        {appliedAnomalyAction ? '✓ Safeguard Cap Applied' : 'Apply Guarded Ceiling'}
+                        {appliedAnomalyAction ? '✓ Guarded Ceiling Enforced' : 'Apply Guarded Ceiling'}
                       </button>
                     </div>
                   </div>

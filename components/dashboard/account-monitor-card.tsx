@@ -17,12 +17,11 @@ export function AccountMonitorCard({
   onOpenSettings,
   onOpenOptimizer,
 }: AccountMonitorCardProps) {
-  const cap = account.monthlySpendCap || 25000;
-  const progressPercent = Math.min(100, Math.round((totalSpend / cap) * 100));
+  const isConnected = account.isConnected && account.clientCustomerId !== 'Not Connected';
 
   return (
     <div className="bg-slate-950 rounded-3xl p-6 text-white relative overflow-hidden shadow-xl border border-slate-800/80 flex flex-col justify-between h-[230px] select-none group">
-      {/* Background Decorative Contours & Watermark (Matching stylized card in reference) */}
+      {/* Background Decorative Contours */}
       <div className="absolute right-0 top-0 bottom-0 w-44 pointer-events-none opacity-10">
         <svg viewBox="0 0 200 200" className="w-full h-full stroke-white fill-none stroke-[1.5]">
           <circle cx="100" cy="100" r="40" />
@@ -39,61 +38,64 @@ export function AccountMonitorCard({
             <span className="text-white">Ad</span>
             <span className="text-[#00d67d]">Optimize</span>
           </div>
-          <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-[#00d67d] px-2 py-0.5 rounded-full border border-emerald-500/30">
-            Active Monitoring
-          </span>
         </div>
 
         <div className="flex items-center gap-1.5 text-slate-400">
-          <Wifi className="w-4 h-4 text-emerald-400 animate-pulse" />
+          <Wifi className={`w-4 h-4 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-600'}`} />
+          <span className="text-[11px] font-mono font-medium text-slate-400">
+            {account.currency || 'USD'}
+          </span>
         </div>
       </div>
 
       {/* Middle: Formatted Account ID */}
       <div className="z-10 my-auto">
         <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
-          Google Ads Account ID
+          Google Ads Account
         </div>
         <div className="text-xl font-mono tracking-wider font-bold text-white mt-1 flex items-center gap-2">
           <span>{account.clientCustomerId || 'Not Connected'}</span>
-          {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
+          {isConnected ? (
             <span className="text-[11px] text-[#00d67d] font-sans font-bold flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
-              <span>Connected</span>
+              <span>Live</span>
             </span>
           ) : (
             <button
               onClick={onOpenSettings}
               className="text-xs text-amber-400 hover:text-amber-300 font-sans font-semibold underline decoration-amber-400/50 cursor-pointer"
             >
-              ● Connect Account
+              Connect Account
             </button>
           )}
         </div>
+        {account.accountName && account.accountName !== 'Google Ads Account' && (
+          <div className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">
+            {account.accountName}
+          </div>
+        )}
       </div>
 
-      {/* Bottom: Spend Cap & Safeguard status */}
+      {/* Bottom: Real Tracked Spend & Actions */}
       <div className="z-10 pt-3 border-t border-slate-800/80 flex items-end justify-between">
         <div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5 font-medium">
-            <span>Monthly Cap: ${cap.toLocaleString()}</span>
-            <span className="text-[#00d67d] font-bold">{progressPercent}%</span>
+          <div className="text-[11px] text-slate-400 font-medium">
+            30-Day Tracked Ad Spend
           </div>
-          <div className="w-36 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 to-[#00d67d] rounded-full transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
+          <div className="text-lg font-bold font-mono text-[#00d67d] mt-0.5">
+            ${totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
 
-        <button
-          onClick={onOpenOptimizer}
-          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5"
-        >
-          <Sliders className="w-3 h-3 text-[#00d67d]" />
-          <span>Optimize</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenOptimizer}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sliders className="w-3 h-3 text-[#00d67d]" />
+            <span>Optimizer</span>
+          </button>
+        </div>
       </div>
     </div>
   );

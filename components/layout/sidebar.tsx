@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Layers,
@@ -12,7 +13,7 @@ import {
   MessageSquare,
   History,
   Settings,
-  ShieldCheck,
+  BarChart3,
 } from 'lucide-react';
 
 export type NavTab =
@@ -31,66 +32,81 @@ export type NavTab =
   | 'settings';
 
 interface SidebarProps {
-  currentTab: NavTab;
-  onSelectTab: (tab: NavTab) => void;
-  anomaliesCount: number;
-  recommendationsCount: number;
-  onOpenLanding?: () => void;
+  currentTab?: NavTab;
+  onSelectTab?: (tab: NavTab) => void;
+  anomaliesCount?: number;
+  recommendationsCount?: number;
 }
 
 export function Sidebar({
   currentTab,
   onSelectTab,
-  anomaliesCount,
-  recommendationsCount,
+  anomaliesCount = 0,
+  recommendationsCount = 0,
 }: SidebarProps) {
-  // STRICT 6 MAIN PAGES:
-  // 1. Overview
-  // 2. Campaigns
-  // 3. AI Ads Audit
-  // 4. Budget Optimizer
-  // 5. Automations
-  // 6. AI Chat
+  const pathname = usePathname();
+
   const mainNav = [
     {
       id: 'overview' as NavTab,
-      altIds: ['dashboard'],
+      href: '/dashboard',
+      matchPaths: ['/dashboard', '/overview'],
       label: 'Overview',
       icon: LayoutDashboard,
     },
     {
       id: 'campaigns' as NavTab,
-      altIds: [],
+      href: '/campaigns',
+      matchPaths: ['/campaigns'],
       label: 'Campaigns',
       icon: Layers,
     },
     {
       id: 'audit' as NavTab,
-      altIds: ['insights'],
+      href: '/audit',
+      matchPaths: ['/audit', '/insights'],
       label: 'AI Ads Audit',
       icon: Sparkles,
       badge: anomaliesCount > 0 ? anomaliesCount : undefined,
     },
     {
       id: 'optimizer' as NavTab,
-      altIds: [],
+      href: '/optimizer',
+      matchPaths: ['/optimizer'],
       label: 'Budget Optimizer',
       icon: SlidersHorizontal,
       badge: recommendationsCount > 0 ? recommendationsCount : undefined,
     },
     {
       id: 'automations' as NavTab,
-      altIds: ['automation'],
+      href: '/automations',
+      matchPaths: ['/automations', '/automation'],
       label: 'Automations',
       icon: Zap,
     },
     {
       id: 'chat' as NavTab,
-      altIds: ['copilot'],
+      href: '/chat',
+      matchPaths: ['/chat', '/copilot'],
       label: 'AI Chat',
       icon: MessageSquare,
     },
   ];
+
+  const isItemActive = (item: typeof mainNav[number]) => {
+    if (pathname) {
+      if (item.matchPaths.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+        return true;
+      }
+      if (item.id === 'overview' && pathname === '/') {
+        return true;
+      }
+    }
+    if (currentTab) {
+      return currentTab === item.id || (item.id === 'overview' && currentTab === 'dashboard');
+    }
+    return false;
+  };
 
   return (
     <aside className="w-64 bg-[#0d1117] text-slate-300 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30">
@@ -98,36 +114,37 @@ export function Sidebar({
       <div className="p-5 flex flex-col gap-6">
         {/* Brand Lockup */}
         <div className="flex items-center px-2 pt-1">
-          <div
-            className="flex items-center gap-2.5 cursor-pointer"
-            onClick={() => onSelectTab('overview')}
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2.5 cursor-pointer group"
+            onClick={() => onSelectTab && onSelectTab('overview')}
           >
             <Image
               src="/icon.svg"
               alt="AdOptimize Logo"
               width={32}
               height={32}
-              className="w-8 h-8 rounded-xl shadow-lg shadow-[#00d67d]/20 object-contain"
+              className="w-8 h-8 rounded-xl shadow-lg shadow-[#00d67d]/20 object-contain group-hover:scale-105 transition-transform"
               referrerPolicy="no-referrer"
             />
             <div className="flex items-baseline tracking-tight font-bold text-xl">
               <span className="text-white">Ad</span>
               <span className="text-[#00d67d]">Optimize</span>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* 6 Essential Main Navigation Items */}
         <nav className="flex flex-col gap-1.5">
           {mainNav.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              currentTab === item.id || item.altIds.includes(currentTab);
+            const isActive = isItemActive(item);
 
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => onSelectTab(item.id)}
+                href={item.href}
+                onClick={() => onSelectTab && onSelectTab(item.id)}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-150 cursor-pointer ${
                   isActive
                     ? 'bg-[#00d67d] text-slate-950 font-semibold shadow-md shadow-[#00d67d]/15'
@@ -154,23 +171,21 @@ export function Sidebar({
                     {item.badge}
                   </span>
                 ) : null}
-              </button>
+              </Link>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom Section: Safeguards & Compact Secondary Access (Activity Log & Settings) */}
+      {/* Bottom Section: Compact Secondary Access */}
       <div className="p-5 flex flex-col gap-3 border-t border-slate-800/60">
-
-
-        {/* Secondary Compact Access: Activity Log & Settings */}
         <div className="flex items-center justify-between px-2 pt-1 text-xs text-slate-400">
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => onSelectTab('activity_log')}
+            <Link
+              href="/activity-log"
+              onClick={() => onSelectTab && onSelectTab('activity_log')}
               className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
-                currentTab === 'activity_log' || currentTab === 'audit'
+                pathname === '/activity-log' || currentTab === 'activity_log'
                   ? 'text-white font-semibold'
                   : 'hover:text-white'
               }`}
@@ -178,27 +193,49 @@ export function Sidebar({
             >
               <History className="w-3.5 h-3.5" />
               <span>Activity</span>
-            </button>
+            </Link>
             <span>•</span>
-            <button
-              onClick={() => onSelectTab('settings')}
+            <Link
+              href="/reports"
+              onClick={() => onSelectTab && onSelectTab('reports')}
               className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
-                currentTab === 'settings'
+                pathname === '/reports' || currentTab === 'reports'
+                  ? 'text-white font-semibold'
+                  : 'hover:text-white'
+              }`}
+              title="Performance Reports"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Reports</span>
+            </Link>
+            <span>•</span>
+            <Link
+              href="/settings"
+              onClick={() => onSelectTab && onSelectTab('settings')}
+              className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
+                pathname === '/settings' || currentTab === 'settings'
                   ? 'text-white font-semibold'
                   : 'hover:text-white'
               }`}
             >
               <Settings className="w-3.5 h-3.5" />
               <span>Settings</span>
-            </button>
-            <span>•</span>
-            <Link
-              href="/privacy-policy"
-              className="hover:text-white transition-colors py-1 cursor-pointer"
-            >
-              Privacy
             </Link>
           </div>
+        </div>
+
+        <div className="px-2 pt-1 text-[11px] text-slate-500 flex items-center justify-between">
+          <Link href="/privacy-policy" className="hover:text-slate-300 transition-colors">
+            Privacy Policy
+          </Link>
+          <span>·</span>
+          <Link href="/terms-of-service" className="hover:text-slate-300 transition-colors">
+            Terms
+          </Link>
+          <span>·</span>
+          <Link href="/pricing" className="hover:text-slate-300 transition-colors">
+            Pricing
+          </Link>
         </div>
       </div>
     </aside>
