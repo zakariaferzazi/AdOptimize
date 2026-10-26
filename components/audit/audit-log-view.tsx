@@ -40,7 +40,7 @@ export function AuditLogView({ logs, onRevertLog }: AuditLogViewProps) {
         <div className="relative z-10 mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-[#00d67d]" />
-            <span>Google Ads API Synchronization: Verified</span>
+            <span>Google Ads Synchronization: Verified</span>
           </div>
           <div>{logs.length} total logged actions</div>
         </div>

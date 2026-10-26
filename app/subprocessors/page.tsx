@@ -15,7 +15,7 @@ export default function SubprocessorsPage() {
       location: 'United States & European Union',
     },
     {
-      name: 'Firebase (Google LLC)',
+      name: 'Google Identity Services (Google LLC)',
       purpose: 'User authentication, security rules, and real-time document storage',
       location: 'United States',
     },

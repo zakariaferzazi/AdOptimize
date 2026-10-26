@@ -481,7 +481,7 @@ export default function PrivacyPolicyPage() {
                 <div className="text-slate-500 mt-0.5">Cloud server execution, encrypted databases, and VPC network hosting.</div>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="font-bold text-slate-900">Firebase (Google LLC)</div>
+                <div className="font-bold text-slate-900">Google Identity Services (Google LLC)</div>
                 <div className="text-slate-500 mt-0.5">User authentication, encrypted document storage, and security rules enforcement.</div>
               </div>
             </div>

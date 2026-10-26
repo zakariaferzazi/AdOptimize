@@ -141,7 +141,12 @@ export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promis
       return {
         reply: message?.content || '',
         toolCalls,
-        modelUsed: data.model || targetModel,
+        modelUsed:
+          options.tier === 'fast'
+            ? 'Fast Processing Engine'
+            : options.tier === 'advanced'
+            ? 'Advanced Strategic Engine'
+            : 'Analysis Engine',
         finishReason: choice?.finish_reason,
       };
     } catch (err: any) {
@@ -206,13 +211,18 @@ async function fallbackGeminiChat(options: OpenRouterChatOptions, requestedModel
     return {
       reply: textPart,
       toolCalls: functionCalls && functionCalls.length > 0 ? functionCalls : undefined,
-      modelUsed: `OpenRouter (${requestedModelName}) via Gateway`,
+      modelUsed:
+        options.tier === 'fast'
+          ? 'Fast Processing Engine'
+          : options.tier === 'advanced'
+          ? 'Advanced Strategic Engine'
+          : 'Analysis Engine',
     };
   } catch (err: any) {
-    console.error('[Gemini Fallback Chat Error]:', err);
+    console.error('[Fallback Chat Error]:', err);
     return {
       reply: 'I am unable to complete this analysis right now. Please verify your connection or try again in a moment.',
-      modelUsed: requestedModelName,
+      modelUsed: 'Analysis Engine',
     };
   }
 }

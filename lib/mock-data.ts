@@ -32,7 +32,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
   {
     id: 'camp-01',
     accountId: 'acc-google-8921-prod',
-    name: 'Search - High Intent Core SaaS',
+    name: 'Search - High Intent Core',
     type: 'SEARCH',
     status: 'ENABLED',
     budgetDaily: 160.00,
@@ -269,7 +269,7 @@ export const MOCK_KEYWORDS: Keyword[] = [
   {
     id: 'kw-01',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     keyword: 'cloud database monitoring software',
     matchType: 'EXACT',
     spend: 1140.00,
@@ -286,7 +286,7 @@ export const MOCK_KEYWORDS: Keyword[] = [
   {
     id: 'kw-02',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     keyword: 'enterprise postgresql performance tool',
     matchType: 'PHRASE',
     spend: 890.00,
@@ -303,7 +303,7 @@ export const MOCK_KEYWORDS: Keyword[] = [
   {
     id: 'kw-03',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     keyword: 'sql query optimization platform',
     matchType: 'BROAD',
     spend: 920.00,
@@ -388,7 +388,7 @@ export const MOCK_KEYWORDS: Keyword[] = [
   {
     id: 'kw-08',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     keyword: 'free database performance checker',
     matchType: 'BROAD',
     spend: 420.00,
@@ -408,7 +408,7 @@ export const MOCK_SEARCH_TERMS: SearchTerm[] = [
   {
     id: 'st-01',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     searchTerm: 'database administrator salary in new york',
     impressions: 3400,
     clicks: 142,
@@ -423,7 +423,7 @@ export const MOCK_SEARCH_TERMS: SearchTerm[] = [
   {
     id: 'st-02',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     searchTerm: 'free sql optimizer online crack download',
     impressions: 2100,
     clicks: 98,
@@ -438,7 +438,7 @@ export const MOCK_SEARCH_TERMS: SearchTerm[] = [
   {
     id: 'st-03',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     searchTerm: 'best postgres latency monitor for kubernetes',
     impressions: 1950,
     clicks: 164,
@@ -572,7 +572,7 @@ export const MOCK_ANOMALIES: AnomalyAlert[] = [
   {
     id: 'anom-02',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     metric: 'SPEND',
     severity: 'OPPORTUNITY',
     title: 'Budget Exhaustion on Top Converting Campaign',
@@ -602,7 +602,7 @@ export const MOCK_ANOMALIES: AnomalyAlert[] = [
   {
     id: 'anom-04',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     metric: 'CTR',
     severity: 'WARNING',
     title: 'Irrelevant Search Term Spend Leak Detected',
@@ -647,7 +647,7 @@ export const MOCK_AI_INSIGHTS: AIInsight[] = [
   {
     id: 'ins-02',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     category: 'BUDGET_OPPORTUNITY',
     problem: 'High-performing campaign is severely budget-constrained and losing 28.4% of eligible high-intent search impression share.',
     whyItMatters: 'With a CPA of $28.45 and ROAS of 4.71, this campaign is your most profitable customer acquisition channel. Capping it at $160/day leaves an estimated 18-24 qualified signups on the table each month.',
@@ -666,7 +666,7 @@ export const MOCK_AI_INSIGHTS: AIInsight[] = [
     actionPayload: {
       type: 'BUDGET_CHANGE',
       targetId: 'camp-01',
-      targetName: 'Search - High Intent Core SaaS',
+      targetName: 'Search - High Intent Core',
       oldValue: 160,
       newValue: 210,
     }
@@ -674,7 +674,7 @@ export const MOCK_AI_INSIGHTS: AIInsight[] = [
   {
     id: 'ins-03',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     category: 'WASTED_SPEND',
     problem: 'Broad match query leakage is draining budget on job-search and non-commercial queries.',
     whyItMatters: 'Search terms such as "database administrator salary" and "free online crack" spent $360.50 without yielding a single signup or demo request.',
@@ -693,7 +693,7 @@ export const MOCK_AI_INSIGHTS: AIInsight[] = [
     actionPayload: {
       type: 'ADD_NEGATIVE_KEYWORD',
       targetId: 'camp-01',
-      targetName: 'Search - High Intent Core SaaS',
+      targetName: 'Search - High Intent Core',
       oldValue: '0 negative keywords',
       newValue: '5 negative keywords',
     }
@@ -721,7 +721,7 @@ export const MOCK_AI_INSIGHTS: AIInsight[] = [
   {
     id: 'ins-05',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     category: 'PERFORMANCE_IMPROVEMENT',
     problem: 'Ad creative "Database Tool for Modern Teams" has a low CTR (2.95%) and a poor CPA ($78.40) dragging down group ad score.',
     whyItMatters: 'Google is serving this variant on 33% of impressions, suppressing overall Quality Score and inflating average CPC by an estimated $0.24.',
@@ -753,7 +753,7 @@ export const MOCK_BUDGET_RECOMMENDATIONS: BudgetRecommendation[] = [
     campaignFromId: 'camp-03',
     campaignFromName: 'Display - Retargeting & Brand Awareness',
     campaignToId: 'camp-01',
-    campaignToName: 'Search - High Intent Core SaaS',
+    campaignToName: 'Search - High Intent Core',
     currentBudgetFrom: 75.00,
     proposedBudgetFrom: 25.00,
     currentBudgetTo: 160.00,
@@ -871,7 +871,7 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     id: 'audit-01',
     timestamp: '2026-09-29T14:10:00Z',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     actionType: 'NEGATIVE_KEYWORD_ADDED',
     previousValue: 'None',
     newValue: '["administrator salary", "crack download"]',
@@ -899,7 +899,7 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     id: 'audit-03',
     timestamp: '2026-09-27T11:45:00Z',
     campaignId: 'camp-01',
-    campaignName: 'Search - High Intent Core SaaS',
+    campaignName: 'Search - High Intent Core',
     actionType: 'BUDGET_CHANGE',
     previousValue: '$140.00/day',
     newValue: '$160.00/day',
@@ -931,7 +931,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'PRO',
     name: 'Performance Pro',
-    description: 'Designed for scaling SaaS, ecommerce, and performance marketers.',
+    description: 'Designed for scaling businesses, ecommerce, and performance marketers.',
     monthlyPrice: 79,
     annualPriceMonthly: 64,
     badge: 'MOST POPULAR',
@@ -943,7 +943,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'AI Marketing Analyst with grounded root-cause logic',
       'One-click Budget Optimizer simulator',
       'Search term waste & negative keyword extractor',
-      'AI Marketing Copilot with account memory',
+      'AI Marketing Assistant with account memory',
       'Automation rules with safeguard limits',
       'Comprehensive audit logs with 1-click revert',
       'Executive performance reports & PDF export',
@@ -961,7 +961,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Everything in Pro plan',
       'Multi-client agency dashboard & roll-up reporting',
       'Custom webhook & Slack team alerts',
-      'Dedicated Google Ads API quota management',
+      'Dedicated Google Ads account management',
       'Custom automation rule builder with multi-step triggers',
       'White-label executive client reports',
       'Priority engineer & marketing analyst support',

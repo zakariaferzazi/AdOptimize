@@ -513,7 +513,7 @@ export default function AdOptimizeApp() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads';
         const isAuthIssue =
           res.status === 401 ||
           data.isAuthExpired ||
@@ -539,7 +539,7 @@ export default function AdOptimizeApp() {
           accessibleCustomers: data.accessibleCustomers,
           isAuthExpired: isAuthIssue,
         });
-        showToast(isAuthIssue ? 'Google Ads session expired' : `API Error: ${errorMsg}`);
+        showToast(isAuthIssue ? 'Google Ads session expired' : errorMsg);
         return;
       }
 
@@ -613,7 +613,7 @@ export default function AdOptimizeApp() {
       }
     } catch (err: any) {
       console.error('Error syncing Google Ads:', err);
-      const errMsg = err.message || 'Error syncing with Google Ads API';
+      const errMsg = err.message || 'Error syncing with Google Ads';
       setApiIssue({
         message: errMsg,
         cid: account.clientCustomerId,
@@ -687,7 +687,7 @@ export default function AdOptimizeApp() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads';
         setApiIssue({
           message: errorMsg,
           cid: account.clientCustomerId,
@@ -698,7 +698,7 @@ export default function AdOptimizeApp() {
           accessibleCustomers: data.accessibleCustomers,
           isAuthExpired: data.isAuthExpired,
         });
-        showToast(`API Error: ${errorMsg}`);
+        showToast(errorMsg);
         return;
       }
 
@@ -785,7 +785,7 @@ export default function AdOptimizeApp() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads API';
+        const errorMsg = data.error || data.apiError || 'Failed to sync with Google Ads';
         setApiIssue({
           message: errorMsg,
           cid: newCid,
@@ -795,7 +795,7 @@ export default function AdOptimizeApp() {
           details: data.details,
           accessibleCustomers: data.accessibleCustomers,
         });
-        showToast(`API Error: ${errorMsg}`);
+        showToast(errorMsg);
         return;
       }
 
@@ -1280,7 +1280,7 @@ export default function AdOptimizeApp() {
       <div className="min-h-screen bg-[#f6f8fa] flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-slate-500">Connecting to Firebase & Google Ads...</p>
+          <p className="text-xs font-semibold text-slate-500">Loading your Google Ads workspace...</p>
         </div>
       </div>
     );
@@ -1379,7 +1379,7 @@ export default function AdOptimizeApp() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-bold text-rose-950">
-                        Google Ads API Issue
+                        Google Ads Connection Notice
                       </h4>
                       {apiIssue.cid && (
                         <span className="font-mono text-xs bg-white px-2 py-0.5 rounded-lg border border-rose-200 font-bold text-rose-900">

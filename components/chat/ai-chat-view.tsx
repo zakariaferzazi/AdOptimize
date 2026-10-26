@@ -93,7 +93,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
       role: 'assistant',
       content: getWelcomeContent(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      modelUsed: 'OpenRouter / Analysis Model',
+      modelUsed: 'Analysis Engine',
     },
   ]);
 
@@ -247,7 +247,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
         role: 'assistant',
         content: getWelcomeContent(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        modelUsed: 'OpenRouter / Analysis Model',
+        modelUsed: 'Analysis Engine',
       },
     ]);
   };
@@ -368,9 +368,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-slate-950">AI Chat Assistant</h2>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Connected Tools Active
-              </span>
+          
             </div>
             <p className="text-xs text-slate-500">
               Direct natural language interaction with your Google Ads account
@@ -378,7 +376,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
           </div>
         </div>
 
-        {/* Model Tier Selector (OpenRouter 3-Model Strategy) */}
+        {/* Model Tier Selector */}
         <div className="flex items-center gap-3">
           <div className="flex items-center p-1 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
             <span className="px-2 text-[11px] font-semibold text-slate-400">Model:</span>

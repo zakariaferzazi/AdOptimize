@@ -111,7 +111,7 @@ export function SettingsView({
                   <span className="font-bold text-slate-900 text-sm">{account.accountName}</span>
                   {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                      {account.verifiedLive ? 'Live API Verified' : 'Workspace Active'}
+                      {account.verifiedLive ? 'Direct Account Verified' : 'Workspace Active'}
                     </span>
                   ) : (
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
@@ -337,7 +337,7 @@ export function SettingsView({
             <div>
               <h3 className="text-base font-bold text-slate-900">Security &amp; Data Protection</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Encrypted connections and strict compliance with Google Ads API data policies.
+                Encrypted connections and strict compliance with Google Ads data policies.
               </p>
             </div>
             <Link

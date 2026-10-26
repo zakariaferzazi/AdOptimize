@@ -162,20 +162,7 @@ export function Sidebar({
 
       {/* Bottom Section: Safeguards & Compact Secondary Access (Activity Log & Settings) */}
       <div className="p-5 flex flex-col gap-3 border-t border-slate-800/60">
-        {/* Safe AI Status Card */}
-        <div className="bg-slate-900/90 rounded-2xl p-3.5 border border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 text-[#00d67d]">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-white truncate">
-              Google Ads Safety Active
-            </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              Approval required for changes
-            </div>
-          </div>
-        </div>
+
 
         {/* Secondary Compact Access: Activity Log & Settings */}
         <div className="flex items-center justify-between px-2 pt-1 text-xs text-slate-400">

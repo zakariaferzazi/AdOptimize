@@ -49,14 +49,14 @@ export default function CookiePolicyPage() {
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">1. Essential Cookies & Session Tokens</h2>
             <p>
-              AdOptimize uses essential cookies and browser local storage strictly required to deliver the service. This includes maintaining your authenticated login session via Firebase Authentication and preserving your account preferences (such as selected reporting date ranges and currency format).
+              AdOptimize uses essential cookies and browser local storage strictly required to deliver the service. This includes maintaining your authenticated login session securely and preserving your account preferences (such as selected reporting date ranges and currency format).
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">2. Analytics & Performance</h2>
             <p>
-              We do not utilize invasive third-party cross-site advertising cookies. Any aggregated operational metrics collected are used solely to monitor API response times, detect sync errors, and improve product uptime.
+              We do not utilize invasive third-party cross-site advertising cookies. Any aggregated operational metrics collected are used solely to monitor service response times, detect sync errors, and improve product uptime.
             </p>
           </section>
 
