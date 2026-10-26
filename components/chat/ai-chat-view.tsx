@@ -22,6 +22,7 @@ import {
   Cpu,
   Zap,
 } from 'lucide-react';
+import { DeepSeekIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
 import {
   ChatMessage,
   Campaign,
@@ -391,7 +392,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
               }`}
               title="DeepSeek: Deep analytical reasoning, search term clustering, and CPA math"
             >
-              <Cpu className="w-3 h-3 text-[#00d67d]" />
+              <DeepSeekIcon className="w-3 h-3 text-[#1E40AF]" />
               <span>DeepSeek</span>
             </button>
             <button
@@ -403,7 +404,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
               }`}
               title="ChatGPT: OpenAI GPT-4o for strategic campaign planning and ad copy analysis"
             >
-              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <ChatGPTIcon className="w-3 h-3 text-[#10A37F]" />
               <span>ChatGPT</span>
             </button>
             <button
@@ -415,7 +416,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
               }`}
               title="Gemini: Google Gemini 2.5 for fast auction SearchStream diagnostics"
             >
-              <Zap className="w-3 h-3 text-amber-400" />
+              <GeminiIcon className="w-3 h-3 text-[#1A73E8]" />
               <span>Gemini</span>
             </button>
           </div>

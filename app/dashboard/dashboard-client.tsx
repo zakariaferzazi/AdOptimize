@@ -13,6 +13,7 @@ import { CampaignsTable } from '@/components/dashboard/campaigns-table';
 import { CampaignDetailDrawer } from '@/components/campaigns/campaign-detail-drawer';
 import { KpiCustomizerModal } from '@/components/dashboard/kpi-customizer-modal';
 import { useAdOptimize } from '@/context/adoptimize-context';
+import { useClickOutside } from '@/hooks/use-click-outside';
 import {
   calculateCampaignsMetrics,
   buildMetricCardData,
@@ -72,10 +73,12 @@ export function DashboardClientView() {
   // 1. Campaign Filter State: 'ALL' or specific campaign id
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('ALL');
   const [showCampaignDropdown, setShowCampaignDropdown] = useState(false);
+  const campaignDropdownRef = useClickOutside<HTMLDivElement>(() => setShowCampaignDropdown(false), showCampaignDropdown);
 
   // 2. Date Range Filter State
   const [dateRange, setDateRange] = useState<DateRangePeriod>('LAST_30_DAYS');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const dateDropdownRef = useClickOutside<HTMLDivElement>(() => setShowDateDropdown(false), showDateDropdown);
   const [customDays, setCustomDays] = useState(14);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
@@ -243,7 +246,7 @@ export function DashboardClientView() {
           {/* Left: Campaign & Date Selectors */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* 1. Campaign Selector */}
-            <div className="relative">
+            <div ref={campaignDropdownRef} className="relative">
               <button
                 type="button"
                 onClick={() => {
@@ -314,7 +317,7 @@ export function DashboardClientView() {
             </div>
 
             {/* 2. Date Range Selector */}
-            <div className="relative">
+            <div ref={dateDropdownRef} className="relative">
               <button
                 type="button"
                 onClick={() => {

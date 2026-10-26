@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { ChevronDown, ArrowUpRight, TrendingUp, TrendingDown, Layers, Calendar } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { ChevronDown, ArrowUpRight, TrendingUp, TrendingDown, Layers, Calendar, DollarSign, Target, MousePointer } from 'lucide-react';
 import { DateRangePeriod, Campaign } from '@/types/adoptimize';
+import { useClickOutside } from '@/hooks/use-click-outside';
 
 export type ChartMetric = 'spend' | 'conversionValue' | 'conversions' | 'cpa' | 'roas' | 'ctr' | 'cpc';
 
@@ -22,6 +23,8 @@ export function PerformanceChart({
   const [activeMetric, setActiveMetric] = useState<ChartMetric>('spend');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const periodDropdownRef = useClickOutside<HTMLDivElement>(() => setShowPeriodDropdown(false), showPeriodDropdown);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Determine number of time buckets based on date period
   const pointCount = useMemo(() => {
@@ -307,7 +310,7 @@ export function PerformanceChart({
           </div>
 
           {/* Period Selector Dropdown */}
-          <div className="relative">
+          <div ref={periodDropdownRef} className="relative">
             <button
               onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -362,34 +365,60 @@ export function PerformanceChart({
         </div>
       ) : (
         <>
-          <div className="relative w-full h-[240px] mt-4">
+          {/* Interactive Chart Canvas with Smooth Cursor Tracking */}
+          <div
+            ref={chartContainerRef}
+            onMouseMove={(e) => {
+              if (!chartContainerRef.current || daysData.length === 0) return;
+              const rect = chartContainerRef.current.getBoundingClientRect();
+              const relX = e.clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, relX / rect.width));
+              const idx = Math.round(ratio * (daysData.length - 1));
+              setHoverIndex(idx);
+            }}
+            onTouchMove={(e) => {
+              if (!chartContainerRef.current || daysData.length === 0 || !e.touches[0]) return;
+              const rect = chartContainerRef.current.getBoundingClientRect();
+              const relX = e.touches[0].clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, relX / rect.width));
+              const idx = Math.round(ratio * (daysData.length - 1));
+              setHoverIndex(idx);
+            }}
+            onMouseLeave={() => setHoverIndex(null)}
+            className="relative w-full h-[250px] mt-4 cursor-crosshair group select-none"
+          >
             {/* Y Axis Guide Lines */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-slate-400 font-mono">
-              <div className="border-b border-slate-100 pb-0.5 flex justify-between">
+              <div className="border-b border-slate-100/90 pb-0.5 flex justify-between">
                 <span>{formatMetricVal(maxVal, activeMetric)}</span>
               </div>
-              <div className="border-b border-slate-100 pb-0.5 flex justify-between">
+              <div className="border-b border-slate-100/90 pb-0.5 flex justify-between">
                 <span>{formatMetricVal(maxVal * 0.66, activeMetric)}</span>
               </div>
-              <div className="border-b border-slate-100 pb-0.5 flex justify-between">
+              <div className="border-b border-slate-100/90 pb-0.5 flex justify-between">
                 <span>{formatMetricVal(maxVal * 0.33, activeMetric)}</span>
               </div>
-              <div className="border-b border-slate-100 pb-0.5 flex justify-between">
+              <div className="border-b border-slate-100/90 pb-0.5 flex justify-between">
                 <span>0</span>
               </div>
             </div>
 
-            {/* SVG Curves */}
+            {/* SVG Curves & Tracking Visuals */}
             <svg
-              className="absolute inset-0 w-full h-full overflow-visible"
+              className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
               viewBox={`0 0 ${width} ${height}`}
               preserveAspectRatio="none"
             >
               <defs>
                 <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d67d" stopOpacity="0.22" />
+                  <stop offset="0%" stopColor="#00d67d" stopOpacity="0.28" />
+                  <stop offset="60%" stopColor="#00d67d" stopOpacity="0.08" />
                   <stop offset="100%" stopColor="#00d67d" stopOpacity="0.0" />
                 </linearGradient>
+
+                <filter id="trendGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="3" stdDeviation="3.5" floodColor="#00d67d" floodOpacity="0.35" />
+                </filter>
               </defs>
 
               {/* Gradient Area under current curve */}
@@ -403,78 +432,181 @@ export function PerformanceChart({
                 strokeWidth="2"
                 strokeDasharray="4 4"
                 strokeLinecap="round"
-                className="opacity-70"
+                className="opacity-75"
               />
 
-              {/* Primary current line (Vivid Emerald Green) */}
+              {/* Primary current line (Vivid Emerald Green with Glow) */}
               <path
                 d={primaryPath}
                 fill="none"
                 stroke="#00d67d"
-                strokeWidth="3.2"
+                strokeWidth="3.4"
                 strokeLinecap="round"
+                filter="url(#trendGlow)"
               />
 
-              {/* Interactive vertical hover line */}
+              {/* Interactive vertical hover tracking line */}
               {hoveredPoint && (
-                <line
-                  x1={hoveredPoint.x}
-                  y1={paddingY}
-                  x2={hoveredPoint.x}
-                  y2={height - paddingY}
-                  stroke="#00d67d"
-                  strokeDasharray="3 3"
-                  strokeWidth="1.5"
-                  className="opacity-80"
-                />
+                <g className="transition-all duration-75">
+                  <line
+                    x1={hoveredPoint.x}
+                    y1={paddingY - 10}
+                    x2={hoveredPoint.x}
+                    y2={height - paddingY + 5}
+                    stroke="#00d67d"
+                    strokeDasharray="3 3"
+                    strokeWidth="1.75"
+                    className="opacity-90"
+                  />
+                  {/* Secondary Line Intersection Dot */}
+                  {secondaryCoords[hoveredIdx] && (
+                    <circle
+                      cx={secondaryCoords[hoveredIdx].x}
+                      cy={secondaryCoords[hoveredIdx].y}
+                      r={4}
+                      fill="#64748b"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
+                  )}
+                  {/* Glowing Active Ring and Dot on Trend Line */}
+                  <circle
+                    cx={hoveredPoint.x}
+                    cy={hoveredPoint.y}
+                    r={9}
+                    fill="#00d67d"
+                    opacity={0.25}
+                    className="animate-pulse"
+                  />
+                  <circle
+                    cx={hoveredPoint.x}
+                    cy={hoveredPoint.y}
+                    r={5.5}
+                    fill="#00d67d"
+                    stroke="#ffffff"
+                    strokeWidth={2.5}
+                  />
+                </g>
               )}
 
-              {/* Interactive point circles */}
+              {/* Static subtle point circles for visual rhythm */}
               {primaryCoords.map((pt, idx) => (
                 <circle
                   key={idx}
                   cx={pt.x}
                   cy={pt.y}
-                  r={hoveredIdx === idx ? 6 : 4}
+                  r={hoveredIdx === idx ? 6 : 3}
                   fill={hoveredIdx === idx ? '#00d67d' : '#ffffff'}
                   stroke="#00d67d"
-                  strokeWidth={hoveredIdx === idx ? 3 : 2}
-                  className="transition-all cursor-pointer"
-                  onMouseEnter={() => setHoverIndex(idx)}
+                  strokeWidth={hoveredIdx === idx ? 3 : 1.5}
+                  className="transition-all duration-150"
                 />
               ))}
             </svg>
 
-            {/* Interactive Tooltip showing actual values and dates */}
-            {hoveredPoint && hoveredData && (
-              <div
-                className="absolute -translate-x-1/2 pointer-events-none transition-all duration-150 z-20"
-                style={{
-                  left: `${(hoveredPoint.x / width) * 100}%`,
-                  top: `${Math.max(8, (hoveredPoint.y / height) * 100 - 24)}%`,
-                }}
-              >
-                <div className="bg-slate-950 text-white rounded-2xl p-2.5 shadow-xl border border-slate-800 text-xs min-w-[160px] space-y-1">
-                  <div className="text-[10px] text-slate-400 font-semibold border-b border-slate-800 pb-1">
-                    {hoveredData.dateFull}
+            {/* Rich Interactive Tooltip following the cursor */}
+            {hoveredPoint && hoveredData && (() => {
+              const curVal = Number(hoveredData.current[activeMetric] || 0);
+              const prevVal = Number(hoveredData.previous[activeMetric] || 0);
+              const diffPercent = prevVal > 0 ? ((curVal - prevVal) / prevVal) * 100 : 0;
+              const isPositiveChange = diffPercent >= 0;
+              const leftPercent = (hoveredPoint.x / width) * 100;
+              const isAlignRight = leftPercent > 70;
+              const isAlignLeft = leftPercent < 30;
+
+              return (
+                <div
+                  className={`absolute pointer-events-none transition-all duration-75 z-30 ${
+                    isAlignRight
+                      ? '-translate-x-[92%]'
+                      : isAlignLeft
+                      ? '-translate-x-[8%]'
+                      : '-translate-x-1/2'
+                  }`}
+                  style={{
+                    left: `${leftPercent}%`,
+                    top: `${Math.max(4, Math.min(65, (hoveredPoint.y / height) * 100 - 32))}%`,
+                  }}
+                >
+                  <div className="bg-[#0b0f17] text-white rounded-2xl p-3 shadow-2xl border border-slate-800 text-xs w-64 space-y-2 backdrop-blur-md">
+                    {/* Date Header & Interval */}
+                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                      <span className="text-[11px] font-bold text-slate-200">
+                        {hoveredData.dateFull}
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                        {hoveredData.label}
+                      </span>
+                    </div>
+
+                    {/* Active Metric Highlight */}
+                    <div className="flex items-baseline justify-between pt-0.5">
+                      <div>
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                          {getMetricTitle(activeMetric)}
+                        </div>
+                        <div className="text-base font-extrabold font-mono text-[#00d67d]">
+                          {formatMetricVal(curVal, activeMetric)}
+                        </div>
+                      </div>
+
+                      {prevVal > 0 && (
+                        <div
+                          className={`flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            (activeMetric === 'cpa' || activeMetric === 'cpc')
+                              ? isPositiveChange
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                : 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
+                              : isPositiveChange
+                              ? 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
+                              : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {isPositiveChange ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          <span>{isPositiveChange ? '+' : ''}{diffPercent.toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Previous comparison subtext */}
+                    <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5 border-t border-slate-800/60">
+                      <span>Previous Period:</span>
+                      <span className="font-mono text-slate-300">
+                        {formatMetricVal(prevVal, activeMetric)}
+                      </span>
+                    </div>
+
+                    {/* Quick Multi-Metric Breakdown Grid */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-slate-800/80 text-[10px]">
+                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                        <div className="text-slate-400 text-[9px]">Spend</div>
+                        <div className="font-mono font-bold text-slate-200 mt-0.5">
+                          ${Number(hoveredData.current.spend || 0).toFixed(0)}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                        <div className="text-slate-400 text-[9px]">Conv.</div>
+                        <div className="font-mono font-bold text-slate-200 mt-0.5">
+                          {Number(hoveredData.current.conversions || 0).toFixed(0)}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                        <div className="text-slate-400 text-[9px]">ROAS</div>
+                        <div className="font-mono font-bold text-slate-200 mt-0.5">
+                          {Number(hoveredData.current.roas || 0).toFixed(1)}x
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-3 pt-0.5">
-                    <span className="text-[11px] text-slate-300 font-medium">Current:</span>
-                    <span className="font-bold font-mono text-[#00d67d]">
-                      {formatMetricVal(hoveredData.current[activeMetric], activeMetric)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-[10px] text-slate-400">
-                    <span>Previous:</span>
-                    <span className="font-mono text-slate-300">
-                      {formatMetricVal(hoveredData.previous[activeMetric], activeMetric)}
-                    </span>
-                  </div>
+                  {/* Tooltip pointer arrow */}
+                  <div className={`w-2.5 h-2.5 bg-[#0b0f17] border-r border-b border-slate-800 rotate-45 -mt-1 ${
+                    isAlignRight ? 'ml-auto mr-6' : isAlignLeft ? 'ml-6' : 'mx-auto'
+                  }`} />
                 </div>
-                {/* Tooltip triangle */}
-                <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-800 rotate-45 mx-auto -mt-1" />
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* X Axis Date Labels */}

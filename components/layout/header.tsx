@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { GoogleAdsAccount, AnomalyAlert } from '@/types/adoptimize';
 import { User } from 'firebase/auth';
+import { useClickOutside } from '@/hooks/use-click-outside';
 
 interface HeaderProps {
   title: string;
@@ -66,6 +67,11 @@ export function Header({
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [searchVal, setSearchVal] = useState('');
+
+  // Click-outside listeners to close dropdowns when clicking anywhere else
+  const accountDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAccountDropdown(false), showAccountDropdown);
+  const notificationsDropdownRef = useClickOutside<HTMLDivElement>(() => setShowNotifications(false), showNotifications);
+  const userDropdownRef = useClickOutside<HTMLDivElement>(() => setShowUserDropdown(false), showUserDropdown);
 
   const unresolvedAnomalies = anomalies.filter((a) => !a.resolved);
 
@@ -142,7 +148,7 @@ export function Header({
         </h1>
 
         {/* Real Google Ads Account Selector */}
-        <div className="relative shrink-0">
+        <div ref={accountDropdownRef} className="relative shrink-0">
           <button
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
             className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors"
@@ -243,7 +249,7 @@ export function Header({
         </button>
 
         {/* Notifications Bell */}
-        <div className="relative">
+        <div ref={notificationsDropdownRef} className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="w-9 h-9 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 flex items-center justify-center text-slate-600 transition-colors shadow-xs relative"
@@ -312,7 +318,7 @@ export function Header({
           {authLoading ? (
             <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
           ) : user ? (
-            <div className="relative">
+            <div ref={userDropdownRef} className="relative">
               <button
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
                 className="flex items-center gap-2.5 p-1 rounded-2xl hover:bg-slate-100 transition-colors"
