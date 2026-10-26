@@ -148,26 +148,7 @@ export function Sidebar({
             </div>
           </Link>
 
-          {isMobile ? (
-            <button
-              type="button"
-              onClick={onCloseMobile}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          ) : onToggleDesktop ? (
-            <button
-              type="button"
-              onClick={onToggleDesktop}
-              title="Collapse sidebar"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              aria-label="Collapse sidebar"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          ) : null}
+      
         </div>
 
         {/* 6 Essential Main Navigation Items */}
