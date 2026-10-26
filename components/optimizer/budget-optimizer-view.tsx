@@ -206,21 +206,48 @@ export function BudgetOptimizerView({
               </div>
 
               {/* Reason & Supporting Data */}
-              <div className="space-y-2">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Audited Reallocation Reason
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Audited Reallocation Reason
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium mt-0.5">
+                    {rec.reason}
+                  </div>
                 </div>
-                <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-                  {rec.reason}
+
+                {/* Benefits vs Potential Risks */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-xl space-y-1">
+                    <span className="font-bold text-emerald-950 uppercase text-[10px] tracking-wider block">
+                      Expected Benefits
+                    </span>
+                    <span className="text-emerald-900 leading-relaxed block">
+                      Supplies unmet impression share on high-converting auctions; reduces daily capital bleed on low-margin queries.
+                    </span>
+                  </div>
+                  <div className="p-3 bg-amber-50/70 border border-amber-200/70 rounded-xl space-y-1">
+                    <span className="font-bold text-amber-950 uppercase text-[10px] tracking-wider block">
+                      Potential Risks &amp; Considerations
+                    </span>
+                    <span className="text-amber-900 leading-relaxed block">
+                      Scaling budget may slightly increase marginal CPA as auctions reach broader search queries.
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Estimated Impact & Approval Controls */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-500">Projected Value Impact:</span>
-                  <span className="font-bold text-emerald-700 font-mono bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
-                    {rec.estimatedMonthlyImpact}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-bold text-slate-500">Projected Value Impact:</span>
+                    <span className="font-bold text-emerald-700 font-mono bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      {rec.estimatedMonthlyImpact}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 italic block">
+                    Modeled estimate from historical marginal return curves — results are not guaranteed.
                   </span>
                 </div>
 

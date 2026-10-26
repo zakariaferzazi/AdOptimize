@@ -65,12 +65,39 @@ export function Header({
     }
   };
 
+  const getTitleLabel = (t: string) => {
+    switch (t) {
+      case 'overview':
+      case 'dashboard':
+        return 'Overview';
+      case 'campaigns':
+        return 'Campaigns';
+      case 'audit':
+      case 'insights':
+        return 'AI Ads Audit';
+      case 'optimizer':
+        return 'Budget Optimizer';
+      case 'automations':
+      case 'automation':
+        return 'Automations';
+      case 'chat':
+      case 'copilot':
+        return 'AI Chat';
+      case 'activity_log':
+        return 'Activity History';
+      case 'settings':
+        return 'Settings';
+      default:
+        return t;
+    }
+  };
+
   return (
     <header className="h-20 bg-transparent px-8 flex items-center justify-between shrink-0 select-none z-20">
       {/* Left: View Title & Account Badge */}
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 capitalize">
-          {title}
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          {getTitleLabel(title)}
         </h1>
 
         {/* Real Google Ads Account Selector */}

@@ -256,6 +256,31 @@ export interface GoogleAdsAccount {
   developerToken?: string;
 }
 
+export interface ProposedAccountChange {
+  id: string;
+  actionType: 'UPDATE_BUDGET' | 'PAUSE_CAMPAIGN' | 'ENABLE_CAMPAIGN' | 'REALLOCATE_BUDGET' | 'ADD_NEGATIVE_KEYWORD' | 'UPDATE_SETTINGS';
+  campaignId: string;
+  campaignName: string;
+  currentSettings: string;
+  proposedChanges: string;
+  reason: string;
+  evidence: string;
+  potentialRisks: string;
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED';
+  executionResult?: string;
+  appliedAt?: string;
+  payload?: Record<string, any>;
+}
+
+export interface ToolCallExecution {
+  id: string;
+  name: string;
+  args: Record<string, any>;
+  result?: any;
+  status: 'running' | 'success' | 'error';
+  executionTimeMs?: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -267,6 +292,14 @@ export interface ChatMessage {
     type: string;
     targetId?: string;
   };
+  toolCalls?: ToolCallExecution[];
+  actionProposal?: ProposedAccountChange;
+  tableData?: {
+    headers: string[];
+    rows: (string | number)[][];
+    caption?: string;
+  };
+  modelUsed?: string;
 }
 
 export type DateRangePeriod = 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'ALL_TIME' | 'PREVIOUS_PERIOD' | 'CUSTOM';

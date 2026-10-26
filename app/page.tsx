@@ -19,6 +19,7 @@ import { BudgetOptimizerView } from '@/components/optimizer/budget-optimizer-vie
 import { AutomationView } from '@/components/automation/automation-view';
 import { CopilotDrawer } from '@/components/copilot/copilot-drawer';
 import { AuditLogView } from '@/components/audit/audit-log-view';
+import { AiChatView } from '@/components/chat/ai-chat-view';
 import { ReportsView } from '@/components/reports/reports-view';
 import { SettingsView } from '@/components/settings/settings-view';
 import { ConnectModal } from '@/components/connect-modal';
@@ -29,6 +30,7 @@ import { LandingPage } from '@/components/landing/landing-page';
 import {
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Target,
   MousePointerClick,
   Percent,
@@ -44,6 +46,11 @@ import {
   AlertCircle,
   CheckCircle2,
   X,
+  Sliders,
+  SlidersHorizontal,
+  History,
+  Sparkles,
+  Clock,
 } from 'lucide-react';
 import {
   GoogleAdsAccount,
@@ -109,11 +116,29 @@ import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup } from 'f
 
 export default function AdOptimizeApp() {
   const [state, setState] = useState<AdOptimizeState>(() => getInitialState());
-  const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
+  const [currentTab, setCurrentTab] = useState<NavTab>('overview');
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [showCopilot, setShowCopilot] = useState<boolean>(false);
+  const [showKpiModal, setShowKpiModal] = useState<boolean>(false);
+  const [selectedKpis, setSelectedKpis] = useState<{
+    spend: boolean;
+    conversions: boolean;
+    cpa: boolean;
+    conversionValue: boolean;
+    roas: boolean;
+    clicks: boolean;
+    ctr: boolean;
+  }>({
+    spend: true,
+    conversions: true,
+    cpa: true,
+    conversionValue: true,
+    roas: true,
+    clicks: false,
+    ctr: false,
+  });
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
@@ -1559,305 +1584,497 @@ export default function AdOptimizeApp() {
             />
           ) : (
             <>
-              {/* VIEW: DASHBOARD */}
-              {currentTab === 'dashboard' && (
+              {/* VIEW 1: OVERVIEW */}
+              {(currentTab === 'overview' || currentTab === 'dashboard') && (
                 <div className="space-y-6">
-              {/* If no campaigns created yet, show welcoming real setup card */}
-              {campaigns.length === 0 && (
-                <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-5 text-center animate-in fade-in duration-200">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center mx-auto shadow-sm">
-                    <Layers className="w-6 h-6 text-[#00d67d]" />
-                  </div>
-                  <div className="max-w-md mx-auto space-y-1.5">
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                        ? `Connected to Account: ${account.clientCustomerId}`
-                        : 'Welcome to your Google Ads Command Center'}
-                    </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                        ? 'Your account is connected. No active campaigns are detected yet in Google Ads. Click below to synchronize your active campaigns.'
-                        : 'Connect your Google Ads account to pull your active campaigns, enable performance monitoring, and boost conversion efficiency.'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                    <button
-                      onClick={() => setIsSyncModalOpen(true)}
-                      className="px-6 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <RefreshCw className="w-4 h-4 text-slate-950" />
-                      <span>Sync Campaigns</span>
-                    </button>
+                  {/* If no campaigns created yet, show welcoming setup card */}
+                  {campaigns.length === 0 && (
+                    <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-5 text-center animate-in fade-in duration-200">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center mx-auto shadow-sm">
+                        <Layers className="w-6 h-6 text-[#00d67d]" />
+                      </div>
+                      <div className="max-w-md mx-auto space-y-1.5">
+                        <h3 className="text-lg font-bold text-slate-900">
+                          {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                            ? `Connected to Account: ${account.clientCustomerId}`
+                            : 'Welcome to your Google Ads Command Center'}
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          {account.isConnected && account.clientCustomerId !== 'Not Connected'
+                            ? 'Your account is connected. No active campaigns are detected yet in Google Ads. Click below to synchronize your active campaigns.'
+                            : 'Connect your Google Ads account to pull your active campaigns, enable performance monitoring, and boost conversion efficiency.'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <button
+                          onClick={() => setIsSyncModalOpen(true)}
+                          className="px-6 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-2xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <RefreshCw className="w-4 h-4 text-slate-950" />
+                          <span>Sync Campaigns</span>
+                        </button>
 
-                    <button
-                      onClick={() => setShowConnectModal(true)}
-                      className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <span>Connect Google Ads Account</span>
-                    </button>
+                        <button
+                          onClick={() => setShowConnectModal(true)}
+                          className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <span>Connect Google Ads Account</span>
+                        </button>
 
-                    <a
-                      href="https://ads.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2"
-                    >
-                      <span>Open ads.google.com</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                    </a>
+                        <a
+                          href="https://ads.google.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors flex items-center gap-2"
+                        >
+                          <span>Open ads.google.com</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customizable KPI & Timing Period Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-slate-900">Performance Period:</span>
+                      <span className="text-slate-500 hidden sm:inline">
+                        {selectedPeriod === 'LAST_7_DAYS'
+                          ? 'Past 7 days performance metrics.'
+                          : 'Cumulative all-time performance across all campaigns.'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      {/* Period Switcher */}
+                      <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+                        <button
+                          onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'LAST_7_DAYS' }))}
+                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            selectedPeriod === 'LAST_7_DAYS'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Last 7 Days
+                        </button>
+                        <button
+                          onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'ALL_TIME' }))}
+                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            selectedPeriod === 'ALL_TIME'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          All-Time Lifetime
+                        </button>
+                      </div>
+
+                      {/* Customize KPIs Toggle Button */}
+                      <button
+                        onClick={() => setShowKpiModal(!showKpiModal)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors border flex items-center gap-1.5 cursor-pointer ${
+                          showKpiModal
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
+                        }`}
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-[#00d67d]" />
+                        <span>Customize KPIs</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* KPI Customizer Drawer/Panel */}
+                  {showKpiModal && (
+                    <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm animate-in fade-in duration-150 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold text-slate-900">
+                          Toggle Displayed KPI Cards on Overview:
+                        </div>
+                        <button
+                          onClick={() => setShowKpiModal(false)}
+                          className="text-xs text-slate-400 hover:text-slate-700"
+                        >
+                          Done
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 text-xs">
+                        {[
+                          { key: 'spend', label: 'Total Ad Spend' },
+                          { key: 'conversions', label: 'Conversions' },
+                          { key: 'cpa', label: 'Cost / Conv (CPA)' },
+                          { key: 'conversionValue', label: 'Conversion Value' },
+                          { key: 'roas', label: 'ROAS Yield' },
+                          { key: 'clicks', label: 'Clicks' },
+                          { key: 'ctr', label: 'Click Rate (CTR)' },
+                        ].map((k) => {
+                          const isChecked = (selectedKpis as any)[k.key];
+                          return (
+                            <label
+                              key={k.key}
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none transition-all ${
+                                isChecked
+                                  ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 font-bold'
+                                  : 'bg-slate-50 border-slate-200 text-slate-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) =>
+                                  setSelectedKpis((prev) => ({
+                                    ...prev,
+                                    [k.key]: e.target.checked,
+                                  }))
+                                }
+                                className="rounded text-[#00d67d] focus:ring-[#00d67d]"
+                              />
+                              <span className="text-[11px] truncate">{k.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customizable Metric Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {selectedKpis.spend && (
+                      <MetricCard
+                        label={selectedPeriod === 'ALL_TIME' ? 'Total Ad Spend (All-Time)' : 'Total Ad Spend (Last 7 Days)'}
+                        value={`$${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        changeText={
+                          selectedPeriod === 'ALL_TIME'
+                            ? `Cumulative across ${campaigns.length} campaigns`
+                            : metrics.spend > 0
+                            ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day`
+                            : '0 active spend'
+                        }
+                        isPositiveChange={true}
+                        isNegativeBad={false}
+                        icon={DollarSign}
+                        variant="dark"
+                        onClick={() => setCurrentTab('campaigns')}
+                      />
+                    )}
+
+                    {selectedKpis.conversions && (
+                      <MetricCard
+                        label={selectedPeriod === 'ALL_TIME' ? 'Conversions (All-Time)' : 'Conversions (Last 7 Days)'}
+                        value={metrics.conversions.toString()}
+                        changeText={
+                          metrics.conversions > 0
+                            ? `Conv. Rate: ${metrics.conversionRate.toFixed(2)}%`
+                            : '0 recorded conversions'
+                        }
+                        isPositiveChange={true}
+                        isNegativeBad={false}
+                        icon={Target}
+                        variant="light"
+                        onClick={() => setCurrentTab('campaigns')}
+                      />
+                    )}
+
+                    {selectedKpis.cpa && (
+                      <MetricCard
+                        label="Cost Per Conversion (CPA)"
+                        value={metrics.conversions > 0 ? `$${metrics.cpa.toFixed(2)}` : '$0.00'}
+                        changeText={
+                          metrics.conversions > 0
+                            ? metrics.cpa <= 45
+                              ? 'Within target efficiency'
+                              : 'Above target benchmark'
+                            : 'Awaiting conversions'
+                        }
+                        isPositiveChange={metrics.cpa <= 45}
+                        isNegativeBad={true}
+                        icon={TrendingDown}
+                        variant="light"
+                        onClick={() => setCurrentTab('audit')}
+                      />
+                    )}
+
+                    {selectedKpis.conversionValue && (
+                      <MetricCard
+                        label="Conversion Value"
+                        value={`$${metrics.conversionValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        changeText={
+                          metrics.conversionValue > metrics.spend
+                            ? `+$${(metrics.conversionValue - metrics.spend).toFixed(2)} net margin`
+                            : 'Gross revenue generated'
+                        }
+                        isPositiveChange={true}
+                        isNegativeBad={false}
+                        icon={DollarSign}
+                        variant="light"
+                        onClick={() => setCurrentTab('campaigns')}
+                      />
+                    )}
+
+                    {selectedKpis.roas && (
+                      <MetricCard
+                        label="Account ROAS"
+                        value={`${metrics.roas.toFixed(2)}x`}
+                        changeText={
+                          metrics.roas >= 3
+                            ? 'Profitable commercial return'
+                            : metrics.spend > 0
+                            ? 'Target ROAS: 3.50x'
+                            : '0.00x return'
+                        }
+                        isPositiveChange={metrics.roas >= 2.5}
+                        isNegativeBad={false}
+                        icon={TrendingUp}
+                        variant="light"
+                        onClick={() => setCurrentTab('optimizer')}
+                      />
+                    )}
+
+                    {selectedKpis.clicks && (
+                      <MetricCard
+                        label="Total Paid Clicks"
+                        value={metrics.clicks.toLocaleString()}
+                        changeText={`Avg CPC: $${metrics.cpc.toFixed(2)}`}
+                        isPositiveChange={true}
+                        isNegativeBad={false}
+                        icon={MousePointerClick}
+                        variant="light"
+                        onClick={() => setCurrentTab('campaigns')}
+                      />
+                    )}
+
+                    {selectedKpis.ctr && (
+                      <MetricCard
+                        label="Click-Through Rate (CTR)"
+                        value={`${metrics.ctr.toFixed(2)}%`}
+                        changeText={`${metrics.impressions.toLocaleString()} impressions`}
+                        isPositiveChange={metrics.ctr >= 3.0}
+                        isNegativeBad={false}
+                        icon={Percent}
+                        variant="light"
+                        onClick={() => setCurrentTab('campaigns')}
+                      />
+                    )}
+                  </div>
+
+                  {/* Middle Section: Chart & Anomaly Highlights */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                    <div className="lg:col-span-8">
+                      <PerformanceChart
+                        selectedPeriod={selectedPeriod}
+                        onSelectPeriod={(p) =>
+                          setState((prev) => ({ ...prev, selectedPeriod: p }))
+                        }
+                        campaigns={campaigns}
+                      />
+                    </div>
+
+                    <div className="lg:col-span-4 space-y-5">
+                      <AccountMonitorCard
+                        account={account}
+                        totalSpend={metrics.spend}
+                        onOpenSettings={() => setCurrentTab('settings')}
+                        onOpenOptimizer={() => setCurrentTab('optimizer')}
+                      />
+
+                      <AnomaliesWidget
+                        anomalies={anomalies}
+                        onSelectAnomaly={handleSelectAnomaly}
+                        onViewAll={() => setCurrentTab('audit')}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Campaign Performance Summary Table */}
+                  <div>
+                    <CampaignsTable
+                      campaigns={campaigns}
+                      onSelectCampaign={(c) => setSelectedCampaign(c)}
+                      onViewAll={() => setCurrentTab('campaigns')}
+                      onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+                      onToggleStatus={handleToggleCampaignStatus}
+                      isSyncing={isSyncing}
+                    />
+                  </div>
+
+                  {/* Recent Account Activity Feed (Overview Requirement) */}
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center font-bold">
+                          <History className="w-4 h-4 text-[#00d67d]" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Recent Account Activity
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Recent changes, optimizations, and budget adjustments
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setCurrentTab('activity_log')}
+                        className="text-xs font-bold text-[#00a85e] hover:underline cursor-pointer"
+                      >
+                        View Full Activity History →
+                      </button>
+                    </div>
+
+                    {auditLogs.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        No recent changes recorded yet. Changes made in Campaigns, Optimizer, or AI Chat will be tracked here.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                              <th className="pb-2.5">Timestamp</th>
+                              <th className="pb-2.5">Campaign Affected</th>
+                              <th className="pb-2.5">Action Taken</th>
+                              <th className="pb-2.5">Previous Value</th>
+                              <th className="pb-2.5">New Value</th>
+                              <th className="pb-2.5">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {auditLogs.slice(0, 5).map((log) => (
+                              <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="py-2.5 font-mono text-slate-500">
+                                  {new Date(log.timestamp).toLocaleDateString([], {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </td>
+                                <td className="py-2.5 font-semibold text-slate-900 max-w-[180px] truncate">
+                                  {log.campaignName}
+                                </td>
+                                <td className="py-2.5">
+                                  <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-[11px] text-slate-700">
+                                    {log.actionType}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 text-slate-600 font-mono">
+                                  {log.previousValue}
+                                </td>
+                                <td className="py-2.5 text-slate-950 font-bold font-mono">
+                                  {log.newValue}
+                                </td>
+                                <td className="py-2.5">
+                                  <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                    {log.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Performance Period Toggle Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-900">Performance Period:</span>
-                  <span className="text-slate-500">
-                    {selectedPeriod === 'LAST_7_DAYS'
-                      ? '7-day performance active. Only spend and conversions recorded within the last 7 days.'
-                      : 'Lifetime totals. Cumulative all-time historical performance across all campaigns.'}
-                  </span>
-                </div>
-                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
-                  <button
-                    onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'LAST_7_DAYS' }))}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      selectedPeriod === 'LAST_7_DAYS'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Last 7 Days
-                  </button>
-                  <button
-                    onClick={() => setState((prev) => ({ ...prev, selectedPeriod: 'ALL_TIME' }))}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      selectedPeriod === 'ALL_TIME'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    All-Time Lifetime
-                  </button>
-                </div>
-              </div>
-
-              {/* Top 3 Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <MetricCard
-                  label={selectedPeriod === 'ALL_TIME' ? 'Total Ad Spend (All-Time Lifetime)' : 'Total Ad Spend (Last 7 Days)'}
-                  value={`$${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  changeText={
-                    selectedPeriod === 'ALL_TIME'
-                      ? `All-time spend across ${campaigns.length} campaigns`
-                      : metrics.spend > 0
-                      ? `Daily avg: $${(metrics.spend / 7).toFixed(2)}/day`
-                      : '0 spend in last 7 days (Campaigns paused or inactive)'
-                  }
-                  isPositiveChange={true}
-                  isNegativeBad={false}
-                  icon={DollarSign}
-                  variant="dark"
-                  subContext={
-                    selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.spend > 0
-                      ? `All-time lifetime spend: $${allTimeMetrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                      : metrics.spend > 0
-                      ? `Pacing: ${Math.round((metrics.spend / (account.monthlySpendCap || 25000)) * 100)}% of monthly cap`
-                      : '0 active ad sets'
-                  }
-                  onClick={() => setCurrentTab('campaigns')}
-                />
-
-                <MetricCard
-                  label={selectedPeriod === 'ALL_TIME' ? 'Verified Conversions (All-Time)' : 'Verified Conversions (Last 7 Days)'}
-                  value={metrics.conversions.toString()}
-                  changeText={
-                    metrics.conversions > 0
-                      ? `Conv. Rate: ${metrics.conversionRate.toFixed(2)}%`
-                      : selectedPeriod === 'LAST_7_DAYS'
-                      ? '0 conversions in last 7 days'
-                      : '0 all-time conversions'
-                  }
-                  isPositiveChange={true}
-                  isNegativeBad={false}
-                  icon={Target}
-                  variant="light"
-                  subContext={
-                    selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.conversions > 0
-                      ? `All-time conversions: ${allTimeMetrics.conversions}`
-                      : metrics.conversions > 0
-                      ? `${metrics.conversions} goal completions`
-                      : 'Awaiting goal conversions'
-                  }
-                  onClick={() => setCurrentTab('campaigns')}
-                />
-
-                <MetricCard
-                  label="Account ROAS & Efficiency"
-                  value={`${metrics.roas.toFixed(2)}x ROAS`}
-                  changeText={
-                    metrics.conversions > 0
-                      ? `$${metrics.cpa.toFixed(2)} Blended CPA`
-                      : metrics.spend > 0
-                      ? '0.00x return (spend with 0 conversions)'
-                      : '0.00x return'
-                  }
-                  isPositiveChange={true}
-                  isNegativeBad={false}
-                  icon={TrendingUp}
-                  variant="light"
-                  subContext={
-                    metrics.roas >= 3
-                      ? 'Healthy return yield'
-                      : selectedPeriod === 'LAST_7_DAYS' && allTimeMetrics.roas > 0
-                      ? `All-time ROAS: ${allTimeMetrics.roas.toFixed(2)}x`
-                      : 'Calculated from conversion value / spend'
-                  }
-                  onClick={() => setCurrentTab('insights')}
-                />
-              </div>
-
-              {/* Middle Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                <div className="lg:col-span-8">
-                  <PerformanceChart
-                    selectedPeriod={selectedPeriod}
-                    onSelectPeriod={(p) =>
-                      setState((prev) => ({ ...prev, selectedPeriod: p }))
-                    }
-                    campaigns={campaigns}
-                  />
-                </div>
-
-                <div className="lg:col-span-4 space-y-5">
-                  <AccountMonitorCard
-                    account={account}
-                    totalSpend={metrics.spend}
-                    onOpenSettings={() => setCurrentTab('settings')}
-                    onOpenOptimizer={() => setCurrentTab('optimizer')}
-                  />
-
-                  <AnomaliesWidget
-                    anomalies={anomalies}
-                    onSelectAnomaly={handleSelectAnomaly}
-                    onViewAll={() => setCurrentTab('insights')}
-                  />
-                </div>
-              </div>
-
-              {/* Bottom Section: Active Campaigns Table */}
-              <div>
-                <CampaignsTable
+              {/* VIEW 2: CAMPAIGNS */}
+              {currentTab === 'campaigns' && (
+                <CampaignsFullView
                   campaigns={campaigns}
                   onSelectCampaign={(c) => setSelectedCampaign(c)}
-                  onViewAll={() => setCurrentTab('campaigns')}
-                  onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
                   onToggleStatus={handleToggleCampaignStatus}
+                  onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
+                  onDeleteCampaign={handleDeleteCampaign}
                   isSyncing={isSyncing}
                 />
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* VIEW: CAMPAIGNS */}
-          {currentTab === 'campaigns' && (
-            <CampaignsFullView
-              campaigns={campaigns}
-              onSelectCampaign={(c) => setSelectedCampaign(c)}
-              onToggleStatus={handleToggleCampaignStatus}
-              onOpenSyncCampaigns={() => setIsSyncModalOpen(true)}
-              onDeleteCampaign={handleDeleteCampaign}
-              isSyncing={isSyncing}
-            />
-          )}
+              {/* VIEW 3: AI ADS AUDIT */}
+              {(currentTab === 'audit' || currentTab === 'insights') && (
+                <InsightsView
+                  insights={insights}
+                  onApplyInsight={handleApplyInsight}
+                  onDismissInsight={handleDismissInsight}
+                  onMarkReviewed={handleMarkReviewed}
+                />
+              )}
 
-          {/* VIEW: AI INSIGHTS */}
-          {currentTab === 'insights' && (
-            <InsightsView
-              insights={insights}
-              onApplyInsight={handleApplyInsight}
-              onDismissInsight={handleDismissInsight}
-              onMarkReviewed={handleMarkReviewed}
-            />
-          )}
+              {/* VIEW 4: BUDGET OPTIMIZER */}
+              {currentTab === 'optimizer' && (
+                <BudgetOptimizerView
+                  recommendations={budgetRecommendations}
+                  campaigns={campaigns}
+                  onApproveRecommendation={handleApproveRecommendation}
+                  onRejectRecommendation={handleRejectRecommendation}
+                />
+              )}
 
-          {/* VIEW: BUDGET OPTIMIZER */}
-          {currentTab === 'optimizer' && (
-            <BudgetOptimizerView
-              recommendations={budgetRecommendations}
-              campaigns={campaigns}
-              onApproveRecommendation={handleApproveRecommendation}
-              onRejectRecommendation={handleRejectRecommendation}
-            />
-          )}
+              {/* VIEW 5: AUTOMATIONS */}
+              {(currentTab === 'automations' || currentTab === 'automation') && (
+                <AutomationView
+                  rules={automationRules}
+                  onToggleRule={handleToggleRule}
+                  onAddRule={handleAddRule}
+                />
+              )}
 
-          {/* VIEW: AUTOMATION */}
-          {currentTab === 'automation' && (
-            <AutomationView
-              rules={automationRules}
-              onToggleRule={handleToggleRule}
-              onAddRule={handleAddRule}
-            />
-          )}
+              {/* VIEW 6: AI CHAT ASSISTANT */}
+              {(currentTab === 'chat' || currentTab === 'copilot') && (
+                <AiChatView
+                  account={account}
+                  campaigns={campaigns}
+                  keywords={keywords}
+                  searchTerms={searchTerms}
+                  auditLogs={auditLogs}
+                  anomalies={anomalies}
+                  insights={insights}
+                  recommendations={budgetRecommendations}
+                  rules={automationRules}
+                  userId={user?.uid}
+                  accessToken={oauthToken || undefined}
+                  onMutateCampaign={(updatedCampaign, newAuditLog) => {
+                    setState((prev) => ({
+                      ...prev,
+                      campaigns: prev.campaigns.map((c) =>
+                        c.id === updatedCampaign.id ? updatedCampaign : c
+                      ),
+                      auditLogs: [newAuditLog, ...prev.auditLogs],
+                    }));
+                    if (user) {
+                      saveCampaignToFirestore(user.uid, updatedCampaign);
+                      addAuditLogToFirestore(user.uid, newAuditLog);
+                    }
+                    showToast(`Updated campaign: ${updatedCampaign.name}`);
+                  }}
+                  onSelectCampaign={(c) => setSelectedCampaign(c)}
+                  onSelectCampaignByName={(name) => {
+                    const match = campaigns.find(
+                      (c) =>
+                        c.name.toLowerCase().includes(name.toLowerCase()) ||
+                        c.id === name
+                    );
+                    if (match) setSelectedCampaign(match);
+                  }}
+                />
+              )}
 
-          {/* VIEW: COPILOT */}
-          {currentTab === 'copilot' && (
-            <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center font-bold">
-                    ✦
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">AI Marketing Copilot</h3>
-                    <p className="text-xs text-slate-500">Grounded conversational intelligence</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowCopilot(true)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Open Copilot Assistant
-                </button>
-              </div>
+              {/* SECONDARY VIEW: ACTIVITY LOG */}
+              {currentTab === 'activity_log' && (
+                <AuditLogView logs={auditLogs} onRevertLog={handleRevertLog} />
+              )}
 
-              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 text-xs text-slate-700">
-                <div className="font-bold text-slate-900">Ready to Answer:</div>
-                <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                  <li>&ldquo;Why did my CPA increase this week?&rdquo;</li>
-                  <li>&ldquo;Which campaigns are wasting budget with low return?&rdquo;</li>
-                  <li>&ldquo;Where should I reallocate capital to capture unmet demand?&rdquo;</li>
-                  <li>&ldquo;Show me search terms with zero conversions.&rdquo;</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* VIEW: CHANGE MANAGEMENT / AUDIT LOG */}
-          {currentTab === 'audit' && (
-            <AuditLogView logs={auditLogs} onRevertLog={handleRevertLog} />
-          )}
-
-          {/* VIEW: REPORTS */}
-          {currentTab === 'reports' && (
-            <ReportsView
-              campaigns={campaigns}
-              metrics={metrics}
-              insights={insights}
-              account={account}
-            />
-          )}
-
-          {/* VIEW: SETTINGS & BILLING */}
-          {currentTab === 'settings' && (
-            <SettingsView
-              account={account}
-              onOpenConnectModal={() => setShowConnectModal(true)}
-              onResetDemo={handleClearAllData}
-              userEmail={user?.email}
-            />
-          )}
+              {/* SECONDARY VIEW: SETTINGS */}
+              {currentTab === 'settings' && (
+                <SettingsView
+                  account={account}
+                  onOpenConnectModal={() => setShowConnectModal(true)}
+                  onResetDemo={handleClearAllData}
+                  userEmail={user?.email}
+                />
+              )}
             </>
           )}
         </main>
