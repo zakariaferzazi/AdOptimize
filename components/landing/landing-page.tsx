@@ -35,7 +35,6 @@ interface LandingPageProps {
   onOpenApp: () => void;
   onConnectGoogleAds: () => void;
   onSignInWithGoogle?: () => void;
-  onExploreDemo?: () => void;
   user?: { displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
   onSignOut?: () => void;
 }
@@ -44,7 +43,6 @@ export function LandingPage({
   onOpenApp,
   onConnectGoogleAds,
   onSignInWithGoogle,
-  onExploreDemo,
   user,
   onSignOut,
 }: LandingPageProps) {
@@ -215,8 +213,8 @@ export function LandingPage({
           </div>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
-            <a href="#simulator" className="hover:text-slate-900 transition-colors">Interactive Preview</a>
-            <a href="#demo" className="hover:text-slate-900 transition-colors">Live Audit</a>
+            <a href="#simulator" className="hover:text-slate-900 transition-colors">Audit Simulator</a>
+            <a href="#preview" className="hover:text-slate-900 transition-colors">Features Preview</a>
             <Link href="/compare" className="hover:text-slate-900 transition-colors">
               Comparisons
             </Link>
@@ -293,10 +291,10 @@ export function LandingPage({
             </button>
 
             <button
-              onClick={onExploreDemo || onOpenApp}
-              className="px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-pointer"
+              onClick={onOpenApp}
+              className="px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
             >
-              <span>Explore Live Demo</span>
+              <span>View Dashboard</span>
             </button>
           </div>
 
@@ -320,7 +318,7 @@ export function LandingPage({
       </section>
 
       {/* 3. INTERACTIVE PRODUCT PREVIEW (Inspired by clean SaaS desktop UI) */}
-      <section id="demo" className="py-16 px-6 bg-slate-50/50">
+      <section id="preview" className="py-16 px-6 bg-slate-50/50">
         <div className="max-w-5xl mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
@@ -939,10 +937,10 @@ export function LandingPage({
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </button>
             <button
-              onClick={onExploreDemo || onOpenApp}
+              onClick={onOpenApp}
               className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors cursor-pointer"
             >
-              Explore Live Demo
+              <span>Go to Workspace</span>
             </button>
           </div>
 
@@ -969,7 +967,7 @@ export function LandingPage({
 
           <div className="flex flex-wrap items-center gap-6 text-slate-600 font-medium">
             <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
-            <a href="#demo" className="hover:text-slate-900 transition-colors">Preview</a>
+            <a href="#preview" className="hover:text-slate-900 transition-colors">Preview</a>
             <Link href="/compare" className="hover:text-slate-900 transition-colors">Comparisons</Link>
             <Link href="/compare/optmyzr-alternative" className="hover:text-slate-900 transition-colors">vs Optmyzr</Link>
             <Link href="/compare/adspirer-alternative" className="hover:text-slate-900 transition-colors">vs Adspirer</Link>

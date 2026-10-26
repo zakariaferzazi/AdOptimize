@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
@@ -28,6 +28,15 @@ interface AppShellProps {
 
 export function AppShell({ children, title, headerExtra }: AppShellProps) {
   const pathname = usePathname();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+
+  // Close mobile sidebar if route changed
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setIsMobileSidebarOpen(false);
+  }
+
   const {
     state,
     setState,
@@ -53,7 +62,6 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
     handleApplyRecommendation,
     handleSaveCampaign,
     handleResetData,
-    handleEnableDemo,
   } = useAdOptimize();
 
   const { account, campaigns, anomalies, budgetRecommendations, auditLogs } = state;
@@ -119,16 +127,18 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
   const currentTab = getCurrentTab();
 
   return (
-    <div className="min-h-screen flex bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans">
-      {/* 1. Sidebar Navigation */}
+    <div className="min-h-screen flex bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
+      {/* 1. Sidebar Navigation (Desktop sticky + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}
         anomaliesCount={anomalies.filter((a) => !a.resolved).length}
         recommendationsCount={budgetRecommendations.filter((b) => b.status === 'PENDING').length}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
       {/* 2. Main Content Canvas */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
         {/* Top Header */}
         <Header
           title={title || currentTab}
@@ -148,10 +158,11 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           onSignOut={handleSignOut}
           onClearData={handleResetData}
           headerExtra={headerExtra}
+          onToggleMobileMenu={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
 
         {/* Dynamic View Container */}
-        <main className="flex-1 px-4 sm:px-8 pb-10 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pb-10 space-y-6 max-w-7xl w-full mx-auto min-w-0">
           {/* Real Google Ads API Issue Alert Banner */}
           {apiIssue && (
             <div className="bg-rose-50/95 border-2 border-rose-300 rounded-3xl p-5 shadow-sm text-slate-900 animate-in fade-in slide-in-from-top-2 duration-200">

@@ -18,7 +18,7 @@ export function SettingsClientView() {
       <SettingsView
         account={state.account}
         onOpenConnectModal={() => setShowConnectModal(true)}
-        onResetDemo={handleResetData}
+        onClearData={handleResetData}
         userEmail={user?.email}
       />
     </AppShell>

@@ -13,7 +13,8 @@ import {
   LogIn,
   User as UserIcon,
   ShieldCheck,
-  Trash2
+  Trash2,
+  Menu,
 } from 'lucide-react';
 import { GoogleAdsAccount, AnomalyAlert } from '@/types/adoptimize';
 import { User } from 'firebase/auth';
@@ -34,6 +35,7 @@ interface HeaderProps {
   onSignOut: () => void;
   onClearData?: () => void;
   headerExtra?: React.ReactNode;
+  onToggleMobileMenu?: () => void;
 }
 
 export function Header({
@@ -52,6 +54,7 @@ export function Header({
   onSignOut,
   onClearData,
   headerExtra,
+  onToggleMobileMenu,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -95,39 +98,52 @@ export function Header({
   };
 
   return (
-    <header className="h-20 bg-transparent px-8 flex items-center justify-between shrink-0 select-none z-20">
+    <header className="h-16 lg:h-20 bg-transparent px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 select-none z-20">
       {/* Left: View Title & Account Badge */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="lg:hidden p-2 -ml-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate shrink-0">
           {getTitleLabel(title)}
         </h1>
 
         {/* Real Google Ads Account Selector */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors"
+            className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors"
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-full shrink-0 ${
                 account.isConnected && account.clientCustomerId !== 'Not Connected'
                   ? 'bg-emerald-500 animate-pulse'
                   : 'bg-amber-400'
               }`}
             />
-            <span className="font-semibold text-slate-900">{account.accountName}</span>
-            <span className="text-slate-400">·</span>
-            <span className="font-mono text-slate-500">
+            <span className="font-semibold text-slate-900 max-w-[100px] sm:max-w-[150px] truncate">
+              {account.accountName}
+            </span>
+            <span className="text-slate-400 hidden sm:inline">·</span>
+            <span className="font-mono text-slate-500 hidden sm:inline">
               {account.isConnected && account.clientCustomerId !== 'Not Connected'
                 ? account.clientCustomerId
                 : 'Not Connected'}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5 shrink-0" />
           </button>
 
           {/* Account Dropdown */}
           {showAccountDropdown && (
-            <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="p-2 border-b border-slate-100">
                 <div className="text-xs font-semibold text-slate-900">Active Google Ads Account</div>
                 <div className="text-[11px] text-slate-500">{account.timezone}</div>
@@ -135,11 +151,13 @@ export function Header({
 
               <div className="p-2 space-y-1">
                 <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 text-emerald-900 text-xs">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="font-medium truncate max-w-[150px]">{account.accountName}</span>
                   </div>
-                  <span className="text-[11px] font-mono text-emerald-700">Connected</span>
+                  <span className="text-[11px] font-mono text-emerald-700 shrink-0">
+                    {account.isConnected ? 'Connected' : 'Offline'}
+                  </span>
                 </div>
               </div>
 
@@ -162,7 +180,7 @@ export function Header({
                     }}
                     className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                   >
-                    <span>Clear All Demo Campaigns</span>
+                    <span>Disconnect &amp; Clear Cache</span>
                     <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                   </button>
                 )}
@@ -175,16 +193,16 @@ export function Header({
       </div>
 
       {/* Right: Actions, Search, Alerts & Real Firebase Profile */}
-      <div className="flex items-center gap-3.5">
-        {/* Search Input */}
-        <div className="relative hidden md:block">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Search Input (visible on xl screens to prevent header collisions) */}
+        <div className="relative hidden xl:block">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search campaigns, keywords, CPAs..."
+            placeholder="Search campaigns, CPAs..."
             value={searchVal}
             onChange={handleSearchChange}
-            className="w-64 pl-9 pr-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d]/40 focus:border-[#00d67d] transition-all shadow-xs"
+            className="w-52 2xl:w-64 pl-9 pr-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d]/40 focus:border-[#00d67d] transition-all shadow-xs"
           />
         </div>
 
@@ -193,10 +211,10 @@ export function Header({
           onClick={onRefreshSync}
           disabled={isSyncing}
           title="Refresh Google Ads campaigns"
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-60 cursor-pointer"
+          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-60 cursor-pointer shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Campaigns'}</span>
+          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
         </button>
 
         {/* Notifications Bell */}

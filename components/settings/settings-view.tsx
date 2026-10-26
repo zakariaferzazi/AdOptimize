@@ -24,14 +24,14 @@ import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
 interface SettingsViewProps {
   account: GoogleAdsAccount;
   onOpenConnectModal: () => void;
-  onResetDemo: () => void;
+  onClearData: () => void;
   userEmail?: string | null;
 }
 
 export function SettingsView({
   account,
   onOpenConnectModal,
-  onResetDemo,
+  onClearData,
   userEmail,
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
@@ -138,12 +138,12 @@ export function SettingsView({
                 Configure Customer ID
               </button>
               <button
-                onClick={onResetDemo}
-                title="Wipe account data and start completely fresh"
+                onClick={onClearData}
+                title="Disconnect Google Ads account and clear cached sessions"
                 className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Trash2 className="w-3 h-3 text-rose-500" />
-                <span>Clear All Data & Fresh Start</span>
+                <span>Disconnect &amp; Clear Cache</span>
               </button>
             </div>
           </div>
@@ -391,7 +391,7 @@ export function SettingsView({
                   </span>
                 </div>
                 <button
-                  onClick={onResetDemo}
+                  onClick={onClearData}
                   className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

@@ -7,11 +7,10 @@ import { GoogleIcon } from '@/components/ui/google-icon';
 
 interface AuthGateProps {
   onSignInSuccess?: () => void;
-  onExploreDemo?: () => void;
   onBack?: () => void;
 }
 
-export function AuthGate({ onSignInSuccess, onExploreDemo, onBack }: AuthGateProps) {
+export function AuthGate({ onSignInSuccess, onBack }: AuthGateProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -195,18 +194,6 @@ export function AuthGate({ onSignInSuccess, onExploreDemo, onBack }: AuthGatePro
             </p>
           )}
         </div>
-
-        {onExploreDemo && (
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              onClick={onExploreDemo}
-              className="text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Explore live preview as guest →
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

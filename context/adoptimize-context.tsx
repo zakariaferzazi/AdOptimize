@@ -17,7 +17,6 @@ import {
 import {
   getInitialState,
   saveState,
-  resetDemoState,
   clearSavedState,
   getCleanInitialState,
   AdOptimizeState,
@@ -109,7 +108,6 @@ interface AdOptimizeContextType {
   handleRevertLog: (logId: string) => Promise<void>;
   handleResetData: () => Promise<void>;
   handleSaveCampaign: (updatedCamp: Campaign) => Promise<void>;
-  handleEnableDemo: () => void;
 }
 
 const AdOptimizeContext = createContext<AdOptimizeContextType | undefined>(undefined);
@@ -278,11 +276,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     } catch (err: any) {
       showToast('Failed to sign out.');
     }
-  };
-
-  const handleEnableDemo = () => {
-    setState((prev) => ({ ...prev, isDemoMode: true }));
-    showToast('Loaded demo workspace');
   };
 
   const handleConnectAccount = (
@@ -596,7 +589,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         handleRevertLog,
         handleResetData,
         handleSaveCampaign,
-        handleEnableDemo,
       }}
     >
       {children}

@@ -16,7 +16,6 @@ export default function AdOptimizeRootPage() {
     authLoading,
     handleSignInWithGoogle,
     handleSignOut,
-    handleEnableDemo,
     handleConnectAccount,
   } = useAdOptimize();
 
@@ -36,15 +35,11 @@ export default function AdOptimizeRootPage() {
   }
 
   // 1. Unauthenticated: Show LandingPage by default, or AuthGate when clicked
-  if (!user && !state.isDemoMode) {
+  if (!user) {
     if (showAuthGate) {
       return (
         <AuthGate
           onSignInSuccess={() => {
-            router.push('/dashboard');
-          }}
-          onExploreDemo={() => {
-            handleEnableDemo();
             router.push('/dashboard');
           }}
           onBack={() => setShowAuthGate(false)}
@@ -57,10 +52,6 @@ export default function AdOptimizeRootPage() {
         onOpenApp={() => router.push('/dashboard')}
         onConnectGoogleAds={() => setShowAuthGate(true)}
         onSignInWithGoogle={handleSignInWithGoogle}
-        onExploreDemo={() => {
-          handleEnableDemo();
-          router.push('/dashboard');
-        }}
         user={user}
         onSignOut={handleSignOut}
       />
@@ -92,6 +83,6 @@ export default function AdOptimizeRootPage() {
     );
   }
 
-  // 3. Authenticated / Demo workspace: Render Dashboard directly
+  // 3. Authenticated workspace: Render Dashboard directly
   return <DashboardClientView />;
 }

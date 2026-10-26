@@ -14,6 +14,7 @@ import {
   History,
   Settings,
   BarChart3,
+  X,
 } from 'lucide-react';
 
 export type NavTab =
@@ -36,6 +37,8 @@ interface SidebarProps {
   onSelectTab?: (tab: NavTab) => void;
   anomaliesCount?: number;
   recommendationsCount?: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export function Sidebar({
@@ -43,6 +46,8 @@ export function Sidebar({
   onSelectTab,
   anomaliesCount = 0,
   recommendationsCount = 0,
+  isMobileOpen = false,
+  onCloseMobile,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -108,16 +113,19 @@ export function Sidebar({
     return false;
   };
 
-  return (
-    <aside className="w-64 bg-[#0d1117] text-slate-300 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30">
+  const renderNavContent = (isMobile = false) => (
+    <>
       {/* Top Brand & Nav */}
       <div className="p-5 flex flex-col gap-6">
         {/* Brand Lockup */}
-        <div className="flex items-center px-2 pt-1">
+        <div className="flex items-center justify-between px-2 pt-1">
           <Link
             href="/dashboard"
             className="flex items-center gap-2.5 cursor-pointer group"
-            onClick={() => onSelectTab && onSelectTab('overview')}
+            onClick={() => {
+              if (onSelectTab) onSelectTab('overview');
+              if (isMobile && onCloseMobile) onCloseMobile();
+            }}
           >
             <Image
               src="/icon.svg"
@@ -132,6 +140,17 @@ export function Sidebar({
               <span className="text-[#00d67d]">Optimize</span>
             </div>
           </Link>
+
+          {isMobile && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* 6 Essential Main Navigation Items */}
@@ -144,7 +163,10 @@ export function Sidebar({
               <Link
                 key={item.id}
                 href={item.href}
-                onClick={() => onSelectTab && onSelectTab(item.id)}
+                onClick={() => {
+                  if (onSelectTab) onSelectTab(item.id);
+                  if (isMobile && onCloseMobile) onCloseMobile();
+                }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-150 cursor-pointer ${
                   isActive
                     ? 'bg-[#00d67d] text-slate-950 font-semibold shadow-md shadow-[#00d67d]/15'
@@ -183,7 +205,10 @@ export function Sidebar({
           <div className="flex items-center gap-2.5">
             <Link
               href="/activity-log"
-              onClick={() => onSelectTab && onSelectTab('activity_log')}
+              onClick={() => {
+                if (onSelectTab) onSelectTab('activity_log');
+                if (isMobile && onCloseMobile) onCloseMobile();
+              }}
               className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
                 pathname === '/activity-log' || currentTab === 'activity_log'
                   ? 'text-white font-semibold'
@@ -197,7 +222,10 @@ export function Sidebar({
             <span>•</span>
             <Link
               href="/reports"
-              onClick={() => onSelectTab && onSelectTab('reports')}
+              onClick={() => {
+                if (onSelectTab) onSelectTab('reports');
+                if (isMobile && onCloseMobile) onCloseMobile();
+              }}
               className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
                 pathname === '/reports' || currentTab === 'reports'
                   ? 'text-white font-semibold'
@@ -211,7 +239,10 @@ export function Sidebar({
             <span>•</span>
             <Link
               href="/settings"
-              onClick={() => onSelectTab && onSelectTab('settings')}
+              onClick={() => {
+                if (onSelectTab) onSelectTab('settings');
+                if (isMobile && onCloseMobile) onCloseMobile();
+              }}
               className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer ${
                 pathname === '/settings' || currentTab === 'settings'
                   ? 'text-white font-semibold'
@@ -225,19 +256,57 @@ export function Sidebar({
         </div>
 
         <div className="px-2 pt-1 text-[11px] text-slate-500 flex items-center justify-between">
-          <Link href="/privacy-policy" className="hover:text-slate-300 transition-colors">
+          <Link
+            href="/privacy-policy"
+            onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+            className="hover:text-slate-300 transition-colors"
+          >
             Privacy Policy
           </Link>
           <span>·</span>
-          <Link href="/terms-of-service" className="hover:text-slate-300 transition-colors">
+          <Link
+            href="/terms-of-service"
+            onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+            className="hover:text-slate-300 transition-colors"
+          >
             Terms
           </Link>
           <span>·</span>
-          <Link href="/pricing" className="hover:text-slate-300 transition-colors">
+          <Link
+            href="/pricing"
+            onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+            className="hover:text-slate-300 transition-colors"
+          >
             Pricing
           </Link>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* 1. Desktop Persistent Sidebar (Hidden on mobile / tablet < lg) */}
+      <aside className="hidden lg:flex w-64 bg-[#0d1117] text-slate-300 flex-col justify-between shrink-0 h-screen sticky top-0 select-none border-r border-slate-800/60 z-30">
+        {renderNavContent(false)}
+      </aside>
+
+      {/* 2. Mobile / Tablet Slide-over Drawer with Backdrop */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={onCloseMobile}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <aside className="relative flex flex-col justify-between w-72 max-w-[85vw] bg-[#0d1117] text-slate-300 h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 select-none border-r border-slate-800/80">
+            {renderNavContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

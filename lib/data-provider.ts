@@ -127,9 +127,3 @@ export function clearSavedState(): void {
     }
   }
 }
-
-export function resetDemoState(): AdOptimizeState {
-  const clean = getCleanInitialState();
-  saveState(clean);
-  return clean;
-}

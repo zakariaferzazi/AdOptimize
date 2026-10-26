@@ -193,221 +193,258 @@ export function DashboardClientView() {
     }
   };
 
-  // Top header extra controls: Campaign Selector & Date Selector near Account Selector
-  const headerControls = (
-    <div className="flex items-center gap-2 flex-wrap">
-      {/* 1. Campaign Selector */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setShowCampaignDropdown(!showCampaignDropdown);
-            setShowDateDropdown(false);
-          }}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/90 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors cursor-pointer"
-        >
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-semibold text-slate-900 truncate max-w-[140px] sm:max-w-[200px]">
-            {selectedCampaignObj ? selectedCampaignObj.name : `All Campaigns (${campaigns.length})`}
-          </span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </button>
+  const isAccountConnected = Boolean(
+    account.isConnected && account.clientCustomerId && account.clientCustomerId !== 'Not Connected'
+  );
 
-        {showCampaignDropdown && (
-          <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
-            <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-              Filter by Campaign
+  const headerExtra = isAccountConnected ? (
+    <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-full border border-emerald-200/80">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+      <span>Live Sync Active</span>
+    </span>
+  ) : null;
+
+  return (
+    <AppShell title="Overview" headerExtra={headerExtra}>
+      <div className="space-y-6">
+        {/* Production Onboarding Banner when Google Ads account is not connected */}
+        {!isAccountConnected && (
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-5 sm:p-7 text-white shadow-lg border border-slate-700/60 relative overflow-hidden animate-in fade-in duration-200">
+            <div className="relative z-10 max-w-3xl space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-bold">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Production Environment</span>
+              </div>
+              <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-white">
+                Connect your active Google Ads account to start monitoring
+              </h2>
+              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                Link your Google Ads account to begin live negative keyword mining, automated CPA anomaly alerts, and continuous ROAS budget optimizations.
+              </p>
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowConnectModal(true)}
+                  className="px-4 sm:px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Connect Google Ads (1-Click)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-slate-400">
+                  Standard Google OAuth · Read &amp; Optimize permissions
+                </span>
+              </div>
             </div>
-            <div className="p-1 space-y-1">
+          </div>
+        )}
+
+        {/* Responsive Control & Filter Toolbar */}
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Left: Campaign & Date Selectors */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            {/* 1. Campaign Selector */}
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedCampaignId('ALL');
-                  setShowCampaignDropdown(false);
+                  setShowCampaignDropdown(!showCampaignDropdown);
+                  setShowDateDropdown(false);
                 }}
-                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                  selectedCampaignId === 'ALL'
-                    ? 'bg-emerald-50 text-emerald-900 font-bold'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs hover:bg-slate-100 text-xs text-slate-700 transition-colors cursor-pointer"
               >
-                <span>All Campaigns</span>
-                <span className="text-[11px] font-mono text-slate-400">{campaigns.length} total</span>
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold text-slate-900 truncate max-w-[130px] sm:max-w-[200px]">
+                  {selectedCampaignObj ? selectedCampaignObj.name : `All Campaigns (${campaigns.length})`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </button>
 
-              {campaigns.map((camp) => (
-                <button
-                  key={camp.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCampaignId(camp.id);
-                    setShowCampaignDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                    selectedCampaignId === camp.id
-                      ? 'bg-emerald-50 text-emerald-900 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        camp.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'
-                      }`}
-                    />
-                    <span className="truncate">{camp.name}</span>
+              {showCampaignDropdown && (
+                <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
+                  <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    Filter by Campaign
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                    ${Number(camp.spend || 0).toFixed(0)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 2. Date Range Selector */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setShowDateDropdown(!showDateDropdown);
-            setShowCampaignDropdown(false);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200/90 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors cursor-pointer"
-        >
-          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-semibold text-slate-900">{getDateLabel(dateRange)}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </button>
-
-        {showDateDropdown && (
-          <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-            <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-              Select Date Range
-            </div>
-            <div className="p-1 space-y-0.5">
-              {[
-                { id: 'TODAY' as DateRangePeriod, label: 'Today' },
-                { id: 'YESTERDAY' as DateRangePeriod, label: 'Yesterday' },
-                { id: 'LAST_7_DAYS' as DateRangePeriod, label: 'Last 7 Days' },
-                { id: 'LAST_30_DAYS' as DateRangePeriod, label: 'Last 30 Days' },
-                { id: 'THIS_MONTH' as DateRangePeriod, label: 'This Month' },
-                { id: 'LAST_MONTH' as DateRangePeriod, label: 'Last Month' },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setDateRange(opt.id);
-                    setShowDateDropdown(false);
-                    setShowCustomPicker(false);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
-                    dateRange === opt.id
-                      ? 'bg-emerald-50 text-emerald-900 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-
-              <div className="pt-1 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomPicker(!showCustomPicker)}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                    dateRange === 'CUSTOM'
-                      ? 'bg-emerald-50 text-emerald-900 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>Custom Range</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCustomPicker ? 'rotate-180' : ''}`} />
-                </button>
-
-                {showCustomPicker && (
-                  <div className="p-2 space-y-2 bg-slate-50 rounded-xl mt-1 text-xs">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Start Date</label>
-                      <input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">End Date</label>
-                      <input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
-                      />
-                    </div>
+                  <div className="p-1 space-y-1">
                     <button
                       type="button"
-                      onClick={handleApplyCustomDates}
-                      disabled={!customStartDate || !customEndDate}
-                      className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedCampaignId('ALL');
+                        setShowCampaignDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                        selectedCampaignId === 'ALL'
+                          ? 'bg-emerald-50 text-emerald-900 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
                     >
-                      Apply Range
+                      <span>All Campaigns</span>
+                      <span className="text-[11px] font-mono text-slate-400">{campaigns.length} total</span>
                     </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
-  return (
-    <AppShell title="Overview" headerExtra={headerControls}>
-      <div className="space-y-6">
-        {/* Top Section Header: Campaign Status Pill & "Customize KPIs" button */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            {selectedCampaignObj ? (
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-700">Active Filter:</span>
-                <span className="px-2.5 py-0.5 bg-slate-200/80 rounded-full font-bold text-slate-800 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${selectedCampaignObj.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                  <span>{selectedCampaignObj.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCampaignId('ALL')}
-                    className="hover:text-rose-600 transition-colors ml-1 cursor-pointer"
-                    title="Clear filter"
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            ) : (
-              <span className="font-medium">
-                Viewing all <strong className="text-slate-800">{campaigns.length} campaigns</strong> across {getDateLabel(dateRange).toLowerCase()}.
+                    {campaigns.map((camp) => (
+                      <button
+                        key={camp.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCampaignId(camp.id);
+                          setShowCampaignDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                          selectedCampaignId === camp.id
+                            ? 'bg-emerald-50 text-emerald-900 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              camp.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`}
+                          />
+                          <span className="truncate">{camp.name}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                          ${Number(camp.spend || 0).toFixed(0)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Date Range Selector */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDateDropdown(!showDateDropdown);
+                  setShowCampaignDropdown(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs hover:bg-slate-100 text-xs text-slate-700 transition-colors cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold text-slate-900">{getDateLabel(dateRange)}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </button>
+
+              {showDateDropdown && (
+                <div className="absolute left-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    Select Date Range
+                  </div>
+                  <div className="p-1 space-y-0.5">
+                    {[
+                      { id: 'TODAY' as DateRangePeriod, label: 'Today' },
+                      { id: 'YESTERDAY' as DateRangePeriod, label: 'Yesterday' },
+                      { id: 'LAST_7_DAYS' as DateRangePeriod, label: 'Last 7 Days' },
+                      { id: 'LAST_30_DAYS' as DateRangePeriod, label: 'Last 30 Days' },
+                      { id: 'THIS_MONTH' as DateRangePeriod, label: 'This Month' },
+                      { id: 'LAST_MONTH' as DateRangePeriod, label: 'Last Month' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setDateRange(opt.id);
+                          setShowDateDropdown(false);
+                          setShowCustomPicker(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                          dateRange === opt.id
+                            ? 'bg-emerald-50 text-emerald-900 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+
+                    <div className="pt-1 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomPicker(!showCustomPicker)}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                          dateRange === 'CUSTOM'
+                            ? 'bg-emerald-50 text-emerald-900 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>Custom Range</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCustomPicker ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showCustomPicker && (
+                        <div className="p-2 space-y-2 bg-slate-50 rounded-xl mt-1 text-xs">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Start Date</label>
+                            <input
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => setCustomStartDate(e.target.value)}
+                              className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-0.5">End Date</label>
+                            <input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleApplyCustomDates}
+                            disabled={!customStartDate || !customEndDate}
+                            className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                          >
+                            Apply Range
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Active Filter Pill */}
+            {selectedCampaignObj && (
+              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${selectedCampaignObj.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                <span className="truncate max-w-[130px]">{selectedCampaignObj.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCampaignId('ALL')}
+                  className="hover:text-rose-600 ml-0.5 cursor-pointer font-bold"
+                  title="Clear filter"
+                >
+                  ×
+                </button>
               </span>
             )}
           </div>
 
-          {/* Customize KPIs Button */}
-          <button
-            type="button"
-            onClick={() => setIsKpiModalOpen(true)}
-            className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl text-xs font-bold text-slate-700 hover:text-slate-900 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Sliders className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Customize KPIs</span>
-          </button>
+          {/* Right: Info & Customize KPIs Button */}
+          <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+            <span className="text-[11px] text-slate-500 hidden sm:inline">
+              {filteredCampaigns.length} {filteredCampaigns.length === 1 ? 'campaign' : 'campaigns'} · {getDateLabel(dateRange)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsKpiModalOpen(true)}
+              className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer ml-auto md:ml-0"
+            >
+              <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Customize KPIs</span>
+            </button>
+          </div>
         </div>
 
         {/* 1. Customizable KPI Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {activeKpis.map((kpiId) => {
             const card = allCardData[kpiId];
             if (!card) return null;
@@ -428,9 +465,9 @@ export function DashboardClientView() {
           })}
         </div>
 
-        {/* 2. Performance Overview Chart & AI Insights Row (Replacing large dark account card) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          <div className="lg:col-span-2">
+        {/* 2. Performance Overview Chart & AI Insights Row */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
+          <div className="xl:col-span-2 min-w-0">
             <PerformanceChart
               selectedPeriod={dateRange}
               onSelectPeriod={setDateRange}
@@ -438,7 +475,7 @@ export function DashboardClientView() {
               customDays={customDays}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <AiInsightsPanel
               campaigns={filteredCampaigns}
               account={account}
@@ -450,8 +487,8 @@ export function DashboardClientView() {
         </div>
 
         {/* 3. Performance Alerts & Compact AI Assistant Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
+          <div className="xl:col-span-2 min-w-0">
             <AnomaliesWidget
               alerts={filteredAnomalies}
               selectedCampaignName={selectedCampaignObj?.name}
@@ -467,7 +504,7 @@ export function DashboardClientView() {
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <CompactAiAssistant
               account={account}
               campaigns={filteredCampaigns}
@@ -480,7 +517,7 @@ export function DashboardClientView() {
         </div>
 
         {/* 4. Active Campaigns Table */}
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0">
           <CampaignsTable
             campaigns={campaigns}
             selectedCampaignId={selectedCampaignId}
