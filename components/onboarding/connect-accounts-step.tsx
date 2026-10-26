@@ -138,17 +138,6 @@ export function ConnectAccountsStep({
           <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
             Link your Google account in one click via official Google OAuth. AdOptimize will automatically detect your ad account, sync active campaigns, and begin continuous background monitoring.
           </p>
-
-          <div className="flex items-center gap-4 text-xs text-slate-500 pt-1">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Direct Google Ads Connection</span>
-            </span>
-            <span>·</span>
-            <span>Read-only analysis mode</span>
-            <span>·</span>
-            <span>Disconnect anytime</span>
-          </div>
         </div>
 
         {/* Error message (if any) */}

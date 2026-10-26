@@ -304,8 +304,6 @@ export function LandingPage({
           <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-xs text-slate-500 font-normal">
             <span>No credit card required</span>
             <span aria-hidden="true" className="text-slate-300">·</span>
-            <span>Read-only audit mode</span>
-            <span aria-hidden="true" className="text-slate-300">·</span>
             <span>Connect Google Ads in next step</span>
             <span aria-hidden="true" className="text-slate-300">·</span>
             <span>1-click rollback on all actions</span>
@@ -949,7 +947,7 @@ export function LandingPage({
           </div>
 
           <div className="pt-2 text-xs text-slate-500">
-            Read-only audit mode by default · No credit card required · 14-day guarantee
+            No credit card required · 14-day money-back guarantee
           </div>
         </div>
       </section>

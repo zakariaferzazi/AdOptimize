@@ -63,7 +63,7 @@ export const PSEO_TOOLS: PSEOTool[] = [
       'Identifies zero-conversion search queries draining budget',
       'Calculates impression share lost to daily budget limits',
       'Pinpoints acute CPA spikes and underperforming match types',
-      '100% read-only scan with zero unauthorized changes',
+      'Zero unauthorized changes — you control every action',
     ],
     benchmarks: [
       { label: 'Avg Wasted Spend Uncovered', value: '23.4%', hint: 'Across accounts spending $5k+/mo' },
@@ -73,11 +73,11 @@ export const PSEO_TOOLS: PSEOTool[] = [
     faqs: [
       {
         q: 'How does this Google Ads audit tool analyze my account?',
-        a: 'The audit connects securely through the official Google Ads API (Reports API v17) using OAuth 2.0. It parses 30 to 90 days of search query logs, Quality Scores, impression share metrics, and conversion tracking data.',
+        a: 'The audit connects securely through Google Ads with direct authorization. It analyzes your recent search queries, Quality Scores, impression share metrics, and conversion tracking data.',
       },
       {
         q: 'Does running an audit change my active ads or bids?',
-        a: 'No. The audit runs strictly in read-only analysis mode. No campaigns, keywords, bids, or budgets are touched without your explicit review and one-click authorization.',
+        a: 'No. The initial scan reviews your account without modifying anything. You maintain complete control over every campaign edit, negative keyword, and budget reallocation with one-click approval.',
       },
       {
         q: 'What campaign types are audited?',
