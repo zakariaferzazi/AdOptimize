@@ -197,24 +197,26 @@ export function Sidebar({
         </nav>
       </div>
 
-      {/* Bottom Section: Compact Secondary Access Dock (Settings strictly inside box) */}
-      <div className="p-3.5 flex flex-col gap-2.5 border-t border-slate-800/60">
-        <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1 rounded-2xl border border-slate-800/80">
+      {/* Bottom Section: Activity, Reports, Settings, Divider, and Legal Pages */}
+      <div className="mt-auto p-4 flex flex-col gap-2 border-t border-slate-800/70 bg-[#0d1117]">
+        {/* Activity, Reports, and Settings Links */}
+        <div className="flex flex-col gap-1">
           <Link
             href="/activity-log"
             onClick={() => {
               if (onSelectTab) onSelectTab('activity_log');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
               pathname === '/activity-log' || currentTab === 'activity_log'
-                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
-            title="Recent Account Activity & Audit History"
           >
-            <History className="w-3.5 h-3.5 mb-1 shrink-0" />
-            <span className="truncate max-w-full text-[10px]">Activity</span>
+            <History className={`w-4 h-4 shrink-0 stroke-[2] ${
+              pathname === '/activity-log' || currentTab === 'activity_log' ? 'text-slate-950' : 'text-slate-400'
+            }`} />
+            <span>Activity Log</span>
           </Link>
 
           <Link
@@ -223,15 +225,16 @@ export function Sidebar({
               if (onSelectTab) onSelectTab('reports');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
               pathname === '/reports' || currentTab === 'reports'
-                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
-            title="Performance Reports"
           >
-            <BarChart3 className="w-3.5 h-3.5 mb-1 shrink-0" />
-            <span className="truncate max-w-full text-[10px]">Reports</span>
+            <BarChart3 className={`w-4 h-4 shrink-0 stroke-[2] ${
+              pathname === '/reports' || currentTab === 'reports' ? 'text-slate-950' : 'text-slate-400'
+            }`} />
+            <span>Reports</span>
           </Link>
 
           <Link
@@ -240,25 +243,30 @@ export function Sidebar({
               if (onSelectTab) onSelectTab('settings');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
               pathname === '/settings' || currentTab === 'settings'
-                ? 'bg-[#00d67d]/15 text-[#00d67d] font-bold shadow-xs'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
-            title="Account Settings"
           >
-            <Settings className="w-3.5 h-3.5 mb-1 shrink-0" />
-            <span className="truncate max-w-full text-[10px]">Settings</span>
+            <Settings className={`w-4 h-4 shrink-0 stroke-[2] ${
+              pathname === '/settings' || currentTab === 'settings' ? 'text-slate-950' : 'text-slate-400'
+            }`} />
+            <span>Settings</span>
           </Link>
         </div>
 
-        <div className="px-2 pt-1 text-[11px] text-slate-500 flex items-center justify-between">
+        {/* Divider line below activity, reports, and settings */}
+        <div className="my-1.5 border-t border-slate-800/80" />
+
+        {/* Legal pages below the line */}
+        <div className="px-1.5 py-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
           <Link
             href="/privacy-policy"
             onClick={() => isMobile && onCloseMobile && onCloseMobile()}
             className="hover:text-slate-300 transition-colors"
           >
-            Privacy Policy
+            Privacy
           </Link>
           <span>·</span>
           <Link
@@ -270,11 +278,19 @@ export function Sidebar({
           </Link>
           <span>·</span>
           <Link
-            href="/pricing"
+            href="/security"
             onClick={() => isMobile && onCloseMobile && onCloseMobile()}
             className="hover:text-slate-300 transition-colors"
           >
-            Pricing
+            Security
+          </Link>
+          <span>·</span>
+          <Link
+            href="/cookie-policy"
+            onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+            className="hover:text-slate-300 transition-colors"
+          >
+            Cookies
           </Link>
         </div>
       </div>

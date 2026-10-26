@@ -365,6 +365,51 @@ export function PerformanceChart({
         </div>
       ) : (
         <>
+          {/* Live Hover/Selected Value Summary Strip (Non-obstructive, shows full context cleanly) */}
+          {hoveredData && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-slate-50/90 rounded-2xl border border-slate-200/80 text-xs mt-3 select-none">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-800 text-xs">
+                  {hoveredData.dateFull}
+                </span>
+                <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-200 font-semibold">
+                  {hoveredData.label}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3.5 text-xs">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-slate-500 text-[11px] font-medium">{getMetricTitle(activeMetric)}:</span>
+                  <span className="font-mono font-bold text-slate-950 text-sm text-emerald-600">
+                    {formatMetricVal(Number(hoveredData.current[activeMetric] || 0), activeMetric)}
+                  </span>
+                </div>
+
+                {Number(hoveredData.previous[activeMetric] || 0) > 0 && (() => {
+                  const curVal = Number(hoveredData.current[activeMetric] || 0);
+                  const prevVal = Number(hoveredData.previous[activeMetric] || 0);
+                  const diffPercent = ((curVal - prevVal) / prevVal) * 100;
+                  const isPositiveChange = diffPercent >= 0;
+                  const isGood = (activeMetric === 'cpa' || activeMetric === 'cpc') ? !isPositiveChange : isPositiveChange;
+                  return (
+                    <div className={`flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      isGood ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'
+                    }`}>
+                      {isPositiveChange ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      <span>{isPositiveChange ? '+' : ''}{diffPercent.toFixed(1)}% vs prev</span>
+                    </div>
+                  );
+                })()}
+
+                <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-500 pl-3 border-l border-slate-200">
+                  <span>Spend: <strong className="text-slate-800 font-mono">${Number(hoveredData.current.spend || 0).toFixed(0)}</strong></span>
+                  <span>Conv: <strong className="text-slate-800 font-mono">{Number(hoveredData.current.conversions || 0).toFixed(0)}</strong></span>
+                  <span>ROAS: <strong className="text-slate-800 font-mono">{Number(hoveredData.current.roas || 0).toFixed(1)}x</strong></span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Interactive Chart Canvas with Smooth Cursor Tracking */}
           <div
             ref={chartContainerRef}
@@ -385,7 +430,7 @@ export function PerformanceChart({
               setHoverIndex(idx);
             }}
             onMouseLeave={() => setHoverIndex(null)}
-            className="relative w-full h-[250px] mt-4 cursor-crosshair group select-none"
+            className="relative w-full h-[220px] mt-3 cursor-crosshair group select-none"
           >
             {/* Y Axis Guide Lines */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-slate-400 font-mono">
@@ -411,199 +456,112 @@ export function PerformanceChart({
             >
               <defs>
                 <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d67d" stopOpacity="0.28" />
-                  <stop offset="60%" stopColor="#00d67d" stopOpacity="0.08" />
+                  <stop offset="0%" stopColor="#00d67d" stopOpacity="0.10" />
+                  <stop offset="70%" stopColor="#00d67d" stopOpacity="0.02" />
                   <stop offset="100%" stopColor="#00d67d" stopOpacity="0.0" />
                 </linearGradient>
-
-                <filter id="trendGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="3" stdDeviation="3.5" floodColor="#00d67d" floodOpacity="0.35" />
-                </filter>
               </defs>
 
               {/* Gradient Area under current curve */}
               <path d={primaryAreaPath} fill="url(#emeraldGradient)" />
 
-              {/* Secondary comparison line (Dashed Slate) */}
+              {/* Secondary comparison line (Subtle Dashed Slate) */}
               <path
                 d={secondaryPath}
                 fill="none"
                 stroke="#94a3b8"
-                strokeWidth="2"
-                strokeDasharray="4 4"
+                strokeWidth="1.2"
+                strokeDasharray="3 3"
                 strokeLinecap="round"
-                className="opacity-75"
+                className="opacity-45"
               />
 
-              {/* Primary current line (Vivid Emerald Green with Glow) */}
+              {/* Primary current line (Smaller, refined, crisp 1.8px line) */}
               <path
                 d={primaryPath}
                 fill="none"
                 stroke="#00d67d"
-                strokeWidth="3.4"
+                strokeWidth="1.8"
                 strokeLinecap="round"
-                filter="url(#trendGlow)"
               />
 
-              {/* Interactive vertical hover tracking line */}
+              {/* Interactive vertical hover tracking guide */}
               {hoveredPoint && (
                 <g className="transition-all duration-75">
                   <line
                     x1={hoveredPoint.x}
-                    y1={paddingY - 10}
+                    y1={paddingY - 12}
                     x2={hoveredPoint.x}
                     y2={height - paddingY + 5}
-                    stroke="#00d67d"
-                    strokeDasharray="3 3"
-                    strokeWidth="1.75"
-                    className="opacity-90"
+                    stroke="#94a3b8"
+                    strokeDasharray="2 2"
+                    strokeWidth="1"
+                    className="opacity-60"
                   />
                   {/* Secondary Line Intersection Dot */}
                   {secondaryCoords[hoveredIdx] && (
                     <circle
                       cx={secondaryCoords[hoveredIdx].x}
                       cy={secondaryCoords[hoveredIdx].y}
-                      r={4}
-                      fill="#64748b"
-                      stroke="#ffffff"
-                      strokeWidth={2}
+                      r={3}
+                      fill="#ffffff"
+                      stroke="#94a3b8"
+                      strokeWidth={1.5}
                     />
                   )}
-                  {/* Glowing Active Ring and Dot on Trend Line */}
+                  {/* Small, clean dot on hovered trend point */}
                   <circle
                     cx={hoveredPoint.x}
                     cy={hoveredPoint.y}
-                    r={9}
+                    r={6}
                     fill="#00d67d"
-                    opacity={0.25}
-                    className="animate-pulse"
+                    opacity={0.2}
                   />
                   <circle
                     cx={hoveredPoint.x}
                     cy={hoveredPoint.y}
-                    r={5.5}
-                    fill="#00d67d"
-                    stroke="#ffffff"
-                    strokeWidth={2.5}
+                    r={3.5}
+                    fill="#ffffff"
+                    stroke="#00d67d"
+                    strokeWidth={2}
                   />
                 </g>
               )}
-
-              {/* Static subtle point circles for visual rhythm */}
-              {primaryCoords.map((pt, idx) => (
-                <circle
-                  key={idx}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={hoveredIdx === idx ? 6 : 3}
-                  fill={hoveredIdx === idx ? '#00d67d' : '#ffffff'}
-                  stroke="#00d67d"
-                  strokeWidth={hoveredIdx === idx ? 3 : 1.5}
-                  className="transition-all duration-150"
-                />
-              ))}
             </svg>
 
-            {/* Rich Interactive Tooltip following the cursor */}
+            {/* Compact Top Micro-Badge: Pinned to the top edge, NEVER covers the line or hides anything */}
             {hoveredPoint && hoveredData && (() => {
               const curVal = Number(hoveredData.current[activeMetric] || 0);
               const prevVal = Number(hoveredData.previous[activeMetric] || 0);
               const diffPercent = prevVal > 0 ? ((curVal - prevVal) / prevVal) * 100 : 0;
-              const isPositiveChange = diffPercent >= 0;
               const leftPercent = (hoveredPoint.x / width) * 100;
-              const isAlignRight = leftPercent > 70;
-              const isAlignLeft = leftPercent < 30;
+              const isAlignRight = leftPercent > 75;
+              const isAlignLeft = leftPercent < 25;
 
               return (
                 <div
-                  className={`absolute pointer-events-none transition-all duration-75 z-30 ${
+                  className={`absolute pointer-events-none transition-all duration-75 z-20 top-1.5 ${
                     isAlignRight
                       ? '-translate-x-[92%]'
                       : isAlignLeft
                       ? '-translate-x-[8%]'
                       : '-translate-x-1/2'
                   }`}
-                  style={{
-                    left: `${leftPercent}%`,
-                    top: `${Math.max(4, Math.min(65, (hoveredPoint.y / height) * 100 - 32))}%`,
-                  }}
+                  style={{ left: `${leftPercent}%` }}
                 >
-                  <div className="bg-[#0b0f17] text-white rounded-2xl p-3 shadow-2xl border border-slate-800 text-xs w-64 space-y-2 backdrop-blur-md">
-                    {/* Date Header & Interval */}
-                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
-                      <span className="text-[11px] font-bold text-slate-200">
-                        {hoveredData.dateFull}
+                  <div className="bg-slate-900/90 text-white rounded-lg px-2.5 py-1 shadow-md border border-slate-800 text-[11px] font-mono flex items-center gap-2 whitespace-nowrap backdrop-blur-xs">
+                    <span className="text-slate-300 font-sans text-[10px]">{hoveredData.label}:</span>
+                    <span className="font-bold text-[#00d67d]">{formatMetricVal(curVal, activeMetric)}</span>
+                    {prevVal > 0 && (
+                      <span className={`text-[10px] font-bold ${
+                        (activeMetric === 'cpa' || activeMetric === 'cpc')
+                          ? (diffPercent >= 0 ? 'text-rose-400' : 'text-[#00d67d]')
+                          : (diffPercent >= 0 ? 'text-[#00d67d]' : 'text-rose-400')
+                      }`}>
+                        {diffPercent >= 0 ? '+' : ''}{diffPercent.toFixed(1)}%
                       </span>
-                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                        {hoveredData.label}
-                      </span>
-                    </div>
-
-                    {/* Active Metric Highlight */}
-                    <div className="flex items-baseline justify-between pt-0.5">
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase font-semibold">
-                          {getMetricTitle(activeMetric)}
-                        </div>
-                        <div className="text-base font-extrabold font-mono text-[#00d67d]">
-                          {formatMetricVal(curVal, activeMetric)}
-                        </div>
-                      </div>
-
-                      {prevVal > 0 && (
-                        <div
-                          className={`flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            (activeMetric === 'cpa' || activeMetric === 'cpc')
-                              ? isPositiveChange
-                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                : 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
-                              : isPositiveChange
-                              ? 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
-                              : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                          }`}
-                        >
-                          {isPositiveChange ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          <span>{isPositiveChange ? '+' : ''}{diffPercent.toFixed(1)}%</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Previous comparison subtext */}
-                    <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5 border-t border-slate-800/60">
-                      <span>Previous Period:</span>
-                      <span className="font-mono text-slate-300">
-                        {formatMetricVal(prevVal, activeMetric)}
-                      </span>
-                    </div>
-
-                    {/* Quick Multi-Metric Breakdown Grid */}
-                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-slate-800/80 text-[10px]">
-                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                        <div className="text-slate-400 text-[9px]">Spend</div>
-                        <div className="font-mono font-bold text-slate-200 mt-0.5">
-                          ${Number(hoveredData.current.spend || 0).toFixed(0)}
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                        <div className="text-slate-400 text-[9px]">Conv.</div>
-                        <div className="font-mono font-bold text-slate-200 mt-0.5">
-                          {Number(hoveredData.current.conversions || 0).toFixed(0)}
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
-                        <div className="text-slate-400 text-[9px]">ROAS</div>
-                        <div className="font-mono font-bold text-slate-200 mt-0.5">
-                          {Number(hoveredData.current.roas || 0).toFixed(1)}x
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                  {/* Tooltip pointer arrow */}
-                  <div className={`w-2.5 h-2.5 bg-[#0b0f17] border-r border-b border-slate-800 rotate-45 -mt-1 ${
-                    isAlignRight ? 'ml-auto mr-6' : isAlignLeft ? 'ml-6' : 'mx-auto'
-                  }`} />
                 </div>
               );
             })()}
