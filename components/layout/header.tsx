@@ -33,6 +33,7 @@ interface HeaderProps {
   onSignInWithGoogle: () => void;
   onSignOut: () => void;
   onClearData?: () => void;
+  headerExtra?: React.ReactNode;
 }
 
 export function Header({
@@ -50,6 +51,7 @@ export function Header({
   onSignInWithGoogle,
   onSignOut,
   onClearData,
+  headerExtra,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -168,6 +170,8 @@ export function Header({
             </div>
           )}
         </div>
+
+        {headerExtra}
       </div>
 
       {/* Right: Actions, Search, Alerts & Real Firebase Profile */}

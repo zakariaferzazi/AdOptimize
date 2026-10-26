@@ -23,9 +23,10 @@ import { acquireGoogleAdsToken, clearStoredGoogleAdsToken } from '@/lib/google-i
 interface AppShellProps {
   children: React.ReactNode;
   title?: string;
+  headerExtra?: React.ReactNode;
 }
 
-export function AppShell({ children, title }: AppShellProps) {
+export function AppShell({ children, title, headerExtra }: AppShellProps) {
   const pathname = usePathname();
   const {
     state,
@@ -146,6 +147,7 @@ export function AppShell({ children, title }: AppShellProps) {
           onSignInWithGoogle={handleSignInWithGoogle}
           onSignOut={handleSignOut}
           onClearData={handleResetData}
+          headerExtra={headerExtra}
         />
 
         {/* Dynamic View Container */}

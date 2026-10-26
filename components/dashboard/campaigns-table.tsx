@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Search,
   Layers,
@@ -17,8 +17,11 @@ import {
   Zap,
   Play,
   Pause,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
-import { Campaign, CampaignStatus } from '@/types/adoptimize';
+import { Campaign, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
 
 interface CampaignsTableProps {
   campaigns: Campaign[];
@@ -27,7 +30,13 @@ interface CampaignsTableProps {
   onOpenSyncCampaigns?: () => void;
   onToggleStatus?: (campaignId: string) => void;
   isSyncing?: boolean;
+  selectedCampaignId?: string; // If filtered by top campaign selector
+  period?: DateRangePeriod;
+  customDays?: number;
 }
+
+type SortField = 'name' | 'budgetDaily' | 'spend' | 'conversions' | 'cpa' | 'roas';
+type SortOrder = 'asc' | 'desc';
 
 export function CampaignsTable({
   campaigns,
@@ -36,67 +45,148 @@ export function CampaignsTable({
   onOpenSyncCampaigns,
   onToggleStatus,
   isSyncing = false,
+  selectedCampaignId = 'ALL',
+  period = 'LAST_30_DAYS',
+  customDays = 14,
 }: CampaignsTableProps) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
+  const [sortField, setSortField] = useState<SortField>('spend');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  const filteredCampaigns = campaigns.filter((c) => {
-    if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
-    return true;
-  });
+  // Multiplier scale for date range
+  const periodMultiplier = useMemo(() => {
+    switch (period) {
+      case 'TODAY':
+      case 'YESTERDAY':
+        return 1 / 30;
+      case 'LAST_7_DAYS':
+        return 7 / 30;
+      case 'THIS_MONTH':
+        return 26 / 30;
+      case 'CUSTOM':
+        return (customDays || 14) / 30;
+      case 'LAST_MONTH':
+      case 'LAST_30_DAYS':
+      case 'ALL_TIME':
+      default:
+        return 1.0;
+    }
+  }, [period, customDays]);
 
   const enabledCount = campaigns.filter((c) => c.status === 'ENABLED').length;
   const pausedCount = campaigns.filter((c) => c.status === 'PAUSED').length;
 
-  // Mini sparkline helper
-  const renderSparkline = (points: number[], isPositive: boolean) => {
-    if (!points || points.length === 0) return null;
-    const min = Math.min(...points);
-    const max = Math.max(...points);
-    const range = max - min || 1;
-    const width = 60;
-    const height = 20;
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
 
-    const pathData = points
-      .map((p, i) => {
-        const x = (i / (points.length - 1)) * width;
-        const y = height - ((p - min) / range) * (height - 4) - 2;
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  const processedCampaigns = useMemo(() => {
+    return campaigns
+      .filter((c) => {
+        // If a specific campaign is selected at the top, prioritize it
+        if (selectedCampaignId !== 'ALL' && c.id !== selectedCampaignId) {
+          return false;
+        }
+        // Status filter
+        if (statusFilter !== 'ALL' && c.status !== statusFilter) {
+          return false;
+        }
+        // Search filter
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          return c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
+        }
+        return true;
       })
-      .join(' ');
+      .map((c) => {
+        // Scaled values for selected period
+        const spend = Number(c.spend || 0) * periodMultiplier;
+        const conversions = Math.round(Number(c.conversions || 0) * periodMultiplier);
+        const cpa = conversions > 0 ? spend / conversions : Number(c.cpa || 0);
+        const roas = Number(c.roas || 0);
 
-    return (
-      <svg width={width} height={height} className="overflow-visible">
-        <path
-          d={pathData}
-          fill="none"
-          stroke={isPositive ? '#00d67d' : '#f43f5e'}
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
+        return {
+          ...c,
+          displaySpend: spend,
+          displayConversions: conversions,
+          displayCpa: cpa,
+          displayRoas: roas,
+        };
+      })
+      .sort((a, b) => {
+        let valA: any = a[sortField];
+        let valB: any = b[sortField];
+
+        if (sortField === 'spend') {
+          valA = a.displaySpend;
+          valB = b.displaySpend;
+        } else if (sortField === 'conversions') {
+          valA = a.displayConversions;
+          valB = b.displayConversions;
+        } else if (sortField === 'cpa') {
+          valA = a.displayCpa;
+          valB = b.displayCpa;
+        }
+
+        if (typeof valA === 'string') {
+          return sortOrder === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        }
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      });
+  }, [campaigns, selectedCampaignId, statusFilter, searchQuery, sortField, sortOrder, periodMultiplier]);
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-300 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-slate-900 ml-1 inline" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-slate-900 ml-1 inline" />
     );
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs select-none">
-      {/* Table Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+    <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs select-none">
+      {/* Table Header & Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-slate-100 gap-3">
         <div>
           <div className="flex items-center gap-2.5">
             <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              Google Ads Active Campaigns
+              Google Ads Campaigns
             </h3>
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-              {campaigns.length} Total
+              {processedCampaigns.length} shown
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Performance metrics, spend, and status from your connected Google Ads account.
+            Real campaign metrics, daily budgets, and live statuses synced from ads.google.com.
           </p>
         </div>
 
+        {/* Search & Status Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Status Quick Filter Tabs */}
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Filter campaigns..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d] focus:bg-white w-40 sm:w-48 transition-all"
+            />
+          </div>
+
+          {/* Status Filter Tabs */}
           <div className="flex items-center p-0.5 bg-slate-100 rounded-xl text-xs font-medium">
             <button
               onClick={() => setStatusFilter('ALL')}
@@ -132,31 +222,10 @@ export function CampaignsTable({
             </button>
           </div>
 
-          {onOpenSyncCampaigns && (
-            <button
-              onClick={onOpenSyncCampaigns}
-              disabled={isSyncing}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Campaigns'}</span>
-            </button>
-          )}
-
-          <a
-            href="https://ads.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 transition-colors"
-            title="Open Google Ads Manager"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-
           {onViewAll && (
             <button
               onClick={onViewAll}
-              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors ml-1 cursor-pointer"
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors ml-1 cursor-pointer"
             >
               <span>View All</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -171,65 +240,69 @@ export function CampaignsTable({
           <thead>
             <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               <th className="py-3 px-3">Status</th>
-              <th className="py-3 px-3">Campaign</th>
-              <th className="py-3 px-3">Type</th>
-              <th className="py-3 px-3 text-right">Daily Budget</th>
-              <th className="py-3 px-3 text-right">Spend</th>
-              <th className="py-3 px-3 text-right">Conversions</th>
-              <th className="py-3 px-3 text-right">CPA</th>
-              <th className="py-3 px-3 text-right">ROAS</th>
-              <th className="py-3 px-3 text-center">Trend</th>
+              <th
+                onClick={() => handleSort('name')}
+                className="py-3 px-3 cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                Campaign {renderSortIcon('name')}
+              </th>
+              <th
+                onClick={() => handleSort('budgetDaily')}
+                className="py-3 px-3 text-right cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                Daily Budget {renderSortIcon('budgetDaily')}
+              </th>
+              <th
+                onClick={() => handleSort('spend')}
+                className="py-3 px-3 text-right cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                Spend {renderSortIcon('spend')}
+              </th>
+              <th
+                onClick={() => handleSort('conversions')}
+                className="py-3 px-3 text-right cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                Conversions {renderSortIcon('conversions')}
+              </th>
+              <th
+                onClick={() => handleSort('cpa')}
+                className="py-3 px-3 text-right cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                CPA {renderSortIcon('cpa')}
+              </th>
+              <th
+                onClick={() => handleSort('roas')}
+                className="py-3 px-3 text-right cursor-pointer group hover:text-slate-700 transition-colors"
+              >
+                ROAS {renderSortIcon('roas')}
+              </th>
               <th className="py-3 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/80 text-xs">
-            {filteredCampaigns.length === 0 ? (
+            {processedCampaigns.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-slate-400">
-                  <div className="max-w-md mx-auto space-y-2.5">
-                    <p className="text-xs font-medium text-slate-700">
+                <td colSpan={8} className="py-10 text-center text-slate-400">
+                  <div className="max-w-md mx-auto space-y-2">
+                    <p className="text-xs font-semibold text-slate-700">
                       {campaigns.length === 0
-                        ? 'No active campaigns detected in your connected Google Ads account yet.'
-                        : `No campaigns currently matching the "${statusFilter.toLowerCase()}" filter.`}
+                        ? 'No active campaigns detected in your connected Google Ads account.'
+                        : 'No campaigns match the active search or status filters.'}
                     </p>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Campaigns are created inside Google Ads. Once created, click below to sync them into AdOptimize for continuous monitoring.
+                    <p className="text-[11px] text-slate-500">
+                      Clear the search query or change status filter to inspect your ad groups.
                     </p>
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                      {onOpenSyncCampaigns && (
-                        <button
-                          onClick={onOpenSyncCampaigns}
-                          disabled={isSyncing}
-                          className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-2"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 text-slate-950 ${isSyncing ? 'animate-spin' : ''}`} />
-                          <span>{isSyncing ? 'Syncing...' : 'Sync Campaigns from Google Ads'}</span>
-                        </button>
-                      )}
-                      <a
-                        href="https://ads.google.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
-                      >
-                        <span>Open ads.google.com</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
                   </div>
                 </td>
               </tr>
             ) : (
-              filteredCampaigns.map((camp) => {
-                const isHealthy = camp.healthStatus === 'HEALTHY';
-                const isCritical = camp.healthStatus === 'CRITICAL';
-                const isOpportunity = camp.healthStatus === 'OPPORTUNITY';
+              processedCampaigns.map((camp) => {
+                const isEnabled = camp.status === 'ENABLED';
 
                 return (
                   <tr
                     key={camp.id}
-                    onClick={() => onSelectCampaign(camp)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                    className="hover:bg-slate-50/80 transition-colors group"
                   >
                     {/* Status Pill & Toggle */}
                     <td className="py-3.5 px-3">
@@ -242,128 +315,102 @@ export function CampaignsTable({
                               onToggleStatus(camp.id);
                             }}
                             className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                              camp.status === 'ENABLED'
+                              isEnabled
                                 ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
                             }`}
-                            title={`Click to ${camp.status === 'ENABLED' ? 'Pause' : 'Enable'} campaign`}
+                            title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign`}
                           >
-                            {camp.status === 'ENABLED' ? (
+                            {isEnabled ? (
                               <>
-                                <Play className="w-2.5 h-2.5 fill-emerald-600" />
-                                <span>Enabled</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>ENABLED</span>
                               </>
                             ) : (
                               <>
-                                <Pause className="w-2.5 h-2.5 fill-slate-400" />
-                                <span>Paused</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                <span>PAUSED</span>
                               </>
                             )}
                           </button>
                         ) : (
                           <span
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 ${
-                              camp.status === 'ENABLED'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                                : 'bg-slate-100 text-slate-500 border border-slate-200/60'
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                              isEnabled
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-100 text-slate-500'
                             }`}
                           >
-                            {camp.status === 'ENABLED' ? 'Enabled' : 'Paused'}
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isEnabled ? 'bg-emerald-500' : 'bg-slate-400'
+                              }`}
+                            />
+                            <span>{camp.status}</span>
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* Campaign Name & Health indicator */}
+                    {/* Campaign Name (Clickable link to open details) */}
                     <td className="py-3.5 px-3">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            isCritical
-                              ? 'bg-rose-500 ring-4 ring-rose-100'
-                              : isOpportunity
-                              ? 'bg-emerald-500 ring-4 ring-emerald-100'
-                              : isHealthy
-                              ? 'bg-[#00d67d] ring-4 ring-emerald-50'
-                              : 'bg-amber-500 ring-4 ring-amber-100'
-                          }`}
-                        />
-                        <div>
-                          <div className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-                            {camp.name}
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            {camp.keywordsCount} keywords · {camp.activeAdsCount} active ads
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Campaign Type */}
-                    <td className="py-3.5 px-3">
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 uppercase tracking-tight">
-                        {String(camp.type || 'SEARCH').replace(/_/g, ' ')}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectCampaign(camp)}
+                        className="text-left font-bold text-slate-900 hover:text-emerald-600 transition-colors cursor-pointer group-hover:underline flex items-center gap-1.5 max-w-xs sm:max-w-md truncate"
+                      >
+                        <span className="truncate">{camp.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded shrink-0">
+                          {camp.type.replace('_', ' ')}
+                        </span>
+                      </button>
                     </td>
 
                     {/* Daily Budget */}
-                    <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700 tabular-nums">
+                    <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
                       ${Number(camp.budgetDaily || 0).toFixed(2)}/d
                     </td>
 
                     {/* Spend */}
-                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                      ${Number(camp.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                      ${camp.displaySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Conversions */}
-                    <td className="py-3.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
-                      {camp.conversions || 0}
+                    <td className="py-3.5 px-3 text-right font-mono font-semibold text-slate-800">
+                      {camp.displayConversions.toLocaleString()}
                     </td>
 
                     {/* CPA */}
-                    <td className="py-3.5 px-3 text-right font-mono font-bold tabular-nums">
-                      <span className={isCritical ? 'text-rose-600' : 'text-slate-900'}>
-                        ${Number(camp.cpa || 0).toFixed(2)}
-                      </span>
+                    <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
+                      {camp.displayConversions > 0 ? `$${camp.displayCpa.toFixed(2)}` : '—'}
                     </td>
 
                     {/* ROAS */}
-                    <td className="py-3.5 px-3 text-right font-mono font-bold tabular-nums">
+                    <td className="py-3.5 px-3 text-right font-mono font-bold">
                       <span
-                        className={`px-2 py-0.5 rounded-md text-[11px] ${
-                          Number(camp.roas || 0) >= 4.0
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : Number(camp.roas || 0) >= 2.0
-                            ? 'bg-slate-100 text-slate-800'
-                            : 'bg-rose-50 text-rose-700'
-                        }`}
+                        className={
+                          camp.displayRoas >= 3.5
+                            ? 'text-emerald-600'
+                            : camp.displayRoas >= 2.0
+                            ? 'text-slate-800'
+                            : 'text-rose-600'
+                        }
                       >
-                        {Number(camp.roas || 0).toFixed(2)}x
+                        {camp.displayRoas > 0 ? `${camp.displayRoas.toFixed(2)}x` : '—'}
                       </span>
                     </td>
 
-                    {/* Trend Sparkline */}
-                    <td className="py-3.5 px-3 text-center">
-                      <div className="flex justify-center">
-                        {renderSparkline(camp.trendPoints, camp.roas >= 2.0)}
-                      </div>
-                    </td>
-
-                    {/* Action Buttons */}
+                    {/* Actions: Analyze */}
                     <td className="py-3.5 px-3 text-right">
-                      <div className="flex items-center justify-end">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectCampaign(camp);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 group-hover:bg-[#00d67d] group-hover:text-slate-950 text-slate-700 text-xs font-semibold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                        >
-                          <span>Analyze</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onSelectCampaign(camp)}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <span>Analyze</span>
+                        <ArrowUpRight className="w-3 h-3 text-slate-500" />
+                      </button>
                     </td>
                   </tr>
                 );

@@ -53,13 +53,14 @@ export function MetricCard({
 
         <div className="min-w-0 flex-1">
           <div
-            className={`text-xs font-medium truncate ${
-              isDark ? 'text-slate-400' : 'text-slate-500'
+            className={`text-xs font-semibold leading-snug ${
+              isDark ? 'text-slate-300' : 'text-slate-600'
             }`}
+            title={label}
           >
             {label}
           </div>
-          <div className="text-2xl font-bold tracking-tight font-sans tabular-nums mt-0.5">
+          <div className="text-2xl font-bold tracking-tight font-sans tabular-nums mt-0.5 text-slate-900">
             {value}
           </div>
         </div>

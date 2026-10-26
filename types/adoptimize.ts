@@ -302,7 +302,35 @@ export interface ChatMessage {
   modelUsed?: string;
 }
 
-export type DateRangePeriod = 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'ALL_TIME' | 'PREVIOUS_PERIOD' | 'CUSTOM';
+export type DateRangePeriod =
+  | 'TODAY'
+  | 'YESTERDAY'
+  | 'LAST_7_DAYS'
+  | 'LAST_30_DAYS'
+  | 'THIS_MONTH'
+  | 'LAST_MONTH'
+  | 'ALL_TIME'
+  | 'PREVIOUS_PERIOD'
+  | 'CUSTOM';
+
+export type KpiMetricId =
+  | 'spend'
+  | 'impressions'
+  | 'clicks'
+  | 'ctr'
+  | 'cpc'
+  | 'conversions'
+  | 'conversionRate'
+  | 'cpa'
+  | 'conversionValue'
+  | 'roas';
+
+export interface KpiCardConfig {
+  id: KpiMetricId;
+  label: string;
+  enabled: boolean;
+  order: number;
+}
 
 export interface PlanFeature {
   name: string;
