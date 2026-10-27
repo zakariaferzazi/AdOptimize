@@ -13,6 +13,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Campaign, PerformanceMetric, AIInsight, GoogleAdsAccount } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface ReportsViewProps {
   campaigns: Campaign[];
@@ -22,6 +23,7 @@ interface ReportsViewProps {
 }
 
 export function ReportsView({ campaigns, metrics, insights, account }: ReportsViewProps) {
+  const sym = getCurrencySymbol(account.currency);
   const [reportPeriod, setReportPeriod] = useState('Last 7 Days');
 
   const handlePrint = () => {
@@ -123,13 +125,13 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             ) : (
               <>
                 <p>
-                  Over the reporting period, your account deployed <strong>${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong> in advertising capital across {campaigns.length} campaigns, generating <strong>{metrics.conversions} conversions</strong> at a blended CPA of <strong>${metrics.cpa.toFixed(2)}</strong> and an aggregate ROAS of <strong>{metrics.roas.toFixed(2)}x</strong>.
+                  Over the reporting period, your account deployed <strong>{sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong> in advertising capital across {campaigns.length} campaigns, generating <strong>{metrics.conversions} conversions</strong> at a blended CPA of <strong>{sym}{metrics.cpa.toFixed(2)}</strong> and an aggregate ROAS of <strong>{metrics.roas.toFixed(2)}x</strong>.
                 </p>
                 {topCampaign && (
                   <p>
-                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaign.name}&quot;</em> generated {topCampaign.conversions} conversions with a strong ROAS of <strong>{topCampaign.roas.toFixed(2)}x</strong> at ${topCampaign.cpa.toFixed(2)} CPA.
+                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaign.name}&quot;</em> generated {topCampaign.conversions} conversions with a strong ROAS of <strong>{topCampaign.roas.toFixed(2)}x</strong> at {sym}{topCampaign.cpa.toFixed(2)} CPA.
                     {lowestCampaign && lowestCampaign.id !== topCampaign.id && lowestCampaign.spend > 0 && (
-                      <span> In contrast, <em>&quot;{lowestCampaign.name}&quot;</em> absorbed ${lowestCampaign.spend.toLocaleString()} with {lowestCampaign.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
+                      <span> In contrast, <em>&quot;{lowestCampaign.name}&quot;</em> absorbed {sym}{lowestCampaign.spend.toLocaleString()} with {lowestCampaign.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
                     )}
                   </p>
                 )}
@@ -147,7 +149,7 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="text-[11px] text-slate-500 font-medium">Total Spend</div>
               <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                ${metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -161,7 +163,7 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="text-[11px] text-slate-500 font-medium">Blended CPA</div>
               <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                ${metrics.cpa.toFixed(2)}
+                {sym}{metrics.cpa.toFixed(2)}
               </div>
             </div>
 
@@ -203,9 +205,9 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
                     <tr key={c.id}>
                       <td className="py-2.5 px-3 font-sans font-bold text-slate-900">{c.name}</td>
                       <td className="py-2.5 px-3 font-sans text-slate-500">{c.type}</td>
-                      <td className="py-2.5 px-3 text-right">${c.spend.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right">{sym}{c.spend.toLocaleString()}</td>
                       <td className="py-2.5 px-3 text-right font-bold text-slate-900">{c.conversions}</td>
-                      <td className="py-2.5 px-3 text-right">${c.cpa.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right">{sym}{c.cpa.toFixed(2)}</td>
                       <td className="py-2.5 px-3 text-right text-emerald-600 font-bold">{c.roas.toFixed(2)}x</td>
                     </tr>
                   ))

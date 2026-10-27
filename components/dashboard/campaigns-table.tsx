@@ -22,6 +22,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import { Campaign, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface CampaignsTableProps {
   campaigns: Campaign[];
@@ -33,6 +34,7 @@ interface CampaignsTableProps {
   selectedCampaignId?: string; // If filtered by top campaign selector
   period?: DateRangePeriod;
   customDays?: number;
+  currency?: string;
 }
 
 type SortField = 'name' | 'budgetDaily' | 'spend' | 'conversions' | 'cpa' | 'roas';
@@ -48,6 +50,7 @@ export function CampaignsTable({
   selectedCampaignId = 'ALL',
   period = 'LAST_30_DAYS',
   customDays = 14,
+  currency = 'USD',
 }: CampaignsTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
@@ -368,12 +371,12 @@ export function CampaignsTable({
 
                     {/* Daily Budget */}
                     <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
-                      ${Number(camp.budgetDaily || 0).toFixed(2)}/d
+                      {getCurrencySymbol(currency)}{Number(camp.budgetDaily || 0).toFixed(2)}/d
                     </td>
 
                     {/* Spend */}
                     <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                      ${camp.displaySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {getCurrencySymbol(currency)}{camp.displaySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
 
                     {/* Conversions */}
@@ -383,7 +386,7 @@ export function CampaignsTable({
 
                     {/* CPA */}
                     <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
-                      {camp.displayConversions > 0 ? `$${camp.displayCpa.toFixed(2)}` : '—'}
+                      {camp.displayConversions > 0 ? `${getCurrencySymbol(currency)}${camp.displayCpa.toFixed(2)}` : '—'}
                     </td>
 
                     {/* ROAS */}

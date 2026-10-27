@@ -264,6 +264,9 @@ export async function queryLiveCampaigns(
     // Google Ads Query Language (GAQL)
     const gaqlQuery = `
       SELECT
+        customer.currency_code,
+        customer.descriptive_name,
+        customer.time_zone,
         campaign.id,
         campaign.name,
         campaign.status,
@@ -594,10 +597,14 @@ export async function queryLiveCampaigns(
 
       const parsedCampaigns: any[] = [];
       const resultsBatches = Array.isArray(data) ? data : [data];
+      let detectedCurrency: string | undefined = undefined;
 
       for (const batch of resultsBatches) {
         const results = batch.results || [];
         for (const row of results) {
+          if (row.customer?.currencyCode && !detectedCurrency) {
+            detectedCurrency = String(row.customer.currencyCode).toUpperCase().trim();
+          }
           const camp = row.campaign || {};
           const allTimeMetrics = row.metrics || {};
           const budget = row.campaignBudget || {};
@@ -831,6 +838,7 @@ export async function queryLiveCampaigns(
         keywords: liveKeywords,
         searchTerms: liveSearchTerms,
         loginCustomerIdUsed: discoveredLoginCid,
+        currency: detectedCurrency,
       };
     }
 
@@ -859,6 +867,7 @@ export async function verifyCustomerAccess(
   keywords?: any[];
   searchTerms?: any[];
   loginCustomerIdUsed?: string;
+  currency?: string;
   statusCode?: number;
   details?: string;
   accessibleCustomers?: string[];
@@ -877,6 +886,7 @@ export async function verifyCustomerAccess(
       keywords: liveResult.keywords || [],
       searchTerms: liveResult.searchTerms || [],
       loginCustomerIdUsed: liveResult.loginCustomerIdUsed,
+      currency: liveResult.currency,
       statusCode: 200,
     };
   }
@@ -918,6 +928,7 @@ export async function verifyCustomerAccess(
           keywords: retryResult.keywords || [],
           searchTerms: retryResult.searchTerms || [],
           loginCustomerIdUsed: retryResult.loginCustomerIdUsed || cleanCustomerId,
+          currency: retryResult.currency,
           statusCode: 200,
         };
       }
@@ -927,6 +938,7 @@ export async function verifyCustomerAccess(
         keywords: retryResult.keywords || [],
         searchTerms: retryResult.searchTerms || [],
         loginCustomerIdUsed: cleanCustomerId,
+        currency: retryResult.currency,
         reason: retryResult.error,
         statusCode: retryResult.statusCode || 200,
         details: retryResult.details,

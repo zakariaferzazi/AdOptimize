@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { ChevronDown, ArrowUpRight, TrendingUp, TrendingDown, Layers, Calendar, DollarSign, Target, MousePointer } from 'lucide-react';
 import { DateRangePeriod, Campaign } from '@/types/adoptimize';
 import { useClickOutside } from '@/hooks/use-click-outside';
+import { formatCurrency, getCurrencySymbol } from '@/lib/metrics-calculator';
 
 export type ChartMetric = 'spend' | 'conversionValue' | 'conversions' | 'cpa' | 'roas' | 'ctr' | 'cpc';
 
@@ -12,6 +13,7 @@ interface PerformanceChartProps {
   onSelectPeriod: (period: DateRangePeriod) => void;
   campaigns?: Campaign[];
   customDays?: number;
+  currency?: string;
 }
 
 export function PerformanceChart({
@@ -19,6 +21,7 @@ export function PerformanceChart({
   onSelectPeriod,
   campaigns = [],
   customDays = 14,
+  currency = 'USD',
 }: PerformanceChartProps) {
   const [activeMetric, setActiveMetric] = useState<ChartMetric>('spend');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -161,10 +164,10 @@ export function PerformanceChart({
     switch (metric) {
       case 'spend':
       case 'conversionValue':
-        return `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatCurrency(val, currency, 2);
       case 'cpa':
       case 'cpc':
-        return `$${val.toFixed(2)}`;
+        return formatCurrency(val, currency, 2);
       case 'roas':
         return `${val.toFixed(2)}x`;
       case 'ctr':
@@ -402,7 +405,7 @@ export function PerformanceChart({
                 })()}
 
                 <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-500 pl-3 border-l border-slate-200">
-                  <span>Spend: <strong className="text-slate-800 font-mono">${Number(hoveredData.current.spend || 0).toFixed(0)}</strong></span>
+                  <span>Spend: <strong className="text-slate-800 font-mono">{getCurrencySymbol(currency)}{Number(hoveredData.current.spend || 0).toFixed(0)}</strong></span>
                   <span>Conv: <strong className="text-slate-800 font-mono">{Number(hoveredData.current.conversions || 0).toFixed(0)}</strong></span>
                   <span>ROAS: <strong className="text-slate-800 font-mono">{Number(hoveredData.current.roas || 0).toFixed(1)}x</strong></span>
                 </div>

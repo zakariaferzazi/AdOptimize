@@ -17,9 +17,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Campaign, CampaignType, CampaignStatus } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface CampaignsFullViewProps {
   campaigns: Campaign[];
+  currency?: string;
   onSelectCampaign: (campaign: Campaign) => void;
   onToggleStatus: (campaignId: string) => void;
   onOpenSyncCampaigns?: () => void;
@@ -29,6 +31,7 @@ interface CampaignsFullViewProps {
 
 export function CampaignsFullView({
   campaigns,
+  currency,
   onSelectCampaign,
   onToggleStatus,
   onOpenSyncCampaigns,
@@ -40,6 +43,7 @@ export function CampaignsFullView({
   const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
   const [sortBy, setSortBy] = useState<'spend' | 'roas' | 'conversions' | 'cpa'>('spend');
 
+  const sym = getCurrencySymbol(currency);
   const filtered = campaigns
     .filter((c) => {
       if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -251,12 +255,12 @@ export function CampaignsFullView({
 
                       {/* Daily Budget */}
                       <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700">
-                        ${Number(c.budgetDaily || 0).toFixed(2)}/d
+                        {sym}{Number(c.budgetDaily || 0).toFixed(2)}/d
                       </td>
 
                       {/* Spend */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                        ${Number(c.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {sym}{Number(c.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Conversions */}
@@ -267,7 +271,7 @@ export function CampaignsFullView({
                       {/* CPA */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         <span className={isCritical ? 'text-rose-600 font-bold' : 'text-slate-800'}>
-                          ${Number(c.cpa || 0).toFixed(2)}
+                          {sym}{Number(c.cpa || 0).toFixed(2)}
                         </span>
                       </td>
 

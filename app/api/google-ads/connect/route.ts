@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
         id: `acc-${targetCid}`,
         clientCustomerId: formattedCid,
         accountName: accountName?.trim() || `Google Ads (${formattedCid})`,
-        currency: currency || 'USD',
+        currency: verification.currency || currency || 'USD',
         timezone: 'America/New_York (UTC-5)',
         isConnected: true,
         connectionType: 'OAUTH_API',

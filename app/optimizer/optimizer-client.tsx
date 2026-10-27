@@ -34,6 +34,7 @@ export function OptimizerClientView() {
       <BudgetOptimizerView
         recommendations={budgetRecommendations}
         campaigns={campaigns}
+        currency={state.account.currency}
         onApproveRecommendation={handleApprove}
         onRejectRecommendation={handleReject}
       />

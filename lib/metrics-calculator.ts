@@ -26,13 +26,58 @@ export interface MetricWithDelta {
   subContext: string;
 }
 
+export function getCurrencySymbol(currencyCode?: string): string {
+  if (!currencyCode) return '$';
+  const code = currencyCode.toUpperCase().trim();
+  switch (code) {
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'JPY': return '¥';
+    case 'CNY': return '¥';
+    case 'INR': return '₹';
+    case 'KRW': return '₩';
+    case 'BRL': return 'R$';
+    case 'SEK': return 'kr ';
+    case 'NOK': return 'kr ';
+    case 'DKK': return 'kr. ';
+    case 'PLN': return 'zł ';
+    case 'CHF': return 'CHF ';
+    case 'CAD': return 'CA$';
+    case 'AUD': return 'A$';
+    case 'NZD': return 'NZ$';
+    case 'MXN': return 'MX$';
+    case 'ZAR': return 'R';
+    case 'TRY': return '₺';
+    case 'ILS': return '₪';
+    case 'AED': return 'AED ';
+    case 'SAR': return 'SAR ';
+    case 'THB': return '฿';
+    case 'SGD': return 'S$';
+    case 'HKD': return 'HK$';
+    case 'USD': return '$';
+    default:
+      try {
+        const parts = new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).formatToParts(0);
+        const symbolPart = parts.find((p) => p.type === 'currency');
+        return symbolPart ? symbolPart.value : `${code} `;
+      } catch {
+        return `${code} `;
+      }
+  }
+}
+
+export function formatCurrency(val: number, currencyCode: string = 'USD', decimals: number = 2): string {
+  const symbol = getCurrencySymbol(currencyCode);
+  return `${symbol}${val.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
 export interface KpiMetaDefinition {
   id: KpiMetricId;
   label: string;
   description: string;
-  defaultSubContext: string;
+  defaultSubContext: string | ((currencyCode?: string) => string);
   isIncreaseFavorable: boolean; // true for ROAS, Conv, Rev, CTR; false for CPA, CPC
-  format: (val: number) => string;
+  format: (val: number, currencyCode?: string) => string;
 }
 
 export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
@@ -42,8 +87,7 @@ export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
     description: 'Total cost incurred across ad campaigns in selected period.',
     defaultSubContext: 'vs. previous period',
     isIncreaseFavorable: false,
-    format: (val: number) =>
-      `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    format: (val: number, currencyCode?: string) => formatCurrency(val, currencyCode, 2),
   },
   impressions: {
     id: 'impressions',
@@ -73,9 +117,9 @@ export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
     id: 'cpc',
     label: 'Average CPC',
     description: 'Average cost per click paid across search auctions.',
-    defaultSubContext: 'target: <$2.50',
+    defaultSubContext: (currencyCode?: string) => `target: <${getCurrencySymbol(currencyCode)}2.50`,
     isIncreaseFavorable: false,
-    format: (val: number) => `$${val.toFixed(2)}`,
+    format: (val: number, currencyCode?: string) => formatCurrency(val, currencyCode, 2),
   },
   conversions: {
     id: 'conversions',
@@ -97,9 +141,9 @@ export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
     id: 'cpa',
     label: 'Cost Per Acquisition (CPA)',
     description: 'Average cost to acquire a single verified conversion.',
-    defaultSubContext: 'target: <$45.00',
+    defaultSubContext: (currencyCode?: string) => `target: <${getCurrencySymbol(currencyCode)}45.00`,
     isIncreaseFavorable: false,
-    format: (val: number) => `$${val.toFixed(2)}`,
+    format: (val: number, currencyCode?: string) => formatCurrency(val, currencyCode, 2),
   },
   conversionValue: {
     id: 'conversionValue',
@@ -107,8 +151,7 @@ export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
     description: 'Total revenue and attributed transaction value generated.',
     defaultSubContext: 'vs. previous period',
     isIncreaseFavorable: true,
-    format: (val: number) =>
-      `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    format: (val: number, currencyCode?: string) => formatCurrency(val, currencyCode, 2),
   },
   roas: {
     id: 'roas',
@@ -255,7 +298,8 @@ export function calculateCampaignsMetrics(
 export function buildMetricCardData(
   current: CalculatedPeriodMetrics,
   previous: CalculatedPeriodMetrics,
-  subContextOverride?: string
+  subContextOverride?: string,
+  currencyCode: string = 'USD'
 ): Record<KpiMetricId, MetricWithDelta> {
   const result: Partial<Record<KpiMetricId, MetricWithDelta>> = {};
 
@@ -280,17 +324,21 @@ export function buildMetricCardData(
         ? '0.0%'
         : `${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`;
 
+    const defaultSub = typeof meta.defaultSubContext === 'function'
+      ? meta.defaultSubContext(currencyCode)
+      : meta.defaultSubContext;
+
     result[id] = {
       id,
       label: meta.label,
-      value: meta.format(currVal),
+      value: meta.format(currVal, currencyCode),
       rawValue: currVal,
       previousRawValue: prevVal,
       changeText: formattedChange,
       changePercent,
       isPositiveChange,
       isNegativeBad,
-      subContext: subContextOverride || meta.defaultSubContext,
+      subContext: subContextOverride || defaultSub,
     };
   });
 

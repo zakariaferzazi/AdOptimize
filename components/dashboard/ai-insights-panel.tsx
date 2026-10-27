@@ -14,6 +14,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { Campaign, GoogleAdsAccount } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 export interface GroundedInsight {
   id: string;
@@ -40,7 +41,8 @@ interface AiInsightsPanelProps {
  * Derives actionable, 100% grounded Google Ads insights strictly from active campaign data.
  * Does not fabricate recommendations if data does not support it.
  */
-export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[] {
+export function deriveGroundedInsights(campaigns: Campaign[], currencyCode: string = 'USD'): GroundedInsight[] {
+  const sym = getCurrencySymbol(currencyCode);
   const insights: GroundedInsight[] = [];
 
   // 1. Check for campaigns spending money with ZERO conversions
@@ -56,7 +58,7 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
       campaignId: c.id,
       campaignName: c.name,
       supportingMetrics: [
-        { label: 'Spend', value: `$${Number(c.spend).toFixed(2)}` },
+        { label: 'Spend', value: `${sym}${Number(c.spend).toFixed(2)}` },
         { label: 'Conversions', value: '0' },
         { label: 'Clicks', value: String(c.clicks || 0) },
       ],
@@ -71,7 +73,7 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
     (c) => c.status === 'ENABLED' && Number(c.conversions || 0) > 0 && Number(c.cpa || 0) > 65.0
   );
   highCpaCampaigns.forEach((c) => {
-    const prevCpa = c.previousPeriod?.cpa ? `$${c.previousPeriod.cpa.toFixed(2)}` : 'target: <$45';
+    const prevCpa = c.previousPeriod?.cpa ? `${sym}${c.previousPeriod.cpa.toFixed(2)}` : `target: <${sym}45`;
     insights.push({
       id: `high-cpa-${c.id}`,
       type: 'HIGH_CPA',
@@ -80,9 +82,9 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
       campaignId: c.id,
       campaignName: c.name,
       supportingMetrics: [
-        { label: 'Current CPA', value: `$${Number(c.cpa).toFixed(2)}` },
+        { label: 'Current CPA', value: `${sym}${Number(c.cpa).toFixed(2)}` },
         { label: 'Prior Period', value: prevCpa },
-        { label: 'Spend', value: `$${Number(c.spend).toFixed(0)}` },
+        { label: 'Spend', value: `${sym}${Number(c.spend).toFixed(0)}` },
       ],
       actionLabel: 'Analyze Campaign',
       actionType: 'ANALYZE_CAMPAIGN',
@@ -108,8 +110,8 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
       campaignName: c.name,
       supportingMetrics: [
         { label: 'ROAS', value: `${Number(c.roas).toFixed(2)}x` },
-        { label: 'Spend', value: `$${Number(c.spend).toFixed(0)}` },
-        { label: 'Revenue', value: `$${Number(c.conversionValue || 0).toFixed(0)}` },
+        { label: 'Spend', value: `${sym}${Number(c.spend).toFixed(0)}` },
+        { label: 'Revenue', value: `${sym}${Number(c.conversionValue || 0).toFixed(0)}` },
       ],
       actionLabel: 'Analyze Campaign',
       actionType: 'ANALYZE_CAMPAIGN',
@@ -133,7 +135,7 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
       campaignName: best.name,
       supportingMetrics: [
         { label: 'High ROAS Target', value: `${best.roas.toFixed(2)}x` },
-        { label: 'Potential Shift', value: `+$${Math.round(donor.budgetDaily * 0.25)}/day` },
+        { label: 'Potential Shift', value: `+${sym}${Math.round(donor.budgetDaily * 0.25)}/day` },
       ],
       actionLabel: 'View Recommendation',
       actionType: 'VIEW_OPTIMIZER',
@@ -148,7 +150,7 @@ export function deriveGroundedInsights(campaigns: Campaign[]): GroundedInsight[]
       id: `scale-${best.id}`,
       type: 'SCALE_OPPORTUNITY',
       title: 'High-Performing Campaign Scaling',
-      explanation: `"${best.name}" has maintained strong efficiency (${best.roas.toFixed(2)}x ROAS with $${best.cpa.toFixed(2)} CPA). Consider incremental budget expansion.`,
+      explanation: `"${best.name}" has maintained strong efficiency (${best.roas.toFixed(2)}x ROAS with ${sym}${best.cpa.toFixed(2)} CPA). Consider incremental budget expansion.`,
       campaignId: best.id,
       campaignName: best.name,
       supportingMetrics: [
@@ -171,7 +173,7 @@ export function AiInsightsPanel({
   onOpenOptimizer,
   onOpenAudit,
 }: AiInsightsPanelProps) {
-  const insights = deriveGroundedInsights(campaigns);
+  const insights = deriveGroundedInsights(campaigns, account.currency);
 
   const handleAction = (insight: GroundedInsight) => {
     if (insight.actionType === 'ANALYZE_CAMPAIGN' && insight.campaignId) {

@@ -14,10 +14,12 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { BudgetRecommendation, Campaign } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface BudgetOptimizerViewProps {
   recommendations: BudgetRecommendation[];
   campaigns: Campaign[];
+  currency?: string;
   onApproveRecommendation: (rec: BudgetRecommendation) => void;
   onRejectRecommendation: (recId: string) => void;
 }
@@ -25,9 +27,11 @@ interface BudgetOptimizerViewProps {
 export function BudgetOptimizerView({
   recommendations,
   campaigns,
+  currency,
   onApproveRecommendation,
   onRejectRecommendation,
 }: BudgetOptimizerViewProps) {
+  const sym = getCurrencySymbol(currency);
   const pendingRecs = recommendations.filter((r) => r.status === 'PENDING');
   const pastRecs = recommendations.filter((r) => r.status !== 'PENDING');
 
@@ -110,13 +114,13 @@ export function BudgetOptimizerView({
 
                 <div className="mt-3 flex items-baseline justify-between text-xs font-mono">
                   <span className="text-slate-500 font-sans">Daily Budget:</span>
-                  <span className="font-bold text-slate-900">${c.budgetDaily.toFixed(2)}/day</span>
+                  <span className="font-bold text-slate-900">{sym}{c.budgetDaily.toFixed(2)}/day</span>
                 </div>
 
                 <div className="mt-1 flex items-baseline justify-between text-xs font-mono">
                   <span className="text-slate-500 font-sans">Current CPA:</span>
                   <span className={`font-semibold ${isBleeder ? 'text-rose-600' : 'text-slate-800'}`}>
-                    ${c.cpa.toFixed(2)}
+                    {sym}{c.cpa.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -163,11 +167,11 @@ export function BudgetOptimizerView({
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-400 font-sans">Current:</span>
-                    <span className="line-through text-slate-400">${rec.currentBudgetFrom}/day</span>
+                    <span className="line-through text-slate-400">{sym}{rec.currentBudgetFrom}/day</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-700 font-sans font-bold">New Proposed:</span>
-                    <span className="font-bold text-rose-700 text-sm">${rec.proposedBudgetFrom}/day</span>
+                    <span className="font-bold text-rose-700 text-sm">{sym}{rec.proposedBudgetFrom}/day</span>
                   </div>
                 </div>
 
@@ -177,7 +181,7 @@ export function BudgetOptimizerView({
                     <ArrowRight className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-700 mt-1">
-                    +${rec.reallocatedAmount}/day
+                    +{sym}{rec.reallocatedAmount}/day
                   </span>
                 </div>
 
@@ -196,11 +200,11 @@ export function BudgetOptimizerView({
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-400 font-sans">Current:</span>
-                    <span className="text-slate-500">${rec.currentBudgetTo}/day</span>
+                    <span className="text-slate-500">{sym}{rec.currentBudgetTo}/day</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-700 font-sans font-bold">New Proposed:</span>
-                    <span className="font-bold text-emerald-700 text-sm">${rec.proposedBudgetTo}/day</span>
+                    <span className="font-bold text-emerald-700 text-sm">{sym}{rec.proposedBudgetTo}/day</span>
                   </div>
                 </div>
               </div>
@@ -288,7 +292,7 @@ export function BudgetOptimizerView({
                   <span className="font-bold text-slate-900">{r.campaignFromName}</span>
                   <span className="text-slate-400 mx-1.5">→</span>
                   <span className="font-bold text-slate-900">{r.campaignToName}</span>
-                  <span className="text-slate-400 ml-2">(${r.reallocatedAmount}/day shifted)</span>
+                  <span className="text-slate-400 ml-2">({sym}{r.reallocatedAmount}/day shifted)</span>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded ${

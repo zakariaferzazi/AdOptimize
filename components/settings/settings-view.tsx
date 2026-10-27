@@ -20,11 +20,31 @@ import {
 } from 'lucide-react';
 import { GoogleAdsAccount, SubscriptionPlan } from '@/types/adoptimize';
 import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
+
+export const SUPPORTED_CURRENCIES = [
+  { code: 'USD', label: 'USD ($) - US Dollar' },
+  { code: 'EUR', label: 'EUR (€) - Euro' },
+  { code: 'GBP', label: 'GBP (£) - British Pound' },
+  { code: 'SEK', label: 'SEK (kr) - Swedish Krona' },
+  { code: 'NOK', label: 'NOK (kr) - Norwegian Krone' },
+  { code: 'DKK', label: 'DKK (kr.) - Danish Krone' },
+  { code: 'CHF', label: 'CHF - Swiss Franc' },
+  { code: 'CAD', label: 'CAD (CA$) - Canadian Dollar' },
+  { code: 'AUD', label: 'AUD (A$) - Australian Dollar' },
+  { code: 'JPY', label: 'JPY (¥) - Japanese Yen' },
+  { code: 'INR', label: 'INR (₹) - Indian Rupee' },
+  { code: 'BRL', label: 'BRL (R$) - Brazilian Real' },
+  { code: 'PLN', label: 'PLN (zł) - Polish Zloty' },
+  { code: 'SGD', label: 'SGD (S$) - Singapore Dollar' },
+  { code: 'AED', label: 'AED - UAE Dirham' },
+];
 
 interface SettingsViewProps {
   account: GoogleAdsAccount;
   onOpenConnectModal: () => void;
   onClearData: () => void;
+  onUpdateCurrency?: (currency: string) => void;
   userEmail?: string | null;
 }
 
@@ -32,6 +52,7 @@ export function SettingsView({
   account,
   onOpenConnectModal,
   onClearData,
+  onUpdateCurrency,
   userEmail,
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
@@ -126,6 +147,28 @@ export function SettingsView({
                   {account.isConnected && account.clientCustomerId !== 'Not Connected'
                     ? `Last Synced: ${new Date(account.lastSyncAt).toLocaleTimeString()} · Status: Active monitoring`
                     : 'Status: No active account linked. Click below to connect Google Ads or initialize workspace.'}
+                </div>
+
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/70 text-xs">
+                  <span className="font-semibold text-slate-700">Account Currency:</span>
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-800 font-bold font-mono">
+                    <span className="text-[#00c06f] font-extrabold">{getCurrencySymbol(account.currency)}</span>
+                    <span>{account.currency || 'USD'}</span>
+                  </div>
+                  {onUpdateCurrency && (
+                    <select
+                      value={account.currency || 'USD'}
+                      onChange={(e) => onUpdateCurrency(e.target.value)}
+                      className="text-xs bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-slate-700 cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                      title="Override or change Google Ads display currency"
+                    >
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
             </div>

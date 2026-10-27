@@ -19,6 +19,7 @@ import {
   buildMetricCardData,
   DEFAULT_KPI_ORDER,
   KPI_DEFINITIONS,
+  getCurrencySymbol,
 } from '@/lib/metrics-calculator';
 import {
   DollarSign,
@@ -137,8 +138,8 @@ export function DashboardClientView() {
 
   // Build card data for all 10 metrics with deltas
   const allCardData = useMemo(() => {
-    return buildMetricCardData(currentMetrics, previousMetrics, periodLabel);
-  }, [currentMetrics, previousMetrics, periodLabel]);
+    return buildMetricCardData(currentMetrics, previousMetrics, periodLabel, account.currency);
+  }, [currentMetrics, previousMetrics, periodLabel, account.currency]);
 
   const selectedCampaignObj = useMemo(() => {
     if (selectedCampaignId === 'ALL') return null;
@@ -307,7 +308,7 @@ export function DashboardClientView() {
                           <span className="truncate">{camp.name}</span>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                          ${Number(camp.spend || 0).toFixed(0)}
+                          {getCurrencySymbol(account.currency)}{Number(camp.spend || 0).toFixed(0)}
                         </span>
                       </button>
                     ))}
@@ -476,6 +477,7 @@ export function DashboardClientView() {
               onSelectPeriod={setDateRange}
               campaigns={filteredCampaigns}
               customDays={customDays}
+              currency={account.currency}
             />
           </div>
           <div className="min-w-0">
@@ -526,6 +528,7 @@ export function DashboardClientView() {
             selectedCampaignId={selectedCampaignId}
             period={dateRange}
             customDays={customDays}
+            currency={account.currency}
             onSelectCampaign={(c) => setSelectedCampaign(c)}
             onToggleStatus={handleToggleCampaignStatus}
             onViewAll={() => router.push('/campaigns')}

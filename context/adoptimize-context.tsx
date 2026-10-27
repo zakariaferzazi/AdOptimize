@@ -356,11 +356,15 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       }
 
       if (data.campaigns && data.campaigns.length > 0) {
+        const detectedCurrency = data.currency || state.account.currency || 'USD';
         setState((prev) => ({
           ...prev,
           campaigns: data.campaigns,
+          keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
+          searchTerms: data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
           account: {
             ...prev.account,
+            currency: detectedCurrency,
             lastSyncAt: new Date().toISOString(),
             syncStatus: 'SYNCED',
             totalCampaignsCount: data.campaigns.length,
@@ -371,12 +375,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           data.campaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
           saveUserAccount(user.uid, {
             ...state.account,
+            currency: detectedCurrency,
             lastSyncAt: new Date().toISOString(),
             syncStatus: 'SYNCED',
             totalCampaignsCount: data.campaigns.length,
           });
         }
-        showToast(`Synced ${data.campaigns.length} campaigns via Google Ads API`);
+        showToast(`Synced ${data.campaigns.length} campaigns via Google Ads API (${detectedCurrency})`);
       } else {
         showToast('Google Ads account synced.');
       }

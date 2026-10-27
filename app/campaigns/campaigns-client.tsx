@@ -60,6 +60,7 @@ export function CampaignsClientView() {
     <AppShell title="Campaigns Manager">
       <CampaignsFullView
         campaigns={campaigns}
+        currency={account.currency}
         onSelectCampaign={(c) => setSelectedCampaign(c)}
         onToggleStatus={handleToggleCampaignStatus}
         onOpenSyncCampaigns={handleSync}
@@ -70,6 +71,7 @@ export function CampaignsClientView() {
       {selectedCampaign && (
         <CampaignDetailDrawer
           campaign={selectedCampaign}
+          account={account}
           isOpen={Boolean(selectedCampaign)}
           onClose={() => setSelectedCampaign(null)}
           onUpdateBudget={(newBudget) => handleUpdateBudget(selectedCampaign.id, newBudget)}

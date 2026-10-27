@@ -121,7 +121,7 @@ export function Sidebar({
   };
 
   const renderNavContent = (isMobile = false) => (
-    <>
+    <div className="flex flex-col justify-between h-full min-h-full">
       {/* Top Brand & Nav */}
       <div className="p-5 flex flex-col gap-6">
         {/* Brand Lockup */}
@@ -147,8 +147,6 @@ export function Sidebar({
               <span className="text-[#00d67d]">Optimize</span>
             </div>
           </Link>
-
-      
         </div>
 
         {/* 6 Essential Main Navigation Items */}
@@ -197,26 +195,25 @@ export function Sidebar({
         </nav>
       </div>
 
-      {/* Bottom Section: Activity, Reports, Settings, Divider, and Legal Pages */}
-      <div className="mt-auto p-4 flex flex-col gap-2 border-t border-slate-800/70 bg-[#0d1117]">
-        {/* Activity, Reports, and Settings Links */}
-        <div className="flex flex-col gap-1">
+      {/* Bottom Section: Activity, Reports, Settings in horizontal dock, Divider line below, and Legal Pages at bottom */}
+      <div className="mt-auto p-4 flex flex-col gap-2.5 border-t border-slate-800/70 bg-[#0d1117]">
+        {/* Horizontal 3-button dock as originally styled */}
+        <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800/80">
           <Link
             href="/activity-log"
             onClick={() => {
               if (onSelectTab) onSelectTab('activity_log');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            title="Activity Log"
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/activity-log' || currentTab === 'activity_log'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <History className={`w-4 h-4 shrink-0 stroke-[2] ${
-              pathname === '/activity-log' || currentTab === 'activity_log' ? 'text-slate-950' : 'text-slate-400'
-            }`} />
-            <span>Activity Log</span>
+            <History className="w-4 h-4 mb-1 shrink-0 stroke-[2]" />
+            <span className="truncate max-w-full">Activity</span>
           </Link>
 
           <Link
@@ -225,16 +222,15 @@ export function Sidebar({
               if (onSelectTab) onSelectTab('reports');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            title="Reports"
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/reports' || currentTab === 'reports'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <BarChart3 className={`w-4 h-4 shrink-0 stroke-[2] ${
-              pathname === '/reports' || currentTab === 'reports' ? 'text-slate-950' : 'text-slate-400'
-            }`} />
-            <span>Reports</span>
+            <BarChart3 className="w-4 h-4 mb-1 shrink-0 stroke-[2]" />
+            <span className="truncate max-w-full">Reports</span>
           </Link>
 
           <Link
@@ -243,24 +239,23 @@ export function Sidebar({
               if (onSelectTab) onSelectTab('settings');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            title="Settings"
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/settings' || currentTab === 'settings'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-md shadow-[#00d67d]/15'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Settings className={`w-4 h-4 shrink-0 stroke-[2] ${
-              pathname === '/settings' || currentTab === 'settings' ? 'text-slate-950' : 'text-slate-400'
-            }`} />
-            <span>Settings</span>
+            <Settings className="w-4 h-4 mb-1 shrink-0 stroke-[2]" />
+            <span className="truncate max-w-full">Settings</span>
           </Link>
         </div>
 
-        {/* Divider line below activity, reports, and settings */}
-        <div className="my-1.5 border-t border-slate-800/80" />
+        {/* Divider line below Activity, Reports and Settings */}
+        <div className="border-t border-slate-800/80" />
 
-        {/* Legal pages below the line */}
-        <div className="px-1.5 py-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
+        {/* Legal links below the divider line */}
+        <div className="px-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
           <Link
             href="/privacy-policy"
             onClick={() => isMobile && onCloseMobile && onCloseMobile()}
@@ -294,7 +289,7 @@ export function Sidebar({
           </Link>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -307,7 +302,7 @@ export function Sidebar({
             : 'w-64 translate-x-0 opacity-100'
         }`}
       >
-        <div className="w-64 sticky top-0 max-h-screen flex flex-col justify-between overflow-y-auto">
+        <div className="w-64 sticky top-0 h-screen flex flex-col justify-between overflow-y-auto">
           {renderNavContent(false)}
         </div>
       </aside>

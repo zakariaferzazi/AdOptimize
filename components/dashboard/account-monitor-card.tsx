@@ -3,6 +3,7 @@
 import React from 'react';
 import { ShieldCheck, Wifi, TrendingUp, Sliders } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface AccountMonitorCardProps {
   account: GoogleAdsAccount;
@@ -83,7 +84,7 @@ export function AccountMonitorCard({
             30-Day Tracked Ad Spend
           </div>
           <div className="text-lg font-bold font-mono text-[#00d67d] mt-0.5">
-            ${totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {getCurrencySymbol(account.currency)}{totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
 
