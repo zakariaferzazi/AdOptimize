@@ -30,19 +30,31 @@ export function CampaignsClientView() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mutatingCampaignId, setMutatingCampaignId] = useState<string | null>(null);
 
-  const handleToggleCampaignStatus = async (campaignId: string) => {
+  const handleToggleCampaignStatus = async (campaignId: string): Promise<boolean> => {
     const target = campaigns.find((c) => c.id === campaignId);
-    if (!target) return;
+    if (!target) return false;
     const newStatus = target.status === 'ENABLED' ? 'PAUSED' : 'ENABLED';
     setMutatingCampaignId(campaignId);
+
+    // Safety fallback: ensure loading spinner is forcibly cleared within 3.5s
+    const safetyTimer = setTimeout(() => {
+      setMutatingCampaignId(null);
+    }, 3500);
+
     try {
       if (handleMutateCampaignStatus) {
-        await handleMutateCampaignStatus(campaignId, newStatus);
+        const result = await handleMutateCampaignStatus(campaignId, newStatus);
+        return result;
       } else {
         const updated = { ...target, status: newStatus as any };
         await handleSaveCampaign(updated);
+        return true;
       }
+    } catch (err) {
+      console.error('Failed to toggle campaign status:', err);
+      return false;
     } finally {
+      clearTimeout(safetyTimer);
       setMutatingCampaignId(null);
     }
   };
@@ -79,6 +91,7 @@ export function CampaignsClientView() {
           account={account}
           onBack={() => setDeepDiveCampaign(null)}
           onUpdateBudget={(b) => handleUpdateBudget(deepDiveCampaign.id, b)}
+          onToggleCampaignStatus={(id) => handleToggleCampaignStatus(id)}
           onToggleStatus={() => handleToggleCampaignStatus(deepDiveCampaign.id)}
           keywords={keywords.filter((k) => k.campaignId === deepDiveCampaign.id)}
           searchTerms={searchTerms.filter((st) => st.campaignId === deepDiveCampaign.id)}

@@ -903,7 +903,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       }
     }
 
-    // 3. Log audit event and save to Firestore
+    // 3. Log audit event and update state
     const newAuditLog: AuditLog = {
       id: `audit-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -919,17 +919,20 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       canRevert: true,
     };
 
-    if (user) {
-      await saveCampaignToFirestore(user.uid, updatedCamp);
-      await addAuditLogToFirestore(user.uid, newAuditLog);
-    }
-
     setState((prev) => ({
       ...prev,
       auditLogs: [newAuditLog, ...prev.auditLogs],
     }));
 
     showToast(`Campaign "${target.name}" is now ${newStatus} in Google Ads!`);
+
+    if (user) {
+      Promise.allSettled([
+        saveCampaignToFirestore(user.uid, updatedCamp),
+        addAuditLogToFirestore(user.uid, newAuditLog),
+      ]).catch((err) => console.warn('Background Firestore sync warning:', err));
+    }
+
     return true;
   };
 
@@ -1009,17 +1012,20 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       canRevert: true,
     };
 
-    if (user) {
-      await saveCampaignToFirestore(user.uid, updatedCamp);
-      await addAuditLogToFirestore(user.uid, newAuditLog);
-    }
-
     setState((prev) => ({
       ...prev,
       auditLogs: [newAuditLog, ...prev.auditLogs],
     }));
 
     showToast(`Updated budget for "${target.name}" to $${newBudget.toFixed(2)}/day in Google Ads!`);
+
+    if (user) {
+      Promise.allSettled([
+        saveCampaignToFirestore(user.uid, updatedCamp),
+        addAuditLogToFirestore(user.uid, newAuditLog),
+      ]).catch((err) => console.warn('Background Firestore sync warning:', err));
+    }
+
     return true;
   };
 

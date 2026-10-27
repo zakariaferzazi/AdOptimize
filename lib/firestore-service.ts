@@ -120,9 +120,12 @@ export async function saveCampaignToFirestore(userId: string, campaign: Campaign
   const path = `users/${userId}/campaigns/${campaign.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'campaigns', campaign.id);
-    await setDoc(docRef, cleanForFirestore(campaign), { merge: true });
+    await Promise.race([
+      setDoc(docRef, cleanForFirestore(campaign), { merge: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore write timeout')), 2000)),
+    ]);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn(`Firestore saveCampaignToFirestore warning:`, error);
   }
 }
 
@@ -273,9 +276,12 @@ export async function addAuditLogToFirestore(userId: string, log: AuditLog) {
   const path = `users/${userId}/auditLogs/${log.id}`;
   try {
     const docRef = doc(db, 'users', userId, 'auditLogs', log.id);
-    await setDoc(docRef, log);
+    await Promise.race([
+      setDoc(docRef, cleanForFirestore(log)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore write timeout')), 2000)),
+    ]);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn(`Firestore addAuditLogToFirestore warning:`, error);
   }
 }
 

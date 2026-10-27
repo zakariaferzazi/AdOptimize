@@ -32,7 +32,7 @@ interface CampaignsFullViewProps {
   campaigns: Campaign[];
   currency?: string;
   onSelectCampaign: (campaign: Campaign) => void;
-  onToggleStatus: (campaignId: string) => void;
+  onToggleStatus: (campaignId: string) => void | Promise<any>;
   onUpdateBudget?: (campaignId: string, newBudget: number) => Promise<boolean>;
   onCreateCampaignClick?: () => void;
   onOpenSyncCampaigns?: () => void;
@@ -388,10 +388,14 @@ export function CampaignsFullView({
                       <td className="py-3.5 px-3">
                         <button
                           type="button"
-                          disabled={isMutatingThis}
-                          onClick={(e) => {
+                          disabled={Boolean(isMutatingThis)}
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            onToggleStatus(c.id);
+                            try {
+                              await onToggleStatus(c.id);
+                            } catch (err) {
+                              console.error('Error toggling campaign status:', err);
+                            }
                           }}
                           className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                             isEnabled

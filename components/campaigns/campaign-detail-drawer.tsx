@@ -21,7 +21,8 @@ import {
   Pause,
   Sliders,
   DollarSign,
-  Zap
+  Zap,
+  Loader2,
 } from 'lucide-react';
 import {
   Campaign,
@@ -73,6 +74,7 @@ export function CampaignDetailDrawer({
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(String(campaign?.budgetDaily || 50));
   const [isSavingBudget, setIsSavingBudget] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   if (!campaign) return null;
 
@@ -179,9 +181,17 @@ export function CampaignDetailDrawer({
           <div className="flex items-center gap-2">
             {(onToggleCampaignStatus || onToggleStatus) && (
               <button
-                onClick={() => {
-                  if (onToggleCampaignStatus) onToggleCampaignStatus(campaign.id);
-                  else if (onToggleStatus) onToggleStatus();
+                disabled={isTogglingStatus}
+                onClick={async () => {
+                  setIsTogglingStatus(true);
+                  try {
+                    if (onToggleCampaignStatus) await onToggleCampaignStatus(campaign.id);
+                    else if (onToggleStatus) await onToggleStatus();
+                  } catch (err) {
+                    console.error('Error toggling campaign status:', err);
+                  } finally {
+                    setIsTogglingStatus(false);
+                  }
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   campaign.status === 'ENABLED'
@@ -189,7 +199,12 @@ export function CampaignDetailDrawer({
                     : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                 }`}
               >
-                {campaign.status === 'ENABLED' ? (
+                {isTogglingStatus ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : campaign.status === 'ENABLED' ? (
                   <>
                     <Pause className="w-3.5 h-3.5" />
                     <span>Pause Campaign</span>

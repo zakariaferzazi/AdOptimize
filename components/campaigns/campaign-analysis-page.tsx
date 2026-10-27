@@ -34,6 +34,7 @@ import {
   Layers,
   ArrowUpRight,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import {
   Campaign,
@@ -95,6 +96,7 @@ export function CampaignAnalysisPage({
   const [selectedChartMetric, setSelectedChartMetric] = useState<
     'spend' | 'clicks' | 'conversions' | 'cpa' | 'roas'
   >('spend');
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   // Filter items for this campaign (with contextual fallback if Google Ads API only returned campaign-level data)
   const campaignKeywords = useMemo(() => {
@@ -381,16 +383,32 @@ export function CampaignAnalysisPage({
 
         {/* Status Actions & External Google Ads Link */}
         <div className="flex items-center gap-2.5">
-          {onToggleCampaignStatus && (
+          {(onToggleCampaignStatus || onToggleStatus) && (
             <button
-              onClick={() => onToggleCampaignStatus(campaign.id)}
+              disabled={isTogglingStatus}
+              onClick={async () => {
+                setIsTogglingStatus(true);
+                try {
+                  if (onToggleCampaignStatus) await onToggleCampaignStatus(campaign.id);
+                  else if (onToggleStatus) await onToggleStatus();
+                } catch (err) {
+                  console.error('Error toggling campaign status:', err);
+                } finally {
+                  setIsTogglingStatus(false);
+                }
+              }}
               className={`px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
                 isEnabled
                   ? 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
                   : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
               }`}
             >
-              {isEnabled ? (
+              {isTogglingStatus ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Updating...</span>
+                </>
+              ) : isEnabled ? (
                 <>
                   <Pause className="w-3.5 h-3.5" />
                   <span>Pause Campaign</span>
