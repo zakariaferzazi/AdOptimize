@@ -35,6 +35,8 @@ export function PerformanceChart({
       case 'TODAY':
       case 'YESTERDAY':
         return 8; // 8 intervals across the day
+      case 'LAST_2_DAYS':
+        return 2; // Exactly 2 days
       case 'LAST_7_DAYS':
         return 7;
       case 'LAST_14_DAYS':
@@ -45,7 +47,7 @@ export function PerformanceChart({
       case 'ALL_TIME':
         return 10;
       case 'CUSTOM':
-        return Math.min(Math.max(customDays, 5), 14);
+        return Math.max(1, customDays);
       default:
         return 7;
     }
@@ -94,12 +96,16 @@ export function PerformanceChart({
 
       const sortedDates = Array.from(datesMap.keys()).sort();
       let selectedDates = sortedDates;
-      if (selectedPeriod === 'LAST_7_DAYS') {
+      if (selectedPeriod === 'LAST_2_DAYS') {
+        selectedDates = sortedDates.slice(-2);
+      } else if (selectedPeriod === 'LAST_7_DAYS') {
         selectedDates = sortedDates.slice(-7);
       } else if (selectedPeriod === 'LAST_14_DAYS') {
         selectedDates = sortedDates.slice(-14);
       } else if (selectedPeriod === 'LAST_30_DAYS') {
         selectedDates = sortedDates.slice(-30);
+      } else if (selectedPeriod === 'CUSTOM') {
+        selectedDates = sortedDates.slice(-Math.max(1, customDays));
       }
 
       if (selectedDates.length > 0) {
@@ -158,6 +164,19 @@ export function PerformanceChart({
       }
     }
 
+    let periodScale = 1.0;
+    if (selectedPeriod === 'TODAY' || selectedPeriod === 'YESTERDAY') periodScale = 1 / 30;
+    else if (selectedPeriod === 'LAST_2_DAYS') periodScale = 2 / 30;
+    else if (selectedPeriod === 'LAST_7_DAYS') periodScale = 7 / 30;
+    else if (selectedPeriod === 'LAST_14_DAYS') periodScale = 14 / 30;
+    else if (selectedPeriod === 'CUSTOM') periodScale = Math.max(1, customDays) / 30;
+
+    const scaledSpend = totalSpend * periodScale;
+    const scaledConversions = totalConversions * periodScale;
+    const scaledConvValue = totalConversionValue * periodScale;
+    const scaledClicks = totalClicks * periodScale;
+    const scaledImpressions = totalImpressions * periodScale;
+
     for (let i = 0; i < pointCount; i++) {
       const date = new Date(today);
       if (selectedPeriod === 'YESTERDAY') {
@@ -187,14 +206,14 @@ export function PerformanceChart({
       let prevDayClicks = 0;
       let prevDayImpressions = 0;
 
-      if (totalSpend > 0) {
+      if (scaledSpend > 0) {
         // Distribute proportionally across intervals with realistic day-to-day variance
         const varianceFactor = 1 + Math.sin(i * 1.5) * 0.12;
-        const portion = (totalSpend / pointCount) * varianceFactor;
-        const convPortion = Math.max(0, Math.round((totalConversions / pointCount) * varianceFactor));
-        const valPortion = (totalConversionValue / pointCount) * varianceFactor;
-        const clickPortion = Math.max(0, Math.round((totalClicks / pointCount) * varianceFactor));
-        const impPortion = Math.max(0, Math.round((totalImpressions / pointCount) * varianceFactor));
+        const portion = (scaledSpend / pointCount) * varianceFactor;
+        const convPortion = Math.max(0, Math.round((scaledConversions / pointCount) * varianceFactor));
+        const valPortion = (scaledConvValue / pointCount) * varianceFactor;
+        const clickPortion = Math.max(0, Math.round((scaledClicks / pointCount) * varianceFactor));
+        const impPortion = Math.max(0, Math.round((scaledImpressions / pointCount) * varianceFactor));
 
         daySpend = Math.max(0, portion);
         dayConversions = convPortion;
@@ -246,7 +265,7 @@ export function PerformanceChart({
     }
 
     return result;
-  }, [campaigns, selectedPeriod, pointCount]);
+  }, [campaigns, selectedPeriod, pointCount, customDays]);
 
   // Helper to format values based on metric
   const formatMetricVal = (val: number, metric: ChartMetric) => {
@@ -337,7 +356,9 @@ export function PerformanceChart({
     switch (p) {
       case 'TODAY': return 'Today';
       case 'YESTERDAY': return 'Yesterday';
+      case 'LAST_2_DAYS': return 'Last 2 Days';
       case 'LAST_7_DAYS': return 'Last 7 Days';
+      case 'LAST_14_DAYS': return 'Last 14 Days';
       case 'LAST_30_DAYS': return 'Last 30 Days';
       case 'THIS_MONTH': return 'This Month';
       case 'LAST_MONTH': return 'Last Month';
@@ -417,7 +438,9 @@ export function PerformanceChart({
                 {[
                   { id: 'TODAY' as DateRangePeriod, label: 'Today' },
                   { id: 'YESTERDAY' as DateRangePeriod, label: 'Yesterday' },
+                  { id: 'LAST_2_DAYS' as DateRangePeriod, label: 'Last 2 Days' },
                   { id: 'LAST_7_DAYS' as DateRangePeriod, label: 'Last 7 Days' },
+                  { id: 'LAST_14_DAYS' as DateRangePeriod, label: 'Last 14 Days' },
                   { id: 'LAST_30_DAYS' as DateRangePeriod, label: 'Last 30 Days' },
                   { id: 'THIS_MONTH' as DateRangePeriod, label: 'This Month' },
                   { id: 'LAST_MONTH' as DateRangePeriod, label: 'Last Month' },

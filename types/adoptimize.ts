@@ -335,6 +335,7 @@ export interface ChatMessage {
 export type DateRangePeriod =
   | 'TODAY'
   | 'YESTERDAY'
+  | 'LAST_2_DAYS'
   | 'LAST_7_DAYS'
   | 'LAST_14_DAYS'
   | 'LAST_30_DAYS'

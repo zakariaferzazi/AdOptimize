@@ -12,6 +12,7 @@ import { CompactAiAssistant } from '@/components/dashboard/compact-ai-assistant'
 import { CampaignsTable } from '@/components/dashboard/campaigns-table';
 import { CampaignDetailDrawer } from '@/components/campaigns/campaign-detail-drawer';
 import { KpiCustomizerModal } from '@/components/dashboard/kpi-customizer-modal';
+import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
@@ -61,6 +62,8 @@ export function DashboardClientView() {
     state,
     setState,
     user,
+    authLoading,
+    isInitialLoading,
     oauthToken,
     setShowConnectModal,
     showToast,
@@ -167,8 +170,12 @@ export function DashboardClientView() {
         return 'Today';
       case 'YESTERDAY':
         return 'Yesterday';
+      case 'LAST_2_DAYS':
+        return 'Last 2 Days';
       case 'LAST_7_DAYS':
         return 'Last 7 Days';
+      case 'LAST_14_DAYS':
+        return 'Last 14 Days';
       case 'LAST_30_DAYS':
         return 'Last 30 Days';
       case 'THIS_MONTH':
@@ -180,16 +187,16 @@ export function DashboardClientView() {
       case 'ALL_TIME':
         return 'All Time';
       default:
-        return 'Last 30 Days';
+        return 'Last 7 Days';
     }
   };
 
   const handleApplyCustomDates = () => {
     if (customStartDate && customEndDate) {
-      const start = new Date(customStartDate);
-      const end = new Date(customEndDate);
+      const start = new Date(customStartDate + 'T00:00:00');
+      const end = new Date(customEndDate + 'T00:00:00');
       const diffMs = Math.abs(end.getTime() - start.getTime());
-      const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      const diffDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
       setCustomDays(diffDays);
       setDateRange('CUSTOM');
       setShowCustomPicker(false);
@@ -207,6 +214,14 @@ export function DashboardClientView() {
       <span>Live Sync Active</span>
     </span>
   ) : null;
+
+  if (isInitialLoading) {
+    return (
+      <AppShell title="Overview" headerExtra={headerExtra}>
+        <DashboardSkeleton />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Overview" headerExtra={headerExtra}>
@@ -341,7 +356,9 @@ export function DashboardClientView() {
                     {[
                       { id: 'TODAY' as DateRangePeriod, label: 'Today' },
                       { id: 'YESTERDAY' as DateRangePeriod, label: 'Yesterday' },
+                      { id: 'LAST_2_DAYS' as DateRangePeriod, label: 'Last 2 Days' },
                       { id: 'LAST_7_DAYS' as DateRangePeriod, label: 'Last 7 Days' },
+                      { id: 'LAST_14_DAYS' as DateRangePeriod, label: 'Last 14 Days' },
                       { id: 'LAST_30_DAYS' as DateRangePeriod, label: 'Last 30 Days' },
                       { id: 'THIS_MONTH' as DateRangePeriod, label: 'This Month' },
                       { id: 'LAST_MONTH' as DateRangePeriod, label: 'Last Month' },
@@ -469,7 +486,7 @@ export function DashboardClientView() {
           })}
         </div>
 
-        {/* 2. Performance Overview Chart & AI Insights Row */}
+        {/* 2. Performance Overview Chart & AdOptimize AI Copilot Row */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           <div className="xl:col-span-2 min-w-0">
             <PerformanceChart
@@ -481,17 +498,20 @@ export function DashboardClientView() {
             />
           </div>
           <div className="min-w-0">
-            <AiInsightsPanel
-              campaigns={filteredCampaigns}
+            <CompactAiAssistant
               account={account}
-              onSelectCampaign={(c) => setSelectedCampaign(c)}
-              onOpenOptimizer={() => router.push('/optimizer')}
-              onOpenAudit={() => router.push('/audit')}
+              campaigns={filteredCampaigns}
+              anomalies={filteredAnomalies}
+              userEmail={user?.email}
+              userId={user?.uid}
+              accessToken={oauthToken || undefined}
+              period={dateRange}
+              customDays={customDays}
             />
           </div>
         </div>
 
-        {/* 3. Performance Alerts & Compact AI Assistant Row */}
+        {/* 3. Performance Alerts & AI Insights Row */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           <div className="xl:col-span-2 min-w-0">
             <AnomaliesWidget
@@ -510,13 +530,12 @@ export function DashboardClientView() {
           </div>
 
           <div className="min-w-0">
-            <CompactAiAssistant
-              account={account}
+            <AiInsightsPanel
               campaigns={filteredCampaigns}
-              anomalies={filteredAnomalies}
-              userEmail={user?.email}
-              userId={user?.uid}
-              accessToken={oauthToken || undefined}
+              account={account}
+              onSelectCampaign={(c) => setSelectedCampaign(c)}
+              onOpenOptimizer={() => router.push('/optimizer')}
+              onOpenAudit={() => router.push('/audit')}
             />
           </div>
         </div>

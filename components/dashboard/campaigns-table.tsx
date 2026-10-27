@@ -63,10 +63,14 @@ export function CampaignsTable({
       case 'TODAY':
       case 'YESTERDAY':
         return 1 / 30;
+      case 'LAST_2_DAYS':
+        return 2 / 30;
       case 'LAST_7_DAYS':
         return 7 / 30;
+      case 'LAST_14_DAYS':
+        return 14 / 30;
       case 'THIS_MONTH':
-        return 26 / 30;
+        return Math.min(new Date().getDate(), 30) / 30;
       case 'CUSTOM':
         return (customDays || 14) / 30;
       case 'LAST_MONTH':
@@ -108,8 +112,8 @@ export function CampaignsTable({
         return true;
       })
       .map((c) => {
-        // Exact metrics for selected period (Today, Yesterday, Last 7d, Last 30d, etc.)
-        const pm = getCampaignPeriodMetrics(c, period);
+        // Exact metrics for selected period (Today, Yesterday, Last 2d, Last 7d, Last 30d, etc.)
+        const pm = getCampaignPeriodMetrics(c, period, customDays);
 
         return {
           ...c,
@@ -141,7 +145,7 @@ export function CampaignsTable({
         }
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       });
-  }, [campaigns, selectedCampaignId, statusFilter, searchQuery, sortField, sortOrder, period]);
+  }, [campaigns, selectedCampaignId, statusFilter, searchQuery, sortField, sortOrder, period, customDays]);
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {

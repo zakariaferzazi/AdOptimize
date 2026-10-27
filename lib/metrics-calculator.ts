@@ -172,7 +172,8 @@ export const DEFAULT_KPI_ORDER: KpiMetricId[] = ['spend', 'conversions', 'cpa', 
  */
 export function getCampaignPeriodMetrics(
   campaign: Campaign,
-  period: DateRangePeriod = 'LAST_30_DAYS'
+  period: DateRangePeriod = 'LAST_30_DAYS',
+  customDays?: number
 ): {
   spend: number;
   impressions: number;
@@ -200,9 +201,12 @@ export function getCampaignPeriodMetrics(
     let subset = campaign.historicalPoints;
     if (period === 'TODAY') subset = subset.slice(-1);
     else if (period === 'YESTERDAY') subset = subset.slice(-2, -1);
+    else if (period === 'LAST_2_DAYS') subset = subset.slice(-2);
     else if (period === 'LAST_7_DAYS') subset = subset.slice(-7);
     else if (period === 'LAST_14_DAYS') subset = subset.slice(-14);
     else if (period === 'LAST_30_DAYS') subset = subset.slice(-30);
+    else if (period === 'THIS_MONTH') subset = subset.slice(-Math.min(new Date().getDate(), subset.length));
+    else if (period === 'CUSTOM' && customDays) subset = subset.slice(-Math.max(1, customDays));
 
     const s = subset.reduce((acc, p) => acc + (p.spend || 0), 0);
     const conv = subset.reduce((acc, p) => acc + (p.conversions || 0), 0);
@@ -232,8 +236,11 @@ export function getCampaignPeriodMetrics(
 
   let scale = 1.0;
   if (period === 'TODAY' || period === 'YESTERDAY') scale = 1 / 30;
+  else if (period === 'LAST_2_DAYS') scale = 2 / 30;
   else if (period === 'LAST_7_DAYS') scale = 7 / 30;
   else if (period === 'LAST_14_DAYS') scale = 14 / 30;
+  else if (period === 'CUSTOM' && customDays) scale = Math.max(1, customDays) / 30;
+  else if (period === 'THIS_MONTH') scale = Math.max(1, new Date().getDate()) / 30;
 
   const sp = Number((baseSpend * scale).toFixed(2));
   const cv = Math.round(baseConv * scale);
@@ -254,16 +261,18 @@ export function getCampaignPeriodMetrics(
   };
 }
 
-function getPeriodComparisonLabel(period: DateRangePeriod): string {
+function getPeriodComparisonLabel(period: DateRangePeriod, customDays?: number): string {
   switch (period) {
     case 'TODAY': return 'vs. yesterday';
     case 'YESTERDAY': return 'vs. day before';
+    case 'LAST_2_DAYS': return 'vs. prior 2 days';
     case 'LAST_7_DAYS': return 'vs. prev 7 days';
+    case 'LAST_14_DAYS': return 'vs. prev 14 days';
     case 'THIS_MONTH': return 'vs. last month';
     case 'LAST_MONTH': return 'vs. prior month';
     case 'LAST_30_DAYS': return 'vs. prev 30 days';
     case 'ALL_TIME': return 'vs. previous period';
-    case 'CUSTOM': return 'vs. previous period';
+    case 'CUSTOM': return customDays ? `vs. prior ${customDays} days` : 'vs. previous period';
     default: return 'vs. previous period';
   }
 }
@@ -277,7 +286,7 @@ export function calculateCampaignsMetrics(
   period: DateRangePeriod = 'LAST_30_DAYS',
   customDays?: number
 ): { current: CalculatedPeriodMetrics; previous: CalculatedPeriodMetrics; periodLabel: string } {
-  const periodLabel = getPeriodComparisonLabel(period);
+  const periodLabel = getPeriodComparisonLabel(period, customDays);
 
   let currentSpend = 0;
   let currentImpressions = 0;
@@ -293,7 +302,7 @@ export function calculateCampaignsMetrics(
 
   campaigns.forEach((c) => {
     // Get exact metrics for the selected period
-    const cur = getCampaignPeriodMetrics(c, period);
+    const cur = getCampaignPeriodMetrics(c, period, customDays);
     currentSpend += cur.spend;
     currentImpressions += cur.impressions;
     currentClicks += cur.clicks;
@@ -308,6 +317,13 @@ export function calculateCampaignsMetrics(
       prevClicks += yest.clicks;
       prevConversions += yest.conversions;
       prevConversionValue += yest.conversionValue;
+    } else if (period === 'LAST_2_DAYS' && c.historicalPoints && c.historicalPoints.length >= 4) {
+      const prev2 = c.historicalPoints.slice(-4, -2);
+      prevSpend += prev2.reduce((acc, p) => acc + (p.spend || 0), 0);
+      prevConversions += prev2.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      prevClicks += prev2.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
+      prevImpressions += prev2.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
+      prevConversionValue += prev2.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
     } else if (period === 'LAST_7_DAYS' && c.historicalPoints && c.historicalPoints.length >= 14) {
       // Use prior 7 days (index -14 to -7)
       const prev7 = c.historicalPoints.slice(-14, -7);
@@ -322,6 +338,13 @@ export function calculateCampaignsMetrics(
       prevClicks += clk;
       prevConversions += conv;
       prevConversionValue += val;
+    } else if (period === 'CUSTOM' && customDays && c.historicalPoints && c.historicalPoints.length >= customDays * 2) {
+      const prevCustom = c.historicalPoints.slice(-(customDays * 2), -customDays);
+      prevSpend += prevCustom.reduce((acc, p) => acc + (p.spend || 0), 0);
+      prevConversions += prevCustom.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      prevClicks += prevCustom.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
+      prevImpressions += prevCustom.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
+      prevConversionValue += prevCustom.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
     } else if (c.previousPeriod) {
       const pSpend = Number(c.previousPeriod.spend || cur.spend * 0.94);
       const pConv = Number(c.previousPeriod.conversions || cur.conversions * 0.92);

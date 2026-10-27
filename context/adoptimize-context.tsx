@@ -76,6 +76,7 @@ interface AdOptimizeContextType {
   setState: React.Dispatch<React.SetStateAction<AdOptimizeState>>;
   user: User | null;
   authLoading: boolean;
+  isInitialLoading: boolean;
   isSigningIn: boolean;
   toastMessage: string | null;
   showToast: (msg: string) => void;
@@ -131,6 +132,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   // Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
 
   const showToast = useCallback((msg: string) => {
@@ -164,10 +166,21 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       window.addEventListener('unhandledrejection', handleUnhandledRejection);
     }
 
+    const safetyTimer = setTimeout(() => {
+      if (isSubscribed) {
+        setIsInitialLoading(false);
+      }
+    }, 1400);
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!isSubscribed) return;
       setUser(currentUser);
       setAuthLoading(false);
+
+      if (!currentUser) {
+        setIsInitialLoading(false);
+        return;
+      }
 
       if (currentUser) {
         try {
@@ -236,12 +249,17 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           }));
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
+        } finally {
+          if (isSubscribed) {
+            setIsInitialLoading(false);
+          }
         }
       }
     });
 
     return () => {
       isSubscribed = false;
+      clearTimeout(safetyTimer);
       unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('unhandledrejection', handleUnhandledRejection);
@@ -647,6 +665,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         setState,
         user,
         authLoading,
+        isInitialLoading,
         isSigningIn,
         toastMessage,
         showToast,

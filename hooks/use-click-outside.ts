@@ -1,22 +1,18 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 
-/**
- * Hook to detect clicks outside of a specified element.
- * Automatically closes dropdowns/modals when user clicks anywhere else on the page.
- */
-export function useClickOutside<T extends HTMLElement = HTMLDivElement>(
+export function useClickOutside<T extends HTMLElement = HTMLElement>(
   handler: () => void,
-  enabled: boolean = true
+  active: boolean = true
 ) {
-  const ref = useRef<T | null>(null);
+  const ref = useRef<T>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!active) return;
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (!ref.current) return;
-      const target = event.target as Node | null;
-      if (target && !ref.current.contains(target)) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         handler();
       }
     };
@@ -28,7 +24,7 @@ export function useClickOutside<T extends HTMLElement = HTMLDivElement>(
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [handler, enabled]);
+  }, [handler, active]);
 
   return ref;
 }

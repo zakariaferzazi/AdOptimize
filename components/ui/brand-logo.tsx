@@ -1,54 +1,80 @@
+'use client';
+
 import React from 'react';
-import Image from 'next/image';
-
-interface BrandLogoIconProps {
-  className?: string;
-  size?: number;
-}
-
-/**
- * Standardized SVG Brand Icon for AdOptimize.
- * Uses the official green squircle app icon with the upward trending graph arrow.
- */
-export function BrandLogoIcon({ className = 'w-8 h-8', size = 32 }: BrandLogoIconProps) {
-  return (
-    <Image
-      src="/icon.svg"
-      alt="AdOptimize Logo"
-      width={size}
-      height={size}
-      className={`object-contain rounded-xl shadow-md shadow-[#00d67d]/20 shrink-0 ${className}`}
-      referrerPolicy="no-referrer"
-      priority
-    />
-  );
-}
+import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 
 interface BrandLogoProps {
+  className?: string;
+  showText?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  asLink?: boolean;
+  theme?: string;
   iconSize?: number;
   iconClassName?: string;
   textClassName?: string;
-  theme?: 'dark' | 'light';
 }
 
-/**
- * Complete Brand Lockup (Official SVG Logo Icon + "AdOptimize" typography)
- */
-export function BrandLogo({
-  iconSize = 32,
-  iconClassName = 'w-8 h-8',
-  textClassName = 'text-xl',
-  theme = 'dark',
-}: BrandLogoProps) {
-  const isLight = theme === 'light';
-
+export function BrandLogoIcon({
+  className = 'w-6 h-6',
+  size,
+}: {
+  className?: string;
+  size?: number;
+}) {
+  const inlineStyle = size ? { width: `${size}px`, height: `${size}px` } : undefined;
   return (
-    <div className="flex items-center gap-2.5 select-none group">
-      <BrandLogoIcon size={iconSize} className={`${iconClassName} group-hover:scale-105 transition-transform`} />
-      <div className={`font-extrabold tracking-tight flex items-baseline leading-none ${textClassName}`}>
-        <span className={isLight ? 'text-slate-900' : 'text-white'}>Ad</span>
-        <span className="text-[#00d67d]">Optimize</span>
-      </div>
+    <div
+      style={inlineStyle}
+      className={`relative flex items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-sky-500 text-white shadow-sm shadow-emerald-500/20 ${className}`}
+    >
+      <Sparkles className="w-4/7 h-4/7 text-white" />
     </div>
   );
+}
+
+export function BrandLogo({
+  className = '',
+  showText = true,
+  size = 'md',
+  asLink = true,
+  theme,
+  iconSize,
+  iconClassName,
+  textClassName,
+}: BrandLogoProps) {
+  const sizeClasses = {
+    sm: { icon: 'w-6 h-6', text: 'text-base', gap: 'gap-2' },
+    md: { icon: 'w-8 h-8', text: 'text-lg', gap: 'gap-2.5' },
+    lg: { icon: 'w-10 h-10', text: 'text-xl', gap: 'gap-3' },
+  }[size];
+
+  const content = (
+    <div className={`flex items-center ${sizeClasses.gap} ${className}`}>
+      <BrandLogoIcon size={iconSize} className={iconClassName || sizeClasses.icon} />
+      {showText && (
+        <span
+          className={`font-bold tracking-tight ${
+            textClassName ||
+            (theme === 'dark' ? 'text-white' : 'text-slate-900') + ' ' + sizeClasses.text
+          }`}
+        >
+          Ad<span className="text-[#00d67d]">optimize</span>
+          <span className="text-xs ml-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold uppercase tracking-wider">
+            AI
+          </span>
+        </span>
+      )}
+    </div>
+  );
+
+  if (asLink) {
+    return (
+      <Link href="/" className="inline-flex items-center hover:opacity-95 transition-opacity">
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
 }
