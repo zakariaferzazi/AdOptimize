@@ -433,7 +433,7 @@ export async function executeGoogleAdsTool(
 
       const headers = ['Metric', 'Current Performance', 'Benchmark / Status'];
       const rows = [
-        ['Account ID', account.clientCustomerId || 'Not Connected', account.isConnected ? 'Connected' : 'Offline'],
+        ['Google Ads Account', account.accountName, account.isConnected ? 'Connected' : 'Offline'],
         ['Active Campaigns', `${campaigns.filter((c) => c.status === 'ENABLED').length} of ${campaigns.length} Enabled`, 'Monitored'],
         ['Total Spend (7d)', `$${totalSpend.toFixed(2)}`, 'Active Tracking'],
         ['Total Conversions', `${totalConv}`, totalConv > 10 ? 'Healthy volume' : 'Low volume'],
@@ -454,7 +454,7 @@ export async function executeGoogleAdsTool(
           totalCampaignsCount: campaigns.length,
         },
         tableData: { headers, rows, caption: 'Account Overview Summary' },
-        message: `Account ${account.accountName} (${account.clientCustomerId}) is currently monitoring ${campaigns.length} campaigns with $${totalSpend.toFixed(2)} spend, ${totalConv} conversions, and ${accountRoas.toFixed(2)}x ROAS.`,
+        message: `Google Ads Account "${account.accountName}" is currently monitoring ${campaigns.length} campaigns with $${totalSpend.toFixed(2)} spend, ${totalConv} conversions, and ${accountRoas.toFixed(2)}x ROAS.`,
       };
     }
 

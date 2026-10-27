@@ -105,6 +105,19 @@ export interface OpenRouterResponse {
   finishReason?: string;
 }
 
+export function getOpenRouterApiKey(): string | undefined {
+  const rawKey =
+    process.env.OPENROUTER_API_KEY ||
+    process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
+    process.env.OPENROUTER_KEY ||
+    process.env.OPEN_ROUTER_API_KEY;
+
+  if (rawKey && typeof rawKey === 'string' && rawKey.trim().length > 0) {
+    return rawKey.trim();
+  }
+  return undefined;
+}
+
 /**
  * Dispatches chat completion to selected model (DeepSeek, ChatGPT, or Gemini).
  * Uses OpenRouter API when available, or direct Gemini client fallback.
@@ -114,7 +127,7 @@ export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promis
   const targetModel = options.modelOverride || resolveModelId(chosenKey);
   const displayName = getModelDisplayName(chosenKey);
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = getOpenRouterApiKey();
 
   if (apiKey) {
     try {

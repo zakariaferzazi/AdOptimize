@@ -47,14 +47,14 @@ import {
   AnalysisSummaryDetail,
 } from '@/types/adoptimize';
 
-export type ModelTier = 'fast' | 'balanced' | 'advanced';
+export type ActiveAiModel = 'deepseek' | 'chatgpt' | 'gemini';
 
 interface ChatSession {
   id: string;
   title: string;
   createdAt: number;
   updatedAt: number;
-  model: ModelTier;
+  model: ActiveAiModel;
   messages: ChatMessage[];
 }
 
@@ -99,8 +99,8 @@ export function AiChatView({
   onSelectCampaign,
   onSelectCampaignByName,
 }: AiChatViewProps) {
-  // Model selector: Fast (Gemini), Balanced (ChatGPT), Advanced (DeepSeek)
-  const [selectedTier, setSelectedTier] = useState<ModelTier>('fast');
+  // Model selector: DeepSeek, ChatGPT, Gemini
+  const [selectedModel, setSelectedModel] = useState<ActiveAiModel>('deepseek');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useClickOutside<HTMLDivElement>(() => setShowModelDropdown(false), showModelDropdown);
 
@@ -137,7 +137,7 @@ export function AiChatView({
         if (parsed.length > 0) {
           setSessions(parsed);
           setCurrentSessionId(parsed[0].id);
-          setSelectedTier(parsed[0].model || 'fast');
+          setSelectedModel(parsed[0].model || 'deepseek');
           return;
         }
       }
@@ -151,7 +151,7 @@ export function AiChatView({
       title: 'Performance Analysis',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      model: 'fast',
+      model: 'deepseek',
       messages: [
         {
           id: 'welcome-msg',
@@ -330,8 +330,8 @@ export function AiChatView({
         signal: controller.signal,
         body: JSON.stringify({
           message: query,
-          model: selectedTier,
-          modelTier: selectedTier,
+          model: selectedModel,
+          modelTier: selectedModel,
           conversationHistory: updatedMessages.map((m) => ({
             role: m.role,
             content: m.content,
@@ -425,7 +425,7 @@ export function AiChatView({
       title: 'New Conversation',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      model: selectedTier,
+      model: selectedModel,
       messages: [
         {
           id: `welcome-${Date.now()}`,
@@ -606,25 +606,25 @@ export function AiChatView({
     });
   };
 
-  // Model tier descriptor helper
-  const modelTierDetails: Record<ModelTier, { label: string; sub: string; engine: string; icon: any }> = {
-    fast: {
-      label: 'Fast',
-      sub: 'Simple questions & quick answers',
-      engine: 'Gemini 2.5',
-      icon: GeminiIcon,
+  // Model options: DeepSeek, ChatGPT, Gemini
+  const aiModelDetails: Record<ActiveAiModel, { label: string; sub: string; badge: string; icon: any }> = {
+    deepseek: {
+      label: 'DeepSeek',
+      sub: 'Advanced analytical reasoning & CPA math',
+      badge: 'DeepSeek R1/V3',
+      icon: DeepSeekIcon,
     },
-    balanced: {
-      label: 'Balanced',
-      sub: 'Everyday campaign analysis',
-      engine: 'GPT-4o',
+    chatgpt: {
+      label: 'ChatGPT',
+      sub: 'PPC strategy & ad copy analysis',
+      badge: 'OpenAI GPT-4o',
       icon: ChatGPTIcon,
     },
-    advanced: {
-      label: 'Advanced',
-      sub: 'Complex investigations & optimization tasks',
-      engine: 'DeepSeek',
-      icon: DeepSeekIcon,
+    gemini: {
+      label: 'Gemini',
+      sub: 'Fast SearchStream auction diagnostics',
+      badge: 'Google Gemini 2.5',
+      icon: GeminiIcon,
     },
   };
 
@@ -646,13 +646,14 @@ export function AiChatView({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-slate-950">AI Chat Assistant</h2>
-              {/* Connected Google Ads account indicator */}
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/80">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d]" />
-                <span className="font-mono">
-                  {account?.clientCustomerId && account.clientCustomerId !== 'Not Connected'
-                    ? `CID ${account.clientCustomerId}`
-                    : 'Account Connected'}
+              {/* Connected Google Ads account indicator - Professional without raw CID repetition */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />
+                <span className="font-semibold truncate max-w-[130px] sm:max-w-[180px]">
+                  {account?.accountName || 'Google Ads Account'}
+                </span>
+                <span className="text-[10px] text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded font-bold">
+                  Connected
                 </span>
               </div>
             </div>
@@ -662,37 +663,37 @@ export function AiChatView({
           </div>
         </div>
 
-        {/* Right Controls: Model Selector + Session Manager + New Chat */}
+        {/* Right Controls: Model Selector (DeepSeek, ChatGPT, Gemini) + Session Manager + New Chat */}
         <div className="flex items-center gap-2.5">
-          {/* Simplified Model Selector */}
+          {/* Explicit Model Selector: DeepSeek, ChatGPT, Gemini */}
           <div className="relative" ref={modelDropdownRef}>
             <button
               onClick={() => setShowModelDropdown((p) => !p)}
               className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs transition-colors cursor-pointer"
-              title="Select optimization model tier"
+              title="Select AI model"
             >
               <span className="text-[11px] font-normal text-slate-500">Model:</span>
               <div className="flex items-center gap-1.5 font-bold text-slate-900">
                 {(() => {
-                  const Icon = modelTierDetails[selectedTier].icon;
+                  const Icon = aiModelDetails[selectedModel].icon;
                   return <Icon className="w-3.5 h-3.5" />;
                 })()}
-                <span>{modelTierDetails[selectedTier].label}</span>
+                <span>{aiModelDetails[selectedModel].label}</span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
             {showModelDropdown && (
               <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-                {(['fast', 'balanced', 'advanced'] as ModelTier[]).map((tier) => {
-                  const meta = modelTierDetails[tier];
+                {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
+                  const meta = aiModelDetails[mKey];
                   const Icon = meta.icon;
-                  const isSelected = selectedTier === tier;
+                  const isSelected = selectedModel === mKey;
                   return (
                     <button
-                      key={tier}
+                      key={mKey}
                       onClick={() => {
-                        setSelectedTier(tier);
+                        setSelectedModel(mKey);
                         setShowModelDropdown(false);
                       }}
                       className={`w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 ${
@@ -707,7 +708,7 @@ export function AiChatView({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{meta.engine}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{meta.badge}</span>
                         </div>
                         <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{meta.sub}</p>
                       </div>

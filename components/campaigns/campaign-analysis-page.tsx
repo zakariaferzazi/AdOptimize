@@ -470,9 +470,9 @@ export function CampaignAnalysisPage({
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
               <div>
-                CID:{' '}
-                <span className="font-mono text-slate-800 font-semibold">
-                  {account?.clientCustomerId || campaign.accountId}
+                Account:{' '}
+                <span className="text-slate-800 font-semibold">
+                  {account?.accountName || 'Google Ads'}
                 </span>
               </div>
               <div>·</div>

@@ -58,32 +58,38 @@ export function AccountMonitorCard({
         </div>
       </div>
 
-      {/* Middle: Formatted Account ID */}
+      {/* Middle: Professional Account Overview */}
       <div className="z-10 my-auto">
-        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
-          Google Ads Account
-        </div>
-        <div className="text-xl font-mono tracking-wider font-bold text-white mt-1 flex items-center gap-2">
-          <span>{account.clientCustomerId || 'Not Connected'}</span>
-          {isConnected ? (
-            <span className="text-[11px] text-[#00d67d] font-sans font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
-              <span>Live</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+            Active Workspace
+          </span>
+          {isConnected && (
+            <span className="text-[10px] text-[#00d67d] bg-[#00d67d]/10 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-[#00d67d]/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />
+              <span>Live Monitored</span>
             </span>
+          )}
+        </div>
+        <div className="text-xl font-bold tracking-tight text-white mt-1 truncate max-w-sm">
+          {account.accountName || 'Google Ads Account'}
+        </div>
+        <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+          <span>{account.timezone || 'America/Los_Angeles'}</span>
+          {isConnected ? (
+            <>
+              <span>•</span>
+              <span className="text-slate-300 font-medium">Automatic Optimization Active</span>
+            </>
           ) : (
             <button
               onClick={onOpenSettings}
-              className="text-xs text-amber-400 hover:text-amber-300 font-sans font-semibold underline decoration-amber-400/50 cursor-pointer"
+              className="text-xs text-amber-400 hover:text-amber-300 font-semibold underline decoration-amber-400/50 cursor-pointer"
             >
               Connect Account
             </button>
           )}
         </div>
-        {account.accountName && account.accountName !== 'Google Ads Account' && (
-          <div className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">
-            {account.accountName}
-          </div>
-        )}
       </div>
 
       {/* Bottom: Real Tracked Spend & Actions */}

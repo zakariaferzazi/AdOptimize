@@ -150,14 +150,15 @@ export function Header({
                   : 'bg-amber-400'
               }`}
             />
-            <span className="font-semibold text-slate-900 max-w-[100px] sm:max-w-[150px] truncate">
-              {account.accountName}
+            <span className="font-semibold text-slate-900 max-w-[120px] sm:max-w-[170px] truncate">
+              {account.accountName || 'Google Ads'}
             </span>
-            <span className="text-slate-400 hidden sm:inline">·</span>
-            <span className="font-mono text-slate-500 hidden sm:inline">
-              {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                ? account.clientCustomerId
-                : 'Not Connected'}
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden sm:inline ${
+              account.isConnected && account.clientCustomerId !== 'Not Connected'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                : 'bg-slate-100 text-slate-600'
+            }`}>
+              {account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Connected' : 'Offline'}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5 shrink-0" />
           </button>
@@ -190,7 +191,7 @@ export function Header({
                   }}
                   className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-colors"
                 >
-                  <span>Connect / Switch Google Ads ID</span>
+                  <span>Switch Google Ads Account</span>
                   <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                 </button>
                 {onClearData && (
