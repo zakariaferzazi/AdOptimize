@@ -294,8 +294,23 @@ export function CampaignsTable({
                         : 'No campaigns match the active search or status filters.'}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      Clear the search query or change status filter to inspect your ad groups.
+                      {campaigns.length === 0
+                        ? 'Google Ads accounts without campaigns or newly created campaigns will appear here once live synced.'
+                        : 'Clear the search query or change status filter to inspect your ad groups.'}
                     </p>
+                    {campaigns.length === 0 && onOpenSyncCampaigns && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={onOpenSyncCampaigns}
+                          disabled={isSyncing}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
+                          <span>{isSyncing ? 'Syncing...' : 'Sync with Google Ads'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>

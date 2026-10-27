@@ -125,9 +125,8 @@ export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<s
             return;
           }
 
-          // Persist token in session storage
-          sessionStorage.setItem('google_ads_oauth_token', response.access_token);
-          sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+          // Persist token in storage (both session and local)
+          storeGoogleAdsToken(response.access_token);
           resolve(response.access_token);
         },
         error_callback: (err) => {
@@ -194,8 +193,7 @@ export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): P
       if (event.data?.type === 'GOOGLE_ADS_OAUTH_SUCCESS' && event.data.token) {
         cleanup();
         const token = event.data.token;
-        sessionStorage.setItem('google_ads_oauth_token', token);
-        sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
+        storeGoogleAdsToken(token);
         resolve(token);
       } else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') {
         cleanup();

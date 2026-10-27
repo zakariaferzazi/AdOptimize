@@ -70,6 +70,8 @@ export function DashboardClientView() {
     handleSaveCampaign,
     selectedCampaign,
     setSelectedCampaign,
+    isSyncing,
+    handleSync,
   } = useAdOptimize();
 
   const { account, campaigns, anomalies, keywords, searchTerms } = state;
@@ -288,11 +290,76 @@ export function DashboardClientView() {
 
 
 
-  // Keep loading skeleton active until data genuinely loads, preventing zero values
-  const isDataStillLoading =
-    isInitialLoading ||
-    authLoading ||
-    (Boolean(user) && isAccountConnected && campaigns.length === 0);
+  // Loading skeleton active during auth or initial profile hydration
+  const isDataStillLoading = isInitialLoading || authLoading;
+
+  // Header Campaign Selector right near the Google Ads Account Selector
+  const campaignSelectorHeaderNode = (
+    <div ref={campaignDropdownRef} className="relative hidden md:block shrink-0">
+      <button
+        type="button"
+        onClick={() => {
+          setShowCampaignDropdown(!showCampaignDropdown);
+          setShowDateDropdown(false);
+        }}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-2xs hover:border-slate-300 text-xs text-slate-700 transition-colors cursor-pointer"
+        title="Filter dashboard by campaign"
+      >
+        <Filter className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+        <span className="font-semibold text-slate-900 truncate max-w-[130px] lg:max-w-[170px]">
+          {selectedCampaignObj ? selectedCampaignObj.name : `All Campaigns (${campaigns.length})`}
+        </span>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+      </button>
+
+      {showCampaignDropdown && (
+        <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
+          <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+            Select Campaign
+          </div>
+          <div className="p-1 space-y-1">
+            <button
+              type="button"
+              onClick={() => handleSelectCampaign('ALL')}
+              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                selectedCampaignId === 'ALL'
+                  ? 'bg-emerald-50 text-emerald-900 font-bold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <span>All Campaigns</span>
+              <span className="text-[11px] font-mono text-slate-400">{campaigns.length} total</span>
+            </button>
+
+            {campaigns.map((camp) => (
+              <button
+                key={camp.id}
+                type="button"
+                onClick={() => handleSelectCampaign(camp.id)}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                  selectedCampaignId === camp.id
+                    ? 'bg-emerald-50 text-emerald-900 font-bold'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      camp.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'
+                    }`}
+                  />
+                  <span className="truncate">{camp.name}</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                  {getCurrencySymbol(account.currency)}{Number(camp.spend || 0).toFixed(0)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (isDataStillLoading) {
     return (
@@ -303,7 +370,7 @@ export function DashboardClientView() {
   }
 
   return (
-    <AppShell title="Overview">
+    <AppShell title="Overview" headerExtra={campaignSelectorHeaderNode}>
       <div className="space-y-6">
         {/* Production Onboarding Banner when Google Ads account is not connected */}
         {!isAccountConnected && (
@@ -555,7 +622,7 @@ export function DashboardClientView() {
           })}
         </div>
 
-        {/* 2. Performance Overview Chart & AdOptimize AI Copilot Row */}
+        {/* 2. Performance Overview Chart & AI Insights Row (Requirement 3 & 4) */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           <div className="xl:col-span-2 min-w-0">
             <PerformanceChart
@@ -567,20 +634,17 @@ export function DashboardClientView() {
             />
           </div>
           <div className="min-w-0">
-            <CompactAiAssistant
-              account={account}
+            <AiInsightsPanel
               campaigns={filteredCampaigns}
-              anomalies={filteredAnomalies}
-              userEmail={user?.email}
-              userId={user?.uid}
-              accessToken={oauthToken || undefined}
-              period={dateRange}
-              customDays={customDays}
+              account={account}
+              onSelectCampaign={(c) => setSelectedCampaign(c)}
+              onOpenOptimizer={() => router.push('/optimizer')}
+              onOpenAudit={() => router.push('/audit')}
             />
           </div>
         </div>
 
-        {/* 3. Performance Alerts & AI Insights Row */}
+        {/* 3. Performance Alerts & AdOptimize AI Copilot Row (Requirement 5 & 7) */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           <div className="xl:col-span-2 min-w-0">
             <AnomaliesWidget
@@ -599,17 +663,20 @@ export function DashboardClientView() {
           </div>
 
           <div className="min-w-0">
-            <AiInsightsPanel
-              campaigns={filteredCampaigns}
+            <CompactAiAssistant
               account={account}
-              onSelectCampaign={(c) => setSelectedCampaign(c)}
-              onOpenOptimizer={() => router.push('/optimizer')}
-              onOpenAudit={() => router.push('/audit')}
+              campaigns={filteredCampaigns}
+              anomalies={filteredAnomalies}
+              userEmail={user?.email}
+              userId={user?.uid}
+              accessToken={oauthToken || undefined}
+              period={dateRange}
+              customDays={customDays}
             />
           </div>
         </div>
 
-        {/* 4. Active Campaigns Table */}
+        {/* 4. Active Campaigns Table (Requirement 6 & Real-time Sync) */}
         <div className="space-y-3 min-w-0">
           <CampaignsTable
             campaigns={campaigns}
@@ -619,6 +686,8 @@ export function DashboardClientView() {
             currency={account.currency}
             onSelectCampaign={(c) => setSelectedCampaign(c)}
             onToggleStatus={handleToggleCampaignStatus}
+            onOpenSyncCampaigns={handleSync}
+            isSyncing={isSyncing}
             onViewAll={() => router.push('/campaigns')}
           />
         </div>

@@ -776,9 +776,7 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
           <span>
             Read-only queries execute instantly. Consequential campaign changes always require approval.
           </span>
-          <span className="font-mono text-slate-400">
-            Model: {activeModel === 'deepseek' ? 'DeepSeek' : activeModel === 'chatgpt' ? 'ChatGPT (GPT-4o)' : 'Gemini'}
-          </span>
+     
         </div>
       </div>
     </div>

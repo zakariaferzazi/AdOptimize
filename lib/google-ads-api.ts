@@ -280,7 +280,7 @@ export async function queryLiveCampaigns(
         metrics.conversions_value
       FROM campaign
       WHERE campaign.status != 'REMOVED'
-      ORDER BY metrics.cost_micros DESC
+      ORDER BY campaign.id DESC
       LIMIT 200
     `;
 

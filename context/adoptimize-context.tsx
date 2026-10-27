@@ -31,6 +31,7 @@ import {
   acquireGoogleAdsToken,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
+  storeGoogleAdsToken,
 } from '@/lib/google-identity';
 import {
   syncUserProfile,
@@ -487,9 +488,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   ) => {
     if (token) {
       setOauthToken(token);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('google_ads_oauth_token', token);
-      }
+      storeGoogleAdsToken(token);
     }
 
     setState((prev) => {
@@ -527,6 +526,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         });
         if (token) {
           setOauthToken(token);
+          storeGoogleAdsToken(token);
         }
       }
 
@@ -537,7 +537,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           customerId: state.account.clientCustomerId,
           accessToken: token || undefined,
           userEmail: user?.email || undefined,
-          loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined),
+          loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? (sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')) : undefined),
         }),
       });
 
@@ -559,7 +559,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      if (data.campaigns && data.campaigns.length > 0) {
+      if (Array.isArray(data.campaigns)) {
         const detectedCurrency = data.currency || state.account.currency || 'USD';
         setState((prev) => ({
           ...prev,
@@ -585,7 +585,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             totalCampaignsCount: data.campaigns.length,
           });
         }
-        showToast(`Synced ${data.campaigns.length} campaigns from Google Ads (${detectedCurrency})`);
+        showToast(data.campaigns.length > 0
+          ? `Synced ${data.campaigns.length} campaigns from Google Ads (${detectedCurrency})`
+          : 'Google Ads account synced. No campaigns found.');
       } else {
         showToast('Google Ads account synced.');
       }

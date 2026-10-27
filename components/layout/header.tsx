@@ -239,6 +239,18 @@ export function Header({
 
 
 
+        {/* Real-time Google Ads Live Sync Button */}
+        <button
+          type="button"
+          onClick={onRefreshSync}
+          disabled={isSyncing}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-2xs hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors disabled:opacity-60 cursor-pointer"
+          title="Instant live sync with Google Ads"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Live Sync'}</span>
+        </button>
+
         {/* Notifications Bell */}
         <div ref={notificationsDropdownRef} className="relative">
           <button
