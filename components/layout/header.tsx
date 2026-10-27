@@ -89,7 +89,7 @@ export function Header({
         return 'Automations';
       case 'chat':
       case 'copilot':
-        return 'AI Chat';
+        return 'AI Marketing Agent';
       case 'activity_log':
         return 'Activity History';
       case 'settings':

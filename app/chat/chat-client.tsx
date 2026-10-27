@@ -28,7 +28,7 @@ export function ChatClientView() {
   } = state;
 
   return (
-    <AppShell title="AI Google Ads Copilot">
+    <AppShell title="AI Marketing Agent">
       <AiChatView
         account={account}
         campaigns={campaigns}

@@ -645,7 +645,7 @@ export function AiChatView({
           />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-950">AI Chat Assistant</h2>
+              <h2 className="text-sm font-bold text-slate-950">AI Marketing Agent</h2>
               {/* Connected Google Ads account indicator - Professional without raw CID repetition */}
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200/80">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />

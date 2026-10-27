@@ -100,7 +100,7 @@ export function Sidebar({
       id: 'chat' as NavTab,
       href: '/chat',
       matchPaths: ['/chat', '/copilot'],
-      label: 'AI Chat',
+      label: 'AI Marketing Agent',
       icon: MessageSquare,
     },
   ];
