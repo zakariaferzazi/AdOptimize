@@ -343,10 +343,7 @@ export function Header({
                   <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px]">
                     {user.displayName || 'Google Ads User'}
                   </div>
-                  <div className="text-[10px] text-emerald-600 font-semibold leading-tight flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Active Account</span>
-                  </div>
+          
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden lg:block" />
               </button>
