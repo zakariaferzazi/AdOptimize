@@ -164,26 +164,18 @@ export function clearStoredGoogleAdsToken(): void {
 export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
   if (typeof window === 'undefined') return { token: null, isExpired: true };
   let token = sessionStorage.getItem('google_ads_oauth_token');
-  let timestampStr = sessionStorage.getItem('google_ads_oauth_token_timestamp');
 
   // Fallback to localStorage if sessionStorage was cleared or in another tab
   if (!token) {
     try {
       token = localStorage.getItem('google_ads_oauth_token');
-      timestampStr = localStorage.getItem('google_ads_oauth_token_timestamp');
     } catch {}
   }
 
-  if (!token) return { token: null, isExpired: true };
-  if (timestampStr) {
-    const ageMs = Date.now() - parseInt(timestampStr, 10);
-    // Google OAuth access tokens expire after 3600 seconds (60 mins).
-    // Mark as expired after 50 minutes (3000 seconds) so we can proactively renew.
-    if (ageMs > 50 * 60 * 1000) {
-      return { token, isExpired: true };
-    }
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return { token: null, isExpired: true };
   }
-  return { token, isExpired: false };
+  return { token: token.trim(), isExpired: false };
 }
 
 // Auth helpers

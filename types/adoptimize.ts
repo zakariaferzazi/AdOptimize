@@ -284,6 +284,7 @@ export interface GoogleAdsAccount {
   connectionType?: 'oauth_api' | 'direct_workspace';
   loginCustomerId?: string;
   developerToken?: string;
+  accessToken?: string;
 }
 
 export interface ProposedAccountChange {

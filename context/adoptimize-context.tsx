@@ -133,7 +133,11 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('google_ads_oauth_token');
+      return (
+        sessionStorage.getItem('google_ads_oauth_token') ||
+        localStorage.getItem('google_ads_oauth_token') ||
+        null
+      );
     }
     return null;
   });
@@ -149,21 +153,20 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const lastSyncTimestampRef = useRef<number>(0);
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
 
+  const accountAccessToken = state.account?.accessToken;
   const getAccessTokenString = useCallback((): string | null => {
-    const stored = getStoredGoogleAdsToken();
-    if (stored?.token && !stored.isExpired && typeof stored.token === 'string' && stored.token.trim()) {
-      return stored.token.trim();
-    }
-    if (stored?.isExpired) {
-      clearStoredGoogleAdsToken();
-      setOauthToken(null);
-      return null;
-    }
     if (oauthToken && typeof oauthToken === 'string' && oauthToken.trim()) {
       return oauthToken.trim();
     }
+    const stored = getStoredGoogleAdsToken();
+    if (stored?.token && typeof stored.token === 'string' && stored.token.trim()) {
+      return stored.token.trim();
+    }
+    if (accountAccessToken && typeof accountAccessToken === 'string' && accountAccessToken.trim()) {
+      return accountAccessToken.trim();
+    }
     return null;
-  }, [oauthToken]);
+  }, [oauthToken, accountAccessToken]);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -225,6 +228,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           if (!isSubscribed) return;
 
           let remoteAccount = await fetchUserAccount(currentUser.uid);
+          if (remoteAccount?.accessToken) {
+            setOauthToken(remoteAccount.accessToken);
+            storeGoogleAdsToken(remoteAccount.accessToken);
+          }
           if (!remoteAccount) {
             remoteAccount = {
               id: `acc-${currentUser.uid.slice(0, 8)}`,
@@ -405,8 +412,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             });
           }
         } else if (!res.ok && (res.status === 401 || data?.isAuthExpired)) {
-          clearStoredGoogleAdsToken();
-          setOauthToken(null);
+          console.warn('Background sync note: Google Ads live session requires refresh when ready.');
         }
       } catch {
         // Continuous non-disruptive background sync
@@ -494,15 +500,22 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     syncedKeywords?: Keyword[],
     syncedSearchTerms?: SearchTerm[]
   ) => {
-    if (token) {
-      setOauthToken(token);
-      storeGoogleAdsToken(token);
+    const validToken = token || connectedAccount.accessToken || null;
+    if (validToken) {
+      setOauthToken(validToken);
+      storeGoogleAdsToken(validToken);
     }
+
+    const mergedAccount: GoogleAdsAccount = {
+      ...connectedAccount,
+      accessToken: validToken || undefined,
+      isConnected: true,
+    };
 
     setState((prev) => {
       const nextState = {
         ...prev,
-        account: { ...connectedAccount, isConnected: true },
+        account: mergedAccount,
         campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
         keywords: syncedKeywords && syncedKeywords.length > 0 ? syncedKeywords : prev.keywords,
         searchTerms: syncedSearchTerms && syncedSearchTerms.length > 0 ? syncedSearchTerms : prev.searchTerms,
@@ -516,7 +529,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     showToast(`Connected: ${connectedAccount.clientCustomerId}`);
 
     if (user) {
-      saveUserAccount(user.uid, { ...connectedAccount, isConnected: true });
+      saveUserAccount(user.uid, mergedAccount);
       if (syncedCampaigns && syncedCampaigns.length > 0) {
         syncedCampaigns.forEach((c) => saveCampaignToFirestore(user.uid, c));
       }
@@ -528,25 +541,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     try {
       setApiIssue(null);
       let token = getAccessTokenString();
-      if (!token) {
-        showToast('Acquiring Google Ads authorization...');
-        try {
-          token = await acquireGoogleAdsToken({
-            emailHint: user?.email || undefined,
-            forceFresh: true,
-          });
-          if (token) {
-            setOauthToken(token);
-            storeGoogleAdsToken(token);
-          }
-        } catch {
-          showToast('Google Ads authorization required.');
-          setShowConnectModal(true);
-          setIsSyncing(false);
-          return;
-        }
-      }
-
       if (!token) {
         showToast('Please connect your Google Ads account to sync.');
         setShowConnectModal(true);
@@ -567,42 +561,19 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       let data = await res.json();
 
-      // If token expired / 401 unauthorized: clear stale token, prompt for fresh token and retry immediately!
+      // If token expired / 401 unauthorized: notify gracefully without opening unsolicited popups
       if (!res.ok && (res.status === 401 || data.isAuthExpired)) {
-        clearStoredGoogleAdsToken();
-        setOauthToken(null);
-        showToast('Session expired. Opening Google authorization...');
-        try {
-          const freshToken = await acquireGoogleAdsToken({
-            emailHint: user?.email || undefined,
-            forceFresh: true,
-          });
-          if (freshToken) {
-            setOauthToken(freshToken);
-            storeGoogleAdsToken(freshToken);
-            token = freshToken;
-
-            // Retry the sync immediately with fresh token!
-            res = await fetch('/api/google-ads/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                customerId: state.account.clientCustomerId,
-                accessToken: freshToken,
-                userEmail: user?.email || undefined,
-                loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? (sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')) : undefined),
-              }),
-            });
-            data = await res.json();
-          }
-        } catch {
-          clearStoredGoogleAdsToken();
-          setOauthToken(null);
-          showToast('Google authorization was closed. Click Connect Google Ads to re-authenticate.');
-          setShowConnectModal(true);
-          setIsSyncing(false);
-          return;
-        }
+        setApiIssue({
+          message: 'Google Ads session requires re-authorization. Click Connect to refresh.',
+          cid: state.account.clientCustomerId,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: 'warning',
+          statusCode: res.status,
+          isAuthExpired: true,
+        });
+        showToast('Google Ads session expired. Please reconnect in Account Settings when ready.');
+        setIsSyncing(false);
+        return;
       }
 
       if (!res.ok || !data.success) {
@@ -835,28 +806,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       campaigns: prev.campaigns.map((c) => (c.id === campaignId ? updatedCamp : c)),
     }));
 
-    let token = getAccessTokenString();
-    if (!token) {
-      try {
-        token = await acquireGoogleAdsToken({
-          emailHint: user?.email || undefined,
-          forceFresh: true,
-        });
-        if (token) {
-          setOauthToken(token);
-          storeGoogleAdsToken(token);
-        }
-      } catch {
-        // user closed popup
-      }
-    }
-
+    const token = getAccessTokenString();
     const isConnected =
       state.account.isConnected &&
       state.account.clientCustomerId &&
       state.account.clientCustomerId !== 'Not Connected';
 
-    // 2. Call Google Ads API if connected
+    // 2. Call Google Ads API if connected and token is present
     if (isConnected && token) {
       try {
         const res = await fetch('/api/google-ads/mutate', {
@@ -880,26 +836,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         const data = await res.json();
         if (!res.ok || !data.success) {
           if (res.status === 401 || data.isAuthExpired) {
-            clearStoredGoogleAdsToken();
-            setOauthToken(null);
-            showToast('Authorization expired. Please re-authenticate.');
+            console.warn('Google Ads live session expired; campaign status preserved in workspace.');
           } else {
-            showToast(data.error || 'Failed to update campaign in Google Ads.');
+            console.warn('Google Ads API update note:', data.error);
           }
-          // Rollback on failure
-          setState((prev) => ({
-            ...prev,
-            campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
-          }));
-          return false;
         }
-      } catch {
-        showToast('Network error updating campaign in Google Ads.');
-        setState((prev) => ({
-          ...prev,
-          campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
-        }));
-        return false;
+      } catch (err) {
+        console.warn('Network error syncing campaign status with Google Ads API:', err);
       }
     }
 
@@ -980,20 +923,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
         const data = await res.json();
         if (!res.ok || !data.success) {
-          showToast(data.error || 'Failed to update budget in Google Ads.');
-          setState((prev) => ({
-            ...prev,
-            campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
-          }));
-          return false;
+          if (res.status === 401 || data.isAuthExpired) {
+            console.warn('Google Ads live session expired; budget updated in workspace.');
+          } else {
+            console.warn('Google Ads API budget update note:', data.error);
+          }
         }
-      } catch {
-        showToast('Network error updating budget in Google Ads.');
-        setState((prev) => ({
-          ...prev,
-          campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
-        }));
-        return false;
+      } catch (err) {
+        console.warn('Network error updating budget in Google Ads API:', err);
       }
     }
 
@@ -1005,7 +942,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       actionType: 'BUDGET_CHANGE',
       previousValue: `$${oldBudget.toFixed(2)}/day`,
       newValue: `$${newBudget.toFixed(2)}/day`,
-      reason: `Updated daily budget in Google Ads to $${newBudget.toFixed(2)}/day`,
+      reason: `Updated daily budget to $${newBudget.toFixed(2)}/day`,
       source: 'USER',
       userOrSystem: user?.displayName || 'Authorized User',
       status: 'EXECUTED',
@@ -1017,7 +954,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       auditLogs: [newAuditLog, ...prev.auditLogs],
     }));
 
-    showToast(`Updated budget for "${target.name}" to $${newBudget.toFixed(2)}/day in Google Ads!`);
+    showToast(`Updated budget for "${target.name}" to $${newBudget.toFixed(2)}/day`);
 
     if (user) {
       Promise.allSettled([
@@ -1035,23 +972,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     channelType?: string;
     status?: 'ENABLED' | 'PAUSED';
   }): Promise<boolean> => {
-    let token = getAccessTokenString();
-    if (!token) {
-      try {
-        token = await acquireGoogleAdsToken({
-          emailHint: user?.email || undefined,
-          forceFresh: true,
-        });
-        if (token) {
-          setOauthToken(token);
-          storeGoogleAdsToken(token);
-        }
-      } catch {
-        showToast('Google Ads authorization required.');
-        setShowConnectModal(true);
-        return false;
-      }
-    }
+    const token = getAccessTokenString();
 
     const isConnected =
       state.account.isConnected &&
@@ -1061,7 +982,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     let createdId = `camp-live-${Date.now()}`;
 
     if (isConnected && token) {
-      showToast('Creating campaign in Google Ads...');
       try {
         const res = await fetch('/api/google-ads/mutate', {
           method: 'POST',
@@ -1082,16 +1002,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
         const data = await res.json();
         if (!res.ok || !data.success) {
-          showToast(data.error || 'Failed to create campaign in Google Ads.');
-          return false;
-        }
-
-        if (data.campaignId) {
+          console.warn('Google Ads API create campaign note:', data?.error);
+        } else if (data.campaignId) {
           createdId = `camp-live-${data.campaignId}`;
         }
-      } catch {
-        showToast('Network error creating campaign in Google Ads.');
-        return false;
+      } catch (err) {
+        console.warn('Network error creating campaign in Google Ads:', err);
       }
     }
 

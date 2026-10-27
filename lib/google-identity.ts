@@ -268,33 +268,28 @@ export function storeGoogleAdsToken(token: string): void {
 }
 
 /**
- * Helper to retrieve stored token and check freshness (Google tokens expire in 60 mins; renew after 50 mins).
+ * Helper to retrieve stored token across localStorage and sessionStorage without artificial expiration.
  */
 export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
   if (typeof window === 'undefined') return { token: null, isExpired: true };
   let token = sessionStorage.getItem('google_ads_oauth_token');
-  let timestampStr = sessionStorage.getItem('google_ads_oauth_token_timestamp');
 
-  // Fallback to localStorage
+  // Fallback to localStorage for multi-session and multi-tab persistence
   if (!token) {
     try {
       token = localStorage.getItem('google_ads_oauth_token');
-      timestampStr = localStorage.getItem('google_ads_oauth_token_timestamp');
     } catch {}
   }
 
-  if (!token) return { token: null, isExpired: true };
-  if (timestampStr) {
-    const ageMs = Date.now() - parseInt(timestampStr, 10);
-    if (ageMs > 50 * 60 * 1000) {
-      return { token, isExpired: true };
-    }
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return { token: null, isExpired: true };
   }
-  return { token, isExpired: false };
+
+  return { token: token.trim(), isExpired: false };
 }
 
 /**
- * Clears stored Google Ads OAuth tokens from storage.
+ * Clears stored Google Ads OAuth tokens from storage (only on explicit disconnect/sign-out).
  */
 export function clearStoredGoogleAdsToken(): void {
   if (typeof window !== 'undefined') {
@@ -311,7 +306,7 @@ export function clearStoredGoogleAdsToken(): void {
 /**
  * Main Function: Acquire Google Ads OAuth token cleanly.
  * Automatically chooses the optimal flow without ever forcing passkey creation:
- * - Checks stored token first
+ * - Checks stored token first (user is asked only once!)
  * - Uses Firebase GoogleAuthProvider with AdWords scope (unified consent, no origin mismatch, no passkeys)
  * - If on https://adoptimize.app, can use GIS
  * - Otherwise falls back to approved redirect popup
@@ -322,18 +317,10 @@ export async function acquireGoogleAdsToken(options?: {
   forceFirebase?: boolean;
   forceFresh?: boolean;
 }): Promise<string> {
-  // If forceFresh is requested, wipe existing stored token
-  if (options?.forceFresh) {
-    clearStoredGoogleAdsToken();
-  } else {
-    // Check if existing token is still valid
-    const stored = getStoredGoogleAdsToken();
-    if (stored.token && !stored.isExpired) {
-      return stored.token;
-    }
-    if (stored.isExpired) {
-      clearStoredGoogleAdsToken();
-    }
+  // 1. If existing token is already available, reuse it immediately (do not prompt user again)
+  const stored = getStoredGoogleAdsToken();
+  if (stored.token && !options?.forceFresh) {
+    return stored.token;
   }
 
   // 1. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
