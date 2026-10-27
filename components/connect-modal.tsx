@@ -129,6 +129,9 @@ export function ConnectModal({
       if (typeof window !== 'undefined') {
         if (data.loginCustomerIdUsed) {
           sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+          try {
+            localStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+          } catch {}
         }
       }
 

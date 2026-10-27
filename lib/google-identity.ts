@@ -320,11 +320,20 @@ export async function acquireGoogleAdsToken(options?: {
   emailHint?: string;
   preferredMethod?: 'gis' | 'firebase';
   forceFirebase?: boolean;
+  forceFresh?: boolean;
 }): Promise<string> {
-  // Check if existing token is still valid
-  const stored = getStoredGoogleAdsToken();
-  if (stored.token && !stored.isExpired) {
-    return stored.token;
+  // If forceFresh is requested, wipe existing stored token
+  if (options?.forceFresh) {
+    clearStoredGoogleAdsToken();
+  } else {
+    // Check if existing token is still valid
+    const stored = getStoredGoogleAdsToken();
+    if (stored.token && !stored.isExpired) {
+      return stored.token;
+    }
+    if (stored.isExpired) {
+      clearStoredGoogleAdsToken();
+    }
   }
 
   // 1. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)

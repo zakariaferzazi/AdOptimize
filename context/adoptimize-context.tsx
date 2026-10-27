@@ -142,20 +142,17 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
 
   const getAccessTokenString = useCallback((): string | null => {
-    if (oauthToken && typeof oauthToken === 'string' && oauthToken.trim()) {
-      return oauthToken.trim();
-    }
     const stored = getStoredGoogleAdsToken();
-    if (stored?.token && typeof stored.token === 'string' && stored.token.trim()) {
+    if (stored?.token && !stored.isExpired && typeof stored.token === 'string' && stored.token.trim()) {
       return stored.token.trim();
     }
-    if (typeof window !== 'undefined') {
-      const st = sessionStorage.getItem('google_ads_oauth_token');
-      if (st && typeof st === 'string' && st.trim()) return st.trim();
-      try {
-        const lt = localStorage.getItem('google_ads_oauth_token');
-        if (lt && typeof lt === 'string' && lt.trim()) return lt.trim();
-      } catch {}
+    if (stored?.isExpired) {
+      clearStoredGoogleAdsToken();
+      setOauthToken(null);
+      return null;
+    }
+    if (oauthToken && typeof oauthToken === 'string' && oauthToken.trim()) {
+      return oauthToken.trim();
     }
     return null;
   }, [oauthToken]);
@@ -399,6 +396,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               totalCampaignsCount: data.campaigns.length,
             });
           }
+        } else if (!res.ok && (res.status === 401 || data?.isAuthExpired)) {
+          clearStoredGoogleAdsToken();
+          setOauthToken(null);
         }
       } catch {
         // Continuous non-disruptive background sync
@@ -521,27 +521,81 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       setApiIssue(null);
       let token = getAccessTokenString();
       if (!token) {
-        token = await acquireGoogleAdsToken({
-          emailHint: user?.email || undefined,
-        });
-        if (token) {
-          setOauthToken(token);
-          storeGoogleAdsToken(token);
+        showToast('Acquiring Google Ads authorization...');
+        try {
+          token = await acquireGoogleAdsToken({
+            emailHint: user?.email || undefined,
+            forceFresh: true,
+          });
+          if (token) {
+            setOauthToken(token);
+            storeGoogleAdsToken(token);
+          }
+        } catch {
+          showToast('Google Ads authorization required.');
+          setShowConnectModal(true);
+          setIsSyncing(false);
+          return;
         }
       }
 
-      const res = await fetch('/api/google-ads/sync', {
+      if (!token) {
+        showToast('Please connect your Google Ads account to sync.');
+        setShowConnectModal(true);
+        setIsSyncing(false);
+        return;
+      }
+
+      let res = await fetch('/api/google-ads/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: state.account.clientCustomerId,
-          accessToken: token || undefined,
+          accessToken: token,
           userEmail: user?.email || undefined,
           loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? (sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')) : undefined),
         }),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // If token expired / 401 unauthorized: clear stale token, prompt for fresh token and retry immediately!
+      if (!res.ok && (res.status === 401 || data.isAuthExpired)) {
+        clearStoredGoogleAdsToken();
+        setOauthToken(null);
+        showToast('Session expired. Opening Google authorization...');
+        try {
+          const freshToken = await acquireGoogleAdsToken({
+            emailHint: user?.email || undefined,
+            forceFresh: true,
+          });
+          if (freshToken) {
+            setOauthToken(freshToken);
+            storeGoogleAdsToken(freshToken);
+            token = freshToken;
+
+            // Retry the sync immediately with fresh token!
+            res = await fetch('/api/google-ads/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerId: state.account.clientCustomerId,
+                accessToken: freshToken,
+                userEmail: user?.email || undefined,
+                loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? (sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')) : undefined),
+              }),
+            });
+            data = await res.json();
+          }
+        } catch {
+          clearStoredGoogleAdsToken();
+          setOauthToken(null);
+          showToast('Google authorization was closed. Click Connect Google Ads to re-authenticate.');
+          setShowConnectModal(true);
+          setIsSyncing(false);
+          return;
+        }
+      }
 
       if (!res.ok || !data.success) {
         const errorMsg = data.error || data.message || 'Sync failed. Check permissions.';

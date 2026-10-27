@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import {
-  Search,
   Bell,
   RefreshCw,
   CheckCircle2,
@@ -66,21 +65,12 @@ export function Header({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [searchVal, setSearchVal] = useState('');
-
   // Click-outside listeners to close dropdowns when clicking anywhere else
   const accountDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAccountDropdown(false), showAccountDropdown);
   const notificationsDropdownRef = useClickOutside<HTMLDivElement>(() => setShowNotifications(false), showNotifications);
   const userDropdownRef = useClickOutside<HTMLDivElement>(() => setShowUserDropdown(false), showUserDropdown);
 
   const unresolvedAnomalies = anomalies.filter((a) => !a.resolved);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchVal(e.target.value);
-    if (onSearchQuery) {
-      onSearchQuery(e.target.value);
-    }
-  };
 
   const getTitleLabel = (t: string) => {
     switch (t) {
@@ -223,19 +213,8 @@ export function Header({
         {headerExtra}
       </div>
 
-      {/* Right: Actions, Search, Alerts & Real Firebase Profile */}
+      {/* Right: Actions, Alerts & Real Firebase Profile */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Search Input (visible on xl screens to prevent header collisions) */}
-        <div className="relative hidden xl:block">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search campaigns, CPAs..."
-            value={searchVal}
-            onChange={handleSearchChange}
-            className="w-52 2xl:w-64 pl-9 pr-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d]/40 focus:border-[#00d67d] transition-all shadow-xs"
-          />
-        </div>
 
 
 
