@@ -49,6 +49,14 @@ import {
 
 export type ActiveAiModel = 'deepseek' | 'chatgpt' | 'gemini';
 
+export function normalizeModel(model: string | undefined): ActiveAiModel {
+  if (model === 'fast') return 'gemini';
+  if (model === 'balanced') return 'chatgpt';
+  if (model === 'advanced') return 'deepseek';
+  if (model === 'deepseek' || model === 'chatgpt' || model === 'gemini') return model;
+  return 'deepseek';
+}
+
 interface ChatSession {
   id: string;
   title: string;
@@ -137,7 +145,7 @@ export function AiChatView({
         if (parsed.length > 0) {
           setSessions(parsed);
           setCurrentSessionId(parsed[0].id);
-          setSelectedModel(parsed[0].model || 'deepseek');
+          setSelectedModel(normalizeModel(parsed[0].model));
           return;
         }
       }
@@ -606,8 +614,8 @@ export function AiChatView({
     });
   };
 
-  // Model options: DeepSeek, ChatGPT, Gemini
-  const aiModelDetails: Record<ActiveAiModel, { label: string; sub: string; badge: string; icon: any }> = {
+  // Model options: DeepSeek, ChatGPT, Gemini (with backwards-compatible aliases)
+  const aiModelDetails: Record<string, { label: string; sub: string; badge: string; icon: any }> = {
     deepseek: {
       label: 'DeepSeek',
       sub: 'Advanced analytical reasoning & CPA math',
@@ -625,6 +633,25 @@ export function AiChatView({
       sub: 'Fast SearchStream auction diagnostics',
       badge: 'Google Gemini 2.5',
       icon: GeminiIcon,
+    },
+    // Backwards-compatible aliases for previously cached sessions in localStorage
+    fast: {
+      label: 'Gemini',
+      sub: 'Fast SearchStream auction diagnostics',
+      badge: 'Google Gemini 2.5',
+      icon: GeminiIcon,
+    },
+    balanced: {
+      label: 'ChatGPT',
+      sub: 'PPC strategy & ad copy analysis',
+      badge: 'OpenAI GPT-4o',
+      icon: ChatGPTIcon,
+    },
+    advanced: {
+      label: 'DeepSeek',
+      sub: 'Advanced analytical reasoning & CPA math',
+      badge: 'DeepSeek R1/V3',
+      icon: DeepSeekIcon,
     },
   };
 
@@ -675,10 +702,12 @@ export function AiChatView({
               <span className="text-[11px] font-normal text-slate-500">Model:</span>
               <div className="flex items-center gap-1.5 font-bold text-slate-900">
                 {(() => {
-                  const Icon = aiModelDetails[selectedModel].icon;
+                  const safeKey = normalizeModel(selectedModel);
+                  const meta = aiModelDetails[safeKey] || aiModelDetails.deepseek;
+                  const Icon = meta?.icon || DeepSeekIcon;
                   return <Icon className="w-3.5 h-3.5" />;
                 })()}
-                <span>{aiModelDetails[selectedModel].label}</span>
+                <span>{(aiModelDetails[normalizeModel(selectedModel)] || aiModelDetails.deepseek).label}</span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
@@ -686,9 +715,9 @@ export function AiChatView({
             {showModelDropdown && (
               <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
                 {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
-                  const meta = aiModelDetails[mKey];
+                  const meta = aiModelDetails[mKey] || aiModelDetails.deepseek;
                   const Icon = meta.icon;
-                  const isSelected = selectedModel === mKey;
+                  const isSelected = normalizeModel(selectedModel) === mKey;
                   return (
                     <button
                       key={mKey}
