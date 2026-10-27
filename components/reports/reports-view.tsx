@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import {
   FileText,
   Download,
@@ -96,9 +97,19 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
         {/* Report Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-200">
           <div>
-            <div className="flex items-center gap-1.5 text-xl font-bold tracking-tight">
-              <span className="text-slate-900">Ad</span>
-              <span className="text-[#00d67d]">Optimize</span>
+            <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
+              <Image
+                src="/icon.svg"
+                alt="AdOptimize Logo"
+                width={28}
+                height={28}
+                className="w-7 h-7 rounded-lg object-contain shadow-xs shadow-[#00d67d]/20"
+                referrerPolicy="no-referrer"
+              />
+              <div className="flex items-baseline">
+                <span className="text-slate-900">Ad</span>
+                <span className="text-[#00d67d]">Optimize</span>
+              </div>
               <span className="text-slate-400 font-normal text-sm ml-2">Executive Performance Audit</span>
             </div>
             <div className="text-xs text-slate-500 mt-1 font-mono">

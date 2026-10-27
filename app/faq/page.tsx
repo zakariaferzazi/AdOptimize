@@ -70,7 +70,7 @@ export default function FaqPage() {
               Solutions Hub
             </Link>
             <Link href="/" className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold rounded-xl shadow-xs transition-colors">
-              Open SaaS App
+              Open Workspace
             </Link>
           </div>
         </div>

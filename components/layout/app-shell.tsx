@@ -128,7 +128,7 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
   const currentTab = getCurrentTab();
 
   return (
-    <div className="min-h-screen flex bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
+    <div className="min-h-screen flex items-stretch bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
       {/* 1. Sidebar Navigation (Desktop collapsible + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}

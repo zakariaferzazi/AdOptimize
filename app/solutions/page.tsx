@@ -6,7 +6,7 @@ import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Google Ads Optimization Solutions by Industry - AdOptimize',
-  description: 'Tailored Google Ads and Performance Max optimization playbooks for SaaS, eCommerce, B2B lead generation, and performance marketing agencies.',
+  description: 'Tailored Google Ads and Performance Max optimization playbooks for online brands, eCommerce, B2B lead generation, and performance marketing agencies.',
 };
 
 export default function SolutionsDirectoryPage() {

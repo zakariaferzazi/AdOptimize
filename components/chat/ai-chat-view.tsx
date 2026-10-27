@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Send,
   RefreshCw,
@@ -365,13 +366,17 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
       {/* 1. Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/70 gap-3 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center font-bold shadow-xs">
-            <Cpu className="w-4 h-4 text-[#00d67d]" />
-          </div>
+          <Image
+            src="/icon.svg"
+            alt="AdOptimize AI"
+            width={36}
+            height={36}
+            className="w-9 h-9 rounded-2xl object-contain shadow-xs shadow-[#00d67d]/20"
+            referrerPolicy="no-referrer"
+          />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-slate-950">AI Chat Assistant</h2>
-          
             </div>
             <p className="text-xs text-slate-500">
               Direct natural language interaction with your Google Ads account
@@ -443,15 +448,20 @@ Ask me to inspect performance, identify wasted spend, diagnose high CPA, or prop
               className={`flex gap-3.5 max-w-4xl ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
             >
               {/* Avatar Icon */}
-              <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
-                  isUser
-                    ? 'bg-slate-800 text-white shadow-2xs'
-                    : 'bg-slate-950 text-[#00d67d] border border-slate-800 shadow-2xs'
-                }`}
-              >
-                {isUser ? 'You' : 'Ad'}
-              </div>
+              {isUser ? (
+                <div className="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 text-xs font-bold shadow-2xs">
+                  You
+                </div>
+              ) : (
+                <Image
+                  src="/icon.svg"
+                  alt="AdOptimize AI"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-xl object-contain shadow-xs shrink-0 shadow-[#00d67d]/20"
+                  referrerPolicy="no-referrer"
+                />
+              )}
 
               {/* Message Content Container */}
               <div className="space-y-3 max-w-[85%]">

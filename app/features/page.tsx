@@ -44,7 +44,7 @@ export default function FeaturesPage() {
             href="/"
             className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
-            Open Live SaaS App
+            Open Workspace
           </Link>
         </div>
       </header>

@@ -77,11 +77,11 @@ STRICT GUIDELINES:
 **Data Evidence**:
 - **Display - Retargeting**: Spent $1,890.00 for only 9 conversions ($210.00 CPA, 0.86 ROAS).
 - **Competitor Conquesting**: CPA rose to $90.52 due to a 34% surge in competitive CPCs ($2.53/click).
-- In contrast, your core campaign **Search - High Intent Core SaaS** is maintaining a healthy **$28.45 CPA** across 148 conversions.
+- In contrast, your core campaign **Search - High Intent Core** is maintaining a healthy **$28.45 CPA** across 148 conversions.
 
 **Recommended Action**:
 1. Cut the Display Retargeting daily budget from **$75/day to $25/day** to stop the $50/day bleed.
-2. Reallocate that $50/day into **Search - High Intent Core SaaS**, which is losing 28% impression share to budget limits.`;
+2. Reallocate that $50/day into **Search - High Intent Core**, which is losing 28% impression share to budget limits.`;
     } else if (query.includes('waste') || query.includes('losing money') || query.includes('reduce')) {
       reply = `**Key Finding**: You have identified **$2,250.50** in unoptimized or wasted ad spend over the past 7 days across 2 campaigns and specific broad-match search terms.
 
@@ -94,7 +94,7 @@ STRICT GUIDELINES:
 - Add negative keywords: \`["salary", "resume", "crack", "download free", "jobs"]\` immediately.
 - Reduce Display Retargeting budget to $25/day. Estimated monthly savings: **$1,860/mo**.`;
     } else if (query.includes('more budget') || query.includes('deserve') || query.includes('increase') || query.includes('scale')) {
-      reply = `**Key Finding**: Campaign **Search - High Intent Core SaaS** is your prime candidate for immediate budget scaling.
+      reply = `**Key Finding**: Campaign **Search - High Intent Core** is your prime candidate for immediate budget scaling.
 
 **Data Evidence**:
 - **ROAS**: 4.71 with an efficient **$28.45 CPA** across 148 conversions ($19,832.00 conversion value).
@@ -111,7 +111,7 @@ STRICT GUIDELINES:
 Campaign **Display - Retargeting & Brand Awareness** has deteriorated to **$210.00 CPA** and **0.86 ROAS** (spent $1,890 for only 9 conversions).
 
 **2. Biggest Growth Opportunity**:
-Campaign **Search - High Intent Core SaaS** generates 4.71 ROAS at $28.45 CPA, but is losing 28.4% of eligible impression share because it hits its $160/day cap early.
+Campaign **Search - High Intent Core** generates 4.71 ROAS at $28.45 CPA, but is losing 28.4% of eligible impression share because it hits its $160/day cap early.
 
 **3. Quick Win**:
 Add negative keyword exclusions for job-seekers (*"salary"*, *"jobs"*) to instantly recover $360+/month in zero-conversion click drain.

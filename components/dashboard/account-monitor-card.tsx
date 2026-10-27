@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { ShieldCheck, Wifi, TrendingUp, Sliders } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
@@ -35,6 +36,14 @@ export function AccountMonitorCard({
       {/* Top Header of Card */}
       <div className="flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
+          <Image
+            src="/icon.svg"
+            alt="AdOptimize Logo"
+            width={24}
+            height={24}
+            className="w-6 h-6 rounded-lg object-contain shadow-xs shadow-[#00d67d]/20"
+            referrerPolicy="no-referrer"
+          />
           <div className="text-sm font-bold tracking-tight flex items-center">
             <span className="text-white">Ad</span>
             <span className="text-[#00d67d]">Optimize</span>

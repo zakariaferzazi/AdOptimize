@@ -42,7 +42,7 @@ export default function AboutPage() {
         <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
           <h2 className="text-base font-bold text-slate-900">Why We Built AdOptimize</h2>
           <p>
-            Most small businesses, SaaS founders, and growing ecommerce brands cannot afford dedicated $10,000/month performance marketing agencies. Meanwhile, generic dashboards simply present raw numbers without actionable guidance.
+            Most small businesses, business owners, and growing ecommerce brands cannot afford dedicated $10,000/month performance marketing agencies. Meanwhile, generic dashboards simply present raw numbers without actionable guidance.
           </p>
           <p>
             AdOptimize bridges this gap: continuously monitoring your campaigns, surfacing exact root causes with concrete data evidence, and proposing mathematically grounded capital reallocations that save real budget every single week.

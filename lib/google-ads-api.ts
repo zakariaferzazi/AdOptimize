@@ -15,6 +15,7 @@ export interface GoogleAdsApiResult {
   accessibleCustomers?: string[];
   loginCustomerIdUsed?: string;
   isAuthExpired?: boolean;
+  currency?: string;
 }
 
 /**

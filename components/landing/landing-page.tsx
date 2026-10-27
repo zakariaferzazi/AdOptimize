@@ -312,7 +312,7 @@ export function LandingPage({
         </div>
       </section>
 
-      {/* 3. INTERACTIVE PRODUCT PREVIEW (Inspired by clean SaaS desktop UI) */}
+      {/* 3. INTERACTIVE PRODUCT PREVIEW */}
       <section id="preview" className="py-16 px-6 bg-slate-50/50">
         <div className="max-w-5xl mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">

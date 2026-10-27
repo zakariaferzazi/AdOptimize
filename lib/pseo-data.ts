@@ -257,13 +257,13 @@ export const PSEO_TOOLS: PSEOTool[] = [
 
 export const PSEO_SOLUTIONS: PSEOSolution[] = [
   {
-    slug: 'saas',
-    industry: 'SaaS & Software',
-    metaTitle: 'Google Ads Optimization for SaaS - Lower CAC & Scale Demos',
-    metaDescription: 'Stop paying for job seekers and student clicks. Optimize Google Ads for B2B SaaS with automated negative keywords, demo pacing, and ROAS scaling.',
-    targetKeyword: 'Google Ads for SaaS',
+    slug: 'software',
+    industry: 'Software & Technology',
+    metaTitle: 'Google Ads Optimization for Software - Lower CAC & Scale Demos',
+    metaDescription: 'Stop paying for job seekers and student clicks. Optimize Google Ads for B2B Software with automated negative keywords, demo pacing, and ROAS scaling.',
+    targetKeyword: 'Google Ads for Software',
     searchVolumeEstimate: '6,600 / mo',
-    headline: 'Google Ads Optimization Built for B2B SaaS',
+    headline: 'Google Ads Optimization Built for B2B Software',
     subheadline: 'Lower Customer Acquisition Cost (CAC), eliminate student and career-seeker click waste, and keep demo pipeline campaigns funded all month.',
     avgCpa: '$78.40',
     avgRoas: '4.4x',

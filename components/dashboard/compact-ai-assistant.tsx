@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles,
@@ -17,6 +18,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { Campaign, GoogleAdsAccount, AnomalyAlert } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 interface CompactAiAssistantProps {
   account: GoogleAdsAccount;
@@ -106,9 +108,14 @@ export function CompactAiAssistant({
       <div>
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-xs">
-              <Sparkles className="w-4 h-4 text-[#00d67d]" />
-            </div>
+            <Image
+              src="/icon.svg"
+              alt="AdOptimize AI"
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-xl object-contain shadow-xs shadow-[#00d67d]/20"
+              referrerPolicy="no-referrer"
+            />
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">AdOptimize AI</h3>
@@ -136,7 +143,7 @@ export function CompactAiAssistant({
           <p className="text-[11px] text-slate-600">
             {campaigns.length > 0 ? (
               <>
-                Monitoring <strong className="text-slate-900">${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong> total spend with <strong className="text-slate-900">{totalConversions} conversions</strong>.
+                Monitoring <strong className="text-slate-900">{getCurrencySymbol(account.currency)}{totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong> total spend with <strong className="text-slate-900">{totalConversions} conversions</strong>.
                 {topPerformer && ` Top campaign "${topPerformer.name}" leads at ${topPerformer.roas?.toFixed(2)}x ROAS.`}
               </>
             ) : (
