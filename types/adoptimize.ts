@@ -312,6 +312,31 @@ export interface ToolCallExecution {
   executionTimeMs?: number;
 }
 
+export interface InteractiveRecommendationCard {
+  id: string;
+  type: 'WASTED_SPEND' | 'BUDGET_REALLOCATION' | 'UNDERPERFORMING_CAMPAIGN' | 'SEARCH_TERMS';
+  title: string;
+  campaignName: string;
+  finding: string;
+  metrics?: {
+    spend?: number;
+    conversions?: number;
+    cpa?: number;
+    roas?: number;
+  };
+  actions: Array<{
+    label: string;
+    prompt: string;
+    isPrimary?: boolean;
+  }>;
+}
+
+export interface AnalysisSummaryDetail {
+  campaignsCount?: number;
+  dateRangeExamined?: string;
+  aspectsExamined: string[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -325,6 +350,8 @@ export interface ChatMessage {
   };
   toolCalls?: ToolCallExecution[];
   actionProposal?: ProposedAccountChange;
+  recommendations?: InteractiveRecommendationCard[];
+  analysisDetails?: AnalysisSummaryDetail;
   tableData?: {
     headers: string[];
     rows: (string | number)[][];

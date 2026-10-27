@@ -591,95 +591,51 @@ export function PerformanceChart({
                 className="opacity-45"
               />
 
-              {/* Primary current line (Smaller, refined, crisp 1.8px line) */}
+              {/* Primary current line (Slender, refined, crisp 1.6px line) */}
               <path
                 d={primaryPath}
                 fill="none"
                 stroke="#00d67d"
-                strokeWidth="1.8"
+                strokeWidth="1.6"
                 strokeLinecap="round"
               />
 
-              {/* Interactive vertical hover tracking guide */}
+              {/* Subtle vertical hover tracking guide */}
               {hoveredPoint && (
                 <g className="transition-all duration-75">
                   <line
                     x1={hoveredPoint.x}
-                    y1={paddingY - 12}
+                    y1={paddingY - 10}
                     x2={hoveredPoint.x}
                     y2={height - paddingY + 5}
                     stroke="#94a3b8"
                     strokeDasharray="2 2"
-                    strokeWidth="1"
-                    className="opacity-60"
+                    strokeWidth="0.8"
+                    className="opacity-50"
                   />
                   {/* Secondary Line Intersection Dot */}
                   {secondaryCoords[hoveredIdx] && (
                     <circle
                       cx={secondaryCoords[hoveredIdx].x}
                       cy={secondaryCoords[hoveredIdx].y}
-                      r={3}
+                      r={2.5}
                       fill="#ffffff"
                       stroke="#94a3b8"
-                      strokeWidth={1.5}
+                      strokeWidth={1}
                     />
                   )}
-                  {/* Small, clean dot on hovered trend point */}
+                  {/* Crisp dot on hovered trend point */}
                   <circle
                     cx={hoveredPoint.x}
                     cy={hoveredPoint.y}
-                    r={6}
-                    fill="#00d67d"
-                    opacity={0.2}
-                  />
-                  <circle
-                    cx={hoveredPoint.x}
-                    cy={hoveredPoint.y}
-                    r={3.5}
+                    r={3}
                     fill="#ffffff"
                     stroke="#00d67d"
-                    strokeWidth={2}
+                    strokeWidth={1.75}
                   />
                 </g>
               )}
             </svg>
-
-            {/* Compact Top Micro-Badge: Pinned to the top edge, NEVER covers the line or hides anything */}
-            {hoveredPoint && hoveredData && (() => {
-              const curVal = Number(hoveredData.current[activeMetric] || 0);
-              const prevVal = Number(hoveredData.previous[activeMetric] || 0);
-              const diffPercent = prevVal > 0 ? ((curVal - prevVal) / prevVal) * 100 : 0;
-              const leftPercent = (hoveredPoint.x / width) * 100;
-              const isAlignRight = leftPercent > 75;
-              const isAlignLeft = leftPercent < 25;
-
-              return (
-                <div
-                  className={`absolute pointer-events-none transition-all duration-75 z-20 top-1.5 ${
-                    isAlignRight
-                      ? '-translate-x-[92%]'
-                      : isAlignLeft
-                      ? '-translate-x-[8%]'
-                      : '-translate-x-1/2'
-                  }`}
-                  style={{ left: `${leftPercent}%` }}
-                >
-                  <div className="bg-slate-900/90 text-white rounded-lg px-2.5 py-1 shadow-md border border-slate-800 text-[11px] font-mono flex items-center gap-2 whitespace-nowrap backdrop-blur-xs">
-                    <span className="text-slate-300 font-sans text-[10px]">{hoveredData.label}:</span>
-                    <span className="font-bold text-[#00d67d]">{formatMetricVal(curVal, activeMetric)}</span>
-                    {prevVal > 0 && (
-                      <span className={`text-[10px] font-bold ${
-                        (activeMetric === 'cpa' || activeMetric === 'cpc')
-                          ? (diffPercent >= 0 ? 'text-rose-400' : 'text-[#00d67d]')
-                          : (diffPercent >= 0 ? 'text-[#00d67d]' : 'text-rose-400')
-                      }`}>
-                        {diffPercent >= 0 ? '+' : ''}{diffPercent.toFixed(1)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
 
           {/* X Axis Date Labels */}

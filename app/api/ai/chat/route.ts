@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOpenRouterChat, ChatCompletionMessage, ModelTier } from '@/lib/openrouter-service';
+import { sendOpenRouterChat, ChatCompletionMessage } from '@/lib/openrouter-service';
 import { GOOGLE_ADS_TOOL_DEFINITIONS, executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
-import { ProposedAccountChange, ToolCallExecution } from '@/types/adoptimize';
+import { ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       context = {},
     } = body;
 
-    const selectedModel = (model || modelTier || 'gemini');
+    const selectedModel = (modelTier || model || 'gemini');
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -34,17 +34,27 @@ export async function POST(req: NextRequest) {
       accessToken: context.accessToken,
     };
 
-    const systemPrompt = `You are the Google Ads AI Assistant for AdOptimize.app.
-You communicate directly like a knowledgeable, senior Google Ads optimization specialist.
-You have access to real tools that query the user's connected Google Ads account and suggest or perform optimizations.
+    const systemPrompt = `You are the Google Ads Optimization Specialist for AdOptimize.app.
+You communicate directly like a senior, highly experienced Google Ads performance marketer.
+You have direct access to tools that query the user's connected Google Ads account and suggest or perform optimizations.
 
-RULES:
-1. Always ground your answers strictly in the account's actual data returned by the tools.
-2. Select and call the appropriate tool whenever the user asks for account data, analysis, or campaign adjustments.
-3. Keep answers concise, actionable, and focused on business value (ROAS, CPA, conversions, wasted spend).
-4. When suggesting campaign changes or when the user asks to modify budgets, pause campaigns, or reallocate spend, call the corresponding action tool. The tool will generate a confirmation proposal. Explain the proposed change clearly to the user.
-5. Never promise guaranteed results.
-6. Avoid technical developer language, SDK terms, or internal IDs. Speak in plain advertising and business terms.`;
+RESPONSE FORMATTING GUIDELINES:
+1. Always ground your analysis strictly in the account's real data retrieved via tools.
+2. Structure your responses so they are easy to scan:
+   - **Summary**: 1-2 sentence executive overview.
+   - **Key Findings**: Clear bullet points with exact metrics (Spend, Conversions, CPA, ROAS, CTR).
+   - **Campaign Breakdown**: Use a clean Markdown table when comparing campaigns, keywords, or search queries.
+   - **Root Cause Analysis**: Why underperformance or budget leakage is occurring.
+   - **Recommended Next Steps**: Concrete actions the advertiser should take.
+3. Formats:
+   - Format currencies as $XX.XX.
+   - Format ROAS as X.Xx (e.g. 3.40x).
+   - Format CPA as $XX.XX.
+   - Bold important metric names and values.
+4. When suggesting campaign changes (e.g. updating daily budget, pausing a campaign, or enabling a campaign), always call the corresponding action tool (e.g. update_campaign_budget, pause_campaign, enable_campaign). This generates an interactive confirmation card for the user's explicit approval.
+5. NEVER mention internal function names (e.g. "get_account_performance", "find_wasted_spend").
+6. NEVER mention API keys, JSON payloads, or developer terms. Speak strictly in business and PPC advertising terms.
+7. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.`;
 
     const formattedMessages: ChatCompletionMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -69,7 +79,7 @@ RULES:
 
     // First model pass with tool definitions
     const firstResponse = await sendOpenRouterChat({
-      model: selectedModel,
+      model: selectedModel as any,
       tier: selectedModel as any,
       messages: formattedMessages,
       tools: GOOGLE_ADS_TOOL_DEFINITIONS,
@@ -79,6 +89,7 @@ RULES:
     let executedToolCalls: ToolCallExecution[] = [];
     let capturedProposal: ProposedAccountChange | undefined;
     let capturedTableData: any;
+    let interactiveRecommendations: InteractiveRecommendationCard[] = [];
     let finalReply = firstResponse.reply;
 
     // Handle tool execution loop if model requested tools
@@ -120,6 +131,49 @@ RULES:
           capturedTableData = execResult.tableData;
         }
 
+        // Generate structured interactive recommendation cards based on tool findings
+        if (tc.name === 'find_wasted_spend' && execResult.data?.bleeders && Array.isArray(execResult.data.bleeders)) {
+          execResult.data.bleeders.slice(0, 2).forEach((b: any, idx: number) => {
+            interactiveRecommendations.push({
+              id: `rec-waste-${b.id || idx}`,
+              type: 'WASTED_SPEND',
+              title: 'Potential Wasted Spend',
+              campaignName: b.name,
+              finding: `The campaign spent $${Number(b.spend || 0).toFixed(2)} without recording conversions during the selected period.`,
+              metrics: {
+                spend: b.spend,
+                conversions: 0,
+                cpa: b.cpa,
+              },
+              actions: [
+                { label: 'Inspect Search Terms', prompt: `Inspect non-converting search terms for ${b.name}` },
+                { label: 'Analyze Campaign', prompt: `Perform a detailed performance diagnosis on ${b.name}` },
+                { label: 'Review Optimization Recommendation', prompt: `Recommend how to adjust or pause ${b.name} to eliminate waste` },
+              ],
+            });
+          });
+        } else if (tc.name === 'identify_underperforming_campaigns' && Array.isArray(execResult.data)) {
+          execResult.data.slice(0, 2).forEach((c: any, idx: number) => {
+            interactiveRecommendations.push({
+              id: `rec-under-${c.id || idx}`,
+              type: 'UNDERPERFORMING_CAMPAIGN',
+              title: 'Underperforming Campaign',
+              campaignName: c.name,
+              finding: `CPA is elevated at $${Number(c.cpa || 0).toFixed(2)} with ${Number(c.conversions || 0)} conversions from $${Number(c.spend || 0).toFixed(2)} spend.`,
+              metrics: {
+                spend: c.spend,
+                conversions: c.conversions,
+                cpa: c.cpa,
+                roas: c.roas,
+              },
+              actions: [
+                { label: 'Inspect Search Terms', prompt: `Inspect search terms and negative keyword candidates for ${c.name}` },
+                { label: 'Analyze Campaign', prompt: `Diagnose why CPA is elevated on ${c.name}` },
+              ],
+            });
+          });
+        }
+
         toolMessages.push({
           role: 'tool',
           tool_call_id: tc.id,
@@ -128,9 +182,9 @@ RULES:
         });
       }
 
-      // Second pass to synthesize results into natural response
+      // Second pass to synthesize results into structured, professional markdown
       const secondResponse = await sendOpenRouterChat({
-        model: selectedModel,
+        model: selectedModel as any,
         tier: selectedModel as any,
         messages: toolMessages,
         temperature: 0.2,
@@ -141,11 +195,42 @@ RULES:
       }
     }
 
+    // Build user-friendly analysis details (No technical function names or credentials)
+    let analysisDetails: AnalysisSummaryDetail | undefined;
+    if (executedToolCalls.length > 0) {
+      const toolNames = executedToolCalls.map((t) => t.name);
+      const aspects: string[] = [];
+
+      if (toolNames.some((n) => n.includes('campaign'))) {
+        aspects.push('Audited active campaign budgets, pacing, and status');
+      }
+      if (toolNames.some((n) => n.includes('search_term') || n.includes('wasted_spend'))) {
+        aspects.push('Analyzed search queries and negative keyword candidates');
+      }
+      if (toolNames.some((n) => n.includes('keyword'))) {
+        aspects.push('Evaluated keyword match types and Quality Scores');
+      }
+      if (toolNames.some((n) => n.includes('budget') || n.includes('recommendation'))) {
+        aspects.push('Evaluated marginal ROAS for budget reallocation');
+      }
+      if (toolNames.some((n) => n.includes('account') || n.includes('conversion'))) {
+        aspects.push('Compared blended CPA against historical target benchmarks');
+      }
+
+      analysisDetails = {
+        campaignsCount: toolContext.campaigns?.length || 0,
+        dateRangeExamined: '7-day and 30-day Google Ads performance windows',
+        aspectsExamined: aspects.length > 0 ? aspects : ['Examined campaign performance and auction metrics'],
+      };
+    }
+
     return NextResponse.json({
       success: true,
       reply: finalReply || 'I inspected your account data. See the details above.',
       toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
       actionProposal: capturedProposal,
+      recommendations: interactiveRecommendations.length > 0 ? interactiveRecommendations : undefined,
+      analysisDetails,
       tableData: capturedTableData,
       modelUsed: firstResponse.modelUsed,
     });

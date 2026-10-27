@@ -123,7 +123,7 @@ export function Sidebar({
   const renderNavContent = (isMobile = false) => (
     <div className="flex flex-col justify-between h-full min-h-full">
       {/* Top Brand & Nav */}
-      <div className="p-5 flex flex-col gap-6">
+      <div className="p-5 flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
         {/* Brand Lockup */}
         <div className="flex items-center justify-between px-2 pt-1">
           <Link

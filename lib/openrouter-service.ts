@@ -43,20 +43,20 @@ export function getAvailableModels(): ModelConfig[] {
 
 export function resolveModelId(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'analysis') {
+  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') {
     return process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat';
   }
-  if (normalized === 'chatgpt' || normalized === 'advanced') {
+  if (normalized === 'chatgpt' || normalized === 'balanced') {
     return process.env.MODEL_CHATGPT || 'openai/gpt-4o';
   }
-  // Default to Gemini
+  // Default to Gemini / Fast
   return process.env.MODEL_GEMINI || 'google/gemini-2.5-flash';
 }
 
 export function getModelDisplayName(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'analysis') return 'DeepSeek';
-  if (normalized === 'chatgpt' || normalized === 'advanced') return 'ChatGPT';
+  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'DeepSeek';
+  if (normalized === 'chatgpt' || normalized === 'balanced') return 'ChatGPT';
   return 'Gemini';
 }
 
