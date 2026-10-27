@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Google Ads API returned an error: pass it directly so it displays on the page
-    const cleanErr = (liveResult.error || 'Google Ads API query failed')
+    // Google Ads returned an error: pass it directly so it displays on the page
+    const cleanErr = (liveResult.error || 'Google Ads query failed')
       .replace(/<[^>]*>?/gm, ' ')
       .replace(/\s+/g, ' ')
       .trim()

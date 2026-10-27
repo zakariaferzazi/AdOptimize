@@ -53,7 +53,25 @@ export interface Campaign {
   healthStatus: HealthStatus;
   healthScore: number; // 0 to 100
   trendPoints: number[]; // sparkline data
-  historicalPoints: { date: string; spend: number; conversions: number; cpa: number; roas: number }[];
+  historicalPoints: {
+    date: string;
+    spend: number;
+    conversions: number;
+    cpa: number;
+    roas: number;
+    clicks?: number;
+    impressions?: number;
+    conversionValue?: number;
+  }[];
+  timeframeMetrics?: {
+    TODAY?: CampaignTimeframeData;
+    YESTERDAY?: CampaignTimeframeData;
+    LAST_7_DAYS?: CampaignTimeframeData;
+    LAST_14_DAYS?: CampaignTimeframeData;
+    LAST_30_DAYS?: CampaignTimeframeData;
+    THIS_MONTH?: CampaignTimeframeData;
+    ALL_TIME?: CampaignTimeframeData;
+  };
   previousPeriod?: {
     spend: number;
     conversions: number;
@@ -72,6 +90,18 @@ export interface Campaign {
   allTimeCpc?: number;
   allTimeCpa?: number;
   allTimeRoas?: number;
+}
+
+export interface CampaignTimeframeData {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  conversionValue: number;
+  cpa: number;
+  roas: number;
+  ctr: number;
+  cpc: number;
 }
 
 export interface Keyword {
@@ -306,6 +336,7 @@ export type DateRangePeriod =
   | 'TODAY'
   | 'YESTERDAY'
   | 'LAST_7_DAYS'
+  | 'LAST_14_DAYS'
   | 'LAST_30_DAYS'
   | 'THIS_MONTH'
   | 'LAST_MONTH'

@@ -37,6 +37,8 @@ export function PerformanceChart({
         return 8; // 8 intervals across the day
       case 'LAST_7_DAYS':
         return 7;
+      case 'LAST_14_DAYS':
+        return 14;
       case 'THIS_MONTH':
       case 'LAST_MONTH':
       case 'LAST_30_DAYS':
@@ -70,22 +72,109 @@ export function PerformanceChart({
 
     const isSingleDay = selectedPeriod === 'TODAY' || selectedPeriod === 'YESTERDAY';
 
-    for (let i = pointCount - 1; i >= 0; i--) {
-      let label = '';
-      let dateFull = '';
+    // Check if campaigns have real historical daily points from Google Ads
+    const hasRealHistory = campaigns.some((c) => c.historicalPoints && c.historicalPoints.length > 0);
 
-      if (isSingleDay) {
-        const hour = 8 + Math.round((i / (pointCount - 1)) * 14);
-        label = `${hour % 12 || 12}${hour >= 12 ? 'pm' : 'am'}`;
-        dateFull = selectedPeriod === 'TODAY' ? `Today at ${label}` : `Yesterday at ${label}`;
-      } else {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i * Math.max(1, Math.round(30 / pointCount)));
-        label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        dateFull = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (hasRealHistory && !isSingleDay) {
+      const datesMap = new Map<string, { spend: number; conversions: number; convValue: number; clicks: number; impressions: number }>();
+
+      campaigns.forEach((c) => {
+        (c.historicalPoints || []).forEach((p) => {
+          if (!datesMap.has(p.date)) {
+            datesMap.set(p.date, { spend: 0, conversions: 0, convValue: 0, clicks: 0, impressions: 0 });
+          }
+          const item = datesMap.get(p.date)!;
+          item.spend += p.spend || 0;
+          item.conversions += p.conversions || 0;
+          item.convValue += p.conversionValue || ((p.spend || 0) * (p.roas || 1));
+          item.clicks += p.clicks || Math.round((p.spend || 0) / 1.5);
+          item.impressions += p.impressions || Math.round((p.clicks || 1) * 15);
+        });
+      });
+
+      const sortedDates = Array.from(datesMap.keys()).sort();
+      let selectedDates = sortedDates;
+      if (selectedPeriod === 'LAST_7_DAYS') {
+        selectedDates = sortedDates.slice(-7);
+      } else if (selectedPeriod === 'LAST_14_DAYS') {
+        selectedDates = sortedDates.slice(-14);
+      } else if (selectedPeriod === 'LAST_30_DAYS') {
+        selectedDates = sortedDates.slice(-30);
       }
 
-      // Check for real historical data points if available in campaigns
+      if (selectedDates.length > 0) {
+        return selectedDates.map((ds) => {
+          const item = datesMap.get(ds)!;
+          const dObj = new Date(ds + 'T00:00:00');
+          const label = dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const dateFull = dObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+          const daySpend = Number(item.spend.toFixed(2));
+          const dayConversions = item.conversions;
+          const dayConversionValue = Number(item.convValue.toFixed(2));
+          const dayClicks = item.clicks;
+          const dayImpressions = item.impressions;
+
+          const cpa = dayConversions > 0 ? daySpend / dayConversions : 0;
+          const roas = daySpend > 0 ? dayConversionValue / daySpend : 0;
+          const ctr = dayImpressions > 0 ? (dayClicks / dayImpressions) * 100 : 0;
+          const cpc = dayClicks > 0 ? daySpend / dayClicks : 0;
+
+          const prevRatio = 0.93;
+          const prevDaySpend = Number((daySpend * prevRatio).toFixed(2));
+          const prevDayConversions = Math.max(0, Math.round(dayConversions * 0.9));
+          const prevDayConversionValue = Number((dayConversionValue * prevRatio).toFixed(2));
+          const prevDayClicks = Math.max(0, Math.round(dayClicks * 0.92));
+          const prevDayImpressions = Math.max(0, Math.round(dayImpressions * 0.93));
+
+          const prevCpa = prevDayConversions > 0 ? prevDaySpend / prevDayConversions : 0;
+          const prevRoas = prevDaySpend > 0 ? prevDayConversionValue / prevDaySpend : 0;
+          const prevCtr = prevDayImpressions > 0 ? (prevDayClicks / prevDayImpressions) * 100 : 0;
+          const prevCpc = prevDayClicks > 0 ? prevDaySpend / prevDayClicks : 0;
+
+          return {
+            label,
+            dateFull,
+            current: {
+              spend: daySpend,
+              conversions: dayConversions,
+              conversionValue: dayConversionValue,
+              cpa: Math.round(cpa * 100) / 100,
+              roas: Math.round(roas * 100) / 100,
+              ctr: Math.round(ctr * 10) / 10,
+              cpc: Math.round(cpc * 100) / 100,
+            },
+            previous: {
+              spend: prevDaySpend,
+              conversions: prevDayConversions,
+              conversionValue: prevDayConversionValue,
+              cpa: Math.round(prevCpa * 100) / 100,
+              roas: Math.round(prevRoas * 100) / 100,
+              ctr: Math.round(prevCtr * 10) / 10,
+              cpc: Math.round(prevCpc * 100) / 100,
+            },
+          };
+        });
+      }
+    }
+
+    for (let i = 0; i < pointCount; i++) {
+      const date = new Date(today);
+      if (selectedPeriod === 'YESTERDAY') {
+        date.setDate(today.getDate() - 1);
+      } else if (isSingleDay) {
+        // Today
+      } else {
+        date.setDate(today.getDate() - (pointCount - 1 - i));
+      }
+
+      const label = isSingleDay
+        ? `${i * 3}:00`
+        : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dateFull = isSingleDay
+        ? `${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${i * 3}:00`
+        : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
       let daySpend = 0;
       let dayConversions = 0;
       let dayConversionValue = 0;

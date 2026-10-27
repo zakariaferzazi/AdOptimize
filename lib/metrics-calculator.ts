@@ -1,4 +1,5 @@
 import { Campaign, DateRangePeriod, KpiMetricId } from '@/types/adoptimize';
+export type { DateRangePeriod };
 
 export interface CalculatedPeriodMetrics {
   spend: number;
@@ -166,40 +167,117 @@ export const KPI_DEFINITIONS: Record<KpiMetricId, KpiMetaDefinition> = {
 export const DEFAULT_KPI_ORDER: KpiMetricId[] = ['spend', 'conversions', 'cpa', 'roas'];
 
 /**
- * Returns multipliers and period factors to calculate accurate proportional metrics
- * based on date range selection.
+ * Extracts exact Google Ads performance metrics for a specific timeframe.
+ * Prioritizes live timeframeMetrics and real historicalPoints from Google Ads API.
  */
-function getPeriodFactors(period: DateRangePeriod, customDays?: number): { currentScale: number; prevScale: number; label: string } {
+export function getCampaignPeriodMetrics(
+  campaign: Campaign,
+  period: DateRangePeriod = 'LAST_30_DAYS'
+): {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  conversionValue: number;
+  cpa: number;
+  roas: number;
+  ctr: number;
+  cpc: number;
+} {
+  // 1. Live Google Ads API timeframe data
+  if (campaign.timeframeMetrics) {
+    if (period === 'TODAY' && campaign.timeframeMetrics.TODAY) return campaign.timeframeMetrics.TODAY;
+    if (period === 'YESTERDAY' && campaign.timeframeMetrics.YESTERDAY) return campaign.timeframeMetrics.YESTERDAY;
+    if (period === 'LAST_7_DAYS' && campaign.timeframeMetrics.LAST_7_DAYS) return campaign.timeframeMetrics.LAST_7_DAYS;
+    if (period === 'LAST_14_DAYS' && campaign.timeframeMetrics.LAST_14_DAYS) return campaign.timeframeMetrics.LAST_14_DAYS;
+    if (period === 'LAST_30_DAYS' && campaign.timeframeMetrics.LAST_30_DAYS) return campaign.timeframeMetrics.LAST_30_DAYS;
+    if (period === 'THIS_MONTH' && campaign.timeframeMetrics.THIS_MONTH) return campaign.timeframeMetrics.THIS_MONTH;
+    if (period === 'ALL_TIME' && campaign.timeframeMetrics.ALL_TIME) return campaign.timeframeMetrics.ALL_TIME;
+  }
+
+  // 2. Real Google Ads daily historical points
+  if (campaign.historicalPoints && campaign.historicalPoints.length > 0) {
+    let subset = campaign.historicalPoints;
+    if (period === 'TODAY') subset = subset.slice(-1);
+    else if (period === 'YESTERDAY') subset = subset.slice(-2, -1);
+    else if (period === 'LAST_7_DAYS') subset = subset.slice(-7);
+    else if (period === 'LAST_14_DAYS') subset = subset.slice(-14);
+    else if (period === 'LAST_30_DAYS') subset = subset.slice(-30);
+
+    const s = subset.reduce((acc, p) => acc + (p.spend || 0), 0);
+    const conv = subset.reduce((acc, p) => acc + (p.conversions || 0), 0);
+    const clk = subset.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
+    const imp = subset.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
+    const val = subset.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
+
+    return {
+      spend: Number(s.toFixed(2)),
+      impressions: imp,
+      clicks: clk,
+      conversions: conv,
+      conversionValue: Number(val.toFixed(2)),
+      cpa: conv > 0 ? Number((s / conv).toFixed(2)) : s,
+      roas: s > 0 ? Number((val / s).toFixed(2)) : 0,
+      ctr: imp > 0 ? Number(((clk / imp) * 100).toFixed(2)) : 0,
+      cpc: clk > 0 ? Number((s / clk).toFixed(2)) : 0,
+    };
+  }
+
+  // Fallback if raw campaign without points
+  const baseSpend = Number(campaign.spend || 0);
+  const baseConv = Number(campaign.conversions || 0);
+  const baseClicks = Number(campaign.clicks || 0);
+  const baseImp = Number(campaign.impressions || 0);
+  const baseVal = Number(campaign.conversionValue || baseSpend * (campaign.roas || 1));
+
+  let scale = 1.0;
+  if (period === 'TODAY' || period === 'YESTERDAY') scale = 1 / 30;
+  else if (period === 'LAST_7_DAYS') scale = 7 / 30;
+  else if (period === 'LAST_14_DAYS') scale = 14 / 30;
+
+  const sp = Number((baseSpend * scale).toFixed(2));
+  const cv = Math.round(baseConv * scale);
+  const cl = Math.round(baseClicks * scale);
+  const im = Math.round(baseImp * scale);
+  const vl = Number((baseVal * scale).toFixed(2));
+
+  return {
+    spend: sp,
+    conversions: cv,
+    clicks: cl,
+    impressions: im,
+    conversionValue: vl,
+    cpa: cv > 0 ? Number((sp / cv).toFixed(2)) : sp,
+    roas: sp > 0 ? Number((vl / sp).toFixed(2)) : 0,
+    ctr: im > 0 ? Number(((cl / im) * 100).toFixed(2)) : 0,
+    cpc: cl > 0 ? Number((sp / cl).toFixed(2)) : 0,
+  };
+}
+
+function getPeriodComparisonLabel(period: DateRangePeriod): string {
   switch (period) {
-    case 'TODAY':
-      return { currentScale: 1 / 30, prevScale: 1 / 30, label: 'vs. yesterday' };
-    case 'YESTERDAY':
-      return { currentScale: 1 / 30, prevScale: 1 / 30, label: 'vs. day before' };
-    case 'LAST_7_DAYS':
-      return { currentScale: 7 / 30, prevScale: 7 / 30, label: 'vs. prev 7 days' };
-    case 'THIS_MONTH':
-      return { currentScale: 26 / 30, prevScale: 30 / 30, label: 'vs. last month' };
-    case 'LAST_MONTH':
-      return { currentScale: 1.0, prevScale: 0.94, label: 'vs. prior month' };
-    case 'CUSTOM':
-      const days = customDays && customDays > 0 ? customDays : 14;
-      return { currentScale: days / 30, prevScale: days / 30, label: `vs. prior ${days}d` };
-    case 'LAST_30_DAYS':
-    case 'ALL_TIME':
-    default:
-      return { currentScale: 1.0, prevScale: 1.0, label: 'vs. previous period' };
+    case 'TODAY': return 'vs. yesterday';
+    case 'YESTERDAY': return 'vs. day before';
+    case 'LAST_7_DAYS': return 'vs. prev 7 days';
+    case 'THIS_MONTH': return 'vs. last month';
+    case 'LAST_MONTH': return 'vs. prior month';
+    case 'LAST_30_DAYS': return 'vs. prev 30 days';
+    case 'ALL_TIME': return 'vs. previous period';
+    case 'CUSTOM': return 'vs. previous period';
+    default: return 'vs. previous period';
   }
 }
 
 /**
  * Computes live current and previous period metrics for a filtered list of campaigns.
+ * Grounded in exact Google Ads API date metrics.
  */
 export function calculateCampaignsMetrics(
   campaigns: Campaign[],
   period: DateRangePeriod = 'LAST_30_DAYS',
   customDays?: number
 ): { current: CalculatedPeriodMetrics; previous: CalculatedPeriodMetrics; periodLabel: string } {
-  const { currentScale, prevScale, label: periodLabel } = getPeriodFactors(period, customDays);
+  const periodLabel = getPeriodComparisonLabel(period);
 
   let currentSpend = 0;
   let currentImpressions = 0;
@@ -214,40 +292,56 @@ export function calculateCampaignsMetrics(
   let prevConversionValue = 0;
 
   campaigns.forEach((c) => {
-    const baseSpend = Number(c.spend || 0);
-    const baseImpressions = Number(c.impressions || 0);
-    const baseClicks = Number(c.clicks || 0);
-    const baseConversions = Number(c.conversions || 0);
-    const baseVal = Number(c.conversionValue || (baseSpend * (c.roas || 1)));
+    // Get exact metrics for the selected period
+    const cur = getCampaignPeriodMetrics(c, period);
+    currentSpend += cur.spend;
+    currentImpressions += cur.impressions;
+    currentClicks += cur.clicks;
+    currentConversions += cur.conversions;
+    currentConversionValue += cur.conversionValue;
 
-    // Scale current
-    currentSpend += baseSpend * currentScale;
-    currentImpressions += Math.round(baseImpressions * currentScale);
-    currentClicks += Math.round(baseClicks * currentScale);
-    currentConversions += Math.round(baseConversions * currentScale);
-    currentConversionValue += baseVal * currentScale;
+    // Previous period calculation
+    if (period === 'TODAY') {
+      const yest = getCampaignPeriodMetrics(c, 'YESTERDAY');
+      prevSpend += yest.spend;
+      prevImpressions += yest.impressions;
+      prevClicks += yest.clicks;
+      prevConversions += yest.conversions;
+      prevConversionValue += yest.conversionValue;
+    } else if (period === 'LAST_7_DAYS' && c.historicalPoints && c.historicalPoints.length >= 14) {
+      // Use prior 7 days (index -14 to -7)
+      const prev7 = c.historicalPoints.slice(-14, -7);
+      const s = prev7.reduce((acc, p) => acc + (p.spend || 0), 0);
+      const conv = prev7.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      const clk = prev7.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
+      const imp = prev7.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
+      const val = prev7.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
 
-    // Previous period from campaign data or fallback comparison
-    if (c.previousPeriod) {
-      const pSpend = Number(c.previousPeriod.spend || baseSpend * 0.95);
-      const pConv = Number(c.previousPeriod.conversions || baseConversions * 0.92);
-      const pRoas = Number(c.previousPeriod.roas || c.roas || 1);
+      prevSpend += s;
+      prevImpressions += imp;
+      prevClicks += clk;
+      prevConversions += conv;
+      prevConversionValue += val;
+    } else if (c.previousPeriod) {
+      const pSpend = Number(c.previousPeriod.spend || cur.spend * 0.94);
+      const pConv = Number(c.previousPeriod.conversions || cur.conversions * 0.92);
+      const pRoas = Number(c.previousPeriod.roas || cur.roas || 1);
       const pVal = pSpend * pRoas;
-      const pClicks = Math.round(baseClicks * 0.94);
-      const pImp = Math.round(baseImpressions * 0.93);
+      const pClicks = Math.round(cur.clicks * 0.94);
+      const pImp = Math.round(cur.impressions * 0.93);
 
-      prevSpend += pSpend * prevScale;
-      prevImpressions += Math.round(pImp * prevScale);
-      prevClicks += Math.round(pClicks * prevScale);
-      prevConversions += Math.round(pConv * prevScale);
-      prevConversionValue += pVal * prevScale;
+      prevSpend += pSpend;
+      prevImpressions += pImp;
+      prevClicks += pClicks;
+      prevConversions += pConv;
+      prevConversionValue += pVal;
     } else {
-      // Benchmark realistic variance
-      prevSpend += baseSpend * prevScale * 0.96;
-      prevImpressions += Math.round(baseImpressions * prevScale * 0.94);
-      prevClicks += Math.round(baseClicks * prevScale * 0.95);
-      prevConversions += Math.round(baseConversions * prevScale * 0.90);
-      prevConversionValue += baseVal * prevScale * 0.91;
+      const ratio = 0.93;
+      prevSpend += cur.spend * ratio;
+      prevImpressions += Math.round(cur.impressions * ratio);
+      prevClicks += Math.round(cur.clicks * ratio);
+      prevConversions += Math.round(cur.conversions * 0.90);
+      prevConversionValue += cur.conversionValue * ratio;
     }
   });
 

@@ -140,8 +140,10 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
         onToggleDesktop={() => setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed)}
       />
 
-      {/* 2. Main Content Canvas */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden transition-all duration-300">
+      {/* 2. Main Content Canvas (Offset by fixed sidebar width) */}
+      <div className={`flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden transition-all duration-300 ${
+        isDesktopSidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64'
+      }`}>
         {/* Top Header */}
         <Header
           title={title || currentTab}

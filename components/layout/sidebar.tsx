@@ -294,15 +294,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* 1. Desktop Persistent / Collapsible Sidebar (Full height background with sticky viewport navigation) */}
+      {/* 1. Desktop Persistent Sidebar - Completely fixed to viewport so it does not scroll with page */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 min-h-screen self-stretch select-none border-r border-slate-800/60 z-30 transition-all duration-300 ease-in-out bg-[#0d1117] text-slate-300 ${
+        className={`hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 h-screen select-none border-r border-slate-800/60 z-30 bg-[#0d1117] text-slate-300 transition-transform duration-300 ease-in-out ${
           isDesktopCollapsed
-            ? 'w-0 -translate-x-full border-r-0 overflow-hidden opacity-0 pointer-events-none'
-            : 'w-64 translate-x-0 opacity-100'
+            ? '-translate-x-full border-r-0 pointer-events-none'
+            : 'translate-x-0'
         }`}
       >
-        <div className="w-64 sticky top-0 h-screen flex flex-col justify-between overflow-y-auto">
+        <div className="w-64 h-full flex flex-col justify-between overflow-y-auto">
           {renderNavContent(false)}
         </div>
       </aside>

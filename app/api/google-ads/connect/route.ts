@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         totalCampaignsCount: realCampaigns.length,
         monthlySpendCap: Number(monthlySpendCap) || 25000,
         verifiedLive: true,
-        verificationNote: `Verified real account with Google Ads API (${realCampaigns.length} campaigns found).`,
+        verificationNote: `Verified real account with Google Ads (${realCampaigns.length} campaigns found).`,
       };
 
       const resolvedLoginCid = body.loginCustomerId || verification.loginCustomerIdUsed;
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
         totalCampaignsCount: realCampaigns.length,
         monthlySpendCap: Number(monthlySpendCap) || 25000,
         verifiedLive: true,
-        verificationNote: `Verified real account with Google Ads API (${realCampaigns.length} campaigns found).`,
+        verificationNote: `Verified real account with Google Ads (${realCampaigns.length} campaigns found).`,
       };
 
       const resolvedLoginCid = loginCustomerId || verification.loginCustomerIdUsed;

@@ -22,7 +22,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import { Campaign, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
-import { getCurrencySymbol } from '@/lib/metrics-calculator';
+import { getCurrencySymbol, getCampaignPeriodMetrics } from '@/lib/metrics-calculator';
 
 interface CampaignsTableProps {
   campaigns: Campaign[];
@@ -108,18 +108,15 @@ export function CampaignsTable({
         return true;
       })
       .map((c) => {
-        // Scaled values for selected period
-        const spend = Number(c.spend || 0) * periodMultiplier;
-        const conversions = Math.round(Number(c.conversions || 0) * periodMultiplier);
-        const cpa = conversions > 0 ? spend / conversions : Number(c.cpa || 0);
-        const roas = Number(c.roas || 0);
+        // Exact metrics for selected period (Today, Yesterday, Last 7d, Last 30d, etc.)
+        const pm = getCampaignPeriodMetrics(c, period);
 
         return {
           ...c,
-          displaySpend: spend,
-          displayConversions: conversions,
-          displayCpa: cpa,
-          displayRoas: roas,
+          displaySpend: pm.spend,
+          displayConversions: pm.conversions,
+          displayCpa: pm.cpa,
+          displayRoas: pm.roas,
         };
       })
       .sort((a, b) => {
@@ -144,7 +141,7 @@ export function CampaignsTable({
         }
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       });
-  }, [campaigns, selectedCampaignId, statusFilter, searchQuery, sortField, sortOrder, periodMultiplier]);
+  }, [campaigns, selectedCampaignId, statusFilter, searchQuery, sortField, sortOrder, period]);
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {

@@ -16,8 +16,8 @@ import {
   Zap,
   Trash2,
 } from 'lucide-react';
-import { Campaign, CampaignType, CampaignStatus } from '@/types/adoptimize';
-import { getCurrencySymbol } from '@/lib/metrics-calculator';
+import { Campaign, CampaignType, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
+import { getCurrencySymbol, getCampaignPeriodMetrics } from '@/lib/metrics-calculator';
 
 interface CampaignsFullViewProps {
   campaigns: Campaign[];
@@ -39,6 +39,7 @@ export function CampaignsFullView({
   isSyncing = false,
 }: CampaignsFullViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState<DateRangePeriod>('LAST_30_DAYS');
   const [typeFilter, setTypeFilter] = useState<'ALL' | CampaignType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
   const [sortBy, setSortBy] = useState<'spend' | 'roas' | 'conversions' | 'cpa'>('spend');
@@ -52,10 +53,12 @@ export function CampaignsFullView({
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'spend') return b.spend - a.spend;
-      if (sortBy === 'roas') return b.roas - a.roas;
-      if (sortBy === 'conversions') return b.conversions - a.conversions;
-      if (sortBy === 'cpa') return a.cpa - b.cpa;
+      const mA = getCampaignPeriodMetrics(a, selectedPeriod);
+      const mB = getCampaignPeriodMetrics(b, selectedPeriod);
+      if (sortBy === 'spend') return mB.spend - mA.spend;
+      if (sortBy === 'roas') return mB.roas - mA.roas;
+      if (sortBy === 'conversions') return mB.conversions - mA.conversions;
+      if (sortBy === 'cpa') return mA.cpa - mB.cpa;
       return 0;
     });
 
@@ -112,6 +115,21 @@ export function CampaignsFullView({
               <option value="PERFORMANCE_MAX">Performance Max</option>
               <option value="DISPLAY">Display</option>
               <option value="SHOPPING">Shopping</option>
+            </select>
+
+            {/* Timeframe Selector */}
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value as any)}
+              className="px-3 py-1.5 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs text-[#00d67d] font-bold focus:outline-none"
+            >
+              <option value="LAST_30_DAYS">Last 30 Days</option>
+              <option value="LAST_14_DAYS">Last 14 Days</option>
+              <option value="LAST_7_DAYS">Last 7 Days</option>
+              <option value="TODAY">Today</option>
+              <option value="YESTERDAY">Yesterday</option>
+              <option value="THIS_MONTH">This Month</option>
+              <option value="ALL_TIME">All Time</option>
             </select>
           </div>
 
@@ -204,8 +222,9 @@ export function CampaignsFullView({
                 </tr>
               ) : (
                 filtered.map((c) => {
+                  const m = getCampaignPeriodMetrics(c, selectedPeriod);
                   const isHealthy = c.healthStatus === 'HEALTHY';
-                  const isCritical = c.healthStatus === 'CRITICAL';
+                  const isCritical = c.healthStatus === 'CRITICAL' || m.cpa > 80;
                   const isOpportunity = c.healthStatus === 'OPPORTUNITY';
 
                   return (
@@ -260,18 +279,18 @@ export function CampaignsFullView({
 
                       {/* Spend */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                        {sym}{Number(c.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {sym}{Number(m.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Conversions */}
                       <td className="py-3.5 px-3 text-right font-mono font-semibold text-slate-900">
-                        {c.conversions || 0}
+                        {m.conversions || 0}
                       </td>
 
                       {/* CPA */}
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         <span className={isCritical ? 'text-rose-600 font-bold' : 'text-slate-800'}>
-                          {sym}{Number(c.cpa || 0).toFixed(2)}
+                          {sym}{Number(m.cpa || 0).toFixed(2)}
                         </span>
                       </td>
 
@@ -279,14 +298,14 @@ export function CampaignsFullView({
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         <span
                           className={`px-2 py-0.5 rounded ${
-                            Number(c.roas || 0) >= 4.0
+                            Number(m.roas || 0) >= 4.0
                               ? 'bg-emerald-50 text-emerald-700'
-                              : Number(c.roas || 0) >= 2.0
+                              : Number(m.roas || 0) >= 2.0
                               ? 'bg-slate-100 text-slate-800'
                               : 'bg-rose-50 text-rose-700'
                           }`}
                         >
-                          {Number(c.roas || 0).toFixed(2)}x
+                          {Number(m.roas || 0).toFixed(2)}x
                         </span>
                       </td>
 

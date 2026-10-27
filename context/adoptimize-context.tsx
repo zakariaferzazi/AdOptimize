@@ -249,6 +249,85 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
+  const isConnected = state.account.isConnected;
+  const clientCustomerId = state.account.clientCustomerId;
+  const loginCustomerId = state.account.loginCustomerId;
+  const accountCurrency = state.account.currency;
+
+  // Real-time automatic background synchronization for connected Google Ads accounts
+  useEffect(() => {
+    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
+      return;
+    }
+
+    const performBackgroundSync = async () => {
+      // Only sync if browser tab is active/visible and not already busy syncing
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      if (isSyncing) return;
+
+      try {
+        const token = oauthToken || getStoredGoogleAdsToken();
+        const res = await fetch('/api/google-ads/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: clientCustomerId,
+            accessToken: token || undefined,
+            userEmail: user?.email || undefined,
+            loginCustomerId: loginCustomerId || (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined),
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success && data.campaigns && data.campaigns.length > 0) {
+          const detectedCurrency = data.currency || accountCurrency || 'USD';
+          setState((prev) => ({
+            ...prev,
+            campaigns: data.campaigns,
+            keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
+            searchTerms: data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
+            account: {
+              ...prev.account,
+              currency: detectedCurrency,
+              lastSyncAt: new Date().toISOString(),
+              syncStatus: 'SYNCED',
+              totalCampaignsCount: data.campaigns.length,
+            },
+          }));
+
+          if (user) {
+            data.campaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
+            saveUserAccount(user.uid, {
+              ...state.account,
+              currency: detectedCurrency,
+              lastSyncAt: new Date().toISOString(),
+              syncStatus: 'SYNCED',
+              totalCampaignsCount: data.campaigns.length,
+            });
+          }
+        }
+      } catch (err) {
+        // Silent background sync - keep running smoothly without disruptive alerts
+      }
+    };
+
+    // Auto-sync every 60 seconds when active
+    const intervalId = setInterval(performBackgroundSync, 60000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        performBackgroundSync();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isConnected, clientCustomerId, loginCustomerId, accountCurrency, oauthToken, user, isSyncing, state.account]);
+
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;
     setIsSigningIn(true);
@@ -381,7 +460,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             totalCampaignsCount: data.campaigns.length,
           });
         }
-        showToast(`Synced ${data.campaigns.length} campaigns via Google Ads API (${detectedCurrency})`);
+        showToast(`Synced ${data.campaigns.length} campaigns from Google Ads (${detectedCurrency})`);
       } else {
         showToast('Google Ads account synced.');
       }

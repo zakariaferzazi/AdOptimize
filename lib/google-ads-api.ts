@@ -397,10 +397,31 @@ export async function queryLiveCampaigns(
         };
       }
 
-      // Query 7-day daily breakdown to calculate exact 7-day spend and populate historical points
+      // Query 30-day daily breakdown to calculate exact daily spend and populate timeframe metrics
       const dailyMap = new Map<string, Map<string, any>>();
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const yesterdayDate = new Date(now);
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+
+      const last30Dates: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        last30Dates.push(d.toISOString().slice(0, 10)); // 'YYYY-MM-DD'
+      }
+      const last7Dates = last30Dates.slice(-7);
+      const last14Dates = last30Dates.slice(-14);
+      const currentMonthPrefix = todayStr.slice(0, 7);
+      const thisMonthDates = last30Dates.filter((d) => d.startsWith(currentMonthPrefix));
+
       try {
-        const gaql7DaysQuery = `
+        const gaqlDailyQuery = `
           SELECT
             campaign.id,
             segments.date,
@@ -411,7 +432,7 @@ export async function queryLiveCampaigns(
             metrics.conversions_value
           FROM campaign
           WHERE campaign.status != 'REMOVED'
-            AND segments.date DURING LAST_7_DAYS
+            AND segments.date BETWEEN '${thirtyDaysAgoStr}' AND '${todayStr}'
           ORDER BY segments.date ASC
         `;
 
@@ -419,19 +440,45 @@ export async function queryLiveCampaigns(
           ? { ...headers, 'login-customer-id': discoveredLoginCid.replace(/\D/g, '') }
           : headers;
 
-        const res7d = await fetch(
+        let resDaily = await fetch(
           `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
           {
             method: 'POST',
             headers: activeHeaders,
-            body: JSON.stringify({ query: gaql7DaysQuery }),
+            body: JSON.stringify({ query: gaqlDailyQuery }),
           }
         );
 
-        const parsed7d = await safeParseResponse(res7d);
-        if (res7d.ok && parsed7d.isJson) {
-          const batches7d = Array.isArray(parsed7d.data) ? parsed7d.data : [parsed7d.data];
-          for (const batch of batches7d) {
+        // Fallback to DURING LAST_30_DAYS if BETWEEN is rejected by API version
+        if (!resDaily.ok) {
+          const fallbackQuery = `
+            SELECT
+              campaign.id,
+              segments.date,
+              metrics.cost_micros,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM campaign
+            WHERE campaign.status != 'REMOVED'
+              AND segments.date DURING LAST_30_DAYS
+            ORDER BY segments.date ASC
+          `;
+          resDaily = await fetch(
+            `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+            {
+              method: 'POST',
+              headers: activeHeaders,
+              body: JSON.stringify({ query: fallbackQuery }),
+            }
+          );
+        }
+
+        const parsedDaily = await safeParseResponse(resDaily);
+        if (resDaily.ok && parsedDaily.isJson) {
+          const batchesDaily = Array.isArray(parsedDaily.data) ? parsedDaily.data : [parsedDaily.data];
+          for (const batch of batchesDaily) {
             for (const row of batch.results || []) {
               const cId = String(row.campaign?.id || '');
               const dateStr = String(row.segments?.date || '');
@@ -444,17 +491,8 @@ export async function queryLiveCampaigns(
             }
           }
         }
-      } catch (err7d) {
-        console.warn('Google Ads 7-day query notice:', err7d);
-      }
-
-      // Generate the last 7 calendar days up to today
-      const today = new Date();
-      const last7Dates: string[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        last7Dates.push(d.toISOString().slice(0, 10)); // 'YYYY-MM-DD'
+      } catch (errDaily) {
+        console.warn('Google Ads 30-day daily query notice:', errDaily);
       }
 
       // Query keywords from keyword_view
@@ -625,15 +663,60 @@ export async function queryLiveCampaigns(
           const campIdStr = String(camp.id || '');
           const campDailyMetrics = dailyMap.get(campIdStr);
 
-          let sevenDaySpend = 0;
-          let sevenDayClicks = 0;
-          let sevenDayImpressions = 0;
-          let sevenDayConversions = 0;
-          let sevenDayConvValue = 0;
+          const calcWindow = (dates: string[]) => {
+            let wSpend = 0;
+            let wClicks = 0;
+            let wImpressions = 0;
+            let wConversions = 0;
+            let wConvValue = 0;
+            for (const ds of dates) {
+              const m = campDailyMetrics?.get(ds);
+              if (m) {
+                wSpend += Number(((m.costMicros || 0) / 1_000_000).toFixed(2));
+                wClicks += Number(m.clicks || 0);
+                wImpressions += Number(m.impressions || 0);
+                wConversions += Number(m.conversions || 0);
+                wConvValue += Number(((m.conversionsValue || 0)).toFixed(2));
+              }
+            }
+            wSpend = Number(wSpend.toFixed(2));
+            wConvValue = Number(wConvValue.toFixed(2));
+            const cpa = wConversions > 0 ? Number((wSpend / wConversions).toFixed(2)) : (wSpend > 0 ? wSpend : 0);
+            const roas = wSpend > 0 ? Number((wConvValue / wSpend).toFixed(2)) : 0;
+            const ctr = wImpressions > 0 ? Number(((wClicks / wImpressions) * 100).toFixed(2)) : 0;
+            const cpc = wClicks > 0 ? Number((wSpend / wClicks).toFixed(2)) : 0;
+            return {
+              spend: wSpend,
+              impressions: wImpressions,
+              clicks: wClicks,
+              conversions: wConversions,
+              conversionValue: wConvValue,
+              cpa,
+              roas,
+              ctr,
+              cpc,
+            };
+          };
 
-          const historicalPoints: { date: string; spend: number; conversions: number; cpa: number; roas: number }[] = [];
+          const todayMetrics = calcWindow([todayStr]);
+          const yesterdayMetrics = calcWindow([yesterdayStr]);
+          const sevenDaysMetrics = calcWindow(last7Dates);
+          const fourteenDaysMetrics = calcWindow(last14Dates);
+          const thirtyDaysMetrics = calcWindow(last30Dates);
+          const thisMonthMetrics = calcWindow(thisMonthDates);
 
-          for (const dateStr of last7Dates) {
+          const historicalPoints: {
+            date: string;
+            spend: number;
+            conversions: number;
+            cpa: number;
+            roas: number;
+            clicks: number;
+            impressions: number;
+            conversionValue: number;
+          }[] = [];
+
+          for (const dateStr of last30Dates) {
             const m = campDailyMetrics?.get(dateStr);
             const daySpend = m ? Number(((m.costMicros || 0) / 1_000_000).toFixed(2)) : 0;
             const dayClicks = m ? Number(m.clicks || 0) : 0;
@@ -643,30 +726,24 @@ export async function queryLiveCampaigns(
             const dayCpa = dayConversions > 0 ? Number((daySpend / dayConversions).toFixed(2)) : daySpend;
             const dayRoas = daySpend > 0 ? Number((dayConvValue / daySpend).toFixed(2)) : 0;
 
-            sevenDaySpend += daySpend;
-            sevenDayClicks += dayClicks;
-            sevenDayImpressions += dayImpressions;
-            sevenDayConversions += dayConversions;
-            sevenDayConvValue += dayConvValue;
-
             historicalPoints.push({
               date: dateStr,
               spend: daySpend,
               conversions: dayConversions,
               cpa: dayCpa,
               roas: dayRoas,
+              clicks: dayClicks,
+              impressions: dayImpressions,
+              conversionValue: dayConvValue,
             });
           }
 
-          sevenDaySpend = Number(sevenDaySpend.toFixed(2));
-          sevenDayConvValue = Number(sevenDayConvValue.toFixed(2));
-
-          // 7-day metrics
-          const spend = sevenDaySpend;
-          const conversions = sevenDayConversions;
-          const clicks = sevenDayClicks;
-          const impressions = sevenDayImpressions;
-          const convValue = sevenDayConvValue;
+          // Default metrics use 30-day window, or all-time if 30-day has no spend
+          const spend = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.spend : (allTimeSpend > 0 ? allTimeSpend : sevenDaysMetrics.spend);
+          const conversions = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.conversions : (allTimeConversions > 0 ? allTimeConversions : sevenDaysMetrics.conversions);
+          const clicks = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.clicks : (allTimeClicks > 0 ? allTimeClicks : sevenDaysMetrics.clicks);
+          const impressions = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.impressions : (allTimeImpressions > 0 ? allTimeImpressions : sevenDaysMetrics.impressions);
+          const convValue = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.conversionValue : (allTimeConvValue > 0 ? allTimeConvValue : sevenDaysMetrics.conversionValue);
 
           const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : (spend > 0 ? spend : 0);
           const roas = spend > 0 ? Number((convValue / spend).toFixed(2)) : 0;
@@ -816,10 +893,29 @@ export async function queryLiveCampaigns(
             allTimeCpc,
             allTimeCpa,
             allTimeRoas,
+            timeframeMetrics: {
+              TODAY: todayMetrics,
+              YESTERDAY: yesterdayMetrics,
+              LAST_7_DAYS: sevenDaysMetrics,
+              LAST_14_DAYS: fourteenDaysMetrics,
+              LAST_30_DAYS: thirtyDaysMetrics,
+              THIS_MONTH: thisMonthMetrics,
+              ALL_TIME: {
+                spend: allTimeSpend,
+                impressions: allTimeImpressions,
+                clicks: allTimeClicks,
+                conversions: allTimeConversions,
+                conversionValue: allTimeConvValue,
+                cpa: allTimeCpa,
+                roas: allTimeRoas,
+                ctr: allTimeCtr,
+                cpc: allTimeCpc,
+              },
+            },
             healthStatus: (roas >= 3.0 || allTimeRoas >= 3.0) ? 'HEALTHY' : (cpa > 80 || allTimeCpa > 80) ? 'WARNING' : 'HEALTHY',
             healthScore: Math.min(99, Math.max(50, Math.round((roas || allTimeRoas) * 16) + (camp.status === 'ENABLED' ? 25 : 10))),
             historicalPoints,
-            trendPoints: historicalPoints.map((p) => p.conversions || p.spend),
+            trendPoints: historicalPoints.slice(-14).map((p) => p.conversions || p.spend),
             keywordsCount: campKeywords.length,
             activeAdsCount: Math.max(3, Math.round((clicks || allTimeClicks || 10) / 12)),
             primaryGoal: 'MAXIMIZE_CONVERSIONS',
