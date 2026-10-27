@@ -92,6 +92,29 @@ export async function fetchUserCampaigns(userId: string): Promise<Campaign[]> {
   }
 }
 
+// 2b. Real-time Subscription to User Campaigns
+export function subscribeToUserCampaigns(
+  userId: string,
+  onUpdate: (campaigns: Campaign[]) => void,
+  onError?: (err: any) => void
+) {
+  const colRef = collection(db, 'users', userId, 'campaigns');
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items: Campaign[] = [];
+      snap.forEach((d) => {
+        items.push(d.data() as Campaign);
+      });
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Real-time campaigns subscription warning:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
 // 3. Save / Update Campaign
 export async function saveCampaignToFirestore(userId: string, campaign: Campaign) {
   const path = `users/${userId}/campaigns/${campaign.id}`;

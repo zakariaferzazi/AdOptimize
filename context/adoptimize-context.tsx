@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   GoogleAdsAccount,
   Campaign,
@@ -35,6 +35,7 @@ import {
 import {
   syncUserProfile,
   fetchUserCampaigns,
+  subscribeToUserCampaigns,
   fetchUserKeywords,
   saveKeywordToFirestore,
   deleteKeywordFromFirestore,
@@ -134,6 +135,29 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+
+  const isBackgroundSyncingRef = useRef<boolean>(false);
+  const lastSyncTimestampRef = useRef<number>(0);
+  const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
+
+  const getAccessTokenString = useCallback((): string | null => {
+    if (oauthToken && typeof oauthToken === 'string' && oauthToken.trim()) {
+      return oauthToken.trim();
+    }
+    const stored = getStoredGoogleAdsToken();
+    if (stored?.token && typeof stored.token === 'string' && stored.token.trim()) {
+      return stored.token.trim();
+    }
+    if (typeof window !== 'undefined') {
+      const st = sessionStorage.getItem('google_ads_oauth_token');
+      if (st && typeof st === 'string' && st.trim()) return st.trim();
+      try {
+        const lt = localStorage.getItem('google_ads_oauth_token');
+        if (lt && typeof lt === 'string' && lt.trim()) return lt.trim();
+      } catch {}
+    }
+    return null;
+  }, [oauthToken]);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -252,6 +276,24 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             saveState(nextState);
             return nextState;
           });
+
+          // Subscribe to real-time Firestore updates for user's campaigns
+          if (unsubscribeCampaignsRef.current) {
+            unsubscribeCampaignsRef.current();
+          }
+          unsubscribeCampaignsRef.current = subscribeToUserCampaigns(currentUser.uid, (liveCampaigns) => {
+            if (liveCampaigns && liveCampaigns.length > 0) {
+              setState((prev) => {
+                const nextState = {
+                  ...prev,
+                  campaigns: liveCampaigns,
+                  isDemoMode: false,
+                };
+                saveState(nextState);
+                return nextState;
+              });
+            }
+          });
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
         } finally {
@@ -266,6 +308,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       isSubscribed = false;
       clearTimeout(safetyTimer);
       unsubscribe();
+      if (unsubscribeCampaignsRef.current) {
+        unsubscribeCampaignsRef.current();
+        unsubscribeCampaignsRef.current = null;
+      }
       if (typeof window !== 'undefined') {
         window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       }
@@ -278,38 +324,58 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const accountCurrency = state.account.currency;
 
   // Real-time automatic background synchronization for connected Google Ads accounts
-  useEffect(() => {
-    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
-      return;
-    }
+  const performBackgroundSync = useCallback(
+    async (force = false) => {
+      if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
+        return;
+      }
+      // Only sync if browser tab is active/visible
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      // Rate-limit check: prevent duplicate requests within 4s unless explicitly forced
+      const now = Date.now();
+      if (!force && now - lastSyncTimestampRef.current < 4000) {
+        return;
+      }
+      if (isBackgroundSyncingRef.current) {
+        return;
+      }
 
-    const performBackgroundSync = async () => {
-      // Only sync if browser tab is active/visible and not already busy syncing
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-      if (isSyncing) return;
+      const token = getAccessTokenString();
+      if (!token) {
+        return;
+      }
+
+      isBackgroundSyncingRef.current = true;
 
       try {
-        const token = oauthToken || getStoredGoogleAdsToken();
         const res = await fetch('/api/google-ads/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerId: clientCustomerId,
-            accessToken: token || undefined,
+            accessToken: token,
             userEmail: user?.email || undefined,
-            loginCustomerId: loginCustomerId || (typeof window !== 'undefined' ? sessionStorage.getItem('google_ads_login_cid') : undefined),
+            loginCustomerId:
+              loginCustomerId ||
+              (typeof window !== 'undefined'
+                ? sessionStorage.getItem('google_ads_login_cid')
+                : undefined),
           }),
         });
 
         const data = await res.json();
-        if (res.ok && data.success && data.campaigns && data.campaigns.length > 0) {
+        if (res.ok && data.success && Array.isArray(data.campaigns)) {
+          lastSyncTimestampRef.current = Date.now();
           const detectedCurrency = data.currency || accountCurrency || 'USD';
           setState((prev) => {
             const nextState = {
               ...prev,
               campaigns: data.campaigns,
               keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
-              searchTerms: data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
+              searchTerms:
+                data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
               account: {
                 ...prev.account,
                 currency: detectedCurrency,
@@ -333,27 +399,55 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             });
           }
         }
-      } catch (err) {
-        // Silent background sync - keep running smoothly without disruptive alerts
+      } catch {
+        // Continuous non-disruptive background sync
+      } finally {
+        isBackgroundSyncingRef.current = false;
       }
-    };
+    },
+    [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account]
+  );
 
-    // Auto-sync every 60 seconds when active
-    const intervalId = setInterval(performBackgroundSync, 60000);
+  // Real-time automatic background synchronization:
+  // 1. Immediately on mount/connection
+  // 2. Continuous 8-second background polling
+  // 3. Immediately whenever the user switches back from another tab (window focus)
+  // 4. Immediately whenever document visibility changes to visible
+  useEffect(() => {
+    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
+      return;
+    }
+
+    // Immediate sync on load
+    const initialSyncTimer = setTimeout(() => {
+      performBackgroundSync(true);
+    }, 50);
+
+    // Continuous 8s real-time poll
+    const intervalId = setInterval(() => {
+      performBackgroundSync(false);
+    }, 8000);
+
+    const handleWindowFocus = () => {
+      performBackgroundSync(true);
+    };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        performBackgroundSync();
+        performBackgroundSync(true);
       }
     };
 
+    window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      clearTimeout(initialSyncTimer);
       clearInterval(intervalId);
+      window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isConnected, clientCustomerId, loginCustomerId, accountCurrency, oauthToken, user, isSyncing, state.account]);
+  }, [isConnected, clientCustomerId, performBackgroundSync]);
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;
@@ -424,9 +518,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
   const handleSync = async () => {
     setIsSyncing(true);
-    setApiIssue(null);
     try {
-      let token = oauthToken || getStoredGoogleAdsToken();
+      setApiIssue(null);
+      let token = getAccessTokenString();
       if (!token) {
         token = await acquireGoogleAdsToken({
           emailHint: user?.email || undefined,

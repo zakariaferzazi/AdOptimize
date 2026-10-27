@@ -286,12 +286,7 @@ export function DashboardClientView() {
     account.isConnected && account.clientCustomerId && account.clientCustomerId !== 'Not Connected'
   );
 
-  const headerExtra = isAccountConnected ? (
-    <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-full border border-emerald-200/80">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-      <span>Live Sync Active</span>
-    </span>
-  ) : null;
+
 
   // Keep loading skeleton active until data genuinely loads, preventing zero values
   const isDataStillLoading =
@@ -301,14 +296,14 @@ export function DashboardClientView() {
 
   if (isDataStillLoading) {
     return (
-      <AppShell title="Overview" headerExtra={headerExtra}>
+      <AppShell title="Overview">
         <DashboardSkeleton />
       </AppShell>
     );
   }
 
   return (
-    <AppShell title="Overview" headerExtra={headerExtra}>
+    <AppShell title="Overview">
       <div className="space-y-6">
         {/* Production Onboarding Banner when Google Ads account is not connected */}
         {!isAccountConnected && (

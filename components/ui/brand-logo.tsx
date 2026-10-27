@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import Image from 'next/image';
 
 interface BrandLogoProps {
   className?: string;
@@ -16,20 +16,21 @@ interface BrandLogoProps {
 }
 
 export function BrandLogoIcon({
-  className = 'w-6 h-6',
-  size,
+  className = 'w-7 h-7',
+  size = 28,
 }: {
   className?: string;
   size?: number;
 }) {
-  const inlineStyle = size ? { width: `${size}px`, height: `${size}px` } : undefined;
   return (
-    <div
-      style={inlineStyle}
-      className={`relative flex items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-sky-500 text-white shadow-sm shadow-emerald-500/20 ${className}`}
-    >
-      <Sparkles className="w-4/7 h-4/7 text-white" />
-    </div>
+    <Image
+      src="/icon.svg"
+      alt="AdOptimize"
+      width={size}
+      height={size}
+      className={`rounded-xl object-contain shrink-0 ${className}`}
+      referrerPolicy="no-referrer"
+    />
   );
 }
 
@@ -44,14 +45,17 @@ export function BrandLogo({
   textClassName,
 }: BrandLogoProps) {
   const sizeClasses = {
-    sm: { icon: 'w-6 h-6', text: 'text-base', gap: 'gap-2' },
-    md: { icon: 'w-8 h-8', text: 'text-lg', gap: 'gap-2.5' },
-    lg: { icon: 'w-10 h-10', text: 'text-xl', gap: 'gap-3' },
+    sm: { icon: 'w-6 h-6', px: 24, text: 'text-base', gap: 'gap-2' },
+    md: { icon: 'w-8 h-8', px: 32, text: 'text-lg', gap: 'gap-2.5' },
+    lg: { icon: 'w-10 h-10', px: 40, text: 'text-xl', gap: 'gap-3' },
   }[size];
 
   const content = (
     <div className={`flex items-center ${sizeClasses.gap} ${className}`}>
-      <BrandLogoIcon size={iconSize} className={iconClassName || sizeClasses.icon} />
+      <BrandLogoIcon
+        size={iconSize || sizeClasses.px}
+        className={iconClassName || sizeClasses.icon}
+      />
       {showText && (
         <span
           className={`font-bold tracking-tight ${
@@ -60,9 +64,6 @@ export function BrandLogo({
           }`}
         >
           Ad<span className="text-[#00d67d]">optimize</span>
-          <span className="text-xs ml-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold uppercase tracking-wider">
-            AI
-          </span>
         </span>
       )}
     </div>

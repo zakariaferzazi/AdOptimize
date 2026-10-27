@@ -11,7 +11,6 @@ import {
   Pause,
   SlidersHorizontal,
   ChevronDown,
-  RefreshCw,
   ExternalLink,
   Zap,
   Trash2,
@@ -146,16 +145,7 @@ export function CampaignsFullView({
               <option value="cpa">Lowest CPA</option>
             </select>
 
-            {onOpenSyncCampaigns && (
-              <button
-                onClick={onOpenSyncCampaigns}
-                disabled={isSyncing}
-                className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-colors cursor-pointer ml-2"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Campaigns'}</span>
-              </button>
-            )}
+
 
             <a
               href="https://ads.google.com"
@@ -195,23 +185,14 @@ export function CampaignsFullView({
                     <div className="max-w-md mx-auto space-y-3">
                       <p className="text-sm font-semibold text-slate-700">No campaigns found</p>
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        Campaigns are created inside Google Ads. Once active in your Google Ads account, click &quot;Sync with Google Ads&quot; to import and start boosting them.
+                        Campaigns created or updated inside your Google Ads account appear automatically here in real time.
                       </p>
                       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                        {onOpenSyncCampaigns && (
-                          <button
-                            onClick={onOpenSyncCampaigns}
-                            className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5 text-[#00d67d]" />
-                            <span>Sync with Google Ads</span>
-                          </button>
-                        )}
                         <a
                           href="https://ads.google.com"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
+                          className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <span>Open Google Ads Manager</span>
                           <ExternalLink className="w-3.5 h-3.5" />

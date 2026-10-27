@@ -30,7 +30,6 @@ import {
   Calendar,
   ExternalLink,
   Zap,
-  RefreshCw,
   Award,
   Layers,
   ArrowUpRight,
@@ -405,15 +404,6 @@ export function CampaignAnalysisPage({
             </button>
           )}
 
-          {onSyncCampaign && (
-            <button
-              onClick={onSyncCampaign}
-              className="px-3.5 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-[#00d67d]" />
-              <span>Refresh Metrics</span>
-            </button>
-          )}
 
           <a
             href="https://ads.google.com"

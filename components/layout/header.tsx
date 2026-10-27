@@ -237,16 +237,7 @@ export function Header({
           />
         </div>
 
-        {/* Sync Trigger Button */}
-        <button
-          onClick={onRefreshSync}
-          disabled={isSyncing}
-          title="Refresh Google Ads campaigns"
-          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-60 cursor-pointer shrink-0"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
-        </button>
+
 
         {/* Notifications Bell */}
         <div ref={notificationsDropdownRef} className="relative">
