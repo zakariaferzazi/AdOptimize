@@ -166,11 +166,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       window.addEventListener('unhandledrejection', handleUnhandledRejection);
     }
 
+    // Fallback safety timer only for total network failure / timeout
     const safetyTimer = setTimeout(() => {
       if (isSubscribed) {
         setIsInitialLoading(false);
       }
-    }, 1400);
+    }, 8000);
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!isSubscribed) return;
@@ -234,19 +235,23 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
           if (!isSubscribed) return;
 
-          setState((prev) => ({
-            ...prev,
-            account: remoteAccount || prev.account,
-            campaigns: remoteCampaigns.length > 0 ? remoteCampaigns : prev.campaigns,
-            keywords: remoteKeywords.length > 0 ? remoteKeywords : prev.keywords,
-            searchTerms: remoteSearchTerms.length > 0 ? remoteSearchTerms : prev.searchTerms,
-            insights: remoteInsights.length > 0 ? remoteInsights : prev.insights,
-            anomalies: remoteAnomalies.length > 0 ? remoteAnomalies : prev.anomalies,
-            budgetRecommendations: remoteRecs.length > 0 ? remoteRecs : prev.budgetRecommendations,
-            automationRules: remoteRules.length > 0 ? remoteRules : prev.automationRules,
-            auditLogs: remoteAuditLogs.length > 0 ? remoteAuditLogs : prev.auditLogs,
-            isDemoMode: false,
-          }));
+          setState((prev) => {
+            const nextState = {
+              ...prev,
+              account: remoteAccount || prev.account,
+              campaigns: remoteCampaigns.length > 0 ? remoteCampaigns : prev.campaigns,
+              keywords: remoteKeywords.length > 0 ? remoteKeywords : prev.keywords,
+              searchTerms: remoteSearchTerms.length > 0 ? remoteSearchTerms : prev.searchTerms,
+              insights: remoteInsights.length > 0 ? remoteInsights : prev.insights,
+              anomalies: remoteAnomalies.length > 0 ? remoteAnomalies : prev.anomalies,
+              budgetRecommendations: remoteRecs.length > 0 ? remoteRecs : prev.budgetRecommendations,
+              automationRules: remoteRules.length > 0 ? remoteRules : prev.automationRules,
+              auditLogs: remoteAuditLogs.length > 0 ? remoteAuditLogs : prev.auditLogs,
+              isDemoMode: false,
+            };
+            saveState(nextState);
+            return nextState;
+          });
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
         } finally {
@@ -299,19 +304,23 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         const data = await res.json();
         if (res.ok && data.success && data.campaigns && data.campaigns.length > 0) {
           const detectedCurrency = data.currency || accountCurrency || 'USD';
-          setState((prev) => ({
-            ...prev,
-            campaigns: data.campaigns,
-            keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
-            searchTerms: data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
-            account: {
-              ...prev.account,
-              currency: detectedCurrency,
-              lastSyncAt: new Date().toISOString(),
-              syncStatus: 'SYNCED',
-              totalCampaignsCount: data.campaigns.length,
-            },
-          }));
+          setState((prev) => {
+            const nextState = {
+              ...prev,
+              campaigns: data.campaigns,
+              keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
+              searchTerms: data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
+              account: {
+                ...prev.account,
+                currency: detectedCurrency,
+                lastSyncAt: new Date().toISOString(),
+                syncStatus: 'SYNCED' as const,
+                totalCampaignsCount: data.campaigns.length,
+              },
+            };
+            saveState(nextState);
+            return nextState;
+          });
 
           if (user) {
             data.campaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
@@ -389,14 +398,18 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       }
     }
 
-    setState((prev) => ({
-      ...prev,
-      account: { ...connectedAccount, isConnected: true },
-      campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
-      keywords: syncedKeywords && syncedKeywords.length > 0 ? syncedKeywords : prev.keywords,
-      searchTerms: syncedSearchTerms && syncedSearchTerms.length > 0 ? syncedSearchTerms : prev.searchTerms,
-      isDemoMode: false,
-    }));
+    setState((prev) => {
+      const nextState = {
+        ...prev,
+        account: { ...connectedAccount, isConnected: true },
+        campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
+        keywords: syncedKeywords && syncedKeywords.length > 0 ? syncedKeywords : prev.keywords,
+        searchTerms: syncedSearchTerms && syncedSearchTerms.length > 0 ? syncedSearchTerms : prev.searchTerms,
+        isDemoMode: false,
+      };
+      saveState(nextState);
+      return nextState;
+    });
 
     setApiIssue(null);
     showToast(`Connected: ${connectedAccount.clientCustomerId}`);

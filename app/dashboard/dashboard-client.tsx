@@ -74,19 +74,89 @@ export function DashboardClientView() {
 
   const { account, campaigns, anomalies, keywords, searchTerms } = state;
 
-  // 1. Campaign Filter State: 'ALL' or specific campaign id
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('ALL');
+  // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('adoptimize_selected_campaign_id');
+        if (saved) return saved;
+      } catch {
+        // ignore
+      }
+    }
+    return 'ALL';
+  });
   const [showCampaignDropdown, setShowCampaignDropdown] = useState(false);
   const campaignDropdownRef = useClickOutside<HTMLDivElement>(() => setShowCampaignDropdown(false), showCampaignDropdown);
 
-  // 2. Date Range Filter State
-  const [dateRange, setDateRange] = useState<DateRangePeriod>('LAST_30_DAYS');
+  // 2. Date Range Filter State (persisted in localStorage)
+  const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('adoptimize_selected_date_range') as DateRangePeriod;
+        if (saved) return saved;
+      } catch {
+        // ignore
+      }
+    }
+    return 'LAST_7_DAYS';
+  });
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useClickOutside<HTMLDivElement>(() => setShowDateDropdown(false), showDateDropdown);
-  const [customDays, setCustomDays] = useState(14);
+
+  const [customDays, setCustomDays] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = Number(window.localStorage.getItem('adoptimize_custom_days'));
+        if (saved && !isNaN(saved)) return saved;
+      } catch {
+        // ignore
+      }
+    }
+    return 14;
+  });
   const [showCustomPicker, setShowCustomPicker] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return window.localStorage.getItem('adoptimize_custom_start_date') || '';
+      } catch {
+        // ignore
+      }
+    }
+    return '';
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return window.localStorage.getItem('adoptimize_custom_end_date') || '';
+      } catch {
+        // ignore
+      }
+    }
+    return '';
+  });
+
+  const handleSelectCampaign = (id: string) => {
+    setSelectedCampaignId(id);
+    setShowCampaignDropdown(false);
+    try {
+      window.localStorage.setItem('adoptimize_selected_campaign_id', id);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSelectDateRange = (range: DateRangePeriod) => {
+    setDateRange(range);
+    setShowDateDropdown(false);
+    setShowCustomPicker(false);
+    try {
+      window.localStorage.setItem('adoptimize_selected_date_range', range);
+    } catch {
+      // ignore
+    }
+  };
 
   // 3. Customizable KPI Cards State (persisted in localStorage)
   const [activeKpis, setActiveKpis] = useState<KpiMetricId[]>(() => {
@@ -201,6 +271,14 @@ export function DashboardClientView() {
       setDateRange('CUSTOM');
       setShowCustomPicker(false);
       setShowDateDropdown(false);
+      try {
+        window.localStorage.setItem('adoptimize_selected_date_range', 'CUSTOM');
+        window.localStorage.setItem('adoptimize_custom_days', String(diffDays));
+        window.localStorage.setItem('adoptimize_custom_start_date', customStartDate);
+        window.localStorage.setItem('adoptimize_custom_end_date', customEndDate);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -215,7 +293,13 @@ export function DashboardClientView() {
     </span>
   ) : null;
 
-  if (isInitialLoading) {
+  // Keep loading skeleton active until data genuinely loads, preventing zero values
+  const isDataStillLoading =
+    isInitialLoading ||
+    authLoading ||
+    (Boolean(user) && isAccountConnected && campaigns.length === 0);
+
+  if (isDataStillLoading) {
     return (
       <AppShell title="Overview" headerExtra={headerExtra}>
         <DashboardSkeleton />
@@ -286,10 +370,7 @@ export function DashboardClientView() {
                   <div className="p-1 space-y-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedCampaignId('ALL');
-                        setShowCampaignDropdown(false);
-                      }}
+                      onClick={() => handleSelectCampaign('ALL')}
                       className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
                         selectedCampaignId === 'ALL'
                           ? 'bg-emerald-50 text-emerald-900 font-bold'
@@ -304,10 +385,7 @@ export function DashboardClientView() {
                       <button
                         key={camp.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedCampaignId(camp.id);
-                          setShowCampaignDropdown(false);
-                        }}
+                        onClick={() => handleSelectCampaign(camp.id)}
                         className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
                           selectedCampaignId === camp.id
                             ? 'bg-emerald-50 text-emerald-900 font-bold'
@@ -366,11 +444,7 @@ export function DashboardClientView() {
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => {
-                          setDateRange(opt.id);
-                          setShowDateDropdown(false);
-                          setShowCustomPicker(false);
-                        }}
+                        onClick={() => handleSelectDateRange(opt.id)}
                         className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
                           dateRange === opt.id
                             ? 'bg-emerald-50 text-emerald-900 font-bold'
@@ -438,7 +512,7 @@ export function DashboardClientView() {
                 <span className="truncate max-w-[130px]">{selectedCampaignObj.name}</span>
                 <button
                   type="button"
-                  onClick={() => setSelectedCampaignId('ALL')}
+                  onClick={() => handleSelectCampaign('ALL')}
                   className="hover:text-rose-600 ml-0.5 cursor-pointer font-bold"
                   title="Clear filter"
                 >
@@ -491,7 +565,7 @@ export function DashboardClientView() {
           <div className="xl:col-span-2 min-w-0">
             <PerformanceChart
               selectedPeriod={dateRange}
-              onSelectPeriod={setDateRange}
+              onSelectPeriod={handleSelectDateRange}
               campaigns={filteredCampaigns}
               customDays={customDays}
               currency={account.currency}
