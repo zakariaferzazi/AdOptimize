@@ -227,7 +227,7 @@ export function Header({
           title="Instant live sync with Google Ads"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Live Sync'}</span>
+          <span className="hidden sm:inline">{isSyncing ? 'Refreshing...' : 'Refresh'}</span>
         </button>
 
         {/* Notifications Bell */}

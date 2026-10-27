@@ -111,6 +111,14 @@ interface AdOptimizeContextType {
   handleRevertLog: (logId: string) => Promise<void>;
   handleResetData: () => Promise<void>;
   handleSaveCampaign: (updatedCamp: Campaign) => Promise<void>;
+  handleMutateCampaignStatus: (campaignId: string, newStatus: 'ENABLED' | 'PAUSED') => Promise<boolean>;
+  handleMutateCampaignBudget: (campaignId: string, newBudget: number) => Promise<boolean>;
+  handleCreateCampaign: (campaignData: {
+    name: string;
+    budgetDaily: number;
+    channelType?: string;
+    status?: 'ENABLED' | 'PAUSED';
+  }) => Promise<boolean>;
 }
 
 const AdOptimizeContext = createContext<AdOptimizeContextType | undefined>(undefined);
@@ -810,15 +818,361 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     showToast('All account data cleared.');
   };
 
-  const handleSaveCampaign = async (updatedCamp: Campaign) => {
-    if (user) {
-      await saveCampaignToFirestore(user.uid, updatedCamp);
-    }
+  const handleMutateCampaignStatus = async (
+    campaignId: string,
+    newStatus: 'ENABLED' | 'PAUSED'
+  ): Promise<boolean> => {
+    const target = state.campaigns.find((c) => c.id === campaignId);
+    if (!target) return false;
+
+    const oldStatus = target.status;
+    if (oldStatus === newStatus) return true;
+
+    // 1. Optimistic update
+    const updatedCamp: Campaign = { ...target, status: newStatus };
     setState((prev) => ({
       ...prev,
-      campaigns: prev.campaigns.map((c) => (c.id === updatedCamp.id ? updatedCamp : c)),
+      campaigns: prev.campaigns.map((c) => (c.id === campaignId ? updatedCamp : c)),
     }));
-    showToast(`Saved campaign: ${updatedCamp.name}`);
+
+    let token = getAccessTokenString();
+    if (!token) {
+      try {
+        token = await acquireGoogleAdsToken({
+          emailHint: user?.email || undefined,
+          forceFresh: true,
+        });
+        if (token) {
+          setOauthToken(token);
+          storeGoogleAdsToken(token);
+        }
+      } catch {
+        // user closed popup
+      }
+    }
+
+    const isConnected =
+      state.account.isConnected &&
+      state.account.clientCustomerId &&
+      state.account.clientCustomerId !== 'Not Connected';
+
+    // 2. Call Google Ads API if connected
+    if (isConnected && token) {
+      try {
+        const res = await fetch('/api/google-ads/mutate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set_campaign_status',
+            customerId: state.account.clientCustomerId,
+            campaignId: target.id,
+            status: newStatus,
+            accessToken: token,
+            loginCustomerId:
+              state.account.loginCustomerId ||
+              (typeof window !== 'undefined'
+                ? sessionStorage.getItem('google_ads_login_cid') ||
+                  localStorage.getItem('google_ads_login_cid')
+                : undefined),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          if (res.status === 401 || data.isAuthExpired) {
+            clearStoredGoogleAdsToken();
+            setOauthToken(null);
+            showToast('Authorization expired. Please re-authenticate.');
+          } else {
+            showToast(data.error || 'Failed to update campaign in Google Ads.');
+          }
+          // Rollback on failure
+          setState((prev) => ({
+            ...prev,
+            campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
+          }));
+          return false;
+        }
+      } catch {
+        showToast('Network error updating campaign in Google Ads.');
+        setState((prev) => ({
+          ...prev,
+          campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
+        }));
+        return false;
+      }
+    }
+
+    // 3. Log audit event and save to Firestore
+    const newAuditLog: AuditLog = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId: target.id,
+      campaignName: target.name,
+      actionType: 'CAMPAIGN_STATUS_CHANGE',
+      previousValue: oldStatus,
+      newValue: newStatus,
+      reason: `Changed campaign status to ${newStatus} from Adoptimize`,
+      source: 'USER',
+      userOrSystem: user?.displayName || 'Authorized User',
+      status: 'EXECUTED',
+      canRevert: true,
+    };
+
+    if (user) {
+      await saveCampaignToFirestore(user.uid, updatedCamp);
+      await addAuditLogToFirestore(user.uid, newAuditLog);
+    }
+
+    setState((prev) => ({
+      ...prev,
+      auditLogs: [newAuditLog, ...prev.auditLogs],
+    }));
+
+    showToast(`Campaign "${target.name}" is now ${newStatus} in Google Ads!`);
+    return true;
+  };
+
+  const handleMutateCampaignBudget = async (
+    campaignId: string,
+    newBudget: number
+  ): Promise<boolean> => {
+    const target = state.campaigns.find((c) => c.id === campaignId);
+    if (!target) return false;
+
+    const oldBudget = target.budgetDaily;
+    const updatedCamp: Campaign = { ...target, budgetDaily: newBudget };
+
+    // 1. Optimistic update
+    setState((prev) => ({
+      ...prev,
+      campaigns: prev.campaigns.map((c) => (c.id === campaignId ? updatedCamp : c)),
+    }));
+
+    let token = getAccessTokenString();
+    const isConnected =
+      state.account.isConnected &&
+      state.account.clientCustomerId &&
+      state.account.clientCustomerId !== 'Not Connected';
+
+    if (isConnected && token) {
+      try {
+        const res = await fetch('/api/google-ads/mutate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_campaign_budget',
+            customerId: state.account.clientCustomerId,
+            campaignId: target.id,
+            budgetDaily: newBudget,
+            accessToken: token,
+            loginCustomerId:
+              state.account.loginCustomerId ||
+              (typeof window !== 'undefined'
+                ? sessionStorage.getItem('google_ads_login_cid') ||
+                  localStorage.getItem('google_ads_login_cid')
+                : undefined),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          showToast(data.error || 'Failed to update budget in Google Ads.');
+          setState((prev) => ({
+            ...prev,
+            campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
+          }));
+          return false;
+        }
+      } catch {
+        showToast('Network error updating budget in Google Ads.');
+        setState((prev) => ({
+          ...prev,
+          campaigns: prev.campaigns.map((c) => (c.id === campaignId ? target : c)),
+        }));
+        return false;
+      }
+    }
+
+    const newAuditLog: AuditLog = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId: target.id,
+      campaignName: target.name,
+      actionType: 'BUDGET_CHANGE',
+      previousValue: `$${oldBudget.toFixed(2)}/day`,
+      newValue: `$${newBudget.toFixed(2)}/day`,
+      reason: `Updated daily budget in Google Ads to $${newBudget.toFixed(2)}/day`,
+      source: 'USER',
+      userOrSystem: user?.displayName || 'Authorized User',
+      status: 'EXECUTED',
+      canRevert: true,
+    };
+
+    if (user) {
+      await saveCampaignToFirestore(user.uid, updatedCamp);
+      await addAuditLogToFirestore(user.uid, newAuditLog);
+    }
+
+    setState((prev) => ({
+      ...prev,
+      auditLogs: [newAuditLog, ...prev.auditLogs],
+    }));
+
+    showToast(`Updated budget for "${target.name}" to $${newBudget.toFixed(2)}/day in Google Ads!`);
+    return true;
+  };
+
+  const handleCreateCampaign = async (campaignData: {
+    name: string;
+    budgetDaily: number;
+    channelType?: string;
+    status?: 'ENABLED' | 'PAUSED';
+  }): Promise<boolean> => {
+    let token = getAccessTokenString();
+    if (!token) {
+      try {
+        token = await acquireGoogleAdsToken({
+          emailHint: user?.email || undefined,
+          forceFresh: true,
+        });
+        if (token) {
+          setOauthToken(token);
+          storeGoogleAdsToken(token);
+        }
+      } catch {
+        showToast('Google Ads authorization required.');
+        setShowConnectModal(true);
+        return false;
+      }
+    }
+
+    const isConnected =
+      state.account.isConnected &&
+      state.account.clientCustomerId &&
+      state.account.clientCustomerId !== 'Not Connected';
+
+    let createdId = `camp-live-${Date.now()}`;
+
+    if (isConnected && token) {
+      showToast('Creating campaign in Google Ads...');
+      try {
+        const res = await fetch('/api/google-ads/mutate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create_campaign',
+            customerId: state.account.clientCustomerId,
+            campaignData,
+            accessToken: token,
+            loginCustomerId:
+              state.account.loginCustomerId ||
+              (typeof window !== 'undefined'
+                ? sessionStorage.getItem('google_ads_login_cid') ||
+                  localStorage.getItem('google_ads_login_cid')
+                : undefined),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          showToast(data.error || 'Failed to create campaign in Google Ads.');
+          return false;
+        }
+
+        if (data.campaignId) {
+          createdId = `camp-live-${data.campaignId}`;
+        }
+      } catch {
+        showToast('Network error creating campaign in Google Ads.');
+        return false;
+      }
+    }
+
+    const newCamp: Campaign = {
+      id: createdId,
+      accountId: state.account.clientCustomerId || 'default-account',
+      name: campaignData.name,
+      status: campaignData.status || 'ENABLED',
+      type: (campaignData.channelType || 'SEARCH') as any,
+      budgetDaily: campaignData.budgetDaily,
+      spend: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      conversionValue: 0,
+      cpa: 0,
+      roas: 0,
+      ctr: 0,
+      cpc: 0,
+      conversionRate: 0,
+      healthScore: 95,
+      healthStatus: 'HEALTHY',
+      trendPoints: [0, 0, 0, 0, 0, 0, 0],
+      keywordsCount: 5,
+      activeAdsCount: 1,
+      historicalPoints: [],
+      previousPeriod: {
+        spend: 0,
+        conversions: 0,
+        cpa: 0,
+        roas: 0,
+      },
+    };
+
+    const newAuditLog: AuditLog = {
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId: newCamp.id,
+      campaignName: newCamp.name,
+      actionType: 'SETTINGS_UPDATE',
+      previousValue: 'None (New Campaign)',
+      newValue: `Created ${newCamp.type} campaign ($${newCamp.budgetDaily.toFixed(2)}/day, ${newCamp.status})`,
+      reason: 'New campaign launched via Adoptimize',
+      source: 'USER',
+      userOrSystem: user?.displayName || 'Authorized User',
+      status: 'EXECUTED',
+      canRevert: false,
+    };
+
+    if (user) {
+      await saveCampaignToFirestore(user.uid, newCamp);
+      await addAuditLogToFirestore(user.uid, newAuditLog);
+    }
+
+    setState((prev) => ({
+      ...prev,
+      campaigns: [newCamp, ...prev.campaigns],
+      account: {
+        ...prev.account,
+        totalCampaignsCount: prev.campaigns.length + 1,
+      },
+      auditLogs: [newAuditLog, ...prev.auditLogs],
+    }));
+
+    showToast(`Successfully created campaign "${newCamp.name}" in Google Ads!`);
+    return true;
+  };
+
+  const handleSaveCampaign = async (updatedCamp: Campaign) => {
+    const existing = state.campaigns.find((c) => c.id === updatedCamp.id);
+    if (existing) {
+      if (existing.status !== updatedCamp.status) {
+        await handleMutateCampaignStatus(updatedCamp.id, updatedCamp.status as any);
+      }
+      if (existing.budgetDaily !== updatedCamp.budgetDaily) {
+        await handleMutateCampaignBudget(updatedCamp.id, updatedCamp.budgetDaily);
+      }
+    } else {
+      if (user) {
+        await saveCampaignToFirestore(user.uid, updatedCamp);
+      }
+      setState((prev) => ({
+        ...prev,
+        campaigns: prev.campaigns.map((c) => (c.id === updatedCamp.id ? updatedCamp : c)),
+      }));
+      showToast(`Saved campaign: ${updatedCamp.name}`);
+    }
   };
 
   return (
@@ -855,6 +1209,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         handleRevertLog,
         handleResetData,
         handleSaveCampaign,
+        handleMutateCampaignStatus,
+        handleMutateCampaignBudget,
+        handleCreateCampaign,
       }}
     >
       {children}

@@ -1070,3 +1070,328 @@ export async function verifyCustomerAccess(
     isAuthExpired: liveResult.isAuthExpired || listResult.isAuthExpired,
   };
 }
+
+/**
+ * Mutates a campaign status directly in Google Ads (ENABLED or PAUSED).
+ */
+export async function mutateGoogleAdsCampaignStatus(
+  cleanCustomerId: string,
+  campaignId: string,
+  status: 'ENABLED' | 'PAUSED',
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; error?: string; campaignId?: string; status?: string; statusCode?: number; details?: string }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = campaignId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  const payload = {
+    operations: [
+      {
+        updateMask: 'status',
+        update: {
+          resourceName: `customers/${cleanCid}/campaigns/${cleanCampId}`,
+          status: status,
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/campaigns:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok) {
+        return {
+          success: true,
+          campaignId: cleanCampId,
+          status,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads campaign mutate attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to update campaign status in Google Ads.',
+  };
+}
+
+/**
+ * Updates a campaign's daily budget directly in Google Ads.
+ */
+export async function mutateGoogleAdsCampaignBudget(
+  cleanCustomerId: string,
+  campaignId: string,
+  newDailyBudget: number,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; error?: string; newDailyBudget?: number; statusCode?: number; details?: string }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = campaignId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  // 1. First, retrieve the campaign's budget resourceName via searchStream
+  let budgetResourceName: string | null = null;
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const budgetQuery = `
+        SELECT campaign.id, campaign.campaign_budget
+        FROM campaign
+        WHERE campaign.id = ${cleanCampId}
+        LIMIT 1
+      `;
+      const qRes = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query: budgetQuery }),
+        }
+      );
+      const parsedQ = await safeParseResponse(qRes);
+      if (qRes.ok && parsedQ.isJson) {
+        const batches = Array.isArray(parsedQ.data) ? parsedQ.data : [parsedQ.data];
+        for (const b of batches) {
+          for (const row of b.results || []) {
+            if (row.campaign?.campaignBudget) {
+              budgetResourceName = row.campaign.campaignBudget;
+              break;
+            }
+          }
+          if (budgetResourceName) break;
+        }
+      }
+      if (budgetResourceName) break;
+    } catch {}
+  }
+
+  if (!budgetResourceName) {
+    return {
+      success: false,
+      error: `Could not locate campaign budget resource for campaign ${cleanCampId}.`,
+    };
+  }
+
+  const payload = {
+    operations: [
+      {
+        updateMask: 'amountMicros',
+        update: {
+          resourceName: budgetResourceName,
+          amountMicros: String(Math.round(newDailyBudget * 1_000_000)),
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/campaignBudgets:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok) {
+        return {
+          success: true,
+          newDailyBudget,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads budget mutate attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to update campaign budget in Google Ads.',
+  };
+}
+
+/**
+ * Creates a brand-new campaign directly on Google Ads with atomic budget and settings.
+ */
+export async function createGoogleAdsCampaign(
+  cleanCustomerId: string,
+  campaignData: {
+    name: string;
+    budgetDaily: number;
+    channelType?: string;
+    status?: 'ENABLED' | 'PAUSED';
+  },
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  campaignId?: string;
+  campaignResourceName?: string;
+  statusCode?: number;
+  details?: string;
+}> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  const rawChannel = (campaignData.channelType || 'SEARCH').toUpperCase();
+  const validChannel = ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO'].includes(rawChannel)
+    ? rawChannel
+    : 'SEARCH';
+
+  // Atomic batch mutate operation: creates budget + campaign simultaneously
+  const payload = {
+    mutateOperations: [
+      {
+        campaignBudgetOperation: {
+          create: {
+            resourceName: `customers/${cleanCid}/campaignBudgets/-1`,
+            name: `Budget: ${campaignData.name.slice(0, 50)} (${Date.now()})`,
+            amountMicros: String(Math.round(campaignData.budgetDaily * 1_000_000)),
+            deliveryMethod: 'STANDARD',
+          },
+        },
+      },
+      {
+        campaignOperation: {
+          create: {
+            resourceName: `customers/${cleanCid}/campaigns/-2`,
+            name: campaignData.name,
+            status: campaignData.status || 'ENABLED',
+            advertisingChannelType: validChannel,
+            campaignBudget: `customers/${cleanCid}/campaignBudgets/-1`,
+            manualCpc: {},
+          },
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok && parsed.isJson) {
+        const responses = parsed.data?.mutateOperationResponses || [];
+        let createdCampResource = '';
+        for (const opResp of responses) {
+          if (opResp.campaignResult?.resourceName) {
+            createdCampResource = opResp.campaignResult.resourceName;
+            break;
+          }
+        }
+        const numericId = createdCampResource ? createdCampResource.split('/').pop() : String(Date.now());
+        return {
+          success: true,
+          campaignId: numericId,
+          campaignResourceName: createdCampResource,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads campaign creation attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to create campaign in Google Ads.',
+  };
+}
+

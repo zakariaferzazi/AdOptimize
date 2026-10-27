@@ -66,12 +66,29 @@ export function CampaignDetailDrawer({
   onApplyInsight,
   onAddNegativeKeyword,
   onToggleCampaignStatus,
+  onToggleStatus,
+  onUpdateBudget,
 }: CampaignDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'keywords' | 'search_terms' | 'ads' | 'breakdowns' | 'ai_actions'>('overview');
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetValue, setBudgetValue] = useState(String(campaign?.budgetDaily || 50));
+  const [isSavingBudget, setIsSavingBudget] = useState(false);
 
   if (!campaign) return null;
 
   const sym = getCurrencySymbol(account?.currency);
+
+  const handleSaveBudget = async () => {
+    const val = parseFloat(budgetValue);
+    if (isNaN(val) || val <= 0 || !onUpdateBudget) return;
+    setIsSavingBudget(true);
+    try {
+      await onUpdateBudget(val);
+      setIsEditingBudget(false);
+    } finally {
+      setIsSavingBudget(false);
+    }
+  };
 
   const campaignKeywords = keywords.filter((k) => k.campaignId === campaign.id);
   const campaignSearchTerms = searchTerms.filter((s) => s.campaignId === campaign.id);
@@ -105,18 +122,68 @@ export function CampaignDetailDrawer({
                   {campaign.type}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Daily Budget: ${Number(campaign.budgetDaily || 0).toFixed(2)}/day · Goal:{' '}
-                {String(campaign.primaryGoal || campaign.type || 'MAXIMIZE_CONVERSIONS').replace(/_/g, ' ')}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                {isEditingBudget ? (
+                  <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-emerald-400">
+                    <span className="font-bold text-slate-700">{sym}</span>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={budgetValue}
+                      onChange={(e) => setBudgetValue(e.target.value)}
+                      className="w-16 text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                    />
+                    <span className="text-slate-400 text-[10px]">/day</span>
+                    <button
+                      type="button"
+                      disabled={isSavingBudget}
+                      onClick={handleSaveBudget}
+                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                    >
+                      {isSavingBudget ? '...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingBudget(false);
+                        setBudgetValue(String(campaign.budgetDaily || 50));
+                      }}
+                      className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBudgetValue(String(campaign.budgetDaily || 50));
+                      setIsEditingBudget(true);
+                    }}
+                    className="hover:text-emerald-700 hover:underline flex items-center gap-1 text-slate-600 font-medium cursor-pointer"
+                    title="Click to edit daily budget"
+                  >
+                    <span>Daily Budget: {sym}{Number(campaign.budgetDaily || 0).toFixed(2)}/day</span>
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 py-0.2 rounded">Edit</span>
+                  </button>
+                )}
+                <span>·</span>
+                <span>
+                  Goal: {String(campaign.primaryGoal || campaign.type || 'MAXIMIZE_CONVERSIONS').replace(/_/g, ' ')}
+                </span>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {onToggleCampaignStatus && (
+            {(onToggleCampaignStatus || onToggleStatus) && (
               <button
-                onClick={() => onToggleCampaignStatus(campaign.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                onClick={() => {
+                  if (onToggleCampaignStatus) onToggleCampaignStatus(campaign.id);
+                  else if (onToggleStatus) onToggleStatus();
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   campaign.status === 'ENABLED'
                     ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
                     : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
@@ -138,7 +205,7 @@ export function CampaignDetailDrawer({
 
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
