@@ -26,6 +26,7 @@ interface HeaderProps {
   account: GoogleAdsAccount;
   anomalies: AnomalyAlert[];
   isSyncing: boolean;
+  isTokenExpired?: boolean;
   user: User | null;
   authLoading: boolean;
   onRefreshSync: () => void;
@@ -47,6 +48,7 @@ export function Header({
   account,
   anomalies,
   isSyncing,
+  isTokenExpired = false,
   user,
   authLoading,
   onRefreshSync,
@@ -145,20 +147,28 @@ export function Header({
           >
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
-                account.isConnected && account.clientCustomerId !== 'Not Connected'
-                  ? 'bg-emerald-500 animate-pulse'
-                  : 'bg-amber-400'
+                !account.isConnected || account.clientCustomerId === 'Not Connected'
+                  ? 'bg-amber-400'
+                  : isTokenExpired
+                  ? 'bg-rose-500 animate-pulse'
+                  : 'bg-emerald-500 animate-pulse'
               }`}
             />
             <span className="font-semibold text-slate-900 max-w-[120px] sm:max-w-[170px] truncate">
               {account.accountName || 'Google Ads'}
             </span>
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden sm:inline ${
-              account.isConnected && account.clientCustomerId !== 'Not Connected'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                : 'bg-slate-100 text-slate-600'
+              !account.isConnected || account.clientCustomerId === 'Not Connected'
+                ? 'bg-slate-100 text-slate-600'
+                : isTokenExpired
+                ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
             }`}>
-              {account.isConnected && account.clientCustomerId !== 'Not Connected' ? 'Connected' : 'Offline'}
+              {!account.isConnected || account.clientCustomerId === 'Not Connected'
+                ? 'Offline'
+                : isTokenExpired
+                ? 'Session Expired'
+                : 'Connected'}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5 shrink-0" />
           </button>
@@ -172,15 +182,24 @@ export function Header({
               </div>
 
               <div className="p-2 space-y-1">
-                <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 text-emerald-900 text-xs">
+                <div className={`flex items-center justify-between p-2 rounded-xl text-xs ${
+                  isTokenExpired
+                    ? 'bg-rose-50 text-rose-900 border border-rose-200'
+                    : 'bg-emerald-50 text-emerald-900'
+                }`}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className={`w-4 h-4 shrink-0 ${isTokenExpired ? 'text-rose-600' : 'text-emerald-600'}`} />
                     <span className="font-medium truncate max-w-[150px]">{account.accountName}</span>
                   </div>
-                  <span className="text-[11px] font-mono text-emerald-700 shrink-0">
-                    {account.isConnected ? 'Connected' : 'Offline'}
+                  <span className={`text-[11px] font-mono shrink-0 font-bold ${isTokenExpired ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {!account.isConnected ? 'Offline' : isTokenExpired ? 'Token Expired' : 'Connected'}
                   </span>
                 </div>
+                {isTokenExpired && (
+                  <div className="p-2 text-[11px] text-rose-700 leading-normal bg-rose-50/60 rounded-xl">
+                    60-minute Google OAuth token expired. Click the <strong>Refresh</strong> button to renew live synchronization.
+                  </div>
+                )}
               </div>
 
               <div className="p-2 border-t border-slate-100 flex flex-col gap-1">
@@ -217,18 +236,22 @@ export function Header({
       {/* Right: Actions, Alerts & Real Firebase Profile */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
-
-
-        {/* Real-time Google Ads Live Sync Button */}
+        {/* Real-time Google Ads Live Sync Button - Shows in RED when token is expired */}
         <button
           type="button"
           onClick={onRefreshSync}
           disabled={isSyncing}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-2xs hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors disabled:opacity-60 cursor-pointer"
-          title="Instant live sync with Google Ads"
+          className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full shadow-2xs text-xs font-semibold transition-all cursor-pointer disabled:opacity-60 ${
+            isTokenExpired
+              ? 'bg-rose-50 border border-rose-300 text-rose-700 hover:bg-rose-100 hover:border-rose-400 ring-2 ring-rose-500/20'
+              : 'bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700'
+          }`}
+          title={isTokenExpired ? 'Google Ads OAuth token expired - Click to Refresh' : 'Instant live sync with Google Ads'}
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Refreshing...' : 'Refresh'}</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${isTokenExpired ? 'text-rose-600' : 'text-emerald-600'} ${isSyncing ? 'animate-spin' : ''}`} />
+          <span className={`inline ${isTokenExpired ? 'font-bold text-rose-700' : ''}`}>
+            {isSyncing ? 'Refreshing...' : isTokenExpired ? 'Refresh (Expired)' : 'Refresh'}
+          </span>
         </button>
 
         {/* Notifications Bell */}

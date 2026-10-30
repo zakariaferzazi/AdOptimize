@@ -30,6 +30,7 @@ import {
   requestGoogleAdsAccessToken,
   acquireGoogleAdsToken,
   trySilentGoogleAdsTokenRefresh,
+  isGoogleAdsTokenExpired,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
   storeGoogleAdsToken,
@@ -94,10 +95,12 @@ interface AdOptimizeContextType {
   selectedCampaign: Campaign | null;
   setSelectedCampaign: (c: Campaign | null) => void;
   isSyncing: boolean;
+  isTokenExpired: boolean;
   oauthToken: string | null;
   handleSignInWithGoogle: () => Promise<void>;
   handleSignOut: () => Promise<void>;
   handleSync: () => Promise<void>;
+  handleRefreshToken: () => Promise<void>;
   handleConnectAccount: (
     connectedAccount: GoogleAdsAccount,
     syncedCampaigns?: Campaign[],
@@ -142,7 +145,31 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     }
     return null;
   });
+  const [isTokenExpired, setIsTokenExpired] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return isGoogleAdsTokenExpired();
+    }
+    return false;
+  });
   const [apiIssue, setApiIssue] = useState<ApiIssue | null>(null);
+
+  // Periodic token expiration check: updates isTokenExpired dynamically every 30s
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkExpiry = () => {
+      const expired = isGoogleAdsTokenExpired();
+      setIsTokenExpired(expired);
+    };
+
+    checkExpiry();
+    const timer = setInterval(checkExpiry, 30000);
+    window.addEventListener('focus', checkExpiry);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', checkExpiry);
+    };
+  }, []);
 
   // Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -535,12 +562,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     if (validToken) {
       setOauthToken(validToken);
       storeGoogleAdsToken(validToken);
+      setIsTokenExpired(false);
     }
 
     const mergedAccount: GoogleAdsAccount = {
       ...connectedAccount,
       accessToken: validToken || undefined,
       isConnected: true,
+      isTokenExpired: false,
     };
 
     if (typeof window !== 'undefined') {
@@ -564,6 +593,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     });
 
     setApiIssue(null);
+    setIsTokenExpired(false);
     showToast(`Connected: ${connectedAccount.clientCustomerId}`);
 
     if (user) {
@@ -574,17 +604,82 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
+  /**
+   * Refreshes the Google Ads session:
+   * 1. Attempts server-side token rotation via refresh token
+   * 2. Attempts silent promptless GIS token acquisition
+   * 3. Fallback: Prompts user in clean 1-click modal
+   */
+  const handleRefreshToken = async () => {
+    setIsSyncing(true);
+    showToast('Refreshing Google Ads authorization...');
+    try {
+      // 1. First attempt: server-side token refresh via /api/google-ads/token/refresh
+      const refreshRes = await fetch('/api/google-ads/token/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: state.account.clientCustomerId,
+          userEmail: user?.email || undefined,
+        }),
+      }).catch(() => null);
+
+      if (refreshRes && refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        if (refreshData.success && refreshData.accessToken) {
+          setOauthToken(refreshData.accessToken);
+          storeGoogleAdsToken(refreshData.accessToken);
+          setIsTokenExpired(false);
+          showToast('Google Ads token refreshed automatically.');
+          await performBackgroundSync(true);
+          return;
+        }
+      }
+
+      // 2. Second attempt: Silent GIS refresh without opening popup
+      const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
+      if (silentToken) {
+        setOauthToken(silentToken);
+        storeGoogleAdsToken(silentToken);
+        setIsTokenExpired(false);
+        showToast('Google Ads session renewed silently.');
+        await performBackgroundSync(true);
+        return;
+      }
+
+      // 3. Fallback: Prompt user to authorize cleanly in 1 click
+      const freshToken = await acquireGoogleAdsToken({
+        emailHint: user?.email || undefined,
+        forceFresh: true,
+      });
+
+      if (freshToken) {
+        setOauthToken(freshToken);
+        storeGoogleAdsToken(freshToken);
+        setIsTokenExpired(false);
+        showToast('Google Ads session successfully refreshed.');
+        await performBackgroundSync(true);
+      }
+    } catch (err: any) {
+      const isClosed = err?.message?.includes('closed') || err?.code === 'auth/popup-closed-by-user';
+      if (!isClosed) {
+        showToast('Session refresh could not be completed.');
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       setApiIssue(null);
       let token = getAccessTokenString();
-      if (!token && user?.email) {
-        token = await trySilentGoogleAdsTokenRefresh(user.email);
-        if (token) {
-          setOauthToken(token);
-          storeGoogleAdsToken(token);
-        }
+
+      // If token is expired, route through handleRefreshToken
+      if (!token || isGoogleAdsTokenExpired()) {
+        await handleRefreshToken();
+        return;
       }
 
       let res = await fetch('/api/google-ads/sync', {
@@ -600,9 +695,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       let data = await res.json();
 
-      // If token expired / 401 unauthorized: keep account connected with current campaigns, do NOT open popups
+      // If token expired / 401 unauthorized: set isTokenExpired=true to turn the Refresh button RED
       if (!res.ok && (res.status === 401 || data.isAuthExpired)) {
-        showToast('Google Ads account connected. Active campaigns displayed.');
+        setIsTokenExpired(true);
+        showToast('Google Ads token expired. Click the red Refresh button to renew.');
         setIsSyncing(false);
         return;
       }
@@ -1150,10 +1246,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         selectedCampaign,
         setSelectedCampaign,
         isSyncing,
+        isTokenExpired,
         oauthToken,
         handleSignInWithGoogle,
         handleSignOut,
         handleSync,
+        handleRefreshToken,
         handleConnectAccount,
         handleApplyRecommendation,
         handleToggleRule,

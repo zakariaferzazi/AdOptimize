@@ -285,6 +285,8 @@ export interface GoogleAdsAccount {
   loginCustomerId?: string;
   developerToken?: string;
   accessToken?: string;
+  refreshToken?: string;
+  isTokenExpired?: boolean;
 }
 
 export interface ProposedAccountChange {

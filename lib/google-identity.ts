@@ -330,7 +330,30 @@ export function storeGoogleAdsToken(token: string): void {
 }
 
 /**
- * Helper to retrieve stored token across localStorage and sessionStorage without artificial expiration.
+ * Determines whether the stored Google Ads OAuth 2.0 access token has exceeded its 60-minute lifetime.
+ * Standard Google OAuth tokens expire after 3,600 seconds. We flag expired at 55 minutes for proactive refresh.
+ */
+export function isGoogleAdsTokenExpired(): boolean {
+  if (typeof window === 'undefined') return false;
+  let token = sessionStorage.getItem('google_ads_oauth_token');
+  if (!token) {
+    try {
+      token = localStorage.getItem('google_ads_oauth_token');
+    } catch {}
+  }
+  if (!token || !token.trim()) return true;
+
+  const tsStr = sessionStorage.getItem('google_ads_oauth_token_timestamp') || (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
+  if (!tsStr) return false;
+  const ts = Number(tsStr);
+  if (isNaN(ts) || ts <= 0) return false;
+
+  const elapsedMs = Date.now() - ts;
+  return elapsedMs > 55 * 60 * 1000;
+}
+
+/**
+ * Helper to retrieve stored token across localStorage and sessionStorage with real expiration status.
  */
 export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
   if (typeof window === 'undefined') return { token: null, isExpired: true };
@@ -347,7 +370,8 @@ export function getStoredGoogleAdsToken(): { token: string | null; isExpired: bo
     return { token: null, isExpired: true };
   }
 
-  return { token: token.trim(), isExpired: false };
+  const expired = isGoogleAdsTokenExpired();
+  return { token: token.trim(), isExpired: expired };
 }
 
 /**
