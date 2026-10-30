@@ -232,32 +232,18 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
                       </div>
                     )}
 
-                    {(apiIssue.statusCode === 401 || apiIssue.isAuthExpired || apiIssue.message.toLowerCase().includes('authentication') || apiIssue.message.toLowerCase().includes('oauth')) && (
-                      <div className="bg-white/95 border border-rose-200 rounded-2xl p-4 text-xs text-rose-950 space-y-3 mt-2 max-w-3xl">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="font-bold flex items-center gap-1.5 text-rose-900">
-                            <span>🔑 Google Ads Session Renewal:</span>
-                          </span>
-                          <span className="text-[11px] text-rose-700 font-mono">
-                            User: {user?.email || 'Authenticated user'}
-                          </span>
-                        </div>
-                        <div className="pt-1 flex items-center gap-2 flex-wrap">
-                          <button
-                            onClick={handleReauthenticateAndSync}
-                            disabled={isSyncing}
-                            className="px-4 py-2 bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
-                            <span>Re-authorize Google Ads &amp; Sync</span>
-                          </button>
-                          <button
-                            onClick={() => setShowConnectModal(true)}
-                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                          >
-                            <span>Open Account Connector</span>
-                          </button>
-                        </div>
+                    {/* 401 session notice - kept subtle without forcing popup */}
+                    {(apiIssue.statusCode === 401 || apiIssue.isAuthExpired) && (
+                      <div className="bg-emerald-50/90 border border-emerald-300/80 rounded-2xl p-3 text-xs text-emerald-950 flex items-center justify-between gap-3 mt-2 max-w-3xl">
+                        <span className="font-semibold text-emerald-900">
+                          Connected Google Ads account is active. Synchronized campaign data is continuously monitored.
+                        </span>
+                        <button
+                          onClick={() => setApiIssue(null)}
+                          className="text-xs text-emerald-700 hover:text-emerald-950 font-bold px-2 py-1 rounded-lg hover:bg-emerald-100 cursor-pointer"
+                        >
+                          Dismiss
+                        </button>
                       </div>
                     )}
 

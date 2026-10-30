@@ -93,6 +93,68 @@ export function loadGoogleIdentityServices(): Promise<void> {
 }
 
 /**
+ * Silently attempts to refresh or acquire an access token using GIS with prompt='' and hint.
+ * If user has already granted consent, this succeeds silently without any popup window.
+ * If silent acquisition is not possible, returns null instead of throwing or opening a popup.
+ */
+export async function trySilentGoogleAdsTokenRefresh(emailHint?: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    await loadGoogleIdentityServices();
+    if (!window.google?.accounts?.oauth2) return null;
+
+    const activeClientId = await getGoogleAdsClientId();
+
+    return new Promise((resolve) => {
+      let isSettled = false;
+      const timeout = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve(null);
+        }
+      }, 3500);
+
+      try {
+        const client = window.google!.accounts.oauth2.initTokenClient({
+          client_id: activeClientId,
+          scope: `${GOOGLE_ADS_SCOPE} email profile`,
+          prompt: '',
+          hint: emailHint,
+          callback: (response) => {
+            if (isSettled) return;
+            isSettled = true;
+            clearTimeout(timeout);
+            if (response.access_token) {
+              storeGoogleAdsToken(response.access_token);
+              resolve(response.access_token);
+            } else {
+              resolve(null);
+            }
+          },
+          error_callback: () => {
+            if (isSettled) return;
+            isSettled = true;
+            clearTimeout(timeout);
+            resolve(null);
+          },
+        });
+
+        client.requestAccessToken({ prompt: '', hint: emailHint });
+      } catch {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timeout);
+          resolve(null);
+        }
+      }
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Requests an OAuth 2.0 Access Token using Google Identity Services (GIS) Token Model.
  * Works natively on registered origins (e.g. https://adoptimize.app).
  */

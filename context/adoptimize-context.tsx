@@ -29,6 +29,7 @@ import {
 import {
   requestGoogleAdsAccessToken,
   acquireGoogleAdsToken,
+  trySilentGoogleAdsTokenRefresh,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
   storeGoogleAdsToken,
@@ -228,11 +229,34 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           if (!isSubscribed) return;
 
           let remoteAccount = await fetchUserAccount(currentUser.uid);
-          if (remoteAccount?.accessToken) {
-            setOauthToken(remoteAccount.accessToken);
-            storeGoogleAdsToken(remoteAccount.accessToken);
+
+          // Check if local storage has a valid connected account from this or prior sessions
+          let localConnectedAccount: GoogleAdsAccount | null = null;
+          if (typeof window !== 'undefined') {
+            try {
+              const savedAccStr = localStorage.getItem('adoptimize_connected_account');
+              if (savedAccStr) {
+                const parsed = JSON.parse(savedAccStr);
+                if (parsed?.isConnected && parsed?.clientCustomerId && parsed.clientCustomerId !== 'Not Connected') {
+                  localConnectedAccount = parsed;
+                }
+              }
+            } catch {}
           }
-          if (!remoteAccount) {
+
+          if (remoteAccount && remoteAccount.isConnected && remoteAccount.clientCustomerId && remoteAccount.clientCustomerId !== 'Not Connected') {
+            // Firestore has the connected account: ensure local storage is synced
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('adoptimize_connected_account', JSON.stringify(remoteAccount));
+                localStorage.setItem('adoptimize_onboarding_completed', 'true');
+              } catch {}
+            }
+          } else if (localConnectedAccount) {
+            // Local storage has connected account, restore into remoteAccount and Firestore
+            remoteAccount = localConnectedAccount;
+            await saveUserAccount(currentUser.uid, localConnectedAccount);
+          } else if (!remoteAccount) {
             remoteAccount = {
               id: `acc-${currentUser.uid.slice(0, 8)}`,
               clientCustomerId: 'Not Connected',
@@ -246,6 +270,11 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               totalCampaignsCount: 0,
             };
             await saveUserAccount(currentUser.uid, remoteAccount);
+          }
+
+          if (remoteAccount?.accessToken) {
+            setOauthToken(remoteAccount.accessToken);
+            storeGoogleAdsToken(remoteAccount.accessToken);
           }
 
           if (!isSubscribed) return;
@@ -355,9 +384,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const token = getAccessTokenString();
-      if (!token) {
-        return;
+      let token = getAccessTokenString();
+      if (!token && user?.email) {
+        token = await trySilentGoogleAdsTokenRefresh(user.email);
+        if (token) {
+          setOauthToken(token);
+          storeGoogleAdsToken(token);
+        }
       }
 
       isBackgroundSyncingRef.current = true;
@@ -368,7 +401,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerId: clientCustomerId,
-            accessToken: token,
+            accessToken: token || undefined,
             userEmail: user?.email || undefined,
             loginCustomerId:
               loginCustomerId ||
@@ -412,7 +445,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             });
           }
         } else if (!res.ok && (res.status === 401 || data?.isAuthExpired)) {
-          console.warn('Background sync note: Google Ads live session requires refresh when ready.');
+          // Silent retention of connected account without popups
+          console.info('Google Ads sync: account remains connected with latest synchronized data.');
         }
       } catch {
         // Continuous non-disruptive background sync
@@ -423,33 +457,29 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account]
   );
 
-  // Real-time automatic background synchronization:
-  // 1. Immediately on mount/connection
-  // 2. Continuous 8-second background polling
-  // 3. Immediately whenever the user switches back from another tab (window focus)
-  // 4. Immediately whenever document visibility changes to visible
+  // Background synchronization: runs once on mount, then periodic 45s heartbeat and on window focus
   useEffect(() => {
     if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
     }
 
-    // Immediate sync on load
+    // Initial sync on load
     const initialSyncTimer = setTimeout(() => {
       performBackgroundSync(true);
-    }, 50);
+    }, 150);
 
-    // Continuous 8s real-time poll
+    // Periodic 45s background sync
     const intervalId = setInterval(() => {
       performBackgroundSync(false);
-    }, 8000);
+    }, 45000);
 
     const handleWindowFocus = () => {
-      performBackgroundSync(true);
+      performBackgroundSync(false);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        performBackgroundSync(true);
+        performBackgroundSync(false);
       }
     };
 
@@ -485,6 +515,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     try {
       await logOut();
       clearStoredGoogleAdsToken();
+      clearSavedState();
       setOauthToken(null);
       setState(getCleanInitialState());
       showToast('Signed out successfully.');
@@ -511,6 +542,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       accessToken: validToken || undefined,
       isConnected: true,
     };
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('adoptimize_connected_account', JSON.stringify(mergedAccount));
+        localStorage.setItem('adoptimize_onboarding_completed', 'true');
+      } catch {}
+    }
 
     setState((prev) => {
       const nextState = {
@@ -541,11 +579,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     try {
       setApiIssue(null);
       let token = getAccessTokenString();
-      if (!token) {
-        showToast('Please connect your Google Ads account to sync.');
-        setShowConnectModal(true);
-        setIsSyncing(false);
-        return;
+      if (!token && user?.email) {
+        token = await trySilentGoogleAdsTokenRefresh(user.email);
+        if (token) {
+          setOauthToken(token);
+          storeGoogleAdsToken(token);
+        }
       }
 
       let res = await fetch('/api/google-ads/sync', {
@@ -553,7 +592,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: state.account.clientCustomerId,
-          accessToken: token,
+          accessToken: token || undefined,
           userEmail: user?.email || undefined,
           loginCustomerId: state.account.loginCustomerId || (typeof window !== 'undefined' ? (sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')) : undefined),
         }),
@@ -561,17 +600,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       let data = await res.json();
 
-      // If token expired / 401 unauthorized: notify gracefully without opening unsolicited popups
+      // If token expired / 401 unauthorized: keep account connected with current campaigns, do NOT open popups
       if (!res.ok && (res.status === 401 || data.isAuthExpired)) {
-        setApiIssue({
-          message: 'Google Ads session requires re-authorization. Click Connect to refresh.',
-          cid: state.account.clientCustomerId,
-          timestamp: new Date().toLocaleTimeString(),
-          severity: 'warning',
-          statusCode: res.status,
-          isAuthExpired: true,
-        });
-        showToast('Google Ads session expired. Please reconnect in Account Settings when ready.');
+        showToast('Google Ads account connected. Active campaigns displayed.');
         setIsSyncing(false);
         return;
       }

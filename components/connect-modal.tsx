@@ -127,12 +127,16 @@ export function ConnectModal({
       // 4. Single account auto-connected successfully!
       setLoadingState(null);
       if (typeof window !== 'undefined') {
-        if (data.loginCustomerIdUsed) {
-          sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
-          try {
+        try {
+          localStorage.setItem('adoptimize_onboarding_completed', 'true');
+          if (data.account) {
+            localStorage.setItem('adoptimize_connected_account', JSON.stringify(data.account));
+          }
+          if (data.loginCustomerIdUsed) {
+            sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
             localStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
-          } catch {}
-        }
+          }
+        } catch {}
       }
 
       onConnectAccount(

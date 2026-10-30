@@ -70,34 +70,62 @@ export function getInitialState(): AdOptimizeState {
     try {
       // Clear legacy storage keys
       localStorage.removeItem('adoptimize_state_v1');
+
+      // Check if a dedicated connected account was saved
+      let dedicatedConnectedAccount: GoogleAdsAccount | null = null;
+      const savedAccountStr = localStorage.getItem('adoptimize_connected_account');
+      if (savedAccountStr) {
+        try {
+          const parsedAcc = JSON.parse(savedAccountStr);
+          if (parsedAcc?.isConnected && parsedAcc?.clientCustomerId && parsedAcc.clientCustomerId !== 'Not Connected') {
+            dedicatedConnectedAccount = parsedAcc;
+          }
+        } catch {}
+      }
+
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Only remove ancient mock demo state if not a real user-connected account
+        const isUserConnected =
+          Boolean(dedicatedConnectedAccount) ||
+          (parsed?.account?.isConnected &&
+            parsed?.account?.clientCustomerId &&
+            parsed?.account?.clientCustomerId !== 'Not Connected');
+
         const hasFakeData =
-          parsed?.account?.accountName?.includes('CloudScale') ||
-          parsed?.account?.clientCustomerId === '492-819-2041' ||
-          parsed?.isDemoMode === true ||
-          (Array.isArray(parsed?.campaigns) &&
-            parsed.campaigns.some(
-              (c: any) =>
-                c.id === 'camp-01' ||
-                c.id === 'camp-02' ||
-                c.id === 'camp-03' ||
-                c.id === 'camp-04' ||
-                c.id === 'camp-05' ||
-                c.id === 'camp-google-8921' ||
-                c.name?.includes('High Intent Core') ||
-                c.name?.includes('High-Intent Core') ||
-                c.name?.includes('Omnichannel') ||
-                c.name?.includes('Remarketing Funnel') ||
-                c.name?.includes('Competitor Conquesting')
-            ));
+          !isUserConnected &&
+          (parsed?.account?.accountName?.includes('CloudScale') ||
+            parsed?.account?.clientCustomerId === '492-819-2041' ||
+            parsed?.isDemoMode === true);
 
         if (hasFakeData) {
           localStorage.removeItem(STORAGE_KEY);
           return getCleanInitialState();
         }
+
+        // If we have a dedicated connected account, ensure it's merged into the state
+        if (dedicatedConnectedAccount) {
+          return {
+            ...parsed,
+            account: {
+              ...parsed.account,
+              ...dedicatedConnectedAccount,
+              isConnected: true,
+            },
+            isDemoMode: false,
+          };
+        }
+
         return parsed;
+      }
+
+      if (dedicatedConnectedAccount) {
+        return {
+          ...getCleanInitialState(dedicatedConnectedAccount.accountName, dedicatedConnectedAccount.clientCustomerId),
+          account: dedicatedConnectedAccount,
+          isDemoMode: false,
+        };
       }
     } catch {
       // ignore
@@ -122,6 +150,8 @@ export function clearSavedState(): void {
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('adoptimize_state_v1');
+      localStorage.removeItem('adoptimize_connected_account');
+      localStorage.removeItem('adoptimize_onboarding_completed');
     } catch {
       // ignore
     }

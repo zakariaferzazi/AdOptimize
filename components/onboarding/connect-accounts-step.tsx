@@ -79,6 +79,18 @@ export function ConnectAccountsStep({
       // Single account auto-connected!
       setIsConnecting(false);
       setMultipleAccounts([]);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('adoptimize_onboarding_completed', 'true');
+          if (data.account) {
+            localStorage.setItem('adoptimize_connected_account', JSON.stringify(data.account));
+          }
+          if (data.loginCustomerIdUsed) {
+            sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+            localStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
+          }
+        } catch {}
+      }
       onConnectSuccess(
         data.account,
         data.campaigns || [],

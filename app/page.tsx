@@ -14,16 +14,22 @@ export default function AdOptimizeRootPage() {
     state,
     user,
     authLoading,
+    isInitialLoading,
     handleSignInWithGoogle,
     handleSignOut,
     handleConnectAccount,
   } = useAdOptimize();
 
   const [showAuthGate, setShowAuthGate] = useState(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('adoptimize_onboarding_completed') === 'true';
+    }
+    return false;
+  });
 
-  // Auth Loading Screen
-  if (authLoading) {
+  // Auth & Workspace Data Loading Screen
+  if (authLoading || isInitialLoading) {
     return (
       <div className="min-h-screen bg-[#f6f8fa] flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -58,23 +64,35 @@ export default function AdOptimizeRootPage() {
     );
   }
 
-  // 2. Authenticated but no ad account connected: Show Step 2 (Connect Ad Accounts)
+  // 2. Authenticated: Check if ad account is connected
   const isAccountConnected = Boolean(
     state.account.isConnected &&
     state.account.clientCustomerId &&
     state.account.clientCustomerId !== 'Not Connected'
   );
 
+  // If user is connected OR has already completed onboarding, go straight to dashboard
   if (user && !isAccountConnected && !hasCompletedOnboarding) {
     return (
       <ConnectAccountsStep
         user={user}
         account={state.account}
         onConnectSuccess={(connectedAccount, syncedCampaigns, token, keywords, searchTerms) => {
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('adoptimize_onboarding_completed', 'true');
+            } catch {}
+          }
+          setHasCompletedOnboarding(true);
           handleConnectAccount(connectedAccount, syncedCampaigns, token, keywords, searchTerms);
           router.push('/dashboard');
         }}
         onContinueToDashboard={() => {
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('adoptimize_onboarding_completed', 'true');
+            } catch {}
+          }
           setHasCompletedOnboarding(true);
           router.push('/dashboard');
         }}
