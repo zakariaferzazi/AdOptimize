@@ -5,14 +5,17 @@ import {
   mutateGoogleAdsCampaignBudget,
   createGoogleAdsCampaign,
 } from '@/lib/google-ads-api';
+import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
+    let {
       action,
       customerId,
       accessToken,
+      refreshToken,
+      clientSecret,
       loginCustomerId,
       developerToken,
       campaignId,
@@ -21,15 +24,29 @@ export async function POST(req: NextRequest) {
       campaignData,
     } = body;
 
+    let newAccessToken: string | undefined = undefined;
+    let newRefreshToken: string | undefined = undefined;
+
     if (!accessToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Google OAuth authorization is required. Please re-authenticate your connection.',
-          isAuthExpired: true,
-        },
-        { status: 401 }
-      );
+      const refreshResult = await executeGoogleAdsTokenRefresh({
+        refreshToken,
+        clientSecret,
+      });
+
+      if (refreshResult.success && refreshResult.accessToken) {
+        accessToken = refreshResult.accessToken;
+        newAccessToken = refreshResult.accessToken;
+        newRefreshToken = refreshResult.refreshToken;
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Google OAuth authorization is required. Please re-authenticate your connection.',
+            isAuthExpired: true,
+          },
+          { status: 401 }
+        );
+      }
     }
 
     const validation = validateAndFormatCustomerId(customerId || '');

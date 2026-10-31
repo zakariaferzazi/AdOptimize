@@ -13,6 +13,10 @@ export function SettingsClientView() {
     setShowConnectModal,
     handleResetData,
     showToast,
+    refreshToken,
+    handleSaveRefreshToken,
+    handleRefreshToken,
+    isSyncing,
   } = useAdOptimize();
 
   const handleUpdateCurrency = (newCurrency: string) => {
@@ -31,6 +35,12 @@ export function SettingsClientView() {
         onClearData={handleResetData}
         onUpdateCurrency={handleUpdateCurrency}
         userEmail={user?.email}
+        refreshToken={refreshToken || state.account.refreshToken || null}
+        onSaveRefreshToken={handleSaveRefreshToken}
+        onTestRefresh={async () => {
+          await handleRefreshToken(false);
+        }}
+        isSyncing={isSyncing}
       />
     </AppShell>
   );

@@ -375,16 +375,45 @@ export function getStoredGoogleAdsToken(): { token: string | null; isExpired: bo
 }
 
 /**
+ * Helper to store refresh token in both localStorage and sessionStorage
+ */
+export function storeGoogleAdsRefreshToken(refreshToken: string): void {
+  if (typeof window === 'undefined' || !refreshToken) return;
+  const clean = refreshToken.trim();
+  try {
+    sessionStorage.setItem('google_ads_refresh_token', clean);
+    localStorage.setItem('google_ads_refresh_token', clean);
+  } catch {}
+}
+
+/**
+ * Helper to retrieve stored refresh token across localStorage and sessionStorage
+ */
+export function getStoredGoogleAdsRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const token =
+      sessionStorage.getItem('google_ads_refresh_token') ||
+      localStorage.getItem('google_ads_refresh_token');
+    return token && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Clears stored Google Ads OAuth tokens from storage (only on explicit disconnect/sign-out).
  */
 export function clearStoredGoogleAdsToken(): void {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem('google_ads_oauth_token');
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+    sessionStorage.removeItem('google_ads_refresh_token');
     try {
       localStorage.removeItem('google_ads_oauth_token');
       localStorage.removeItem('google_ads_oauth_token_timestamp');
       localStorage.removeItem('google_ads_oauth_token_broadcast');
+      localStorage.removeItem('google_ads_refresh_token');
     } catch {}
   }
 }

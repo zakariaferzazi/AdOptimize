@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Campaign } from '@/types/adoptimize';
-import { validateAndFormatCustomerId, queryLiveCampaigns } from '@/lib/google-ads-api';
+import {
+  validateAndFormatCustomerId,
+  queryLiveCampaigns,
+} from '@/lib/google-ads-api';
+import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
-      accountId = 'acc-primary',
-      customerId = '',
-      accountName = 'Google Ads Account',
+    let {
+      customerId,
       accessToken,
-      manualCampaigns = [],
-      customCampaignNames = [],
+      refreshToken,
+      clientSecret,
     } = body;
 
     const validation = validateAndFormatCustomerId(customerId);
@@ -19,20 +20,34 @@ export async function POST(req: NextRequest) {
     const formattedCid = validation.isValid ? validation.formatted : customerId;
     const syncTimestamp = new Date().toISOString();
 
-    // 1. If an OAuth access token is not available, return unauthenticated state so client refreshes
+    let newAccessToken: string | undefined = undefined;
+    let newRefreshToken: string | undefined = undefined;
+
+    // 1. If accessToken is missing, attempt auto-refresh using stored refresh token first
     if (!accessToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          syncStatus: 'UNAUTHENTICATED',
-          isAuthExpired: true,
-          statusCode: 401,
-          error: 'Google Ads OAuth authorization token is required to synchronize live campaigns.',
-          message: 'Google Ads authorization session expired. Please refresh your Google connection to sync live campaigns.',
-          campaigns: [],
-        },
-        { status: 401 }
-      );
+      const refreshResult = await executeGoogleAdsTokenRefresh({
+        refreshToken,
+        clientSecret,
+      });
+
+      if (refreshResult.success && refreshResult.accessToken) {
+        accessToken = refreshResult.accessToken;
+        newAccessToken = refreshResult.accessToken;
+        newRefreshToken = refreshResult.refreshToken;
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            syncStatus: 'UNAUTHENTICATED',
+            isAuthExpired: true,
+            statusCode: 401,
+            error: 'Google Ads OAuth authorization token is required to synchronize live campaigns.',
+            message: 'Google Ads authorization session expired. Please refresh your Google connection to sync live campaigns.',
+            campaigns: [],
+          },
+          { status: 401 }
+        );
+      }
     }
 
     if (!cleanCid || cleanCid.length !== 10) {
@@ -47,7 +62,23 @@ export async function POST(req: NextRequest) {
 
     const loginCustomerId = body.loginCustomerId || undefined;
     const developerToken = body.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-    const liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
+    let liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
+
+    // If query failed due to expired token (401), attempt on-the-fly refresh with stored refresh token
+    if ((liveResult.statusCode === 401 || liveResult.isAuthExpired) && !newAccessToken) {
+      const refreshResult = await executeGoogleAdsTokenRefresh({
+        refreshToken,
+        clientSecret,
+      });
+
+      if (refreshResult.success && refreshResult.accessToken) {
+        accessToken = refreshResult.accessToken;
+        newAccessToken = refreshResult.accessToken;
+        newRefreshToken = refreshResult.refreshToken;
+        // Retry query with fresh token
+        liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
+      }
+    }
 
     if (liveResult.success) {
       const realCampaigns = liveResult.campaigns || [];
@@ -68,10 +99,12 @@ export async function POST(req: NextRequest) {
         campaigns: realCampaigns,
         keywords: realKeywords,
         searchTerms: realSearchTerms,
+        newAccessToken,
+        newRefreshToken,
       });
     }
 
-    // If Google Ads returns 401 (token expired): explicitly notify caller to trigger token refresh
+    // If Google Ads still returns 401 (token expired and refresh failed): notify caller to re-authorize
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
       return NextResponse.json(
         {
@@ -110,6 +143,8 @@ export async function POST(req: NextRequest) {
         accessibleCustomers: liveResult.accessibleCustomers || [],
         message: `Google Ads notice for account ${formattedCid}: ${cleanErr}`,
         campaigns: [],
+        newAccessToken,
+        newRefreshToken,
       },
       { status: liveResult.statusCode && liveResult.statusCode >= 400 ? liveResult.statusCode : 400 }
     );
