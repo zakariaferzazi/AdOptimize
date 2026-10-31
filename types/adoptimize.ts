@@ -276,7 +276,8 @@ export interface GoogleAdsAccount {
   timezone?: string;
   isConnected: boolean;
   lastSyncAt: string;
-  syncStatus: 'SYNCED' | 'SYNCING' | 'ERROR' | 'IDLE';
+  syncStatus: 'SYNCED' | 'SYNCING' | 'ERROR' | 'IDLE' | 'QUOTA_PAUSED';
+  quotaResetAt?: number;
   isDemo: boolean;
   totalCampaignsCount: number;
   monthlySpendCap?: number;

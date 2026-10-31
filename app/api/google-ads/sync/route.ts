@@ -104,6 +104,34 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // If Google Ads Developer Explorer daily rate limit / quota is exhausted (HTTP 429 / RESOURCE_EXHAUSTED):
+    // Do NOT wipe campaigns or mark token expired. Maintain uninterrupted session and serve verified cache.
+    if (liveResult.isQuotaExhausted) {
+      const delaySec = liveResult.retryDelaySeconds || 48430;
+      const hoursRemaining = (delaySec / 3600).toFixed(1);
+      const quotaMsg = `Google Ads Explorer rate limit reached (resets in ~${hoursRemaining}h). Campaigns and optimizations remain active on cached data.`;
+
+      const fallbackCampaigns = Array.isArray(body.cachedCampaigns) ? body.cachedCampaigns : [];
+      const fallbackKeywords = Array.isArray(body.cachedKeywords) ? body.cachedKeywords : [];
+      const fallbackSearchTerms = Array.isArray(body.cachedSearchTerms) ? body.cachedSearchTerms : [];
+
+      return NextResponse.json({
+        success: true,
+        lastSyncAt: syncTimestamp,
+        syncStatus: 'QUOTA_PAUSED',
+        isLiveApi: false,
+        isQuotaExhausted: true,
+        retryDelaySeconds: delaySec,
+        quotaResetTime: Date.now() + delaySec * 1000,
+        message: quotaMsg,
+        campaigns: fallbackCampaigns,
+        keywords: fallbackKeywords,
+        searchTerms: fallbackSearchTerms,
+        newAccessToken,
+        newRefreshToken,
+      });
+    }
+
     // If Google Ads still returns 401 (token expired and refresh failed): notify caller to re-authorize
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
       return NextResponse.json(

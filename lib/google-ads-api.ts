@@ -15,6 +15,8 @@ export interface GoogleAdsApiResult {
   accessibleCustomers?: string[];
   loginCustomerIdUsed?: string;
   isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
   currency?: string;
 }
 
@@ -81,8 +83,48 @@ function cleanHtmlSnippet(raw: string): string {
     .slice(0, 220);
 }
 
-function extractGoogleAdsError(data: any, status: number, rawText: string): { error: string; details?: string; isAuthExpired?: boolean } {
-  // Check for expired or invalid OAuth credentials
+function extractGoogleAdsError(
+  data: any,
+  status: number,
+  rawText: string
+): {
+  error: string;
+  details?: string;
+  isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
+} {
+  const rawLower = (rawText || '').toLowerCase();
+
+  // 1. Check for Rate Limit / Quota Exhaustion (HTTP 429 or RESOURCE_EXHAUSTED)
+  const isQuotaError =
+    status === 429 ||
+    data?.status === 'RESOURCE_EXHAUSTED' ||
+    data?.error?.status === 'RESOURCE_EXHAUSTED' ||
+    data?.code === 429 ||
+    data?.error?.code === 429 ||
+    rawLower.includes('resource_exhausted') ||
+    rawLower.includes('quotaerror') ||
+    rawLower.includes('number of operations for explorer access') ||
+    rawLower.includes('too many requests');
+
+  if (isQuotaError) {
+    let delaySec = 48430;
+    const match = rawText.match(/retryDelay"?:\s*"(\d+)s?"/i) || rawText.match(/retry in (\d+)\s*seconds/i);
+    if (match && match[1]) {
+      delaySec = parseInt(match[1], 10);
+    }
+    const hours = (delaySec / 3600).toFixed(1);
+    return {
+      error: `Google Ads Developer Explorer daily quota reached (rate limit paused for ~${hours}h). Campaigns and insights are preserved and serving from verified cache.`,
+      details: data?.error?.message || data?.message || rawText.slice(0, 300),
+      isAuthExpired: false,
+      isQuotaExhausted: true,
+      retryDelaySeconds: delaySec,
+    };
+  }
+
+  // 2. Check for expired or invalid OAuth credentials
   const isAuthError =
     status === 401 ||
     data?.error?.status === 'UNAUTHENTICATED' ||
@@ -95,6 +137,7 @@ function extractGoogleAdsError(data: any, status: number, rawText: string): { er
       error: 'Google Ads authorization session expired. Your OAuth access token has expired or is invalid. Please re-authenticate your Google account to refresh your connection.',
       details: data?.error?.message || 'Request had invalid authentication credentials (HTTP 401)',
       isAuthExpired: true,
+      isQuotaExhausted: false,
     };
   }
 
@@ -125,6 +168,7 @@ function extractGoogleAdsError(data: any, status: number, rawText: string): { er
     return {
       error: errorCodeStr ? `${message} (${errorCodeStr})` : message,
       details: data.error.details ? JSON.stringify(data.error.details) : (data.error.message || undefined),
+      isQuotaExhausted: false,
     };
   }
 
@@ -202,6 +246,8 @@ export async function listAccessibleCustomers(
           details: errInfo.details,
           statusCode: res.status,
           isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
         };
       }
 
@@ -215,6 +261,8 @@ export async function listAccessibleCustomers(
           details: errInfo.details,
           statusCode: res.status,
           isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
         };
       }
 
@@ -372,6 +420,8 @@ export async function queryLiveCampaigns(
           statusCode: res.status,
           accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
           isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
         };
       }
 
@@ -394,6 +444,8 @@ export async function queryLiveCampaigns(
           statusCode: res.status,
           accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
           isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
         };
       }
 

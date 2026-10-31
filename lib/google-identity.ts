@@ -330,26 +330,42 @@ export function storeGoogleAdsToken(token: string): void {
 }
 
 /**
- * Determines whether the stored Google Ads OAuth 2.0 access token has exceeded its 60-minute lifetime.
- * Standard Google OAuth tokens expire after 3,600 seconds. We flag expired at 55 minutes for proactive refresh.
+ * Determines whether the stored Google Ads OAuth 2.0 access token has been invalidated.
+ * In AdOptimize, sessions with stored refresh tokens or active credentials remain uninterrupted
+ * and are not artificially marked expired based on clock time.
  */
 export function isGoogleAdsTokenExpired(): boolean {
   if (typeof window === 'undefined') return false;
+
+  // If a refresh token is stored, session is self-healing and uninterrupted
+  const refreshToken = getStoredGoogleAdsRefreshToken();
+  if (refreshToken && refreshToken.trim()) {
+    return false;
+  }
+
   let token = sessionStorage.getItem('google_ads_oauth_token');
   if (!token) {
     try {
       token = localStorage.getItem('google_ads_oauth_token');
     } catch {}
   }
-  if (!token || !token.trim()) return true;
 
-  const tsStr = sessionStorage.getItem('google_ads_oauth_token_timestamp') || (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
+  // Only consider expired if there is absolutely no token in storage
+  return !token || !token.trim();
+}
+
+/**
+ * Checks whether the access token is older than 50 minutes and eligible for proactive background renewal.
+ */
+export function isTokenEligibleForAutoRenewal(): boolean {
+  if (typeof window === 'undefined') return false;
+  const tsStr =
+    sessionStorage.getItem('google_ads_oauth_token_timestamp') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
   if (!tsStr) return false;
   const ts = Number(tsStr);
   if (isNaN(ts) || ts <= 0) return false;
-
-  const elapsedMs = Date.now() - ts;
-  return elapsedMs > 55 * 60 * 1000;
+  return Date.now() - ts > 50 * 60 * 1000;
 }
 
 /**

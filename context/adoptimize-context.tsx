@@ -100,6 +100,7 @@ interface AdOptimizeContextType {
   isTokenExpired: boolean;
   oauthToken: string | null;
   refreshToken: string | null;
+  quotaResetAt: number | null;
   handleSignInWithGoogle: () => Promise<void>;
   handleSignOut: () => Promise<void>;
   handleSync: () => Promise<void>;
@@ -161,6 +162,16 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     }
     return false;
   });
+  const [quotaResetAt, setQuotaResetAt] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('google_ads_quota_reset_at');
+      if (stored) {
+        const val = Number(stored);
+        if (!isNaN(val) && val > Date.now()) return val;
+      }
+    }
+    return null;
+  });
   const [apiIssue, setApiIssue] = useState<ApiIssue | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
@@ -169,7 +180,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
 
   // Proactive Google Ads OAuth Token Auto-Rotation
-  // Automatically uses stored refresh token to regenerate fresh access tokens before 60-min expiry
+  // Checks token health gently every 15 minutes without aggressive loops or window focus listeners
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -177,7 +188,17 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
     const autoRenewOrCheck = async () => {
       if (isRenewing) return;
-      const expired = isGoogleAdsTokenExpired();
+
+      const activeRefreshTok =
+        refreshToken ||
+        state.account?.refreshToken ||
+        getStoredGoogleAdsRefreshToken() ||
+        undefined;
+
+      // With a valid refresh token or active connected account, session is uninterrupted
+      if (activeRefreshTok) {
+        setIsTokenExpired(false);
+      }
 
       // Check elapsed time since access token timestamp
       const tsStr =
@@ -187,16 +208,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           : null);
       const ts = tsStr ? Number(tsStr) : 0;
       const elapsedMs = ts > 0 ? Date.now() - ts : 0;
-      // Proactively rotate at 45 minutes to prevent session expiration
-      const nearingExpiry = elapsedMs > 45 * 60 * 1000;
+      // Proactively rotate token at 50 minutes without user prompts
+      const nearingExpiry = elapsedMs > 50 * 60 * 1000;
 
-      const activeRefreshTok =
-        refreshToken ||
-        state.account?.refreshToken ||
-        getStoredGoogleAdsRefreshToken() ||
-        undefined;
-
-      if ((expired || nearingExpiry) && activeRefreshTok) {
+      if (nearingExpiry && activeRefreshTok) {
         isRenewing = true;
         try {
           const res = await fetch('/api/google-ads/token/refresh', {
@@ -227,7 +242,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
                 lastSyncAt: new Date().toISOString(),
               });
             }
-            return;
           }
         } catch {
           // If network error during auto-renew, maintain state
@@ -235,17 +249,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           isRenewing = false;
         }
       }
-
-      setIsTokenExpired(expired);
     };
 
     autoRenewOrCheck();
-    const timer = setInterval(autoRenewOrCheck, 30000);
-    window.addEventListener('focus', autoRenewOrCheck);
+    // Gentle 15-minute interval (never 30-second polling)
+    const timer = setInterval(autoRenewOrCheck, 15 * 60 * 1000);
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('focus', autoRenewOrCheck);
     };
   }, [state.account, user, refreshToken]);
 
