@@ -52,7 +52,7 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
-const GOOGLE_ADS_API_VERSIONS = ['v25', 'v24', 'v23', 'v22'];
+const GOOGLE_ADS_API_VERSIONS = ['v26', 'v25', 'v24', 'v23', 'v22'];
 
 /**
  * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
@@ -867,12 +867,16 @@ export async function queryLiveCampaigns(
             liveSearchTerms.push(...campSearchTerms);
           }
 
+          const rawStatus = String(camp.status || camp.primaryStatus || '').toUpperCase();
+          const isCampEnabled = rawStatus === 'ENABLED' || rawStatus === 'ELIGIBLE' || rawStatus.includes('ENABLE');
+          const campStatus: 'ENABLED' | 'PAUSED' = isCampEnabled ? 'ENABLED' : 'PAUSED';
+
           parsedCampaigns.push({
             id: campaignFullId,
             accountId: `acc-${cleanCustomerId}`,
             name: campName,
             type: channelType,
-            status: camp.status === 'ENABLED' ? 'ENABLED' : 'PAUSED',
+            status: campStatus,
             budgetDaily,
             spend,
             impressions,

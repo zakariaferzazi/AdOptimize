@@ -226,6 +226,19 @@ export function CampaignsTable({
             </button>
           </div>
 
+          {onOpenSyncCampaigns && (
+            <button
+              type="button"
+              onClick={onOpenSyncCampaigns}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-60 rounded-xl text-xs font-semibold transition-all cursor-pointer border border-slate-200/60"
+              title="Fetch live campaign statuses and metrics directly from Google Ads"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-600'}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Live Status'}</span>
+            </button>
+          )}
+
           {onViewAll && (
             <button
               onClick={onViewAll}

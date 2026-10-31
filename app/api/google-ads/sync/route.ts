@@ -19,18 +19,20 @@ export async function POST(req: NextRequest) {
     const formattedCid = validation.isValid ? validation.formatted : customerId;
     const syncTimestamp = new Date().toISOString();
 
-    // 1. If an OAuth access token is not available, retain existing synced account state gracefully
+    // 1. If an OAuth access token is not available, return unauthenticated state so client refreshes
     if (!accessToken) {
-      return NextResponse.json({
-        success: true,
-        lastSyncAt: syncTimestamp,
-        syncStatus: 'SYNCED',
-        isCached: true,
-        freshness: 'Account connected (synchronized)',
-        campaignsCount: manualCampaigns.length,
-        message: `Google Ads account ${formattedCid} is connected.`,
-        campaigns: manualCampaigns,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          syncStatus: 'UNAUTHENTICATED',
+          isAuthExpired: true,
+          statusCode: 401,
+          error: 'Google Ads OAuth authorization token is required to synchronize live campaigns.',
+          message: 'Google Ads authorization session expired. Please refresh your Google connection to sync live campaigns.',
+          campaigns: [],
+        },
+        { status: 401 }
+      );
     }
 
     if (!cleanCid || cleanCid.length !== 10) {
@@ -69,17 +71,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If Google Ads returns 401 (token expired in background): retain connected account state gracefully without erroring out
+    // If Google Ads returns 401 (token expired): explicitly notify caller to trigger token refresh
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
-      return NextResponse.json({
-        success: true,
-        lastSyncAt: syncTimestamp,
-        syncStatus: 'SYNCED',
-        isCached: true,
-        freshness: 'Current campaign data active',
-        isAuthExpired: false,
-        message: `Google Ads account ${formattedCid} is active and monitored.`,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          lastSyncAt: syncTimestamp,
+          syncStatus: 'AUTH_EXPIRED',
+          isAuthExpired: true,
+          statusCode: 401,
+          error: liveResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
+          message: 'Google Ads session expired. Please refresh your Google connection to synchronize live campaigns.',
+          campaigns: [],
+        },
+        { status: 401 }
+      );
     }
 
     // Google Ads returned an error: pass it directly so it displays on the page
