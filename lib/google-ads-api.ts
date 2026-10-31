@@ -18,6 +18,86 @@ export interface GoogleAdsApiResult {
   isQuotaExhausted?: boolean;
   retryDelaySeconds?: number;
   currency?: string;
+  fromCache?: boolean;
+}
+
+export interface QuotaCooldownState {
+  isExhausted: boolean;
+  retryAfter: number;
+  delaySec: number;
+  message: string;
+}
+
+// In-memory query cache with TTL to throttle Google Ads API calls
+interface CachedQueryResult {
+  data: GoogleAdsApiResult;
+  timestamp: number;
+  expiresAt: number;
+}
+
+const liveQueryCache = new Map<string, CachedQueryResult>();
+let globalQuotaCooldown: QuotaCooldownState | null = null;
+
+export function getQuotaCooldownStatus(): QuotaCooldownState | null {
+  if (globalQuotaCooldown) {
+    if (Date.now() < globalQuotaCooldown.retryAfter) {
+      return globalQuotaCooldown;
+    }
+    // Cooldown elapsed, restore normal operations
+    console.log('[Google Ads API Quota] Explorer Developer Token quota cooldown has elapsed. Normal API calls resumed.');
+    globalQuotaCooldown = null;
+  }
+  return null;
+}
+
+export function clearGoogleAdsCache(customerId?: string): void {
+  if (customerId) {
+    const clean = customerId.replace(/\D/g, '');
+    for (const key of Array.from(liveQueryCache.keys())) {
+      if (key.includes(clean)) {
+        liveQueryCache.delete(key);
+      }
+    }
+  } else {
+    liveQueryCache.clear();
+  }
+}
+
+/**
+ * Executes fetch with exponential backoff for transient server/network errors (HTTP 5xx).
+ * Does NOT retry immediately on 429 / RESOURCE_EXHAUSTED; instead lets cooldown handle it.
+ */
+async function fetchWithBackoff(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 2
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetch(url, options);
+
+      // If transient HTTP 5xx error, retry with exponential backoff
+      if ((res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+        attempt++;
+        const backoffMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        console.warn(`[Google Ads API] Transient HTTP ${res.status}. Retrying in ${Math.round(backoffMs)}ms (attempt ${attempt}/${maxRetries})...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      return res;
+    } catch (netErr: any) {
+      if (attempt < maxRetries) {
+        attempt++;
+        const backoffMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        console.warn(`[Google Ads API] Network failure: ${netErr.message}. Retrying in ${Math.round(backoffMs)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+      throw netErr;
+    }
+  }
 }
 
 /**
@@ -115,8 +195,19 @@ function extractGoogleAdsError(
       delaySec = parseInt(match[1], 10);
     }
     const hours = (delaySec / 3600).toFixed(1);
+    const quotaMsg = `Google Ads Developer Explorer daily quota reached (rate limit paused for ~${hours}h). Campaigns and insights are preserved and serving from verified cache.`;
+
+    globalQuotaCooldown = {
+      isExhausted: true,
+      retryAfter: Date.now() + delaySec * 1000,
+      delaySec,
+      message: quotaMsg,
+    };
+
+    console.warn(`[Google Ads API] RESOURCE_EXHAUSTED Quota Warning: ${quotaMsg} Active cooldown until ${new Date(globalQuotaCooldown.retryAfter).toLocaleTimeString()}.`);
+
     return {
-      error: `Google Ads Developer Explorer daily quota reached (rate limit paused for ~${hours}h). Campaigns and insights are preserved and serving from verified cache.`,
+      error: quotaMsg,
       details: data?.error?.message || data?.message || rawText.slice(0, 300),
       isAuthExpired: false,
       isQuotaExhausted: true,
@@ -294,9 +385,49 @@ export async function queryLiveCampaigns(
   cleanCustomerId: string,
   accessToken: string,
   developerToken?: string,
-  loginCustomerId?: string
+  loginCustomerId?: string,
+  options?: { forceRefresh?: boolean }
 ): Promise<GoogleAdsApiResult> {
   try {
+    const cleanCid = cleanCustomerId.replace(/\D/g, '');
+    const cacheKey = `${cleanCid}:${loginCustomerId ? loginCustomerId.replace(/\D/g, '') : 'default'}`;
+    const cached = liveQueryCache.get(cacheKey);
+
+    // 1. Check if global rate limit cooldown is active (HTTP 429 / RESOURCE_EXHAUSTED)
+    const cooldown = getQuotaCooldownStatus();
+    if (cooldown) {
+      const remainingSec = Math.max(1, Math.round((cooldown.retryAfter - Date.now()) / 1000));
+      const remainingHours = (remainingSec / 3600).toFixed(1);
+      console.warn(`[Google Ads API] Request throttled: Explorer developer token quota cooldown active (~${remainingHours}h remaining, ${remainingSec}s). Serving verified data from cache.`);
+
+      if (cached?.data) {
+        return {
+          ...cached.data,
+          fromCache: true,
+          isQuotaExhausted: true,
+          retryDelaySeconds: remainingSec,
+          details: cooldown.message,
+        };
+      }
+
+      return {
+        success: false,
+        isQuotaExhausted: true,
+        retryDelaySeconds: remainingSec,
+        error: cooldown.message,
+        details: `Google Ads rate limit cooldown active until ${new Date(cooldown.retryAfter).toLocaleTimeString()}.`,
+      };
+    }
+
+    // 2. Check in-memory query cache with 3-minute TTL to throttle redundant outgoing API queries
+    if (!options?.forceRefresh && cached && Date.now() < cached.expiresAt) {
+      console.log(`[Google Ads API Cache] Serving live campaigns for CID ${cleanCid} from cache (${Math.round((cached.expiresAt - Date.now()) / 1000)}s TTL remaining).`);
+      return {
+        ...cached.data,
+        fromCache: true,
+      };
+    }
+
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
@@ -338,7 +469,7 @@ export async function queryLiveCampaigns(
     };
 
     for (const version of GOOGLE_ADS_API_VERSIONS) {
-      let res = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+      let res = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: gaqlQuery }),
@@ -985,13 +1116,32 @@ export async function queryLiveCampaigns(
         }
       }
 
-      return {
+      const finalResult: GoogleAdsApiResult = {
         success: true,
         campaigns: parsedCampaigns,
         keywords: liveKeywords,
         searchTerms: liveSearchTerms,
         loginCustomerIdUsed: discoveredLoginCid,
         currency: detectedCurrency,
+      };
+
+      // Cache for 3 minutes (180,000 ms) to throttle requests
+      liveQueryCache.set(cacheKey, {
+        data: finalResult,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + 3 * 60 * 1000,
+      });
+
+      return finalResult;
+    }
+
+    if (lastError.isQuotaExhausted && cached?.data) {
+      return {
+        ...cached.data,
+        isQuotaExhausted: true,
+        retryDelaySeconds: lastError.retryDelaySeconds,
+        details: lastError.details,
+        fromCache: true,
       };
     }
 
@@ -1180,6 +1330,7 @@ export async function mutateGoogleAdsCampaignStatus(
 
       const parsed = await safeParseResponse(res);
       if (res.ok) {
+        clearGoogleAdsCache(cleanCid);
         return {
           success: true,
           campaignId: cleanCampId,
@@ -1303,6 +1454,7 @@ export async function mutateGoogleAdsCampaignBudget(
 
       const parsed = await safeParseResponse(res);
       if (res.ok) {
+        clearGoogleAdsCache(cleanCid);
         return {
           success: true,
           newDailyBudget,
@@ -1423,6 +1575,7 @@ export async function createGoogleAdsCampaign(
           }
         }
         const numericId = createdCampResource ? createdCampResource.split('/').pop() : String(Date.now());
+        clearGoogleAdsCache(cleanCid);
         return {
           success: true,
           campaignId: numericId,

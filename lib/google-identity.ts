@@ -312,19 +312,24 @@ export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): P
 }
 
 /**
- * Helper to store token in both sessionStorage and localStorage
+ * Helper to store token in both sessionStorage and localStorage with expiration tracking
  */
-export function storeGoogleAdsToken(token: string): void {
+export function storeGoogleAdsToken(token: string, expiresInSeconds = 3600, expiresAtMs?: number): void {
   if (typeof window === 'undefined') return;
-  const now = String(Date.now());
+  const now = Date.now();
+  const computedExpiresAt = expiresAtMs ? String(expiresAtMs) : String(now + expiresInSeconds * 1000);
+  const nowStr = String(now);
+
   sessionStorage.setItem('google_ads_oauth_token', token);
-  sessionStorage.setItem('google_ads_oauth_token_timestamp', now);
+  sessionStorage.setItem('google_ads_oauth_token_timestamp', nowStr);
+  sessionStorage.setItem('google_ads_token_expires_at', computedExpiresAt);
   try {
     localStorage.setItem('google_ads_oauth_token', token);
-    localStorage.setItem('google_ads_oauth_token_timestamp', now);
+    localStorage.setItem('google_ads_oauth_token_timestamp', nowStr);
+    localStorage.setItem('google_ads_token_expires_at', computedExpiresAt);
     localStorage.setItem(
       'google_ads_oauth_token_broadcast',
-      JSON.stringify({ token, time: Date.now() })
+      JSON.stringify({ token, time: now, expiresAt: Number(computedExpiresAt) })
     );
   } catch {}
 }
@@ -359,6 +364,17 @@ export function isGoogleAdsTokenExpired(): boolean {
  */
 export function isTokenEligibleForAutoRenewal(): boolean {
   if (typeof window === 'undefined') return false;
+  const expiresAtStr =
+    sessionStorage.getItem('google_ads_token_expires_at') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
+  if (expiresAtStr) {
+    const exp = Number(expiresAtStr);
+    if (!isNaN(exp) && exp > 0) {
+      // Within 5 minutes of expiring
+      return exp - Date.now() < 5 * 60 * 1000;
+    }
+  }
+
   const tsStr =
     sessionStorage.getItem('google_ads_oauth_token_timestamp') ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
@@ -371,7 +387,7 @@ export function isTokenEligibleForAutoRenewal(): boolean {
 /**
  * Helper to retrieve stored token across localStorage and sessionStorage with real expiration status.
  */
-export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean } {
+export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean; expiresAt?: number } {
   if (typeof window === 'undefined') return { token: null, isExpired: true };
   let token = sessionStorage.getItem('google_ads_oauth_token');
 
@@ -386,8 +402,13 @@ export function getStoredGoogleAdsToken(): { token: string | null; isExpired: bo
     return { token: null, isExpired: true };
   }
 
+  const expStr =
+    sessionStorage.getItem('google_ads_token_expires_at') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
+  const expiresAt = expStr ? Number(expStr) : undefined;
+
   const expired = isGoogleAdsTokenExpired();
-  return { token: token.trim(), isExpired: expired };
+  return { token: token.trim(), isExpired: expired, expiresAt: expiresAt && !isNaN(expiresAt) ? expiresAt : undefined };
 }
 
 /**
@@ -424,10 +445,12 @@ export function clearStoredGoogleAdsToken(): void {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem('google_ads_oauth_token');
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+    sessionStorage.removeItem('google_ads_token_expires_at');
     sessionStorage.removeItem('google_ads_refresh_token');
     try {
       localStorage.removeItem('google_ads_oauth_token');
       localStorage.removeItem('google_ads_oauth_token_timestamp');
+      localStorage.removeItem('google_ads_token_expires_at');
       localStorage.removeItem('google_ads_oauth_token_broadcast');
       localStorage.removeItem('google_ads_refresh_token');
     } catch {}

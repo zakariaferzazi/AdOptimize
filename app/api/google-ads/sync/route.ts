@@ -2,53 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   validateAndFormatCustomerId,
   queryLiveCampaigns,
+  getQuotaCooldownStatus,
 } from '@/lib/google-ads-api';
-import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
+import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    let {
+    const {
       customerId,
       accessToken,
       refreshToken,
-      clientSecret,
+      expiresAt,
+      userId,
+      userEmail,
+      loginCustomerId,
+      developerToken,
+      forceRefresh = false,
+      cachedCampaigns = [],
+      cachedKeywords = [],
+      cachedSearchTerms = [],
     } = body;
 
-    const validation = validateAndFormatCustomerId(customerId);
-    const cleanCid = validation.isValid ? validation.clean : customerId.replace(/\D/g, '');
+    const validation = validateAndFormatCustomerId(customerId || '');
+    const cleanCid = validation.isValid ? validation.clean : String(customerId || '').replace(/\D/g, '');
     const formattedCid = validation.isValid ? validation.formatted : customerId;
     const syncTimestamp = new Date().toISOString();
-
-    let newAccessToken: string | undefined = undefined;
-    let newRefreshToken: string | undefined = undefined;
-
-    // 1. If accessToken is missing, attempt auto-refresh using stored refresh token first
-    if (!accessToken) {
-      const refreshResult = await executeGoogleAdsTokenRefresh({
-        refreshToken,
-        clientSecret,
-      });
-
-      if (refreshResult.success && refreshResult.accessToken) {
-        accessToken = refreshResult.accessToken;
-        newAccessToken = refreshResult.accessToken;
-        newRefreshToken = refreshResult.refreshToken;
-      } else {
-        return NextResponse.json(
-          {
-            success: false,
-            syncStatus: 'UNAUTHENTICATED',
-            isAuthExpired: true,
-            statusCode: 401,
-            error: 'Google Ads OAuth authorization token is required to synchronize live campaigns.',
-            message: 'Google Ads authorization session expired. Please refresh your Google connection to sync live campaigns.',
-            campaigns: [],
-          },
-          { status: 401 }
-        );
-      }
-    }
 
     if (!cleanCid || cleanCid.length !== 10) {
       return NextResponse.json(
@@ -60,36 +39,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const loginCustomerId = body.loginCustomerId || undefined;
-    const developerToken = body.developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-    let liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
+    const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
-    // If query failed due to expired token (401), attempt on-the-fly refresh with stored refresh token
-    if ((liveResult.statusCode === 401 || liveResult.isAuthExpired) && !newAccessToken) {
-      const refreshResult = await executeGoogleAdsTokenRefresh({
-        refreshToken,
-        clientSecret,
+    // Check if Developer Token explorer quota is currently in cooldown period
+    const quotaCooldown = getQuotaCooldownStatus();
+    if (quotaCooldown) {
+      const remainingSec = Math.max(1, Math.round((quotaCooldown.retryAfter - Date.now()) / 1000));
+      const hoursRemaining = (remainingSec / 3600).toFixed(1);
+      const quotaMsg = `Google Ads Developer Explorer daily operations quota reached (~${hoursRemaining}h cooldown). Live campaigns are safely preserved and served from verified cache.`;
+
+      console.warn(`[Sync API] Quota cooldown active until ${new Date(quotaCooldown.retryAfter).toLocaleTimeString()} (${remainingSec}s remaining). Serving cached data.`);
+
+      return NextResponse.json({
+        success: true,
+        lastSyncAt: syncTimestamp,
+        syncStatus: 'QUOTA_PAUSED',
+        isLiveApi: false,
+        isQuotaExhausted: true,
+        retryDelaySeconds: remainingSec,
+        quotaResetTime: quotaCooldown.retryAfter,
+        message: quotaMsg,
+        campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
+        keywords: Array.isArray(cachedKeywords) ? cachedKeywords : [],
+        searchTerms: Array.isArray(cachedSearchTerms) ? cachedSearchTerms : [],
       });
-
-      if (refreshResult.success && refreshResult.accessToken) {
-        accessToken = refreshResult.accessToken;
-        newAccessToken = refreshResult.accessToken;
-        newRefreshToken = refreshResult.refreshToken;
-        // Retry query with fresh token
-        liveResult = await queryLiveCampaigns(cleanCid, accessToken, developerToken, loginCustomerId);
-      }
     }
+
+    // Execute with automated token refresh & 401 automatic retry
+    const liveResult = await executeWithAutoTokenRetry(
+      {
+        userId,
+        userEmail,
+        customerId: cleanCid,
+        incomingAccessToken: accessToken,
+        incomingRefreshToken: refreshToken,
+        incomingExpiresAt: expiresAt ? Number(expiresAt) : undefined,
+        forceRefresh,
+      },
+      async (activeToken: string) => {
+        return queryLiveCampaigns(cleanCid, activeToken, devToken, loginCustomerId, { forceRefresh });
+      }
+    );
 
     if (liveResult.success) {
       const realCampaigns = liveResult.campaigns || [];
       const realKeywords = liveResult.keywords || [];
       const realSearchTerms = liveResult.searchTerms || [];
+
       return NextResponse.json({
         success: true,
         lastSyncAt: syncTimestamp,
         syncStatus: 'SYNCED',
-        isLiveApi: true,
-        freshness: 'Live data from Google Ads',
+        isLiveApi: !liveResult.fromCache,
+        fromCache: Boolean(liveResult.fromCache),
+        freshness: liveResult.fromCache ? 'Served from 3-minute request cache' : 'Live data from Google Ads',
         campaignsCount: realCampaigns.length,
         loginCustomerIdUsed: liveResult.loginCustomerIdUsed,
         currency: liveResult.currency,
@@ -99,8 +102,9 @@ export async function POST(req: NextRequest) {
         campaigns: realCampaigns,
         keywords: realKeywords,
         searchTerms: realSearchTerms,
-        newAccessToken,
-        newRefreshToken,
+        newAccessToken: liveResult.newAccessToken,
+        newRefreshToken: liveResult.newRefreshToken,
+        newExpiresAt: liveResult.newExpiresAt,
       });
     }
 
@@ -111,9 +115,15 @@ export async function POST(req: NextRequest) {
       const hoursRemaining = (delaySec / 3600).toFixed(1);
       const quotaMsg = `Google Ads Explorer rate limit reached (resets in ~${hoursRemaining}h). Campaigns and optimizations remain active on cached data.`;
 
-      const fallbackCampaigns = Array.isArray(body.cachedCampaigns) ? body.cachedCampaigns : [];
-      const fallbackKeywords = Array.isArray(body.cachedKeywords) ? body.cachedKeywords : [];
-      const fallbackSearchTerms = Array.isArray(body.cachedSearchTerms) ? body.cachedSearchTerms : [];
+      const fallbackCampaigns = liveResult.campaigns && liveResult.campaigns.length > 0
+        ? liveResult.campaigns
+        : (Array.isArray(cachedCampaigns) ? cachedCampaigns : []);
+      const fallbackKeywords = liveResult.keywords && liveResult.keywords.length > 0
+        ? liveResult.keywords
+        : (Array.isArray(cachedKeywords) ? cachedKeywords : []);
+      const fallbackSearchTerms = liveResult.searchTerms && liveResult.searchTerms.length > 0
+        ? liveResult.searchTerms
+        : (Array.isArray(cachedSearchTerms) ? cachedSearchTerms : []);
 
       return NextResponse.json({
         success: true,
@@ -127,12 +137,13 @@ export async function POST(req: NextRequest) {
         campaigns: fallbackCampaigns,
         keywords: fallbackKeywords,
         searchTerms: fallbackSearchTerms,
-        newAccessToken,
-        newRefreshToken,
+        newAccessToken: liveResult.newAccessToken,
+        newRefreshToken: liveResult.newRefreshToken,
+        newExpiresAt: liveResult.newExpiresAt,
       });
     }
 
-    // If Google Ads still returns 401 (token expired and refresh failed): notify caller to re-authorize
+    // If query failed due to authentication after auto-retry was attempted
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
       return NextResponse.json(
         {
@@ -141,15 +152,15 @@ export async function POST(req: NextRequest) {
           syncStatus: 'AUTH_EXPIRED',
           isAuthExpired: true,
           statusCode: 401,
-          error: liveResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
-          message: 'Google Ads session expired. Please refresh your Google connection to synchronize live campaigns.',
-          campaigns: [],
+          error: liveResult.error || 'Google Ads session requires re-authentication. Please sign in with Google.',
+          message: 'Google Ads session requires re-authentication. Please sign in with Google.',
+          campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
         },
         { status: 401 }
       );
     }
 
-    // Google Ads returned an error: pass it directly so it displays on the page
+    // Google Ads returned another API error: format cleanly
     const cleanErr = (liveResult.error || 'Google Ads query failed')
       .replace(/<[^>]*>?/gm, ' ')
       .replace(/\s+/g, ' ')
@@ -170,9 +181,10 @@ export async function POST(req: NextRequest) {
         cid: formattedCid,
         accessibleCustomers: liveResult.accessibleCustomers || [],
         message: `Google Ads notice for account ${formattedCid}: ${cleanErr}`,
-        campaigns: [],
-        newAccessToken,
-        newRefreshToken,
+        campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
+        newAccessToken: liveResult.newAccessToken,
+        newRefreshToken: liveResult.newRefreshToken,
+        newExpiresAt: liveResult.newExpiresAt,
       },
       { status: liveResult.statusCode && liveResult.statusCode >= 400 ? liveResult.statusCode : 400 }
     );

@@ -489,15 +489,16 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      // Rate-limit check: prevent duplicate requests within 4s unless explicitly forced
+      // Rate-limit check: prevent duplicate requests within 10s unless explicitly forced
       const now = Date.now();
-      if (!force && now - lastSyncTimestampRef.current < 4000) {
+      if (!force && now - lastSyncTimestampRef.current < 10000) {
         return;
       }
       if (isBackgroundSyncingRef.current) {
         return;
       }
 
+      const storedToken = getStoredGoogleAdsToken();
       let token = tokenOverride || getAccessTokenString();
       if (!token && user?.email) {
         token = await trySilentGoogleAdsTokenRefresh(user.email);
@@ -527,6 +528,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             customerId: clientCustomerId,
             accessToken: token,
             refreshToken: activeRefreshTok,
+            expiresAt: storedToken.expiresAt,
             userEmail: user?.email || undefined,
             userId: user?.uid || undefined,
             loginCustomerId:
@@ -539,7 +541,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
         const data = await res.json();
         if (data.newAccessToken) {
-          storeGoogleAdsToken(data.newAccessToken);
+          storeGoogleAdsToken(data.newAccessToken, 3600, data.newExpiresAt);
           setOauthToken(data.newAccessToken);
           setIsTokenExpired(false);
         }
@@ -583,8 +585,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               ...(data.newRefreshToken ? { refreshToken: data.newRefreshToken } : {}),
             });
           }
-        } else if (!res.ok && (res.status === 401 || data?.isAuthExpired)) {
-          setIsTokenExpired(true);
         }
       } catch {
         // Continuous non-disruptive background sync
@@ -595,7 +595,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, refreshToken]
   );
 
-  // Background synchronization: runs once on mount, then periodic 45s heartbeat and on window focus
+  // Background synchronization: runs once on mount, then throttled 5-minute heartbeat and on window focus
   useEffect(() => {
     if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
@@ -604,19 +604,22 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     // Initial sync on load
     const initialSyncTimer = setTimeout(() => {
       performBackgroundSync(true);
-    }, 150);
+    }, 200);
 
-    // Periodic 45s background sync
+    // Periodic 5-minute background sync (protects Explorer rate limits)
     const intervalId = setInterval(() => {
       performBackgroundSync(false);
-    }, 45000);
+    }, 300000);
 
     const handleWindowFocus = () => {
-      performBackgroundSync(false);
+      // Throttle window focus to minimum 2 minutes since last sync
+      if (Date.now() - lastSyncTimestampRef.current > 120000) {
+        performBackgroundSync(false);
+      }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && Date.now() - lastSyncTimestampRef.current > 120000) {
         performBackgroundSync(false);
       }
     };
@@ -822,8 +825,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           await performBackgroundSync(true, freshToken);
           return freshToken;
         }
-      } else {
-        setIsTokenExpired(true);
       }
       return null;
     } catch (err: any) {
@@ -869,19 +870,20 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     try {
       setApiIssue(null);
       let token = getAccessTokenString();
+      const storedToken = getStoredGoogleAdsToken();
       const activeRefreshTok =
         refreshToken ||
         state.account?.refreshToken ||
         getStoredGoogleAdsRefreshToken() ||
         undefined;
 
-      // If token is missing or expired, attempt seamless refresh with stored refresh token
-      if (!token || isGoogleAdsTokenExpired()) {
+      // If token is missing, attempt seamless refresh with stored refresh token
+      if (!token) {
         const renewedToken = await handleRefreshToken(true);
         if (renewedToken) {
           token = renewedToken;
         } else {
-          await handleRefreshToken(false);
+          showToast('Please reconnect your Google Ads account.');
           return;
         }
       }
@@ -893,6 +895,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           customerId: state.account.clientCustomerId,
           accessToken: token,
           refreshToken: activeRefreshTok,
+          expiresAt: storedToken.expiresAt,
           userEmail: user?.email || undefined,
           userId: user?.uid || undefined,
           loginCustomerId:
@@ -927,16 +930,11 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             }),
           });
           data = await res.json();
-        } else {
-          setIsTokenExpired(true);
-          showToast('Google Ads session expired. Re-authorizing to fetch live status...');
-          await handleRefreshToken(false);
-          return;
         }
       }
 
       if (data.newAccessToken) {
-        storeGoogleAdsToken(data.newAccessToken);
+        storeGoogleAdsToken(data.newAccessToken, 3600, data.newExpiresAt);
         setOauthToken(data.newAccessToken);
         setIsTokenExpired(false);
       }
@@ -955,7 +953,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           statusCode: data.statusCode || res.status,
           details: data.details,
           accessibleCustomers: data.accessibleCustomers,
-          isAuthExpired: data.isAuthExpired || res.status === 401,
+          isAuthExpired: false,
         });
         showToast(errorMsg);
         return;
@@ -1501,6 +1499,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         isTokenExpired,
         oauthToken,
         refreshToken,
+        quotaResetAt,
         handleSignInWithGoogle,
         handleSignOut,
         handleSync,

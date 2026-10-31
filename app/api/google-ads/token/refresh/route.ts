@@ -19,11 +19,25 @@ export async function POST(req: NextRequest) {
     });
 
     if (result.success && result.accessToken) {
+      const expiresIn = result.expiresIn || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      // Save token data in secure token manager store (Firestore & in-memory cache)
+      const { saveTokenData } = await import('@/lib/token-manager');
+      await saveTokenData({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken || refreshToken,
+        expiresAt,
+        userId,
+        customerId,
+      }).catch((err) => console.warn('Could not persist token data to store:', err));
+
       return NextResponse.json({
         success: true,
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-        expiresIn: result.expiresIn || 3600,
+        expiresIn,
+        expiresAt,
         tokenType: result.tokenType || 'Bearer',
         refreshedAt: new Date().toISOString(),
         source: result.source || 'GOOGLE_OAUTH_SERVER_REFRESH',

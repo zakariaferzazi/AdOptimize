@@ -4,18 +4,21 @@ import {
   mutateGoogleAdsCampaignStatus,
   mutateGoogleAdsCampaignBudget,
   createGoogleAdsCampaign,
+  clearGoogleAdsCache,
 } from '@/lib/google-ads-api';
-import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
+import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    let {
+    const {
       action,
       customerId,
       accessToken,
       refreshToken,
-      clientSecret,
+      expiresAt,
+      userId,
+      userEmail,
       loginCustomerId,
       developerToken,
       campaignId,
@@ -23,31 +26,6 @@ export async function POST(req: NextRequest) {
       budgetDaily,
       campaignData,
     } = body;
-
-    let newAccessToken: string | undefined = undefined;
-    let newRefreshToken: string | undefined = undefined;
-
-    if (!accessToken) {
-      const refreshResult = await executeGoogleAdsTokenRefresh({
-        refreshToken,
-        clientSecret,
-      });
-
-      if (refreshResult.success && refreshResult.accessToken) {
-        accessToken = refreshResult.accessToken;
-        newAccessToken = refreshResult.accessToken;
-        newRefreshToken = refreshResult.refreshToken;
-      } else {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Google OAuth authorization is required. Please re-authenticate your connection.',
-            isAuthExpired: true,
-          },
-          { status: 401 }
-        );
-      }
-    }
 
     const validation = validateAndFormatCustomerId(customerId || '');
     const cleanCid = validation.isValid ? validation.clean : String(customerId || '').replace(/\D/g, '');
@@ -64,6 +42,15 @@ export async function POST(req: NextRequest) {
 
     const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
+    const tokenOptions = {
+      userId,
+      userEmail,
+      customerId: cleanCid,
+      incomingAccessToken: accessToken,
+      incomingRefreshToken: refreshToken,
+      incomingExpiresAt: expiresAt ? Number(expiresAt) : undefined,
+    };
+
     // 1. Action: Set Campaign Status (Pause or Enable)
     if (action === 'set_campaign_status') {
       if (!campaignId || !status || (status !== 'ENABLED' && status !== 'PAUSED')) {
@@ -76,22 +63,28 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await mutateGoogleAdsCampaignStatus(
-        cleanCid,
-        String(campaignId),
-        status,
-        accessToken,
-        devToken,
-        loginCustomerId
-      );
+      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
+        return mutateGoogleAdsCampaignStatus(
+          cleanCid,
+          String(campaignId),
+          status,
+          activeToken,
+          devToken,
+          loginCustomerId
+        );
+      });
 
       if (result.success) {
+        clearGoogleAdsCache(cleanCid);
         return NextResponse.json({
           success: true,
           action: 'set_campaign_status',
           campaignId: result.campaignId,
           status: result.status,
           message: `Campaign status changed to ${result.status} in Google Ads.`,
+          newAccessToken: result.newAccessToken,
+          newRefreshToken: result.newRefreshToken,
+          newExpiresAt: result.newExpiresAt,
         });
       }
 
@@ -119,22 +112,28 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await mutateGoogleAdsCampaignBudget(
-        cleanCid,
-        String(campaignId),
-        budgetNum,
-        accessToken,
-        devToken,
-        loginCustomerId
-      );
+      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
+        return mutateGoogleAdsCampaignBudget(
+          cleanCid,
+          String(campaignId),
+          budgetNum,
+          activeToken,
+          devToken,
+          loginCustomerId
+        );
+      });
 
       if (result.success) {
+        clearGoogleAdsCache(cleanCid);
         return NextResponse.json({
           success: true,
           action: 'update_campaign_budget',
           campaignId,
           newDailyBudget: result.newDailyBudget,
           message: `Daily budget updated to $${budgetNum.toFixed(2)}/day in Google Ads.`,
+          newAccessToken: result.newAccessToken,
+          newRefreshToken: result.newRefreshToken,
+          newExpiresAt: result.newExpiresAt,
         });
       }
 
@@ -164,20 +163,23 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await createGoogleAdsCampaign(
-        cleanCid,
-        {
-          name: campName,
-          budgetDaily: campBudget,
-          channelType: campaignData?.channelType || 'SEARCH',
-          status: campaignData?.status || 'ENABLED',
-        },
-        accessToken,
-        devToken,
-        loginCustomerId
-      );
+      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
+        return createGoogleAdsCampaign(
+          cleanCid,
+          {
+            name: campName,
+            budgetDaily: campBudget,
+            channelType: campaignData?.channelType || 'SEARCH',
+            status: campaignData?.status || 'ENABLED',
+          },
+          activeToken,
+          devToken,
+          loginCustomerId
+        );
+      });
 
       if (result.success) {
+        clearGoogleAdsCache(cleanCid);
         return NextResponse.json({
           success: true,
           action: 'create_campaign',
@@ -186,6 +188,9 @@ export async function POST(req: NextRequest) {
           name: campName,
           budgetDaily: campBudget,
           message: `Successfully created campaign "${campName}" in Google Ads!`,
+          newAccessToken: result.newAccessToken,
+          newRefreshToken: result.newRefreshToken,
+          newExpiresAt: result.newExpiresAt,
         });
       }
 

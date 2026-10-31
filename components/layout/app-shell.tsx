@@ -56,7 +56,6 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
     selectedCampaign,
     setSelectedCampaign,
     isSyncing,
-    isTokenExpired,
     handleSignInWithGoogle,
     handleSignOut,
     handleSync,
@@ -151,7 +150,6 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           account={account}
           anomalies={anomalies}
           isSyncing={isSyncing}
-          isTokenExpired={isTokenExpired}
           user={user}
           authLoading={authLoading}
           onRefreshSync={handleSync}
