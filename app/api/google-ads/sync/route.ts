@@ -3,6 +3,7 @@ import {
   validateAndFormatCustomerId,
   queryLiveCampaigns,
   getQuotaCooldownStatus,
+  resetQuotaCooldown,
 } from '@/lib/google-ads-api';
 import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
@@ -41,12 +42,22 @@ export async function POST(req: NextRequest) {
 
     const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
+    // If user explicitly triggers a forced refresh, clear any active cooldown
+    if (forceRefresh) {
+      resetQuotaCooldown();
+    }
+
     // Check if Developer Token explorer quota is currently in cooldown period
     const quotaCooldown = getQuotaCooldownStatus();
     if (quotaCooldown) {
       const remainingSec = Math.max(1, Math.round((quotaCooldown.retryAfter - Date.now()) / 1000));
-      const hoursRemaining = (remainingSec / 3600).toFixed(1);
-      const quotaMsg = `Google Ads Developer Explorer daily operations quota reached (~${hoursRemaining}h cooldown). Live campaigns are safely preserved and served from verified cache.`;
+      const durationLabel =
+        remainingSec >= 3600
+          ? `~${(remainingSec / 3600).toFixed(1)}h`
+          : remainingSec >= 60
+          ? `~${Math.round(remainingSec / 60)}m`
+          : `${remainingSec}s`;
+      const quotaMsg = `Google Ads rate limit cooldown active (${durationLabel} remaining). Campaigns are preserved from cache.`;
 
       console.warn(`[Sync API] Quota cooldown active until ${new Date(quotaCooldown.retryAfter).toLocaleTimeString()} (${remainingSec}s remaining). Serving cached data.`);
 

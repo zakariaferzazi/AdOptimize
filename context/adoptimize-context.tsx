@@ -1266,6 +1266,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         const res = await fetch('/api/google-ads/mutate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(8000),
           body: JSON.stringify({
             action: 'set_campaign_status',
             customerId: state.account.clientCustomerId,
@@ -1290,7 +1291,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           }
         }
       } catch (err) {
-        console.warn('Network error syncing campaign status with Google Ads API:', err);
+        console.warn('Notice syncing campaign status with Google Ads API:', err);
       }
     }
 

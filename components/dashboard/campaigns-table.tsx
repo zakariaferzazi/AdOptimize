@@ -20,6 +20,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Loader2,
 } from 'lucide-react';
 import { Campaign, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
 import { getCurrencySymbol, getCampaignPeriodMetrics } from '@/lib/metrics-calculator';
@@ -56,6 +57,7 @@ export function CampaignsTable({
   const [statusFilter, setStatusFilter] = useState<'ALL' | CampaignStatus>('ALL');
   const [sortField, setSortField] = useState<SortField>('spend');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Multiplier scale for date range
   const periodMultiplier = useMemo(() => {
@@ -342,9 +344,20 @@ export function CampaignsTable({
                         {onToggleStatus ? (
                           <button
                             type="button"
-                            onClick={(e) => {
+                            disabled={togglingId === camp.id}
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              onToggleStatus(camp.id);
+                              if (togglingId === camp.id) return;
+                              setTogglingId(camp.id);
+                              const t = setTimeout(() => setTogglingId(null), 2500);
+                              try {
+                                await onToggleStatus(camp.id);
+                              } catch (err) {
+                                console.error('Error toggling campaign status:', err);
+                              } finally {
+                                clearTimeout(t);
+                                setTogglingId(null);
+                              }
                             }}
                             className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                               isEnabled
@@ -353,7 +366,9 @@ export function CampaignsTable({
                             }`}
                             title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign`}
                           >
-                            {isEnabled ? (
+                            {togglingId === camp.id ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin text-emerald-600" />
+                            ) : isEnabled ? (
                               <>
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 <span>ENABLED</span>

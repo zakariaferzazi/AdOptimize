@@ -63,6 +63,7 @@ export function CampaignsFullView({
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingBudgetValue, setEditingBudgetValue] = useState<string>('');
   const [isSavingBudget, setIsSavingBudget] = useState(false);
+  const [togglingCampaignId, setTogglingCampaignId] = useState<string | null>(null);
 
   const sym = getCurrencySymbol(currency);
 
@@ -375,7 +376,7 @@ export function CampaignsFullView({
                   const isHealthy = c.healthStatus === 'HEALTHY';
                   const isCritical = c.healthStatus === 'CRITICAL' || m.cpa > 80;
                   const isEnabled = c.status === 'ENABLED';
-                  const isMutatingThis = isMutatingId === c.id;
+                  const isMutatingThis = togglingCampaignId === c.id || isMutatingId === c.id;
                   const isEditingThisBudget = editingBudgetId === c.id;
 
                   return (
@@ -391,10 +392,21 @@ export function CampaignsFullView({
                           disabled={Boolean(isMutatingThis)}
                           onClick={async (e) => {
                             e.stopPropagation();
+                            if (togglingCampaignId === c.id) return;
+                            setTogglingCampaignId(c.id);
+
+                            // Safety timer: guarantee that spinner stops within 2.5s even if network lags
+                            const safetyTimeout = setTimeout(() => {
+                              setTogglingCampaignId(null);
+                            }, 2500);
+
                             try {
                               await onToggleStatus(c.id);
                             } catch (err) {
                               console.error('Error toggling campaign status:', err);
+                            } finally {
+                              clearTimeout(safetyTimeout);
+                              setTogglingCampaignId(null);
                             }
                           }}
                           className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${

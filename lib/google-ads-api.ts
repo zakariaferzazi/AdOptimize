@@ -44,10 +44,15 @@ export function getQuotaCooldownStatus(): QuotaCooldownState | null {
       return globalQuotaCooldown;
     }
     // Cooldown elapsed, restore normal operations
-    console.log('[Google Ads API Quota] Explorer Developer Token quota cooldown has elapsed. Normal API calls resumed.');
+    console.log('[Google Ads API Quota] Rate limit cooldown has elapsed. Normal API calls resumed.');
     globalQuotaCooldown = null;
   }
   return null;
+}
+
+export function resetQuotaCooldown(): void {
+  globalQuotaCooldown = null;
+  console.log('[Google Ads API Quota] Rate limit cooldown manually reset.');
 }
 
 export function clearGoogleAdsCache(customerId?: string): void {
@@ -134,7 +139,7 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
-const GOOGLE_ADS_API_VERSIONS = ['v26', 'v25', 'v24', 'v23', 'v22'];
+const GOOGLE_ADS_API_VERSIONS = ['v19', 'v18', 'v17'];
 
 /**
  * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
@@ -189,13 +194,28 @@ function extractGoogleAdsError(
     rawLower.includes('too many requests');
 
   if (isQuotaError) {
-    let delaySec = 48430;
-    const match = rawText.match(/retryDelay"?:\s*"(\d+)s?"/i) || rawText.match(/retry in (\d+)\s*seconds/i);
+    // Default rate limit / burst cooldown is 60 seconds (unless explicitly given by Google)
+    let delaySec = 60;
+    const match =
+      rawText.match(/retryDelay"?:\s*"(\d+)s?"/i) ||
+      rawText.match(/retry in (\d+)\s*seconds/i) ||
+      rawText.match(/"seconds":\s*(\d+)/i);
+
     if (match && match[1]) {
-      delaySec = parseInt(match[1], 10);
+      const parsedSec = parseInt(match[1], 10);
+      if (!isNaN(parsedSec) && parsedSec > 0) {
+        delaySec = Math.min(parsedSec, 900); // Cap at 15 minutes max
+      }
     }
-    const hours = (delaySec / 3600).toFixed(1);
-    const quotaMsg = `Google Ads Developer Explorer daily quota reached (rate limit paused for ~${hours}h). Campaigns and insights are preserved and serving from verified cache.`;
+
+    const durationLabel =
+      delaySec >= 3600
+        ? `~${(delaySec / 3600).toFixed(1)}h`
+        : delaySec >= 60
+        ? `~${Math.round(delaySec / 60)}m`
+        : `${delaySec}s`;
+
+    const quotaMsg = `Google Ads API rate limit reached (cooling down for ${durationLabel}). Campaigns and metrics are served from cache.`;
 
     globalQuotaCooldown = {
       isExhausted: true,
@@ -204,7 +224,7 @@ function extractGoogleAdsError(
       message: quotaMsg,
     };
 
-    console.warn(`[Google Ads API] RESOURCE_EXHAUSTED Quota Warning: ${quotaMsg} Active cooldown until ${new Date(globalQuotaCooldown.retryAfter).toLocaleTimeString()}.`);
+    console.warn(`[Google Ads API] Rate Limit / Quota: ${quotaMsg} Active cooldown until ${new Date(globalQuotaCooldown.retryAfter).toLocaleTimeString()}.`);
 
     return {
       error: quotaMsg,
