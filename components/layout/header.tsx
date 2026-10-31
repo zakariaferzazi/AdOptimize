@@ -198,9 +198,10 @@ export function Header({
                 </button>
                 {onClearData && (
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={async () => {
                       setShowAccountDropdown(false);
-                      onClearData();
+                      await onClearData();
                     }}
                     className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                   >

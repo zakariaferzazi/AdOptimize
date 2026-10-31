@@ -72,6 +72,16 @@ export function SettingsView({
   const [tokenInput, setTokenInput] = useState(refreshToken || account.refreshToken || '');
   const [isSavingToken, setIsSavingToken] = useState(false);
   const [showTokenInput, setShowTokenInput] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClear = async () => {
+    setIsClearing(true);
+    try {
+      await onClearData();
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -192,12 +202,18 @@ export function SettingsView({
                 Configure Customer ID
               </button>
               <button
-                onClick={onClearData}
+                type="button"
+                onClick={handleClear}
+                disabled={isClearing}
                 title="Disconnect Google Ads account and clear cached sessions"
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Trash2 className="w-3 h-3 text-rose-500" />
-                <span>Disconnect &amp; Clear Cache</span>
+                {isClearing ? (
+                  <RefreshCw className="w-3 h-3 text-rose-500 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3 h-3 text-rose-500" />
+                )}
+                <span>{isClearing ? 'Clearing...' : 'Disconnect & Clear Cache'}</span>
               </button>
             </div>
           </div>

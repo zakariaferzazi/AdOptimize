@@ -152,6 +152,18 @@ export function clearSavedState(): void {
       localStorage.removeItem('adoptimize_state_v1');
       localStorage.removeItem('adoptimize_connected_account');
       localStorage.removeItem('adoptimize_onboarding_completed');
+      localStorage.removeItem('adoptimize_selected_campaign_id');
+      localStorage.removeItem('adoptimize_selected_date_range');
+      localStorage.removeItem('adoptimize_custom_days');
+      localStorage.removeItem('adoptimize_custom_start_date');
+      localStorage.removeItem('adoptimize_custom_end_date');
+      localStorage.removeItem('google_ads_login_cid');
+      localStorage.removeItem('google_ads_quota_reset_at');
+      sessionStorage.removeItem('google_ads_login_cid');
+      sessionStorage.removeItem('google_ads_oauth_token');
+      sessionStorage.removeItem('google_ads_oauth_token_timestamp');
+      sessionStorage.removeItem('google_ads_token_expires_at');
+      sessionStorage.removeItem('google_ads_refresh_token');
     } catch {
       // ignore
     }

@@ -738,7 +738,7 @@ export async function saveSearchTermToFirestore(userId: string, term: SearchTerm
   }
 }
 
-// 14. Clear All User Data (Purge fake/demo data completely)
+// 14. Clear All User Data (Purge all user documents completely)
 export async function clearAllUserData(userId: string) {
   const collections = [
     'campaigns',
@@ -751,23 +751,46 @@ export async function clearAllUserData(userId: string) {
     'searchTerms',
   ];
 
-  for (const colName of collections) {
-    try {
-      const colRef = collection(db, 'users', userId, colName);
-      const snap = await getDocs(colRef);
-      for (const d of snap.docs) {
-        await deleteDoc(d.ref);
+  // 1. Concurrently fetch and delete all documents across collections in parallel
+  await Promise.allSettled(
+    collections.map(async (colName) => {
+      try {
+        const colRef = collection(db, 'users', userId, colName);
+        const snap = await getDocs(colRef);
+        if (!snap.empty) {
+          const deletePromises = snap.docs.map((d) => deleteDoc(d.ref));
+          await Promise.allSettled(deletePromises);
+        }
+      } catch (e) {
+        console.warn(`Error clearing ${colName}:`, e);
       }
-    } catch (e) {
-      console.warn(`Error clearing ${colName}:`, e);
-    }
+    })
+  );
+
+  // 2. Clear tokens subcollection document
+  try {
+    const tokenDocRef = doc(db, 'users', userId, 'tokens', 'google_ads');
+    await deleteDoc(tokenDocRef);
+  } catch (e) {
+    console.warn('Error clearing tokens/google_ads:', e);
   }
 
-  // Reset connected account to blank state
+  // 3. Reset primary account document to explicit disconnected state
   try {
     const docRef = doc(db, 'users', userId, 'accounts', 'primary');
-    await deleteDoc(docRef);
+    await setDoc(docRef, {
+      id: `acc-${userId.slice(0, 8)}`,
+      clientCustomerId: 'Not Connected',
+      accountName: 'Google Ads Account',
+      currency: 'USD',
+      timezone: 'America/New_York (UTC-5)',
+      isConnected: false,
+      lastSyncAt: new Date().toISOString(),
+      syncStatus: 'IDLE',
+      isDemo: false,
+      totalCampaignsCount: 0,
+    });
   } catch (e) {
-    console.warn('Error clearing account:', e);
+    console.warn('Error resetting account:', e);
   }
 }

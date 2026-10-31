@@ -98,6 +98,31 @@ export async function saveTokenData(tokenData: StoredTokenData): Promise<void> {
 }
 
 /**
+ * Clears token data from in-memory cache and deletes Firestore token document
+ */
+export async function clearTokenData(params: {
+  userId?: string;
+  userEmail?: string;
+  customerId?: string;
+}): Promise<void> {
+  const keys = getCacheKeys(params);
+  for (const k of keys) {
+    tokenCache.delete(k);
+  }
+  tokenCache.delete('global_default');
+
+  if (params.userId) {
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const tokenDocRef = doc(db, 'users', params.userId, 'tokens', 'google_ads');
+      await deleteDoc(tokenDocRef);
+    } catch (err) {
+      console.warn('[TokenManager] Notice clearing tokens from Firestore:', err);
+    }
+  }
+}
+
+/**
  * Loads token data from in-memory cache or Firestore
  */
 export async function loadTokenData(params: {

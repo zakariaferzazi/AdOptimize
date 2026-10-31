@@ -438,8 +438,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             unsubscribeCampaignsRef.current();
           }
           unsubscribeCampaignsRef.current = subscribeToUserCampaigns(currentUser.uid, (liveCampaigns) => {
-            if (liveCampaigns && liveCampaigns.length > 0) {
-              setState((prev) => {
+            setState((prev) => {
+              // If account is disconnected, keep campaigns empty
+              if (!prev.account.isConnected || prev.account.clientCustomerId === 'Not Connected') {
+                return prev;
+              }
+              if (Array.isArray(liveCampaigns) && liveCampaigns.length > 0) {
                 const nextState = {
                   ...prev,
                   campaigns: liveCampaigns,
@@ -447,8 +451,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
                 };
                 saveState(nextState);
                 return nextState;
-              });
-            }
+              }
+              return prev;
+            });
           });
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
@@ -1156,14 +1161,80 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   };
 
   const handleResetData = async () => {
-    if (user) {
-      await clearAllUserData(user.uid);
+    // 1. Immediately clean up local storage and state for instant UI responsiveness
+    const cleanAccount: GoogleAdsAccount = {
+      id: user ? `acc-${user.uid.slice(0, 8)}` : 'acc-primary',
+      clientCustomerId: 'Not Connected',
+      accountName: 'Google Ads Account',
+      currency: 'USD',
+      timezone: 'America/New_York (UTC-5)',
+      isConnected: false,
+      lastSyncAt: new Date().toISOString(),
+      syncStatus: 'IDLE',
+      isDemo: false,
+      totalCampaignsCount: 0,
+      monthlySpendCap: 25000,
+    };
+
+    const cleanState: AdOptimizeState = {
+      account: cleanAccount,
+      campaigns: [],
+      keywords: [],
+      searchTerms: [],
+      ads: [],
+      anomalies: [],
+      insights: [],
+      budgetRecommendations: [],
+      automationRules: [],
+      auditLogs: [],
+      deviceBreakdown: [],
+      locationBreakdown: [],
+      isDemoMode: false,
+      selectedPeriod: 'LAST_7_DAYS',
+    };
+
+    // Unsubscribe Firestore live campaigns listener to avoid re-populating state
+    if (unsubscribeCampaignsRef.current) {
+      unsubscribeCampaignsRef.current();
+      unsubscribeCampaignsRef.current = null;
     }
+
+    // Reset React state immediately so UI updates instantly
+    setState(cleanState);
+    setOauthToken(null);
+    setRefreshToken(null);
+    setSelectedCampaign(null);
+    setApiIssue(null);
+
+    // Clear all storage keys & save clean state
     clearSavedState();
     clearStoredGoogleAdsToken();
-    setOauthToken(null);
-    setState(getCleanInitialState());
-    showToast('All account data cleared.');
+    saveState(cleanState);
+
+    showToast('Disconnecting & clearing cached account data...');
+
+    try {
+      // Purge server-side query and token caches
+      fetch('/api/google-ads/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: state.account.clientCustomerId,
+          userId: user?.uid,
+          userEmail: user?.email,
+        }),
+      }).catch(() => null);
+
+      // Purge Firestore data if user is logged in
+      if (user) {
+        await clearAllUserData(user.uid);
+      }
+
+      showToast('Disconnected from Google Ads & all cache cleared.');
+    } catch (err) {
+      console.warn('Notice clearing remote data:', err);
+      showToast('Account disconnected & local cache cleared.');
+    }
   };
 
   const handleMutateCampaignStatus = async (

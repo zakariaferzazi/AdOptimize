@@ -447,12 +447,15 @@ export function clearStoredGoogleAdsToken(): void {
     sessionStorage.removeItem('google_ads_oauth_token_timestamp');
     sessionStorage.removeItem('google_ads_token_expires_at');
     sessionStorage.removeItem('google_ads_refresh_token');
+    sessionStorage.removeItem('google_ads_login_cid');
     try {
       localStorage.removeItem('google_ads_oauth_token');
       localStorage.removeItem('google_ads_oauth_token_timestamp');
       localStorage.removeItem('google_ads_token_expires_at');
       localStorage.removeItem('google_ads_oauth_token_broadcast');
       localStorage.removeItem('google_ads_refresh_token');
+      localStorage.removeItem('google_ads_login_cid');
+      localStorage.removeItem('google_ads_quota_reset_at');
     } catch {}
   }
 }
