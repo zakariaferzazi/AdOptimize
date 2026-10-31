@@ -8,16 +8,13 @@ import {
   ChevronRight,
   Share,
   CheckCircle2,
-  Wrench,
-  Terminal,
-  Zap,
   RotateCw,
   Plus,
-  ChevronDown
+  Sparkles,
 } from 'lucide-react';
-import { DeepSeekIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
+import { BrandLogoIcon } from '@/components/ui/brand-logo';
 
-export type SupportedModel = 'deepseek' | 'chatgpt' | 'gemini';
+export type SupportedModel = 'adoptimize' | 'deepseek' | 'chatgpt' | 'gemini';
 
 export interface ConversationalScenario {
   id: string;
@@ -164,7 +161,6 @@ export const CONVERSATIONAL_SCENARIOS: ConversationalScenario[] = [
 ];
 
 interface ModelThemeConfig {
-  id: SupportedModel;
   name: string;
   version: string;
   windowBg: string;
@@ -187,76 +183,27 @@ interface ModelThemeConfig {
   accentColor: string;
 }
 
-const MODEL_THEMES: Record<SupportedModel, ModelThemeConfig> = {
-  deepseek: {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    version: 'DeepSeek-V3',
-    windowBg: 'bg-[#F4F6FB]', // DeepSeek clean high-tech canvas
-    titleBarBg: 'bg-[#F4F6FB]',
-    titleBarBorder: 'border-[#D9E1F0]',
-    textColor: 'text-slate-900',
-    mutedTextColor: 'text-slate-500',
-    userBubbleBg: 'bg-[#1E293B]',
-    userBubbleText: 'text-white',
-    assistantBubbleBg: 'bg-white',
-    assistantBubbleBorder: 'border-[#D9E1F0]',
-    assistantText: 'text-slate-900',
-    toolChipBg: 'bg-blue-50/90',
-    toolChipBorder: 'border-blue-200/90',
-    toolChipText: 'text-[#1E40AF]',
-    toolPrefix: 'DeepSeek Tool Call',
-    fontClass: 'font-sans',
-    sendBtnBg: 'bg-[#1E40AF]',
-    sendBtnText: 'text-white',
-    accentColor: '#1E40AF'
-  },
-  chatgpt: {
-    id: 'chatgpt',
-    name: 'ChatGPT',
-    version: 'GPT-4o',
-    windowBg: 'bg-[#F9F9FB]', // Clean OpenAI neutral
-    titleBarBg: 'bg-[#F9F9FB]',
-    titleBarBorder: 'border-slate-200/80',
-    textColor: 'text-slate-900',
-    mutedTextColor: 'text-slate-500',
-    userBubbleBg: 'bg-slate-900',
-    userBubbleText: 'text-white',
-    assistantBubbleBg: 'bg-white',
-    assistantBubbleBorder: 'border-slate-200/90',
-    assistantText: 'text-slate-900',
-    toolChipBg: 'bg-slate-100',
-    toolChipBorder: 'border-slate-200',
-    toolChipText: 'text-slate-700',
-    toolPrefix: 'Ran tool',
-    fontClass: 'font-sans',
-    sendBtnBg: 'bg-slate-900',
-    sendBtnText: 'text-white',
-    accentColor: '#10A37F'
-  },
-  gemini: {
-    id: 'gemini',
-    name: 'Gemini',
-    version: '2.5 Pro',
-    windowBg: 'bg-[#F2F5FA]', // Google soft ice-blue canvas
-    titleBarBg: 'bg-[#F2F5FA]',
-    titleBarBorder: 'border-[#D9E2EE]',
-    textColor: 'text-slate-900',
-    mutedTextColor: 'text-slate-500',
-    userBubbleBg: 'bg-[#152338]',
-    userBubbleText: 'text-white',
-    assistantBubbleBg: 'bg-white',
-    assistantBubbleBorder: 'border-blue-100',
-    assistantText: 'text-slate-900',
-    toolChipBg: 'bg-blue-50/90',
-    toolChipBorder: 'border-blue-200/70',
-    toolChipText: 'text-blue-900',
-    toolPrefix: 'Function Call',
-    fontClass: 'font-sans',
-    sendBtnBg: 'bg-[#1A73E8]',
-    sendBtnText: 'text-white',
-    accentColor: '#1A73E8'
-  }
+const ADOPTIMIZE_THEME: ModelThemeConfig = {
+  name: 'AdOptimize',
+  version: 'AdOptimize Agent v2.4',
+  windowBg: 'bg-[#F8FAFC]',
+  titleBarBg: 'bg-[#F8FAFC]',
+  titleBarBorder: 'border-slate-200/80',
+  textColor: 'text-slate-900',
+  mutedTextColor: 'text-slate-500',
+  userBubbleBg: 'bg-slate-900',
+  userBubbleText: 'text-white',
+  assistantBubbleBg: 'bg-white',
+  assistantBubbleBorder: 'border-slate-200/90',
+  assistantText: 'text-slate-900',
+  toolChipBg: 'bg-emerald-50/90',
+  toolChipBorder: 'border-emerald-200/80',
+  toolChipText: 'text-emerald-900',
+  toolPrefix: 'AdOptimize Action',
+  fontClass: 'font-sans',
+  sendBtnBg: 'bg-slate-900',
+  sendBtnText: 'text-white',
+  accentColor: '#10B981'
 };
 
 export interface ModelDemoSimulatorProps {
@@ -268,7 +215,6 @@ export function ModelDemoSimulator({
   onConnectGoogleAds,
   onOpenApp
 }: ModelDemoSimulatorProps = {}) {
-  const [selectedModel, setSelectedModel] = useState<SupportedModel>('deepseek');
   const [scenarioIndex, setScenarioIndex] = useState<number>(0);
 
   // Input bar typing state
@@ -300,7 +246,7 @@ export function ModelDemoSimulator({
   const [ai2IsStreaming, setAi2IsStreaming] = useState<boolean>(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const theme = MODEL_THEMES[selectedModel];
+  const theme = ADOPTIMIZE_THEME;
   const scenario = CONVERSATIONAL_SCENARIOS[scenarioIndex % CONVERSATIONAL_SCENARIOS.length];
 
   // Auto-scroll inside chat thread as text streams in
@@ -323,7 +269,7 @@ export function ModelDemoSimulator({
     ai2StreamedFooter
   ]);
 
-  // Main automated conversation runner
+  // Main automated conversation flow
   useEffect(() => {
     let isCancelled = false;
     let activeTimer: NodeJS.Timeout | null = null;
@@ -335,27 +281,25 @@ export function ModelDemoSimulator({
         }, ms);
       });
 
-    const streamIntoInput = async (text: string, speed = 24) => {
-      for (let i = 0; i <= text.length; i++) {
+    // Helper to stream typing character-by-character
+    const streamText = async (
+      fullText: string,
+      setter: (val: string) => void,
+      charSpeedMs = 18
+    ) => {
+      let accumulated = '';
+      for (let i = 0; i < fullText.length; i++) {
         if (isCancelled) return;
-        setTypedInputField(text.slice(0, i));
-        await wait(speed);
-      }
-    };
-
-    const streamText = async (text: string, onUpdate: (val: string) => void, speed = 18) => {
-      for (let i = 0; i <= text.length; i++) {
-        if (isCancelled) return;
-        onUpdate(text.slice(0, i));
-        await wait(speed);
+        accumulated += fullText[i];
+        setter(accumulated);
+        await wait(charSpeedMs);
       }
     };
 
     const runSimulation = async () => {
-      // 1. Initial reset
-      await wait(50);
-      if (isCancelled) return;
-
+      // 0. RESET STATE for this scenario
+      setTypedInputField('');
+      setIsSendPressed(false);
       setUser1Message(null);
       setTool1State(null);
       setAi1Visible(false);
@@ -374,104 +318,119 @@ export function ModelDemoSimulator({
       setAi2StreamedFooter('');
       setAi2IsStreaming(false);
 
-      // 2. Type user message 1 into the bottom sending field
-      await wait(300);
-      await streamIntoInput(scenario.userMessage1, 24);
+      await wait(600);
       if (isCancelled) return;
 
-      // 3. Send button pressed animation
-      setIsSendPressed(true);
-      await wait(220);
-      if (isCancelled) return;
-      setIsSendPressed(false);
-      setTypedInputField('');
-
-      // 4. User 1 message appears in chat thread
-      setUser1Message(scenario.userMessage1);
-      await wait(450);
+      // 1. TYPE USER PROMPT IN BOTTOM BAR
+      await streamText(scenario.userMessage1, setTypedInputField, 22);
       if (isCancelled) return;
 
-      // 5. Tool 1 running execution indicator
-      setTool1State({ name: scenario.toolName1, isRunning: true });
-      await wait(650);
-      if (isCancelled) return;
-      setTool1State({ name: scenario.toolName1, isRunning: false });
-      await wait(350);
-      if (isCancelled) return;
-
-      // 6. AI 1 streams replying from left to right like real AI
-      setAi1Visible(true);
-      setAi1IsStreaming(true);
-
-      // Stream title
-      await streamText(scenario.assistantMessage1.title, setAi1StreamedTitle, 16);
-      if (isCancelled) return;
-      await wait(200);
-
-      // Status badge reveals
-      setAi1ShowStatus(true);
-      await wait(250);
-
-      // Stream checks one by one
-      for (const check of scenario.assistantMessage1.checks) {
-        if (isCancelled) return;
-        await streamText(check, setAi1CurrentCheck, 14);
-        if (isCancelled) return;
-        setAi1CompletedChecks((prev) => [...prev, check]);
-        setAi1CurrentCheck('');
-        await wait(180);
-      }
-
-      // Stream footer
-      await streamText(scenario.assistantMessage1.footer, setAi1StreamedFooter, 15);
-      if (isCancelled) return;
-      setAi1IsStreaming(false);
-
-      // 7. Pause before user 2 turn
-      await wait(1500);
-      if (isCancelled) return;
-
-      // 8. Type user message 2 into the bottom sending field
-      await streamIntoInput(scenario.userMessage2, 26);
-      if (isCancelled) return;
-
-      // 9. Send button pressed
-      setIsSendPressed(true);
-      await wait(200);
-      if (isCancelled) return;
-      setIsSendPressed(false);
-      setTypedInputField('');
-
-      // 10. User 2 message pops into chat thread
-      setUser2Message(scenario.userMessage2);
       await wait(400);
       if (isCancelled) return;
 
-      // 11. Tool 2 execution
-      setTool2State({ name: scenario.toolName2, isRunning: true });
-      await wait(650);
-      if (isCancelled) return;
-      setTool2State({ name: scenario.toolName2, isRunning: false });
-      await wait(300);
+      // 2. PRESS SEND
+      setIsSendPressed(true);
+      await wait(180);
       if (isCancelled) return;
 
-      // 12. AI 2 streams replying from left to right
+      // 3. MOVE MESSAGE INTO CHAT
+      setUser1Message(scenario.userMessage1);
+      setTypedInputField('');
+      setIsSendPressed(false);
+
+      await wait(500);
+      if (isCancelled) return;
+
+      // 4. TRIGGER TOOL 1
+      setTool1State({ name: scenario.toolName1, isRunning: true });
+      await wait(1100);
+      if (isCancelled) return;
+      setTool1State({ name: scenario.toolName1, isRunning: false });
+
+      await wait(350);
+      if (isCancelled) return;
+
+      // 5. STREAM ASSISTANT MESSAGE 1
+      setAi1Visible(true);
+      setAi1IsStreaming(true);
+
+      // Stream Title
+      await streamText(scenario.assistantMessage1.title, setAi1StreamedTitle, 20);
+      if (isCancelled) return;
+
+      // Reveal Status Line
+      setAi1ShowStatus(true);
+      await wait(400);
+      if (isCancelled) return;
+
+      // Stream Checklist items one by one
+      for (const checkText of scenario.assistantMessage1.checks) {
+        if (isCancelled) return;
+        await streamText(checkText, setAi1CurrentCheck, 16);
+        if (isCancelled) return;
+        setAi1CompletedChecks((prev) => [...prev, checkText]);
+        setAi1CurrentCheck('');
+        await wait(220);
+      }
+
+      // Stream Assistant 1 Footer
+      await streamText(scenario.assistantMessage1.footer, setAi1StreamedFooter, 18);
+      if (isCancelled) return;
+      setAi1IsStreaming(false);
+
+      // 6. DELIBERATION PAUSE BEFORE USER DECISION
+      await wait(1400);
+      if (isCancelled) return;
+
+      // 7. TYPE USER TURN 2 IN BOTTOM BAR
+      await streamText(scenario.userMessage2, setTypedInputField, 28);
+      if (isCancelled) return;
+
+      await wait(400);
+      if (isCancelled) return;
+
+      // 8. PRESS SEND FOR TURN 2
+      setIsSendPressed(true);
+      await wait(180);
+      if (isCancelled) return;
+
+      // 9. MOVE USER 2 MESSAGE INTO CHAT
+      setUser2Message(scenario.userMessage2);
+      setTypedInputField('');
+      setIsSendPressed(false);
+
+      await wait(500);
+      if (isCancelled) return;
+
+      // 10. TRIGGER TOOL 2 (EXECUTION OF OPTIMIZATION)
+      setTool2State({ name: scenario.toolName2, isRunning: true });
+      await wait(1200);
+      if (isCancelled) return;
+      setTool2State({ name: scenario.toolName2, isRunning: false });
+
+      await wait(350);
+      if (isCancelled) return;
+
+      // 11. STREAM ASSISTANT TURN 2 CONFIRMATION
       setAi2Visible(true);
       setAi2IsStreaming(true);
-      await streamText(scenario.assistantMessage2.title, setAi2StreamedTitle, 16);
+
+      await streamText(scenario.assistantMessage2.title, setAi2StreamedTitle, 20);
       if (isCancelled) return;
-      await wait(200);
+
       setAi2ShowStatus(true);
-      await wait(250);
-      await streamText(scenario.assistantMessage2.footer, setAi2StreamedFooter, 15);
+      await wait(350);
+      if (isCancelled) return;
+
+      await streamText(scenario.assistantMessage2.footer, setAi2StreamedFooter, 18);
       if (isCancelled) return;
       setAi2IsStreaming(false);
 
-      // 13. Completed hold time so viewer can read the resolution
+      // 12. COMPLETED HOLD TIME SO VIEWER CAN READ RESOLUTION
       await wait(6500);
       if (isCancelled) return;
 
-      // 14. Advance to next scenario
+      // 13. ADVANCE TO NEXT SCENARIO
       setScenarioIndex((prev) => prev + 1);
     };
 
@@ -481,14 +440,7 @@ export function ModelDemoSimulator({
       isCancelled = true;
       if (activeTimer) clearTimeout(activeTimer);
     };
-  }, [scenarioIndex, selectedModel, scenario]);
-
-  // Handle switching tabs (DeepSeek / ChatGPT / Gemini)
-  const handleModelSelect = (model: SupportedModel) => {
-    if (model === selectedModel) return;
-    setSelectedModel(model);
-    setScenarioIndex((prev) => prev + 1);
-  };
+  }, [scenarioIndex, scenario]);
 
   const handleNextScenario = () => {
     setScenarioIndex((prev) => prev + 1);
@@ -496,59 +448,15 @@ export function ModelDemoSimulator({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      {/* 1. FLOATING MODEL SELECTOR PILL */}
+      {/* 1. SINGLE ADOPTIMIZE AGENT BADGE */}
       <div className="flex justify-center mb-6">
-        <div className="inline-flex items-center gap-1.5 p-1 bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-slate-200/80 border border-slate-200/90">
-          {/* DeepSeek Tab */}
-          <button
-            type="button"
-            onClick={() => handleModelSelect('deepseek')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-              selectedModel === 'deepseek'
-                ? 'bg-[#1E40AF] text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-            }`}
-          >
-            {/* DeepSeek Stylized Whale Logo */}
-            <DeepSeekIcon
-              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'deepseek' ? 'text-white' : 'text-[#1E40AF]'}`}
-            />
-            <span>DeepSeek</span>
-          </button>
-
-          {/* ChatGPT Tab */}
-          <button
-            type="button"
-            onClick={() => handleModelSelect('chatgpt')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-              selectedModel === 'chatgpt'
-                ? 'bg-[#10A37F] text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-            }`}
-          >
-            {/* OpenAI Spiral */}
-            <ChatGPTIcon
-              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'chatgpt' ? 'text-white' : 'text-slate-800'}`}
-            />
-            <span>ChatGPT</span>
-          </button>
-
-          {/* Gemini Tab */}
-          <button
-            type="button"
-            onClick={() => handleModelSelect('gemini')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-              selectedModel === 'gemini'
-                ? 'bg-[#1A73E8] text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-            }`}
-          >
-            {/* Google Gemini 4-Point Radiant Star */}
-            <GeminiIcon
-              className={`w-3.5 h-3.5 shrink-0 ${selectedModel === 'gemini' ? 'text-white' : 'text-[#1A73E8]'}`}
-            />
-            <span>Gemini</span>
-          </button>
+        <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-slate-200/80 border border-slate-200/90 select-none">
+          <BrandLogoIcon size={20} className="w-5 h-5 rounded-md shrink-0 shadow-2xs" />
+          <span className="text-sm font-semibold text-slate-900 tracking-tight">AdOptimize</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+            AI Marketing Agent
+          </span>
         </div>
       </div>
 
@@ -618,47 +526,25 @@ export function ModelDemoSimulator({
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
               >
-                {selectedModel === 'deepseek' && (
-                  <Terminal className="w-3 h-3 text-[#1E40AF]" />
-                )}
-                {selectedModel === 'chatgpt' && (
-                  <Wrench className="w-3 h-3 text-emerald-600" />
-                )}
-                {selectedModel === 'gemini' && (
-                  <Zap className="w-3 h-3 text-blue-600" />
-                )}
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
-                  {theme.toolPrefix}: <strong className="font-semibold">{tool1State.name}</strong>
+                  {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool1State.name}</strong>
                 </span>
                 {tool1State.isRunning ? (
-                  <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                  <div className="w-2.5 h-2.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
                 ) : (
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-1" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-1 shrink-0" />
                 )}
               </div>
             </div>
           )}
 
-          {/* Assistant Turn 1 (Types from left to right like real AI) */}
+          {/* Assistant Turn 1 (AdOptimize Avatar + Structured Card) */}
           {ai1Visible && (
             <div className="flex items-start gap-3 animate-in fade-in zoom-in-99 duration-300">
-              {/* Model Avatar */}
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 select-none">
-                {selectedModel === 'deepseek' && (
-                  <div className="w-6 h-6 rounded-full bg-[#1E40AF] text-white flex items-center justify-center font-bold text-[9px] shadow-2xs">
-                    DS
-                  </div>
-                )}
-                {selectedModel === 'chatgpt' && (
-                  <svg className="w-4 h-4 text-slate-800" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
-                  </svg>
-                )}
-                {selectedModel === 'gemini' && (
-                  <svg className="w-4 h-4 text-[#1A73E8]" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
-                  </svg>
-                )}
+              {/* AdOptimize Brand Icon */}
+              <div className="shrink-0 mt-0.5 select-none">
+                <BrandLogoIcon size={24} className="w-6 h-6 rounded-lg shadow-2xs" />
               </div>
 
               {/* Conversational Assistant Card */}
@@ -736,22 +622,14 @@ export function ModelDemoSimulator({
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
               >
-                {selectedModel === 'deepseek' && (
-                  <Terminal className="w-3 h-3 text-[#1E40AF]" />
-                )}
-                {selectedModel === 'chatgpt' && (
-                  <Wrench className="w-3 h-3 text-emerald-600" />
-                )}
-                {selectedModel === 'gemini' && (
-                  <Zap className="w-3 h-3 text-blue-600" />
-                )}
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
-                  {theme.toolPrefix}: <strong className="font-semibold">{tool2State.name}</strong>
+                  {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool2State.name}</strong>
                 </span>
                 {tool2State.isRunning ? (
-                  <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                  <div className="w-2.5 h-2.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
                 ) : (
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-1" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-1 shrink-0" />
                 )}
               </div>
             </div>
@@ -760,22 +638,9 @@ export function ModelDemoSimulator({
           {/* Assistant Turn 2 (Confirmation streaming from left to right) */}
           {ai2Visible && (
             <div className="flex items-start gap-3 animate-in fade-in zoom-in-99 duration-300">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 select-none">
-                {selectedModel === 'deepseek' && (
-                  <div className="w-6 h-6 rounded-full bg-[#1E40AF] text-white flex items-center justify-center font-bold text-[9px] shadow-2xs">
-                    DS
-                  </div>
-                )}
-                {selectedModel === 'chatgpt' && (
-                  <svg className="w-4 h-4 text-slate-800" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.5 10.3a5.2 5.2 0 0 0-.4-4 5.3 5.3 0 0 0-4.9-2.7 5.2 5.2 0 0 0-3.2-1.6 5.3 5.3 0 0 0-5.1 2.9 5.2 5.2 0 0 0-3.5 1.7 5.3 5.3 0 0 0-.7 5.5 5.2 5.2 0 0 0-1.8 3.5 5.3 5.3 0 0 0 2 5.3 5.2 5.2 0 0 0 3.2 1.6 5.3 5.3 0 0 0 5.1-2.9 5.2 5.2 0 0 0 3.5-1.7 5.3 5.3 0 0 0 .8-5.5 5.2 5.2 0 0 0 1.8-3.5 5.3 5.3 0 0 0-2-5.3l-.2.1Zm-7.7 11.2a3.8 3.8 0 0 1-2.4-.9l.1-.1 4-2.3a.8.8 0 0 0 .4-.7v-5.6l1.7 1v4.8a3.8 3.8 0 0 1-3.8 3.8Zm-8.6-4.1a3.8 3.8 0 0 1-.5-2.5l.1.1 4 2.3a.8.8 0 0 0 .8 0l4.8-2.8v2l-4.1 2.4a3.8 3.8 0 0 1-5.1-1.5Zm-1.4-8.8a3.8 3.8 0 0 1 1.9-1.7v4.7a.8.8 0 0 0 .4.7l4.8 2.8-1.7 1-4.1-2.4a3.8 3.8 0 0 1-1.3-5.1Zm13.5 4.3-4.8-2.8 1.7-1 4.1 2.4a3.8 3.8 0 0 1 1.3 5.1 3.8 3.8 0 0 1-1.9 1.7v-4.7a.8.8 0 0 0-.4-.7Zm2.1-3.8-4-2.3a.8.8 0 0 0-.8 0l-4.8 2.8v-2l4.1-2.4a3.8 3.8 0 0 1 5.5 3.9ZM9.5 12.8l2.5-1.5 2.5 1.5v2.9l-2.5 1.5-2.5-1.5v-2.9Z" />
-                  </svg>
-                )}
-                {selectedModel === 'gemini' && (
-                  <svg className="w-4 h-4 text-[#1A73E8]" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0c.3 6.6 5.4 11.7 12 12-6.6.3-11.7 5.4-12 12-.3-6.6-5.4-11.7-12-12C6.6 11.7 11.7 6.6 12 0Z" />
-                  </svg>
-                )}
+              {/* AdOptimize Brand Icon */}
+              <div className="shrink-0 mt-0.5 select-none">
+                <BrandLogoIcon size={24} className="w-6 h-6 rounded-lg shadow-2xs" />
               </div>
 
               <div
@@ -817,15 +682,7 @@ export function ModelDemoSimulator({
               {typedInputField ? (
                 <div className="text-slate-900 font-normal truncate">
                   <span>{typedInputField}</span>
-                  <span
-                    className={`inline-block w-[1.5px] h-3.5 ml-0.5 align-middle animate-pulse ${
-                      selectedModel === 'deepseek'
-                        ? 'bg-[#1E40AF]'
-                        : selectedModel === 'chatgpt'
-                        ? 'bg-slate-900'
-                        : 'bg-[#1A73E8]'
-                    }`}
-                  />
+                  <span className="inline-block w-[1.5px] h-3.5 ml-0.5 align-middle bg-emerald-600 animate-pulse" />
                 </div>
               ) : (
                 <span className="text-slate-400 truncate">
@@ -836,10 +693,10 @@ export function ModelDemoSimulator({
               )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center gap-1 text-[11px] text-slate-500 font-mono font-medium">
-                <span>{theme.version}</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-mono font-medium">
+                <BrandLogoIcon size={14} className="w-3.5 h-3.5 rounded-sm shrink-0" />
+                <span>AdOptimize Agent</span>
               </div>
 
               {/* Send Button: Pulses/clicks when message is sent into the chat */}
@@ -848,7 +705,7 @@ export function ModelDemoSimulator({
                   theme.sendBtnBg
                 } ${theme.sendBtnText} ${
                   isSendPressed
-                    ? 'scale-85 ring-4 ring-blue-500/30 shadow-md'
+                    ? 'scale-85 ring-4 ring-emerald-500/30 shadow-md'
                     : typedInputField
                     ? 'opacity-100 shadow-2xs'
                     : 'opacity-70 shadow-2xs'

@@ -203,7 +203,7 @@ export const PSEO_TOOLS: PSEOTool[] = [
       'Instant projection of recoverable monthly ad spend',
       'Identifies top 3 sources of Google Ads waste',
       'Calculates ROI of automated campaign optimization',
-      'No credit card or account link required for initial estimate',
+      'Instant estimate with no account connection required',
     ],
     benchmarks: [
       { label: 'Search Query Bleed', value: '$650/mo', hint: 'Per $5,000 in monthly ad spend' },

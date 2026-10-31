@@ -188,7 +188,7 @@ export default function PrivacyPolicyPage() {
               </div>
             </div>
             <p className="text-xs text-slate-500 pt-1">
-              <strong>Data We Never Access:</strong> We do not access, process, or store credit card numbers, billing payment instruments configured in Google Ads, emails, private Drive files, or contacts.
+              <strong>Data We Never Access:</strong> We do not access, process, or store financial payment instruments configured in Google Ads, emails, private Drive files, or contacts.
             </p>
           </section>
 
