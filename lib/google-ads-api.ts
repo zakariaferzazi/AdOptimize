@@ -139,7 +139,8 @@ export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; 
   return { isValid: true, formatted, clean };
 }
 
-const GOOGLE_ADS_API_VERSIONS = ['v19', 'v18', 'v17'];
+// Active Google Ads API versions for 2026 (v17-v22 are sunset/retired)
+const GOOGLE_ADS_API_VERSIONS = ['v26', 'v25', 'v24', 'v23'];
 
 /**
  * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
@@ -318,8 +319,9 @@ export async function listAccessibleCustomers(
       'Content-Type': 'application/json',
     };
 
-    if (developerToken) {
-      headers['developer-token'] = developerToken;
+    const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    if (devToken) {
+      headers['developer-token'] = devToken;
     }
 
     if (loginCustomerId) {
