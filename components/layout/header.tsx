@@ -262,7 +262,7 @@ export function Header({
               }`}
               title={
                 syncCooldownRemaining > 0
-                  ? `Protected by 10m developer quota cooldown. Next sync in ${Math.ceil(syncCooldownRemaining / 60)}m`
+                  ? `Next manual sync in ${syncCooldownRemaining}s`
                   : 'Sync live status from Google Ads'
               }
             >
@@ -271,7 +271,7 @@ export function Header({
                 {isSyncing
                   ? 'Syncing...'
                   : syncCooldownRemaining > 0
-                  ? `Synced (${Math.ceil(syncCooldownRemaining / 60)}m)`
+                  ? `Synced (${syncCooldownRemaining}s)`
                   : 'Sync'}
               </span>
             </button>

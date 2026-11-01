@@ -205,7 +205,8 @@ function extractGoogleAdsError(
     if (match && match[1]) {
       const parsedSec = parseInt(match[1], 10);
       if (!isNaN(parsedSec) && parsedSec > 0) {
-        delaySec = Math.min(parsedSec, 86400); // Respect Google's retry window up to 24 hours
+        // Cap burst rate limit cooldown to maximum 60 seconds so operations can resume promptly
+        delaySec = Math.min(parsedSec, 60);
       }
     }
 

@@ -142,9 +142,8 @@ export async function POST(req: NextRequest) {
     // If Google Ads Developer Explorer daily rate limit / quota is exhausted (HTTP 429 / RESOURCE_EXHAUSTED):
     // Do NOT wipe campaigns or mark token expired. Maintain uninterrupted session and serve verified cache.
     if (liveResult.isQuotaExhausted) {
-      const delaySec = liveResult.retryDelaySeconds || 48430;
-      const hoursRemaining = (delaySec / 3600).toFixed(1);
-      const quotaMsg = `Google Ads Explorer rate limit reached (resets in ~${hoursRemaining}h). Campaigns and optimizations remain active on cached data.`;
+      const delaySec = Math.min(liveResult.retryDelaySeconds || 60, 60);
+      const quotaMsg = `Google Ads API rate limit reached (cooling down for ${delaySec}s). Serving verified database cache.`;
 
       const fallbackCampaigns = liveResult.campaigns && liveResult.campaigns.length > 0
         ? liveResult.campaigns

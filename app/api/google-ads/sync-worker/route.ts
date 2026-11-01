@@ -37,32 +37,37 @@ import { GoogleAdsAccount, Campaign, Keyword, SearchTerm, AuditLog, CampaignType
 async function processUserSync(
   userId: string,
   force = false,
-  mode: 'structural' | 'full' = 'structural'
+  mode: 'structural' | 'full' = 'structural',
+  incomingAccessToken?: string,
+  incomingRefreshToken?: string,
+  incomingCustomerId?: string
 ): Promise<{
   success: boolean;
   userId: string;
   customerId?: string;
   campaignsCount?: number;
+  campaigns?: Campaign[];
+  keywords?: Keyword[];
+  searchTerms?: SearchTerm[];
   changesCount?: number;
   changesSummary?: string[];
   status: string;
+  currency?: string;
   message: string;
+  newAccessToken?: string;
+  newRefreshToken?: string;
 }> {
   try {
     const accountDocRef = doc(db, 'users', userId, 'accounts', 'primary');
     const accountSnap = await getDoc(accountDocRef);
 
-    if (!accountSnap.exists()) {
-      return {
-        success: false,
-        userId,
-        status: 'NO_ACCOUNT',
-        message: 'No primary Google Ads account found for user.',
-      };
+    let account: GoogleAdsAccount | null = null;
+    if (accountSnap.exists()) {
+      account = accountSnap.data() as GoogleAdsAccount;
     }
 
-    const account = accountSnap.data() as GoogleAdsAccount;
-    if (!account.isConnected || !account.clientCustomerId || account.clientCustomerId === 'Not Connected') {
+    const rawCid = incomingCustomerId || account?.clientCustomerId;
+    if (!rawCid || rawCid === 'Not Connected') {
       return {
         success: false,
         userId,
@@ -71,27 +76,30 @@ async function processUserSync(
       };
     }
 
-    const validation = validateAndFormatCustomerId(account.clientCustomerId);
-    const cleanCid = validation.isValid ? validation.clean : account.clientCustomerId.replace(/\D/g, '');
+    const validation = validateAndFormatCustomerId(rawCid);
+    const cleanCid = validation.isValid ? validation.clean : rawCid.replace(/\D/g, '');
 
     if (!cleanCid || cleanCid.length !== 10) {
       return {
         success: false,
         userId,
         status: 'INVALID_CID',
-        message: `Invalid 10-digit Customer ID: ${account.clientCustomerId}`,
+        message: `Invalid 10-digit Customer ID: ${rawCid}`,
       };
     }
 
-    // Check if global or account quota cooldown is active
+    // Check if global or account quota cooldown is active (only block full heavy sync, allow fast structural sync)
     const quotaCooldown = getQuotaCooldownStatus();
-    if (quotaCooldown && !force) {
+    if (quotaCooldown && !force && mode !== 'structural') {
       const remainingSec = Math.max(1, Math.round((quotaCooldown.retryAfter - Date.now()) / 1000));
-      console.warn(`[SyncWorker] Quota cooldown active for user ${userId} (${remainingSec}s remaining). Skipping API query.`);
+      console.warn(`[SyncWorker] Quota cooldown active for user ${userId} (${remainingSec}s remaining). Skipping heavy API query.`);
+      const existing = await fetchUserCampaigns(userId);
       return {
         success: true,
         userId,
         customerId: cleanCid,
+        campaigns: existing,
+        campaignsCount: existing.length,
         status: 'QUOTA_PAUSED',
         message: `Google Ads rate limit cooldown active (~${Math.round(remainingSec / 60)}m remaining). Data preserved in database.`,
       };
@@ -109,13 +117,13 @@ async function processUserSync(
         {
           userId,
           customerId: cleanCid,
-          incomingAccessToken: storedToken?.accessToken || account.accessToken,
-          incomingRefreshToken: storedToken?.refreshToken || account.refreshToken,
+          incomingAccessToken: incomingAccessToken || storedToken?.accessToken || account?.accessToken,
+          incomingRefreshToken: incomingRefreshToken || storedToken?.refreshToken || account?.refreshToken,
           incomingExpiresAt: storedToken?.expiresAt,
           forceRefresh: force,
         },
         async (activeToken: string) => {
-          return fetchStructuralEntities(cleanCid, activeToken, devToken, account.loginCustomerId);
+          return fetchStructuralEntities(cleanCid, activeToken, devToken, account?.loginCustomerId);
         }
       );
 
@@ -164,7 +172,7 @@ async function processUserSync(
 
             const newCampaign: Campaign = {
               id: liveCamp.id,
-              accountId: account.id,
+              accountId: account?.id || `acc-${cleanCid}`,
               name: liveCamp.name,
               type: safeType,
               status: liveCamp.status,
@@ -315,25 +323,37 @@ async function processUserSync(
 
         // Update user account metadata
         await saveUserAccount(userId, {
-          ...account,
+          ...(account || {}),
+          id: account?.id || `acc-${cleanCid}`,
+          clientCustomerId: cleanCid,
+          accountName: account?.accountName || 'Google Ads Account',
+          timezone: account?.timezone || 'America/New_York (UTC-5)',
+          isConnected: true,
+          isDemo: false,
           lastSyncAt: syncTime,
           syncStatus: 'SYNCED',
           totalCampaignsCount: liveCampaigns.length,
-          currency: structuralResult.currency || account.currency || 'USD',
+          currency: structuralResult.currency || account?.currency || 'USD',
           ...(structuralResult.newAccessToken ? { accessToken: structuralResult.newAccessToken } : {}),
           ...(structuralResult.newRefreshToken ? { refreshToken: structuralResult.newRefreshToken } : {}),
         });
 
         console.log(`[SyncWorker:Structural] User ${userId} CID ${cleanCid}: ${changesDetected} changes detected.`);
 
+        const finalCampaigns = await fetchUserCampaigns(userId);
+
         return {
           success: true,
           userId,
           customerId: cleanCid,
           campaignsCount: liveCampaigns.length,
+          campaigns: finalCampaigns.length > 0 ? finalCampaigns : undefined,
           changesCount: changesDetected,
           changesSummary,
           status: 'SYNCED',
+          currency: structuralResult.currency || account?.currency || 'USD',
+          newAccessToken: structuralResult.newAccessToken,
+          newRefreshToken: structuralResult.newRefreshToken,
           message:
             changesDetected > 0
               ? `Detected and synchronized ${changesDetected} live changes from Google Ads.`
@@ -357,13 +377,13 @@ async function processUserSync(
       {
         userId,
         customerId: cleanCid,
-        incomingAccessToken: storedToken?.accessToken || account.accessToken,
-        incomingRefreshToken: storedToken?.refreshToken || account.refreshToken,
+        incomingAccessToken: incomingAccessToken || storedToken?.accessToken || account?.accessToken,
+        incomingRefreshToken: incomingRefreshToken || storedToken?.refreshToken || account?.refreshToken,
         incomingExpiresAt: storedToken?.expiresAt,
         forceRefresh: force,
       },
       async (activeToken: string) => {
-        return queryLiveCampaigns(cleanCid, activeToken, devToken, account.loginCustomerId, { forceRefresh: force });
+        return queryLiveCampaigns(cleanCid, activeToken, devToken, account?.loginCustomerId, { forceRefresh: force });
       }
     );
 
@@ -379,11 +399,17 @@ async function processUserSync(
         ...liveKeywords.map((k) => saveKeywordToFirestore(userId, k)),
         ...liveSearchTerms.map((st) => saveSearchTermToFirestore(userId, st)),
         saveUserAccount(userId, {
-          ...account,
+          ...(account || {}),
+          id: account?.id || `acc-${cleanCid}`,
+          clientCustomerId: cleanCid,
+          accountName: account?.accountName || 'Google Ads Account',
+          timezone: account?.timezone || 'America/New_York (UTC-5)',
+          isConnected: true,
+          isDemo: false,
           lastSyncAt: syncTime,
           syncStatus: 'SYNCED',
           totalCampaignsCount: liveCampaigns.length,
-          currency: syncResult.currency || account.currency || 'USD',
+          currency: syncResult.currency || account?.currency || 'USD',
           ...(syncResult.newAccessToken ? { accessToken: syncResult.newAccessToken } : {}),
           ...(syncResult.newRefreshToken ? { refreshToken: syncResult.newRefreshToken } : {}),
         }),
@@ -398,17 +424,26 @@ async function processUserSync(
         userId,
         customerId: cleanCid,
         campaignsCount: liveCampaigns.length,
+        campaigns: liveCampaigns,
+        keywords: liveKeywords,
+        searchTerms: liveSearchTerms,
         status: 'SYNCED',
+        currency: syncResult.currency || account?.currency || 'USD',
+        newAccessToken: syncResult.newAccessToken,
+        newRefreshToken: syncResult.newRefreshToken,
         message: `Successfully synchronized ${liveCampaigns.length} campaigns and metrics.`,
       };
     }
 
     if (syncResult.isQuotaExhausted) {
       console.warn(`[SyncWorker:Full] Quota exhausted for user ${userId}. Preserving local database state.`);
+      const cached = await fetchUserCampaigns(userId);
       return {
         success: true,
         userId,
         customerId: cleanCid,
+        campaigns: cached,
+        campaignsCount: cached.length,
         status: 'QUOTA_PAUSED',
         message: 'Google Ads quota reached. Serving verified database cache.',
       };
@@ -435,10 +470,10 @@ async function processUserSync(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { userId, force = false, mode = 'structural' } = body;
+    const { userId, customerId, accessToken, refreshToken, force = false, mode = 'structural' } = body;
 
     if (userId) {
-      const result = await processUserSync(userId, force, mode);
+      const result = await processUserSync(userId, force, mode, accessToken, refreshToken, customerId);
       return NextResponse.json(result);
     }
 

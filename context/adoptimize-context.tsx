@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   GoogleAdsAccount,
   Campaign,
@@ -75,6 +76,8 @@ export interface ApiIssue {
   details?: string;
   accessibleCustomers?: string[];
   isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
 }
 
 interface AdOptimizeContextType {
@@ -169,7 +172,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       const stored = localStorage.getItem('google_ads_quota_reset_at');
       if (stored) {
         const val = Number(stored);
-        if (!isNaN(val) && val > Date.now()) return val;
+        // Discard legacy multi-hour locks; only retain if set within past 60s
+        if (!isNaN(val) && val > Date.now() && val - Date.now() <= 60 * 1000) {
+          return val;
+        } else {
+          try {
+            localStorage.removeItem('google_ads_quota_reset_at');
+          } catch {}
+        }
       }
     }
     return null;
@@ -190,8 +200,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       if (stored) {
         const val = Number(stored);
         const elapsed = Date.now() - val;
-        if (elapsed < 10 * 60 * 1000) {
-          return Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
+        // 60-second cooldown between heavy manual syncs
+        if (elapsed < 60 * 1000) {
+          return Math.max(0, Math.ceil((60 * 1000 - elapsed) / 1000));
         }
       }
     }
@@ -203,7 +214,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     const timer = setInterval(() => {
       if (lastSyncTimestamp) {
         const elapsed = Date.now() - lastSyncTimestamp;
-        const remaining = Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
+        const remaining = Math.max(0, Math.ceil((60 * 1000 - elapsed) / 1000));
         setSyncCooldownRemaining(remaining);
       } else {
         setSyncCooldownRemaining(0);
@@ -535,35 +546,21 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
         return;
       }
-      // If quota cooldown is active, gracefully skip to protect developer quota
-      if (quotaResetAt && Date.now() < quotaResetAt) {
+      // If a rate limit cooldown was recorded recently (< 60s), throttle unless forced
+      const now = Date.now();
+      if (!force && quotaResetAt && now < quotaResetAt && quotaResetAt - now <= 60000) {
         return;
       }
       // Only sync if browser tab is active/visible (unless forced)
       if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      // Rate-limit check: throttle to 20s if forced/refocused, or 40s for background heartbeat
-      const now = Date.now();
-      const minInterval = force ? 20000 : 40000;
+      // Rate-limit check: throttle to 5s if forced/refocused/page-load, or 35s for background heartbeat
+      const minInterval = force ? 5000 : 35000;
       if (now - lastSyncTimestampRef.current < minInterval) {
         return;
       }
       if (isBackgroundSyncingRef.current) {
-        return;
-      }
-
-      const storedToken = getStoredGoogleAdsToken();
-      let token = tokenOverride || getAccessTokenString();
-      if (!token && user?.email) {
-        token = await trySilentGoogleAdsTokenRefresh(user.email);
-        if (token) {
-          setOauthToken(token);
-          storeGoogleAdsToken(token);
-        }
-      }
-
-      if (!token) {
         return;
       }
 
@@ -576,25 +573,19 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           getStoredGoogleAdsRefreshToken() ||
           undefined;
 
-        const res = await fetch('/api/google-ads/sync', {
+        // Try getting existing token or let server rotate it silently via refreshToken
+        const token = tokenOverride || getAccessTokenString();
+
+        const res = await fetch('/api/google-ads/sync-worker', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            customerId: clientCustomerId,
-            accessToken: token,
-            refreshToken: activeRefreshTok,
-            expiresAt: storedToken.expiresAt,
-            userEmail: user?.email || undefined,
             userId: user?.uid || undefined,
-            forceRefresh: true, // Bypass short query cache to fetch latest Google Ads platform status
-            cachedCampaigns: campaignsRef.current,
-            cachedKeywords: state.keywords,
-            cachedSearchTerms: state.searchTerms,
-            loginCustomerId:
-              loginCustomerId ||
-              (typeof window !== 'undefined'
-                ? sessionStorage.getItem('google_ads_login_cid') || localStorage.getItem('google_ads_login_cid')
-                : undefined),
+            customerId: clientCustomerId,
+            accessToken: token || undefined,
+            refreshToken: activeRefreshTok,
+            force: force,
+            mode: 'structural',
           }),
         });
 
@@ -609,9 +600,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           setRefreshToken(data.newRefreshToken);
         }
 
-        // Quota paused handling
-        if (data.syncStatus === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
-          const resetTime = data.quotaResetTime || Date.now() + (data.retryDelaySeconds || 48430) * 1000;
+        // Rate limit paused handling (cap to 60s max)
+        if (data.status === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
+          const resetTime = Date.now() + Math.min(data.retryDelaySeconds || 60, 60) * 1000;
           setQuotaResetAt(resetTime);
           if (typeof window !== 'undefined') {
             try {
@@ -621,138 +612,91 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        if (res.ok && data.success && Array.isArray(data.campaigns)) {
+        if (res.ok && data.success) {
           lastSyncTimestampRef.current = Date.now();
-          const detectedCurrency = data.currency || accountCurrency || 'USD';
+          setLastSyncTimestamp(Date.now());
           setIsTokenExpired(false);
+          setQuotaResetAt(null);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.removeItem('google_ads_quota_reset_at');
+            } catch {}
+          }
 
-          // Detect external changes made directly inside Google Ads platform
-          const detectedChanges: string[] = [];
-          const auditLogsToCreate: AuditLog[] = [];
-          const existingCampaigns = campaignsRef.current || [];
-          const freshCampaigns: Campaign[] = data.campaigns;
+          if (Array.isArray(data.campaigns) && data.campaigns.length > 0) {
+            const freshCampaigns: Campaign[] = data.campaigns;
+            const existingCampaigns = campaignsRef.current || [];
 
-          for (const fresh of freshCampaigns) {
-            const existing = existingCampaigns.find((c) => c.id === fresh.id);
-            if (existing) {
-              if (existing.status !== fresh.status) {
-                detectedChanges.push(`"${fresh.name}" is now ${fresh.status}`);
-                auditLogsToCreate.push({
-                  id: `audit-${Date.now()}-${fresh.id}`,
-                  timestamp: new Date().toISOString(),
-                  campaignId: fresh.id,
-                  campaignName: fresh.name,
-                  actionType: 'CAMPAIGN_STATUS_CHANGE',
-                  previousValue: existing.status,
-                  newValue: fresh.status,
-                  reason: 'Status change detected directly from Google Ads platform',
-                  source: 'SYSTEM',
-                  userOrSystem: 'Google Ads Platform (Real-Time)',
-                  status: 'EXECUTED',
-                  canRevert: false,
-                });
+            // Detect external changes made directly inside Google Ads platform
+            const detectedChanges: string[] = [];
+            for (const fresh of freshCampaigns) {
+              const existing = existingCampaigns.find((c) => c.id === fresh.id || c.name === fresh.name);
+              if (existing) {
+                if (existing.status !== fresh.status) {
+                  detectedChanges.push(`"${fresh.name}" is now ${fresh.status}`);
+                }
+                if (Math.abs(existing.budgetDaily - fresh.budgetDaily) >= 0.05) {
+                  detectedChanges.push(`"${fresh.name}" budget is now $${fresh.budgetDaily.toFixed(2)}/day`);
+                }
+              } else if (existingCampaigns.length > 0) {
+                detectedChanges.push(`New campaign: "${fresh.name}"`);
               }
-              if (Math.abs(existing.budgetDaily - fresh.budgetDaily) >= 0.05) {
-                detectedChanges.push(`"${fresh.name}" budget is now $${fresh.budgetDaily.toFixed(2)}/day`);
-                auditLogsToCreate.push({
-                  id: `audit-${Date.now()}-${fresh.id}-budget`,
-                  timestamp: new Date().toISOString(),
-                  campaignId: fresh.id,
-                  campaignName: fresh.name,
-                  actionType: 'BUDGET_REALLOCATED',
-                  previousValue: `$${existing.budgetDaily.toFixed(2)}/day`,
-                  newValue: `$${fresh.budgetDaily.toFixed(2)}/day`,
-                  reason: 'Budget update detected directly from Google Ads platform',
-                  source: 'SYSTEM',
-                  userOrSystem: 'Google Ads Platform (Real-Time)',
-                  status: 'EXECUTED',
-                  canRevert: false,
-                });
-              }
-            } else if (existingCampaigns.length > 0) {
-              detectedChanges.push(`New campaign: "${fresh.name}"`);
             }
-          }
 
-          if (detectedChanges.length > 0) {
-            const summary = detectedChanges.slice(0, 2).join('; ') + (detectedChanges.length > 2 ? ` (+${detectedChanges.length - 2} more)` : '');
-            showToast(`Live Google Ads update: ${summary}`);
-          }
+            if (detectedChanges.length > 0) {
+              const summary =
+                detectedChanges.slice(0, 2).join('; ') +
+                (detectedChanges.length > 2 ? ` (+${detectedChanges.length - 2} more)` : '');
+              showToast(`Live Google Ads update: ${summary}`);
+            }
 
-          setState((prev) => {
-            const nextState = {
-              ...prev,
-              campaigns: freshCampaigns,
-              keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
-              searchTerms:
-                data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
-              auditLogs: auditLogsToCreate.length > 0 ? [...auditLogsToCreate, ...prev.auditLogs] : prev.auditLogs,
-              account: {
-                ...prev.account,
-                currency: detectedCurrency,
-                lastSyncAt: new Date().toISOString(),
-                syncStatus: 'SYNCED' as const,
-                totalCampaignsCount: freshCampaigns.length,
-              },
-            };
-            saveState(nextState);
-            return nextState;
-          });
-
-          if (user) {
-            freshCampaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
-            auditLogsToCreate.forEach((log: AuditLog) => addAuditLogToFirestore(user.uid, log));
-            saveUserAccount(user.uid, {
-              ...state.account,
-              currency: detectedCurrency,
-              lastSyncAt: new Date().toISOString(),
-              syncStatus: 'SYNCED',
-              totalCampaignsCount: freshCampaigns.length,
-              ...(data.newAccessToken ? { accessToken: data.newAccessToken } : {}),
-              ...(data.newRefreshToken ? { refreshToken: data.newRefreshToken } : {}),
+            setState((prev) => {
+              const nextState = {
+                ...prev,
+                campaigns: freshCampaigns,
+                account: {
+                  ...prev.account,
+                  currency: data.currency || prev.account.currency || 'USD',
+                  lastSyncAt: new Date().toISOString(),
+                  syncStatus: 'SYNCED' as const,
+                  totalCampaignsCount: freshCampaigns.length,
+                },
+              };
+              saveState(nextState);
+              return nextState;
             });
           }
         }
-      } catch {
+      } catch (err) {
         // Continuous non-disruptive background sync
       } finally {
         isBackgroundSyncingRef.current = false;
       }
     },
-    [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, state.keywords, state.searchTerms, refreshToken, quotaResetAt, showToast]
+    [isConnected, clientCustomerId, user, getAccessTokenString, state.account, refreshToken, quotaResetAt, showToast]
   );
 
   // Near-Real-Time Hands-Free Google Ads Synchronization Engine
-  // Automatically detects when the advertiser makes changes directly in Google Ads platform
-  // (e.g. toggles status, changes budget, edits keywords) and reflects them live on the dashboard:
-  // 1. Initial 2.5s gentle auto-check on startup
-  // 2. Continuous 60s active heartbeat poller while tab is open
-  // 3. Instant tab-refocus / visibilitychange trigger when switching back from Google Ads
+  // 1. Initial immediate auto-check on startup / reload (800ms after account connects)
+  // 2. Continuous 30s active heartbeat poller while tab is open
+  // 3. Instant tab-refocus / visibilitychange trigger when switching back to window/tab
   useEffect(() => {
     if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
     }
 
-    // 1. Gentle initial startup check (2.5s after load)
+    // 1. Startup / Reload check (800ms)
     const initialCheckTimer = setTimeout(() => {
-      const now = Date.now();
-      const isQuotaActive = quotaResetAt && now < quotaResetAt;
-      if (!isQuotaActive) {
-        performBackgroundSync(false);
-      }
-    }, 2500);
+      performBackgroundSync(true);
+    }, 800);
 
-    // 2. Active 60-second heartbeat poller while viewing dashboard
+    // 2. Continuous 30-second heartbeat poller while viewing dashboard
     const heartbeatInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      const now = Date.now();
-      const isQuotaActive = quotaResetAt && now < quotaResetAt;
-      if (!isQuotaActive && now - lastSyncTimestampRef.current >= 45000) {
-        performBackgroundSync(false);
-      }
-    }, 60000);
+      performBackgroundSync(false);
+    }, 30000);
 
     // 3. Tab Refocus & Visibility: When user returns from ads.google.com to AdOptimize
     const handleVisibilityOrFocus = () => {
@@ -760,9 +704,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       const now = Date.now();
-      const isQuotaActive = quotaResetAt && now < quotaResetAt;
-      // If at least 20 seconds elapsed since last check, sync fresh changes immediately
-      if (!isQuotaActive && now - lastSyncTimestampRef.current >= 20000) {
+      // If at least 5 seconds elapsed since last sync, query Google Ads immediately
+      if (now - lastSyncTimestampRef.current >= 5000) {
         performBackgroundSync(true);
       }
     };
@@ -776,7 +719,23 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
-  }, [isConnected, clientCustomerId, quotaResetAt, performBackgroundSync]);
+  }, [isConnected, clientCustomerId, performBackgroundSync]);
+
+  // 4. Navigation trigger: auto-sync fresh Google Ads data when user navigates between sidebar views / routes
+  const pathname = usePathname();
+  const prevPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      if (isConnected && clientCustomerId && clientCustomerId !== 'Not Connected') {
+        const now = Date.now();
+        if (now - lastSyncTimestampRef.current >= 5000) {
+          performBackgroundSync(true);
+        }
+      }
+    }
+  }, [pathname, isConnected, clientCustomerId, performBackgroundSync]);
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;
@@ -1093,7 +1052,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       // Handle Quota Cooldown / Rate limit (HTTP 429 or RESOURCE_EXHAUSTED) gracefully
       if (data.syncStatus === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
-        const resetTime = data.quotaResetTime || Date.now() + (data.retryDelaySeconds || 48430) * 1000;
+        const resetTime = Date.now() + Math.min(data.retryDelaySeconds || 60, 60) * 1000;
         setQuotaResetAt(resetTime);
         if (typeof window !== 'undefined') {
           try {
@@ -1103,7 +1062,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
         const nowSyncTime = Date.now();
         setLastSyncTimestamp(nowSyncTime);
-        setSyncCooldownRemaining(10 * 60);
+        setSyncCooldownRemaining(60);
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem('adoptimize_last_sync_timestamp', String(nowSyncTime));

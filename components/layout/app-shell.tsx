@@ -156,7 +156,7 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           lastSyncTimestamp={lastSyncTimestamp}
           user={user}
           authLoading={authLoading}
-          onRefreshSync={handleSync}
+          onRefreshSync={() => handleSync(true)}
           onOpenConnectModal={() => setShowConnectModal(true)}
           onOpenCopilot={() => setShowCopilot(true)}
           onSelectAnomaly={(anomaly) => {
@@ -232,6 +232,39 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
                               <span className="text-[10px] text-emerald-600 font-sans font-bold">↳ Switch &amp; Sync</span>
                             </button>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rate Limit / Quota notice with instant Reset & Retry button */}
+                    {(apiIssue.isQuotaExhausted || apiIssue.statusCode === 429 || apiIssue.message.toLowerCase().includes('rate limit') || apiIssue.message.toLowerCase().includes('quota')) && (
+                      <div className="bg-amber-50/90 border border-amber-300/80 rounded-2xl p-3 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-3 mt-2 max-w-3xl">
+                        <span className="font-medium text-amber-900">
+                          Google Ads API rate limit cooling down. Cached campaigns and metrics are active.
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await fetch('/api/google-ads/reset-cooldown', { method: 'POST' });
+                              } catch {}
+                              setApiIssue(null);
+                              showToast('Cooldown reset. Retrying live sync...');
+                              handleSync();
+                            }}
+                            className="px-3 py-1 bg-amber-950 hover:bg-black text-amber-100 rounded-xl font-bold text-xs cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
+                          >
+                            <RefreshCw className="w-3 h-3 text-[#00d67d]" />
+                            <span>Reset &amp; Retry Now</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setApiIssue(null)}
+                            className="text-xs text-amber-700 hover:text-amber-950 font-bold px-2 py-1 rounded-lg hover:bg-amber-100 cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
                         </div>
                       </div>
                     )}
