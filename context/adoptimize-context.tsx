@@ -42,7 +42,6 @@ import {
   fetchUserCampaigns,
   subscribeToUserCampaigns,
   fetchUserKeywords,
-  subscribeToUserKeywords,
   saveKeywordToFirestore,
   deleteKeywordFromFirestore,
   fetchUserSearchTerms,
@@ -53,7 +52,6 @@ import {
   fetchUserAutomationRules,
   fetchUserAuditLogs,
   fetchUserAccount,
-  subscribeToUserAccount,
   saveCampaignToFirestore,
   deleteCampaignFromFirestore,
   updateInsightStatus,
@@ -305,8 +303,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const isBackgroundSyncingRef = useRef<boolean>(false);
   const lastSyncTimestampRef = useRef<number>(0);
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
-  const unsubscribeKeywordsRef = useRef<(() => void) | null>(null);
-  const unsubscribeAccountRef = useRef<(() => void) | null>(null);
 
   const accountAccessToken = state.account?.accessToken;
   const getAccessTokenString = useCallback((): string | null => {
@@ -477,7 +473,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             return nextState;
           });
 
-          // 1. Subscribe to real-time Firestore updates for user's campaigns
+          // Subscribe to real-time Firestore updates for user's campaigns
           if (unsubscribeCampaignsRef.current) {
             unsubscribeCampaignsRef.current();
           }
@@ -499,47 +495,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               return prev;
             });
           });
-
-          // 2. Subscribe to real-time Firestore updates for user's keywords
-          if (unsubscribeKeywordsRef.current) {
-            unsubscribeKeywordsRef.current();
-          }
-          unsubscribeKeywordsRef.current = subscribeToUserKeywords(currentUser.uid, (liveKeywords) => {
-            setState((prev) => {
-              if (!prev.account.isConnected || prev.account.clientCustomerId === 'Not Connected') {
-                return prev;
-              }
-              if (Array.isArray(liveKeywords) && liveKeywords.length > 0) {
-                const nextState = {
-                  ...prev,
-                  keywords: liveKeywords,
-                };
-                saveState(nextState);
-                return nextState;
-              }
-              return prev;
-            });
-          });
-
-          // 3. Subscribe to real-time Firestore updates for connected account metadata
-          if (unsubscribeAccountRef.current) {
-            unsubscribeAccountRef.current();
-          }
-          unsubscribeAccountRef.current = subscribeToUserAccount(currentUser.uid, (remoteAccount) => {
-            if (remoteAccount && remoteAccount.isConnected && remoteAccount.clientCustomerId && remoteAccount.clientCustomerId !== 'Not Connected') {
-              setState((prev) => {
-                const nextState = {
-                  ...prev,
-                  account: {
-                    ...prev.account,
-                    ...remoteAccount,
-                  },
-                };
-                saveState(nextState);
-                return nextState;
-              });
-            }
-          });
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
         } finally {
@@ -558,14 +513,6 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         unsubscribeCampaignsRef.current();
         unsubscribeCampaignsRef.current = null;
       }
-      if (unsubscribeKeywordsRef.current) {
-        unsubscribeKeywordsRef.current();
-        unsubscribeKeywordsRef.current = null;
-      }
-      if (unsubscribeAccountRef.current) {
-        unsubscribeAccountRef.current();
-        unsubscribeAccountRef.current = null;
-      }
       if (typeof window !== 'undefined') {
         window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       }
@@ -577,19 +524,29 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const loginCustomerId = state.account.loginCustomerId;
   const accountCurrency = state.account.currency;
 
-  // Real-time automatic background synchronization for connected Google Ads accounts
+  const campaignsRef = useRef<Campaign[]>(state.campaigns);
+  useEffect(() => {
+    campaignsRef.current = state.campaigns;
+  }, [state.campaigns]);
+
+  // Near-real-time automatic background synchronization with change detection for Google Ads accounts
   const performBackgroundSync = useCallback(
     async (force = false, tokenOverride?: string) => {
       if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
         return;
       }
-      // Only sync if browser tab is active/visible
+      // If quota cooldown is active, gracefully skip to protect developer quota
+      if (quotaResetAt && Date.now() < quotaResetAt) {
+        return;
+      }
+      // Only sync if browser tab is active/visible (unless forced)
       if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      // Rate-limit check: prevent duplicate requests within 10s unless explicitly forced
+      // Rate-limit check: throttle to 20s if forced/refocused, or 40s for background heartbeat
       const now = Date.now();
-      if (!force && now - lastSyncTimestampRef.current < 10000) {
+      const minInterval = force ? 20000 : 40000;
+      if (now - lastSyncTimestampRef.current < minInterval) {
         return;
       }
       if (isBackgroundSyncingRef.current) {
@@ -629,6 +586,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             expiresAt: storedToken.expiresAt,
             userEmail: user?.email || undefined,
             userId: user?.uid || undefined,
+            forceRefresh: true, // Bypass short query cache to fetch latest Google Ads platform status
+            cachedCampaigns: campaignsRef.current,
+            cachedKeywords: state.keywords,
+            cachedSearchTerms: state.searchTerms,
             loginCustomerId:
               loginCustomerId ||
               (typeof window !== 'undefined'
@@ -648,23 +609,90 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           setRefreshToken(data.newRefreshToken);
         }
 
+        // Quota paused handling
+        if (data.syncStatus === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
+          const resetTime = data.quotaResetTime || Date.now() + (data.retryDelaySeconds || 48430) * 1000;
+          setQuotaResetAt(resetTime);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('google_ads_quota_reset_at', String(resetTime));
+            } catch {}
+          }
+          return;
+        }
+
         if (res.ok && data.success && Array.isArray(data.campaigns)) {
           lastSyncTimestampRef.current = Date.now();
           const detectedCurrency = data.currency || accountCurrency || 'USD';
           setIsTokenExpired(false);
+
+          // Detect external changes made directly inside Google Ads platform
+          const detectedChanges: string[] = [];
+          const auditLogsToCreate: AuditLog[] = [];
+          const existingCampaigns = campaignsRef.current || [];
+          const freshCampaigns: Campaign[] = data.campaigns;
+
+          for (const fresh of freshCampaigns) {
+            const existing = existingCampaigns.find((c) => c.id === fresh.id);
+            if (existing) {
+              if (existing.status !== fresh.status) {
+                detectedChanges.push(`"${fresh.name}" is now ${fresh.status}`);
+                auditLogsToCreate.push({
+                  id: `audit-${Date.now()}-${fresh.id}`,
+                  timestamp: new Date().toISOString(),
+                  campaignId: fresh.id,
+                  campaignName: fresh.name,
+                  actionType: 'CAMPAIGN_STATUS_CHANGE',
+                  previousValue: existing.status,
+                  newValue: fresh.status,
+                  reason: 'Status change detected directly from Google Ads platform',
+                  source: 'SYSTEM',
+                  userOrSystem: 'Google Ads Platform (Real-Time)',
+                  status: 'EXECUTED',
+                  canRevert: false,
+                });
+              }
+              if (Math.abs(existing.budgetDaily - fresh.budgetDaily) >= 0.05) {
+                detectedChanges.push(`"${fresh.name}" budget is now $${fresh.budgetDaily.toFixed(2)}/day`);
+                auditLogsToCreate.push({
+                  id: `audit-${Date.now()}-${fresh.id}-budget`,
+                  timestamp: new Date().toISOString(),
+                  campaignId: fresh.id,
+                  campaignName: fresh.name,
+                  actionType: 'BUDGET_REALLOCATED',
+                  previousValue: `$${existing.budgetDaily.toFixed(2)}/day`,
+                  newValue: `$${fresh.budgetDaily.toFixed(2)}/day`,
+                  reason: 'Budget update detected directly from Google Ads platform',
+                  source: 'SYSTEM',
+                  userOrSystem: 'Google Ads Platform (Real-Time)',
+                  status: 'EXECUTED',
+                  canRevert: false,
+                });
+              }
+            } else if (existingCampaigns.length > 0) {
+              detectedChanges.push(`New campaign: "${fresh.name}"`);
+            }
+          }
+
+          if (detectedChanges.length > 0) {
+            const summary = detectedChanges.slice(0, 2).join('; ') + (detectedChanges.length > 2 ? ` (+${detectedChanges.length - 2} more)` : '');
+            showToast(`Live Google Ads update: ${summary}`);
+          }
+
           setState((prev) => {
             const nextState = {
               ...prev,
-              campaigns: data.campaigns,
+              campaigns: freshCampaigns,
               keywords: data.keywords && data.keywords.length > 0 ? data.keywords : prev.keywords,
               searchTerms:
                 data.searchTerms && data.searchTerms.length > 0 ? data.searchTerms : prev.searchTerms,
+              auditLogs: auditLogsToCreate.length > 0 ? [...auditLogsToCreate, ...prev.auditLogs] : prev.auditLogs,
               account: {
                 ...prev.account,
                 currency: detectedCurrency,
                 lastSyncAt: new Date().toISOString(),
                 syncStatus: 'SYNCED' as const,
-                totalCampaignsCount: data.campaigns.length,
+                totalCampaignsCount: freshCampaigns.length,
               },
             };
             saveState(nextState);
@@ -672,13 +700,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           });
 
           if (user) {
-            data.campaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
+            freshCampaigns.forEach((c: Campaign) => saveCampaignToFirestore(user.uid, c));
+            auditLogsToCreate.forEach((log: AuditLog) => addAuditLogToFirestore(user.uid, log));
             saveUserAccount(user.uid, {
               ...state.account,
               currency: detectedCurrency,
               lastSyncAt: new Date().toISOString(),
               syncStatus: 'SYNCED',
-              totalCampaignsCount: data.campaigns.length,
+              totalCampaignsCount: freshCampaigns.length,
               ...(data.newAccessToken ? { accessToken: data.newAccessToken } : {}),
               ...(data.newRefreshToken ? { refreshToken: data.newRefreshToken } : {}),
             });
@@ -690,90 +719,64 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         isBackgroundSyncingRef.current = false;
       }
     },
-    [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, refreshToken]
+    [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, state.keywords, state.searchTerms, refreshToken, quotaResetAt, showToast]
   );
 
-  // Optmyzr Architecture: Automated Silent Background Structural Polling Worker
-  // Runs every 15-20 minutes completely silently using stored refresh_token via /api/google-ads/sync-worker
-  // Automatically detects any direct Google Ads changes (status toggles, budget changes, new campaigns)
-  // Writes detected changes into Firestore, triggering immediate real-time UI hydration via onSnapshot!
+  // Near-Real-Time Hands-Free Google Ads Synchronization Engine
+  // Automatically detects when the advertiser makes changes directly in Google Ads platform
+  // (e.g. toggles status, changes budget, edits keywords) and reflects them live on the dashboard:
+  // 1. Initial 2.5s gentle auto-check on startup
+  // 2. Continuous 60s active heartbeat poller while tab is open
+  // 3. Instant tab-refocus / visibilitychange trigger when switching back from Google Ads
   useEffect(() => {
-    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected' || !user?.uid) {
+    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
     }
 
-    let isSilentWorkerActive = false;
-
-    const runSilentStructuralSync = async () => {
-      if (isSilentWorkerActive) return;
-
-      // Rate Limit & Quota Protection: If 429 cooldown active, gracefully pause
+    // 1. Gentle initial startup check (2.5s after load)
+    const initialCheckTimer = setTimeout(() => {
       const now = Date.now();
-      if (quotaResetAt && now < quotaResetAt) {
+      const isQuotaActive = quotaResetAt && now < quotaResetAt;
+      if (!isQuotaActive) {
+        performBackgroundSync(false);
+      }
+    }, 2500);
+
+    // 2. Active 60-second heartbeat poller while viewing dashboard
+    const heartbeatInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-
-      isSilentWorkerActive = true;
-      try {
-        await fetch('/api/google-ads/sync-worker', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.uid,
-            mode: 'structural',
-            force: false,
-          }),
-        });
-        // Silent execution: zero user-facing popups or spinners.
-        // Detected diffs written by the worker directly hydrate the UI via Firestore snapshot listeners.
-      } catch (err) {
-        console.warn('[SilentBackgroundWorker] Structural sync attempt notice:', err);
-      } finally {
-        isSilentWorkerActive = false;
-      }
-    };
-
-    // Initial lightweight check 12 seconds after mount
-    const initialDelay = setTimeout(() => {
-      runSilentStructuralSync();
-    }, 12000);
-
-    // Automated periodic silent background sync every 15 minutes
-    const structuralInterval = setInterval(runSilentStructuralSync, 15 * 60 * 1000);
-
-    return () => {
-      clearTimeout(initialDelay);
-      clearInterval(structuralInterval);
-    };
-  }, [isConnected, clientCustomerId, user?.uid, quotaResetAt]);
-
-  // Deep Historical Metrics Refresh (every 6 to 12 hours to preserve Explorer developer quota)
-  useEffect(() => {
-    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected' || !user?.uid) {
-      return;
-    }
-
-    const deepMetricsInterval = setInterval(() => {
       const now = Date.now();
-      const lastSync = lastSyncTimestampRef.current || (lastSyncTimestamp ? Number(lastSyncTimestamp) : 0);
       const isQuotaActive = quotaResetAt && now < quotaResetAt;
-      if (!isQuotaActive && now - lastSync > 6 * 60 * 60 * 1000) {
-        fetch('/api/google-ads/sync-worker', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.uid,
-            mode: 'full',
-            force: false,
-          }),
-        }).catch(() => {});
+      if (!isQuotaActive && now - lastSyncTimestampRef.current >= 45000) {
+        performBackgroundSync(false);
       }
-    }, 60 * 60 * 1000);
+    }, 60000);
+
+    // 3. Tab Refocus & Visibility: When user returns from ads.google.com to AdOptimize
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      const now = Date.now();
+      const isQuotaActive = quotaResetAt && now < quotaResetAt;
+      // If at least 20 seconds elapsed since last check, sync fresh changes immediately
+      if (!isQuotaActive && now - lastSyncTimestampRef.current >= 20000) {
+        performBackgroundSync(true);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
     return () => {
-      clearInterval(deepMetricsInterval);
+      clearTimeout(initialCheckTimer);
+      clearInterval(heartbeatInterval);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
-  }, [isConnected, clientCustomerId, user?.uid, quotaResetAt, lastSyncTimestamp]);
+  }, [isConnected, clientCustomerId, quotaResetAt, performBackgroundSync]);
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         syncStatus: 'SYNCED',
         isLiveApi: !liveResult.fromCache,
         fromCache: Boolean(liveResult.fromCache),
-        freshness: liveResult.fromCache ? 'Served from 3-minute request cache' : 'Live data from Google Ads',
+        freshness: liveResult.fromCache ? 'Served from 30-second request cache' : 'Live data from Google Ads',
         campaignsCount: realCampaigns.length,
         loginCustomerIdUsed: liveResult.loginCustomerIdUsed,
         currency: liveResult.currency,
