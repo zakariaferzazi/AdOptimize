@@ -1176,6 +1176,282 @@ export async function queryLiveCampaigns(
   }
 }
 
+export interface StructuralCampaignEntity {
+  id: string;
+  rawId: string;
+  name: string;
+  status: 'ENABLED' | 'PAUSED';
+  budgetDaily: number;
+  type: string;
+}
+
+export interface StructuralKeywordEntity {
+  id: string;
+  rawId: string;
+  campaignId: string;
+  campaignName: string;
+  keyword: string;
+  matchType: 'EXACT' | 'PHRASE' | 'BROAD';
+  status: 'ENABLED' | 'PAUSED';
+}
+
+export interface StructuralAdGroupEntity {
+  id: string;
+  rawId: string;
+  name: string;
+  status: 'ENABLED' | 'PAUSED';
+  campaignId: string;
+}
+
+export interface StructuralEntitiesResult {
+  success: boolean;
+  campaigns?: StructuralCampaignEntity[];
+  keywords?: StructuralKeywordEntity[];
+  adGroups?: StructuralAdGroupEntity[];
+  currency?: string;
+  loginCustomerIdUsed?: string;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
+  isAuthExpired?: boolean;
+  error?: string;
+  details?: string;
+}
+
+/**
+ * Ultra-lightweight structural query against Google Ads API.
+ * Pulls ONLY campaigns, ad groups, and keywords state (names, statuses, daily budgets)
+ * without expensive historical metrics or date segmentations.
+ * Preserves Google Ads API quota for automated background syncs.
+ */
+export async function fetchStructuralEntities(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<StructuralEntitiesResult> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+
+  // 1. Quota check
+  const cooldown = getQuotaCooldownStatus();
+  if (cooldown) {
+    const remainingSec = Math.max(1, Math.round((cooldown.retryAfter - Date.now()) / 1000));
+    return {
+      success: false,
+      isQuotaExhausted: true,
+      retryDelaySeconds: remainingSec,
+      error: cooldown.message,
+    };
+  }
+
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+  if (devToken) headers['developer-token'] = devToken;
+  if (loginCustomerId) headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+
+  let discoveredLoginCid = loginCustomerId;
+  const structuralCampaigns: StructuralCampaignEntity[] = [];
+  const structuralKeywords: StructuralKeywordEntity[] = [];
+  const structuralAdGroups: StructuralAdGroupEntity[] = [];
+  let detectedCurrency = 'USD';
+
+  // 1. Lightweight Campaigns Query (No date breakdown, no metrics)
+  const campaignQuery = `
+    SELECT
+      customer.currency_code,
+      campaign.id,
+      campaign.name,
+      campaign.status,
+      campaign.advertising_channel_type,
+      campaign_budget.amount_micros
+    FROM campaign
+    WHERE campaign.status != 'REMOVED'
+    ORDER BY campaign.id DESC
+    LIMIT 100
+  `;
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      let res = await fetchWithBackoff(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query: campaignQuery }),
+        }
+      );
+
+      // Handle 403 login-customer-id check
+      if (res.status === 403 && !loginCustomerId) {
+        const retryHeaders = { ...headers, 'login-customer-id': cleanCid };
+        const retryRes = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers: retryHeaders,
+            body: JSON.stringify({ query: campaignQuery }),
+          }
+        );
+        if (retryRes.ok) {
+          res = retryRes;
+          discoveredLoginCid = cleanCid;
+          headers['login-customer-id'] = cleanCid;
+        }
+      }
+
+      if (res.status === 404) continue;
+
+      const parsed = await safeParseResponse(res);
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const batches = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+      for (const b of batches) {
+        for (const row of b.results || []) {
+          if (row.customer?.currencyCode) {
+            detectedCurrency = String(row.customer.currencyCode).toUpperCase().trim();
+          }
+          const rawId = String(row.campaign?.id || '');
+          if (!rawId) continue;
+
+          const rawStatus = String(row.campaign?.status || '').toUpperCase();
+          const isEnabled = rawStatus === 'ENABLED' || rawStatus === 'ELIGIBLE' || rawStatus.includes('ENABLE');
+          const budgetDaily = Number(((row.campaignBudget?.amountMicros || 0) / 1_000_000).toFixed(2));
+          const channelType = String(row.campaign?.advertisingChannelType || 'SEARCH').toUpperCase();
+
+          structuralCampaigns.push({
+            id: `camp-live-${rawId}`,
+            rawId,
+            name: row.campaign?.name || `Campaign #${rawId}`,
+            status: isEnabled ? 'ENABLED' : 'PAUSED',
+            budgetDaily: budgetDaily > 0 ? budgetDaily : 50.0,
+            type: channelType,
+          });
+        }
+      }
+
+      // 2. Lightweight Ad Groups Query
+      try {
+        const adGroupQuery = `
+          SELECT
+            ad_group.id,
+            ad_group.name,
+            ad_group.status,
+            campaign.id
+          FROM ad_group
+          WHERE campaign.status != 'REMOVED' AND ad_group.status != 'REMOVED'
+          LIMIT 100
+        `;
+        const resAg = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ query: adGroupQuery }),
+          }
+        );
+        const parsedAg = await safeParseResponse(resAg);
+        if (resAg.ok && parsedAg.isJson) {
+          const batchesAg = Array.isArray(parsedAg.data) ? parsedAg.data : [parsedAg.data];
+          for (const b of batchesAg) {
+            for (const row of b.results || []) {
+              const agId = String(row.adGroup?.id || '');
+              if (agId) {
+                const agStatus = String(row.adGroup?.status || '').toUpperCase() === 'ENABLED' ? 'ENABLED' : 'PAUSED';
+                structuralAdGroups.push({
+                  id: `ag-${agId}`,
+                  rawId: agId,
+                  name: row.adGroup?.name || `Ad Group ${agId}`,
+                  status: agStatus,
+                  campaignId: `camp-live-${row.campaign?.id}`,
+                });
+              }
+            }
+          }
+        }
+      } catch (errAg) {
+        console.warn('[Structural] AdGroup query notice:', errAg);
+      }
+
+      // 3. Lightweight Keywords Query
+      try {
+        const kwQuery = `
+          SELECT
+            campaign.id,
+            campaign.name,
+            ad_group_criterion.criterion_id,
+            ad_group_criterion.keyword.text,
+            ad_group_criterion.keyword.match_type,
+            ad_group_criterion.status
+          FROM keyword_view
+          WHERE campaign.status != 'REMOVED' AND ad_group_criterion.status != 'REMOVED'
+          LIMIT 100
+        `;
+        const resKw = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ query: kwQuery }),
+          }
+        );
+        const parsedKw = await safeParseResponse(resKw);
+        if (resKw.ok && parsedKw.isJson) {
+          const batchesKw = Array.isArray(parsedKw.data) ? parsedKw.data : [parsedKw.data];
+          for (const b of batchesKw) {
+            for (const row of b.results || []) {
+              const kwText = row.adGroupCriterion?.keyword?.text;
+              const critId = String(row.adGroupCriterion?.criterionId || '');
+              if (kwText && critId) {
+                const rawMatch = String(row.adGroupCriterion?.keyword?.matchType || 'BROAD').toUpperCase();
+                const matchType = rawMatch.includes('EXACT') ? 'EXACT' : rawMatch.includes('PHRASE') ? 'PHRASE' : 'BROAD';
+                structuralKeywords.push({
+                  id: `kw-${critId}`,
+                  rawId: critId,
+                  campaignId: `camp-live-${row.campaign?.id}`,
+                  campaignName: row.campaign?.name || 'Campaign',
+                  keyword: kwText,
+                  matchType,
+                  status: row.adGroupCriterion?.status === 'ENABLED' ? 'ENABLED' : 'PAUSED',
+                });
+              }
+            }
+          }
+        }
+      } catch (errKw) {
+        console.warn('[Structural] Keyword query notice:', errKw);
+      }
+
+      return {
+        success: true,
+        campaigns: structuralCampaigns,
+        keywords: structuralKeywords,
+        adGroups: structuralAdGroups,
+        currency: detectedCurrency,
+        loginCustomerIdUsed: discoveredLoginCid,
+      };
+    } catch (err: any) {
+      console.warn(`[Structural] Attempt with ${version} failed:`, err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to fetch structural Google Ads entities.',
+  };
+}
+
 /**
  * Verifies if a specific customer ID is accessible by the authenticated user in Google Ads.
  */

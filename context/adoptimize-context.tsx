@@ -42,6 +42,7 @@ import {
   fetchUserCampaigns,
   subscribeToUserCampaigns,
   fetchUserKeywords,
+  subscribeToUserKeywords,
   saveKeywordToFirestore,
   deleteKeywordFromFirestore,
   fetchUserSearchTerms,
@@ -52,6 +53,7 @@ import {
   fetchUserAutomationRules,
   fetchUserAuditLogs,
   fetchUserAccount,
+  subscribeToUserAccount,
   saveCampaignToFirestore,
   deleteCampaignFromFirestore,
   updateInsightStatus,
@@ -303,6 +305,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   const isBackgroundSyncingRef = useRef<boolean>(false);
   const lastSyncTimestampRef = useRef<number>(0);
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
+  const unsubscribeKeywordsRef = useRef<(() => void) | null>(null);
+  const unsubscribeAccountRef = useRef<(() => void) | null>(null);
 
   const accountAccessToken = state.account?.accessToken;
   const getAccessTokenString = useCallback((): string | null => {
@@ -473,7 +477,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             return nextState;
           });
 
-          // Subscribe to real-time Firestore updates for user's campaigns
+          // 1. Subscribe to real-time Firestore updates for user's campaigns
           if (unsubscribeCampaignsRef.current) {
             unsubscribeCampaignsRef.current();
           }
@@ -495,6 +499,47 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               return prev;
             });
           });
+
+          // 2. Subscribe to real-time Firestore updates for user's keywords
+          if (unsubscribeKeywordsRef.current) {
+            unsubscribeKeywordsRef.current();
+          }
+          unsubscribeKeywordsRef.current = subscribeToUserKeywords(currentUser.uid, (liveKeywords) => {
+            setState((prev) => {
+              if (!prev.account.isConnected || prev.account.clientCustomerId === 'Not Connected') {
+                return prev;
+              }
+              if (Array.isArray(liveKeywords) && liveKeywords.length > 0) {
+                const nextState = {
+                  ...prev,
+                  keywords: liveKeywords,
+                };
+                saveState(nextState);
+                return nextState;
+              }
+              return prev;
+            });
+          });
+
+          // 3. Subscribe to real-time Firestore updates for connected account metadata
+          if (unsubscribeAccountRef.current) {
+            unsubscribeAccountRef.current();
+          }
+          unsubscribeAccountRef.current = subscribeToUserAccount(currentUser.uid, (remoteAccount) => {
+            if (remoteAccount && remoteAccount.isConnected && remoteAccount.clientCustomerId && remoteAccount.clientCustomerId !== 'Not Connected') {
+              setState((prev) => {
+                const nextState = {
+                  ...prev,
+                  account: {
+                    ...prev.account,
+                    ...remoteAccount,
+                  },
+                };
+                saveState(nextState);
+                return nextState;
+              });
+            }
+          });
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
         } finally {
@@ -512,6 +557,14 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       if (unsubscribeCampaignsRef.current) {
         unsubscribeCampaignsRef.current();
         unsubscribeCampaignsRef.current = null;
+      }
+      if (unsubscribeKeywordsRef.current) {
+        unsubscribeKeywordsRef.current();
+        unsubscribeKeywordsRef.current = null;
+      }
+      if (unsubscribeAccountRef.current) {
+        unsubscribeAccountRef.current();
+        unsubscribeAccountRef.current = null;
       }
       if (typeof window !== 'undefined') {
         window.removeEventListener('unhandledrejection', handleUnhandledRejection);
@@ -640,28 +693,87 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, refreshToken]
   );
 
-  // Optmyzr Architecture: Database-First State & Zero Aggressive Polling
-  // Page loads, tab switches, and window focus events read exclusively from local Firestore database.
-  // Live updates are streamed via Firestore real-time snapshot subscription (zero API quota used).
+  // Optmyzr Architecture: Automated Silent Background Structural Polling Worker
+  // Runs every 15-20 minutes completely silently using stored refresh_token via /api/google-ads/sync-worker
+  // Automatically detects any direct Google Ads changes (status toggles, budget changes, new campaigns)
+  // Writes detected changes into Firestore, triggering immediate real-time UI hydration via onSnapshot!
   useEffect(() => {
-    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
+    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected' || !user?.uid) {
       return;
     }
 
-    // Passive low-frequency check: only runs once every 6 hours if account has not synced in > 6 hours
-    const passiveCheckInterval = setInterval(() => {
+    let isSilentWorkerActive = false;
+
+    const runSilentStructuralSync = async () => {
+      if (isSilentWorkerActive) return;
+
+      // Rate Limit & Quota Protection: If 429 cooldown active, gracefully pause
+      const now = Date.now();
+      if (quotaResetAt && now < quotaResetAt) {
+        return;
+      }
+
+      isSilentWorkerActive = true;
+      try {
+        await fetch('/api/google-ads/sync-worker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            mode: 'structural',
+            force: false,
+          }),
+        });
+        // Silent execution: zero user-facing popups or spinners.
+        // Detected diffs written by the worker directly hydrate the UI via Firestore snapshot listeners.
+      } catch (err) {
+        console.warn('[SilentBackgroundWorker] Structural sync attempt notice:', err);
+      } finally {
+        isSilentWorkerActive = false;
+      }
+    };
+
+    // Initial lightweight check 12 seconds after mount
+    const initialDelay = setTimeout(() => {
+      runSilentStructuralSync();
+    }, 12000);
+
+    // Automated periodic silent background sync every 15 minutes
+    const structuralInterval = setInterval(runSilentStructuralSync, 15 * 60 * 1000);
+
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(structuralInterval);
+    };
+  }, [isConnected, clientCustomerId, user?.uid, quotaResetAt]);
+
+  // Deep Historical Metrics Refresh (every 6 to 12 hours to preserve Explorer developer quota)
+  useEffect(() => {
+    if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected' || !user?.uid) {
+      return;
+    }
+
+    const deepMetricsInterval = setInterval(() => {
       const now = Date.now();
       const lastSync = lastSyncTimestampRef.current || (lastSyncTimestamp ? Number(lastSyncTimestamp) : 0);
       const isQuotaActive = quotaResetAt && now < quotaResetAt;
       if (!isQuotaActive && now - lastSync > 6 * 60 * 60 * 1000) {
-        performBackgroundSync(false);
+        fetch('/api/google-ads/sync-worker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            mode: 'full',
+            force: false,
+          }),
+        }).catch(() => {});
       }
-    }, 60 * 60 * 1000); // Check once an hour if 6-hour threshold passed
+    }, 60 * 60 * 1000);
 
     return () => {
-      clearInterval(passiveCheckInterval);
+      clearInterval(deepMetricsInterval);
     };
-  }, [isConnected, clientCustomerId, quotaResetAt, lastSyncTimestamp, performBackgroundSync]);
+  }, [isConnected, clientCustomerId, user?.uid, quotaResetAt, lastSyncTimestamp]);
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;

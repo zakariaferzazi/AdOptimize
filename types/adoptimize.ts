@@ -262,7 +262,7 @@ export interface AuditLog {
   previousValue: string;
   newValue: string;
   reason: string;
-  source: 'USER' | 'AUTOMATION_RULE' | 'AI_RECOMMENDATION';
+  source: 'USER' | 'AUTOMATION_RULE' | 'AI_RECOMMENDATION' | 'GOOGLE_ADS_SYNC';
   userOrSystem: string;
   status: 'EXECUTED' | 'REVERTED' | 'SCHEDULED';
   canRevert: boolean;

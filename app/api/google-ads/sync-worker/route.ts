@@ -1,33 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import {
   queryLiveCampaigns,
+  fetchStructuralEntities,
   getQuotaCooldownStatus,
   validateAndFormatCustomerId,
+  StructuralCampaignEntity,
+  StructuralKeywordEntity,
 } from '@/lib/google-ads-api';
 import { executeWithAutoTokenRetry, loadTokenData } from '@/lib/token-manager';
 import {
   saveCampaignToFirestore,
+  fetchUserCampaigns,
   saveKeywordToFirestore,
+  fetchUserKeywords,
   saveSearchTermToFirestore,
   saveUserAccount,
-  cleanForFirestore,
+  addAuditLogToFirestore,
 } from '@/lib/firestore-service';
-import { GoogleAdsAccount, Campaign, Keyword, SearchTerm } from '@/types/adoptimize';
+import { GoogleAdsAccount, Campaign, Keyword, SearchTerm, AuditLog, CampaignType } from '@/types/adoptimize';
 
 /**
  * Optmyzr-Pattern Background Sync Worker
  *
- * Designed for automated background queue and cron jobs (e.g., hourly incremental sync
- * or daily full refresh) without requiring any user session, browser interaction, or OAuth popups.
- * Uses stored refresh_token from Firestore to auto-rotate access tokens silently.
+ * Designed for automated background queue and cron jobs:
+ * 1. Lightweight Structural Sync (runs every 15-30m):
+ *    - Uses stored refresh_token silently to fetch entity structure (status, budget, names)
+ *    - Diffs against Firestore state and persists any changes made directly in Google Ads
+ *    - Conserves Developer Token Explorer quota by avoiding heavy metrics queries
+ * 2. Deep Metrics Sync (runs every 6-12h or on manual demand):
+ *    - Pulls 30-day historical metrics, timeframe segmentation, and search terms
+ * 3. Graceful Quota Handling:
+ *    - On HTTP 429, logs retry delay and pauses queue execution without disrupting cached UI
  */
-async function processUserSync(userId: string, force = false): Promise<{
+async function processUserSync(
+  userId: string,
+  force = false,
+  mode: 'structural' | 'full' = 'structural'
+): Promise<{
   success: boolean;
   userId: string;
   customerId?: string;
   campaignsCount?: number;
+  changesCount?: number;
+  changesSummary?: string[];
   status: string;
   message: string;
 }> {
@@ -84,6 +101,258 @@ async function processUserSync(userId: string, force = false): Promise<{
     const storedToken = await loadTokenData({ userId, customerId: cleanCid });
     const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
+    // -------------------------------------------------------------
+    // MODE 1: Fast Structural Diff & Sync (Lightweight, Low-Quota)
+    // -------------------------------------------------------------
+    if (mode === 'structural') {
+      const structuralResult = await executeWithAutoTokenRetry(
+        {
+          userId,
+          customerId: cleanCid,
+          incomingAccessToken: storedToken?.accessToken || account.accessToken,
+          incomingRefreshToken: storedToken?.refreshToken || account.refreshToken,
+          incomingExpiresAt: storedToken?.expiresAt,
+          forceRefresh: force,
+        },
+        async (activeToken: string) => {
+          return fetchStructuralEntities(cleanCid, activeToken, devToken, account.loginCustomerId);
+        }
+      );
+
+      if (structuralResult.isQuotaExhausted) {
+        console.warn(`[SyncWorker] Quota exhausted during structural sync for user ${userId}. Preserving local Firestore state.`);
+        return {
+          success: true,
+          userId,
+          customerId: cleanCid,
+          status: 'QUOTA_PAUSED',
+          message: 'Google Ads quota reached. Serving verified Firestore cache.',
+        };
+      }
+
+      if (structuralResult.success && Array.isArray(structuralResult.campaigns)) {
+        const liveCampaigns: StructuralCampaignEntity[] = structuralResult.campaigns;
+        const liveKeywords: StructuralKeywordEntity[] = structuralResult.keywords || [];
+        const existingCampaigns = await fetchUserCampaigns(userId);
+        const existingKeywords = await fetchUserKeywords(userId);
+
+        let changesDetected = 0;
+        const changesSummary: string[] = [];
+        const syncTime = new Date().toISOString();
+
+        // 1. Campaign structural diffing
+        for (const liveCamp of liveCampaigns) {
+          // Normalize comparison: check rawId, id, or numeric suffix
+          const matchedExisting = existingCampaigns.find(
+            (ec) =>
+              ec.id === liveCamp.id ||
+              ec.id.replace(/\D/g, '') === liveCamp.rawId ||
+              ec.id === `camp-live-${liveCamp.rawId}` ||
+              ec.id === `camp-${liveCamp.rawId}`
+          );
+
+          if (!matchedExisting) {
+            // A brand-new campaign was created directly on Google Ads!
+            const rawType = String(liveCamp.type || 'SEARCH').toUpperCase();
+            const safeType: CampaignType = rawType.includes('MAX')
+              ? 'PERFORMANCE_MAX'
+              : rawType.includes('DISPLAY')
+              ? 'DISPLAY'
+              : rawType.includes('SHOPPING')
+              ? 'SHOPPING'
+              : 'SEARCH';
+
+            const newCampaign: Campaign = {
+              id: liveCamp.id,
+              accountId: account.id,
+              name: liveCamp.name,
+              type: safeType,
+              status: liveCamp.status,
+              budgetDaily: liveCamp.budgetDaily,
+              spend: 0,
+              impressions: 0,
+              clicks: 0,
+              ctr: 0,
+              cpc: 0,
+              conversions: 0,
+              cpa: 0,
+              conversionValue: 0,
+              roas: 0,
+              conversionRate: 0,
+              healthStatus: 'HEALTHY',
+              healthScore: 85,
+              trendPoints: [],
+              historicalPoints: [],
+              keywordsCount: liveKeywords.filter((k) => k.campaignId === liveCamp.id).length,
+              activeAdsCount: 1,
+              primaryGoal: 'MAXIMIZE_CONVERSIONS',
+              previousPeriod: { spend: 0, conversions: 0, cpa: 0, roas: 0 },
+            };
+
+            await saveCampaignToFirestore(userId, newCampaign);
+            changesDetected++;
+            changesSummary.push(`New campaign detected: "${liveCamp.name}" (${liveCamp.status}, $${liveCamp.budgetDaily}/day)`);
+
+            await addAuditLogToFirestore(userId, {
+              id: `audit-${Date.now()}-${liveCamp.rawId}`,
+              timestamp: syncTime,
+              campaignId: liveCamp.id,
+              campaignName: liveCamp.name,
+              actionType: 'CAMPAIGN_DETECTED',
+              previousValue: 'None',
+              newValue: `${liveCamp.status} ($${liveCamp.budgetDaily}/day)`,
+              reason: 'New campaign detected directly on Google Ads and synchronized into AdOptimize.',
+              source: 'GOOGLE_ADS_SYNC',
+              userOrSystem: 'Auto-Sync Worker',
+              status: 'EXECUTED',
+              canRevert: false,
+            });
+          } else {
+            // Existing campaign: check for status change, budget change, or rename
+            let hasChanged = false;
+            const updated: Campaign = { ...matchedExisting };
+
+            // Status toggle check
+            if (matchedExisting.status !== liveCamp.status) {
+              hasChanged = true;
+              const oldStatus = matchedExisting.status;
+              updated.status = liveCamp.status;
+              changesSummary.push(`Campaign "${liveCamp.name}" status: ${oldStatus} -> ${liveCamp.status}`);
+
+              await addAuditLogToFirestore(userId, {
+                id: `audit-${Date.now()}-status-${liveCamp.rawId}`,
+                timestamp: syncTime,
+                campaignId: matchedExisting.id,
+                campaignName: liveCamp.name,
+                actionType: 'STATUS_SYNCED',
+                previousValue: oldStatus,
+                newValue: liveCamp.status,
+                reason: `Status changed to ${liveCamp.status} directly on Google Ads.`,
+                source: 'GOOGLE_ADS_SYNC',
+                userOrSystem: 'Google Ads',
+                status: 'EXECUTED',
+                canRevert: false,
+              });
+            }
+
+            // Budget edit check
+            if (Math.abs(matchedExisting.budgetDaily - liveCamp.budgetDaily) > 0.05) {
+              hasChanged = true;
+              const oldBudget = matchedExisting.budgetDaily;
+              updated.budgetDaily = liveCamp.budgetDaily;
+              changesSummary.push(`Campaign "${liveCamp.name}" daily budget: $${oldBudget} -> $${liveCamp.budgetDaily}`);
+
+              await addAuditLogToFirestore(userId, {
+                id: `audit-${Date.now()}-budget-${liveCamp.rawId}`,
+                timestamp: syncTime,
+                campaignId: matchedExisting.id,
+                campaignName: liveCamp.name,
+                actionType: 'BUDGET_SYNCED',
+                previousValue: `$${oldBudget}/day`,
+                newValue: `$${liveCamp.budgetDaily}/day`,
+                reason: `Budget changed to $${liveCamp.budgetDaily}/day directly on Google Ads.`,
+                source: 'GOOGLE_ADS_SYNC',
+                userOrSystem: 'Google Ads',
+                status: 'EXECUTED',
+                canRevert: false,
+              });
+            }
+
+            // Name edit check
+            if (matchedExisting.name !== liveCamp.name) {
+              hasChanged = true;
+              const oldName = matchedExisting.name;
+              updated.name = liveCamp.name;
+              changesSummary.push(`Campaign renamed: "${oldName}" -> "${liveCamp.name}"`);
+            }
+
+            if (hasChanged) {
+              changesDetected++;
+              await saveCampaignToFirestore(userId, updated);
+            }
+          }
+        }
+
+        // 2. Keyword diffing (new keywords or status toggles)
+        for (const liveKw of liveKeywords) {
+          const matchedKw = existingKeywords.find(
+            (ek) =>
+              ek.id === liveKw.id ||
+              (ek.keyword.toLowerCase().trim() === liveKw.keyword.toLowerCase().trim() &&
+                ek.campaignName === liveKw.campaignName)
+          );
+
+          if (!matchedKw) {
+            const newKeyword: Keyword = {
+              id: liveKw.id,
+              campaignId: liveKw.campaignId,
+              campaignName: liveKw.campaignName,
+              keyword: liveKw.keyword,
+              matchType: liveKw.matchType,
+              spend: 0,
+              clicks: 0,
+              impressions: 0,
+              ctr: 0,
+              cpc: 0,
+              conversions: 0,
+              cpa: 0,
+              qualityScore: 7,
+              status: liveKw.status,
+              flag: 'NORMAL',
+            };
+            await saveKeywordToFirestore(userId, newKeyword);
+            changesDetected++;
+            changesSummary.push(`New keyword added: "${liveKw.keyword}" (${liveKw.campaignName})`);
+          } else if (matchedKw.status !== liveKw.status) {
+            await saveKeywordToFirestore(userId, {
+              ...matchedKw,
+              status: liveKw.status,
+            });
+            changesDetected++;
+            changesSummary.push(`Keyword "${liveKw.keyword}" status: ${matchedKw.status} -> ${liveKw.status}`);
+          }
+        }
+
+        // Update user account metadata
+        await saveUserAccount(userId, {
+          ...account,
+          lastSyncAt: syncTime,
+          syncStatus: 'SYNCED',
+          totalCampaignsCount: liveCampaigns.length,
+          currency: structuralResult.currency || account.currency || 'USD',
+          ...(structuralResult.newAccessToken ? { accessToken: structuralResult.newAccessToken } : {}),
+          ...(structuralResult.newRefreshToken ? { refreshToken: structuralResult.newRefreshToken } : {}),
+        });
+
+        console.log(`[SyncWorker:Structural] User ${userId} CID ${cleanCid}: ${changesDetected} changes detected.`);
+
+        return {
+          success: true,
+          userId,
+          customerId: cleanCid,
+          campaignsCount: liveCampaigns.length,
+          changesCount: changesDetected,
+          changesSummary,
+          status: 'SYNCED',
+          message:
+            changesDetected > 0
+              ? `Detected and synchronized ${changesDetected} live changes from Google Ads.`
+              : 'Structural sync complete. Account is fully up to date.',
+        };
+      }
+
+      return {
+        success: false,
+        userId,
+        customerId: cleanCid,
+        status: 'API_ERROR',
+        message: structuralResult.error || 'Failed to fetch structural Google Ads entities.',
+      };
+    }
+
+    // -------------------------------------------------------------
+    // MODE 2: Deep Historical Metrics Sync (Periodic or Forced)
+    // -------------------------------------------------------------
     const syncResult = await executeWithAutoTokenRetry(
       {
         userId,
@@ -122,7 +391,7 @@ async function processUserSync(userId: string, force = false): Promise<{
 
       await Promise.allSettled(savePromises);
 
-      console.log(`[SyncWorker] Successfully synced ${liveCampaigns.length} campaigns for user ${userId} (CID: ${cleanCid})`);
+      console.log(`[SyncWorker:Full] Successfully synced ${liveCampaigns.length} campaigns for user ${userId} (CID: ${cleanCid})`);
 
       return {
         success: true,
@@ -130,12 +399,12 @@ async function processUserSync(userId: string, force = false): Promise<{
         customerId: cleanCid,
         campaignsCount: liveCampaigns.length,
         status: 'SYNCED',
-        message: `Successfully synchronized ${liveCampaigns.length} campaigns.`,
+        message: `Successfully synchronized ${liveCampaigns.length} campaigns and metrics.`,
       };
     }
 
     if (syncResult.isQuotaExhausted) {
-      console.warn(`[SyncWorker] Quota exhausted for user ${userId}. Preserving local database state.`);
+      console.warn(`[SyncWorker:Full] Quota exhausted for user ${userId}. Preserving local database state.`);
       return {
         success: true,
         userId,
@@ -166,10 +435,10 @@ async function processUserSync(userId: string, force = false): Promise<{
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { userId, force = false } = body;
+    const { userId, force = false, mode = 'structural' } = body;
 
     if (userId) {
-      const result = await processUserSync(userId, force);
+      const result = await processUserSync(userId, force, mode);
       return NextResponse.json(result);
     }
 
@@ -180,7 +449,7 @@ export async function POST(req: NextRequest) {
 
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id;
-      const res = await processUserSync(uid, force);
+      const res = await processUserSync(uid, force, mode);
       results.push(res);
       // Small 1.5s delay between account syncs to avoid bursting API quotas
       await new Promise((r) => setTimeout(r, 1500));
@@ -189,6 +458,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       processedCount: results.length,
+      mode,
       results,
     });
   } catch (err: any) {
@@ -203,9 +473,10 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const userId = url.searchParams.get('userId');
   const force = url.searchParams.get('force') === 'true';
+  const mode = (url.searchParams.get('mode') as 'structural' | 'full') || 'structural';
 
   if (userId) {
-    const result = await processUserSync(userId, force);
+    const result = await processUserSync(userId, force, mode);
     return NextResponse.json(result);
   }
 
@@ -213,6 +484,7 @@ export async function GET(req: NextRequest) {
     status: 'ACTIVE',
     worker: 'AdOptimize Background Sync Worker',
     pattern: 'Optmyzr Database-First & Silent Refresh',
-    usage: 'POST with { userId?: string, force?: boolean } or GET ?userId=<uid>',
+    features: ['Lightweight Structural Diffing', 'Automated Token Rotation', 'Quota Protection'],
+    usage: 'POST/GET with { userId?: string, force?: boolean, mode?: "structural" | "full" }',
   });
 }

@@ -322,6 +322,29 @@ export async function saveUserAccount(userId: string, account: GoogleAdsAccount)
   }
 }
 
+// 9b. Real-time Subscription to Connected Account
+export function subscribeToUserAccount(
+  userId: string,
+  onUpdate: (account: GoogleAdsAccount | null) => void,
+  onError?: (err: any) => void
+) {
+  const docRef = doc(db, 'users', userId, 'accounts', 'primary');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        onUpdate(snap.data() as GoogleAdsAccount);
+      } else {
+        onUpdate(null);
+      }
+    },
+    (err) => {
+      console.warn('Real-time account subscription notice:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
 // 10. Seed Initial Production Campaigns into Firestore for new user
 export async function seedInitialAccountData(userId: string, customerId: string, accountName: string) {
   const account: GoogleAdsAccount = {
@@ -689,6 +712,29 @@ export async function fetchUserKeywords(userId: string): Promise<Keyword[]> {
     handleFirestoreError(error, OperationType.GET, path);
     return [];
   }
+}
+
+// 12b. Real-time Subscription to Keywords
+export function subscribeToUserKeywords(
+  userId: string,
+  onUpdate: (keywords: Keyword[]) => void,
+  onError?: (err: any) => void
+) {
+  const colRef = collection(db, 'users', userId, 'keywords');
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items: Keyword[] = [];
+      snap.forEach((d) => {
+        items.push(d.data() as Keyword);
+      });
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Real-time keywords subscription notice:', err);
+      if (onError) onError(err);
+    }
+  );
 }
 
 export async function saveKeywordToFirestore(userId: string, keyword: Keyword) {
