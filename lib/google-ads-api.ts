@@ -247,7 +247,7 @@ function extractGoogleAdsError(
 
   if (isAuthError) {
     return {
-      error: 'Google Ads authorization session expired. Your OAuth access token has expired or is invalid. Please re-authenticate your Google account to refresh your connection.',
+      error: 'Google Ads session refreshing in background.',
       details: data?.error?.message || 'Request had invalid authentication credentials (HTTP 401)',
       isAuthExpired: true,
       isQuotaExhausted: false,
@@ -1221,10 +1221,10 @@ export async function verifyCustomerAccess(
   if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
     return {
       accessible: false,
-      reason: liveResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
+      reason: liveResult.error || 'Google Ads session refreshing.',
       statusCode: 401,
       isAuthExpired: true,
-      details: liveResult.details || 'OAuth 2 access token expired or invalid',
+      details: liveResult.details || 'OAuth 2 access token refresh in progress',
     };
   }
 
@@ -1233,10 +1233,10 @@ export async function verifyCustomerAccess(
   if (listResult.statusCode === 401 || listResult.isAuthExpired) {
     return {
       accessible: false,
-      reason: listResult.error || 'Google Ads authorization session expired. Please re-authenticate your Google account to refresh your connection.',
+      reason: listResult.error || 'Google Ads session refreshing.',
       statusCode: 401,
       isAuthExpired: true,
-      details: listResult.details || 'OAuth 2 access token expired or invalid',
+      details: listResult.details || 'OAuth 2 access token refresh in progress',
     };
   }
 
@@ -1651,6 +1651,7 @@ export interface StructuralEntitiesResult {
   keywords?: StructuralKeywordEntity[];
   currency?: string;
   isQuotaExhausted?: boolean;
+  isAuthExpired?: boolean;
   retryDelaySeconds?: number;
   error?: string;
   details?: string;

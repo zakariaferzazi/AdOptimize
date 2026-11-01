@@ -112,10 +112,6 @@ export function CampaignsClientView() {
         onToggleStatus={handleToggleCampaignStatus}
         onUpdateBudget={handleUpdateBudget}
         onCreateCampaignClick={() => setIsCreateModalOpen(true)}
-        onOpenSyncCampaigns={handleSync}
-        isSyncing={isSyncing}
-        syncCooldownRemaining={syncCooldownRemaining}
-        lastSyncTimestamp={lastSyncTimestamp}
         isMutatingId={mutatingCampaignId}
       />
 

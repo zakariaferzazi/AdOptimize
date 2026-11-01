@@ -279,8 +279,8 @@ export function ConnectModal({
                 onClick={() => handleOneClickConnect(currentAccount.clientCustomerId)}
                 className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-[#00d67d]" />
-                <span>Re-sync Campaigns Now</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#00d67d]" />
+                <span>Reconnect Account</span>
               </button>
             </div>
           </div>

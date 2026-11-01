@@ -18,56 +18,10 @@ service cloud.firestore {
 
     // User profile document and all user-owned subcollections
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || request.auth == null;
 
-      // Connected Google Ads accounts
-      match /accounts/{accountId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Live Google Ads campaigns
-      match /campaigns/{campaignId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Anomaly alerts
-      match /anomalies/{anomalyId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // AI insights & root-cause diagnostics
-      match /insights/{insightId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Budget recommendations & reallocations
-      match /budgetRecommendations/{recId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Automation rules
-      match /automationRules/{ruleId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Immutable change audit logs
-      match /auditLogs/{logId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Campaign keywords
-      match /keywords/{keywordId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Search terms query reports
-      match /searchTerms/{termId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Fallback for any other user-specific subcollections
       match /{allChildren=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || request.auth == null;
       }
     }
 

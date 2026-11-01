@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectModal } from '@/components/connect-modal';
-import { CampaignSyncModal } from '@/components/campaigns/campaign-sync-modal';
 import { CopilotDrawer } from '@/components/copilot/copilot-drawer';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import {
@@ -174,8 +173,8 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
 
         {/* Dynamic View Container */}
         <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pb-10 space-y-6 max-w-7xl w-full mx-auto min-w-0">
-          {/* Real Google Ads API Issue Alert Banner (exclude 429 quota cooldown so cached database data renders smoothly) */}
-          {apiIssue && apiIssue.statusCode !== 429 && !apiIssue.message.toLowerCase().includes('quota') && !apiIssue.message.toLowerCase().includes('rate limit') && (
+          {/* Real Google Ads API Issue Alert Banner */}
+          {apiIssue && apiIssue.statusCode !== 429 && apiIssue.statusCode !== 401 && !apiIssue.message.toLowerCase().includes('quota') && !apiIssue.message.toLowerCase().includes('rate limit') && !apiIssue.message.toLowerCase().includes('authorization session expired') && !apiIssue.message.toLowerCase().includes('unauthenticated') && (
             <div className="bg-rose-50/95 border-2 border-rose-300 rounded-3xl p-5 shadow-sm text-slate-900 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3.5">
@@ -229,43 +228,26 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
                               className="px-3 py-1.5 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-xl font-mono text-xs font-bold text-emerald-950 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                               <span>{accCid}</span>
-                              <span className="text-[10px] text-emerald-600 font-sans font-bold">↳ Switch &amp; Sync</span>
+                              <span className="text-[10px] text-emerald-600 font-sans font-bold">↳ Switch Account</span>
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Rate Limit / Quota notice with instant Reset & Retry button */}
+                    {/* Rate Limit / Quota notice */}
                     {(apiIssue.isQuotaExhausted || apiIssue.statusCode === 429 || apiIssue.message.toLowerCase().includes('rate limit') || apiIssue.message.toLowerCase().includes('quota')) && (
                       <div className="bg-amber-50/90 border border-amber-300/80 rounded-2xl p-3 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-3 mt-2 max-w-3xl">
                         <span className="font-medium text-amber-900">
                           Google Ads API rate limit cooling down. Cached campaigns and metrics are active.
                         </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await fetch('/api/google-ads/reset-cooldown', { method: 'POST' });
-                              } catch {}
-                              setApiIssue(null);
-                              showToast('Cooldown reset. Retrying live sync...');
-                              handleSync();
-                            }}
-                            className="px-3 py-1 bg-amber-950 hover:bg-black text-amber-100 rounded-xl font-bold text-xs cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
-                          >
-                            <RefreshCw className="w-3 h-3 text-[#00d67d]" />
-                            <span>Reset &amp; Retry Now</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setApiIssue(null)}
-                            className="text-xs text-amber-700 hover:text-amber-950 font-bold px-2 py-1 rounded-lg hover:bg-amber-100 cursor-pointer"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setApiIssue(null)}
+                          className="text-xs text-amber-700 hover:text-amber-950 font-bold px-2 py-1 rounded-lg hover:bg-amber-100 cursor-pointer"
+                        >
+                          Dismiss
+                        </button>
                       </div>
                     )}
 
@@ -355,15 +337,6 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           setApiIssue(issue);
         }}
         userEmail={user?.email}
-      />
-
-      {/* Sync Campaign Modal */}
-      <CampaignSyncModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        account={account}
-        onSync={() => handleSync(true)}
-        isSyncing={isSyncing}
       />
 
       {/* Copilot Chat Drawer */}

@@ -234,47 +234,14 @@ export function Header({
       {/* Right: Actions, Alerts & Real Firebase Profile */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
-        {/* Real-time Google Ads Live Sync Button & Status Badge */}
+        {/* Real-time Google Ads status indicator */}
         {account.isConnected && account.clientCustomerId !== 'Not Connected' && (
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Last synced status */}
             <span className="hidden xl:inline-flex text-[11px] text-slate-500 font-medium">
-              {account.syncStatus === 'QUOTA_PAUSED'
-                ? 'Rate Limit Paused (Serving from DB)'
-                : isSyncing
-                ? 'Syncing in background...'
-                : lastSyncTimestamp
-                ? `Last synced: ${formatTimeAgo(lastSyncTimestamp)}`
-                : 'Synced from DB'}
+              {lastSyncTimestamp
+                ? `Last updated: ${formatTimeAgo(lastSyncTimestamp)}`
+                : 'Connected'}
             </span>
-
-            {/* Sync button with cooldown indicator */}
-            <button
-              type="button"
-              onClick={onRefreshSync}
-              disabled={isSyncing || syncCooldownRemaining > 0}
-              className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full shadow-2xs text-xs font-semibold transition-all cursor-pointer ${
-                isSyncing
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                  : syncCooldownRemaining > 0
-                  ? 'bg-slate-100 text-slate-600 border border-slate-200 cursor-not-allowed opacity-80'
-                  : 'bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700'
-              }`}
-              title={
-                syncCooldownRemaining > 0
-                  ? `Next manual sync in ${syncCooldownRemaining}s`
-                  : 'Sync live status from Google Ads'
-              }
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-400'}`} />
-              <span className="inline">
-                {isSyncing
-                  ? 'Syncing...'
-                  : syncCooldownRemaining > 0
-                  ? `Synced (${syncCooldownRemaining}s)`
-                  : 'Sync'}
-              </span>
-            </button>
           </div>
         )}
 

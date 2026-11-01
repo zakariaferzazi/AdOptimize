@@ -49,6 +49,7 @@ export const auth = getAuth(app);
 export const googleAuthProvider = new GoogleAuthProvider();
 googleAuthProvider.addScope('email');
 googleAuthProvider.addScope('profile');
+googleAuthProvider.addScope('https://www.googleapis.com/auth/adwords');
 
 // Backwards-compatible alias for standard Google login/signup
 export const googleProvider = googleAuthProvider;
@@ -198,12 +199,15 @@ export async function signInWithGoogle(): Promise<{
   activeSignInPromise = (async () => {
     try {
       googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
-      // Standard Google user sign-in/sign-up (email & profile only, no Google Ads access requested)
       const result = await signInWithPopup(auth, googleAuthProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken || null;
+      if (accessToken) {
+        storeGoogleAdsToken(accessToken);
+      }
       return {
         user: result.user,
-        accessToken: null,
+        accessToken,
         credential,
       };
     } catch (error: any) {

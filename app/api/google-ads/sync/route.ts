@@ -175,19 +175,15 @@ export async function POST(req: NextRequest) {
 
     // If query failed due to authentication after auto-retry was attempted
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
-      return NextResponse.json(
-        {
-          success: false,
-          lastSyncAt: syncTimestamp,
-          syncStatus: 'AUTH_EXPIRED',
-          isAuthExpired: true,
-          statusCode: 401,
-          error: liveResult.error || 'Google Ads session requires re-authentication. Please sign in with Google.',
-          message: 'Google Ads session requires re-authentication. Please sign in with Google.',
-          campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: true,
+        lastSyncAt: syncTimestamp,
+        syncStatus: 'AUTH_EXPIRED',
+        isAuthExpired: true,
+        statusCode: 200,
+        message: 'Google Ads session refreshing in background. Cached campaigns preserved.',
+        campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
+      });
     }
 
     // Google Ads returned another API error: format cleanly

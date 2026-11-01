@@ -183,34 +183,7 @@ export function CampaignsFullView({
               </button>
             )}
 
-            {onOpenSyncCampaigns && (
-              <button
-                type="button"
-                onClick={onOpenSyncCampaigns}
-                disabled={isSyncing || syncCooldownRemaining > 0}
-                className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors border ${
-                  isSyncing
-                    ? 'bg-emerald-950/70 border-emerald-500/60 text-[#00d67d]'
-                    : syncCooldownRemaining > 0
-                    ? 'bg-slate-900/60 border-slate-700/50 text-slate-400 cursor-not-allowed opacity-80'
-                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-white cursor-pointer'
-                }`}
-                title={
-                  syncCooldownRemaining > 0
-                    ? `Protected by 10m developer quota cooldown (Optmyzr pattern). Next sync in ${Math.ceil(syncCooldownRemaining / 60)}m.`
-                    : 'Sync fresh data from Google Ads'
-                }
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#00d67d]' : 'text-slate-400'}`} />
-                <span>
-                  {isSyncing
-                    ? 'Syncing...'
-                    : syncCooldownRemaining > 0
-                    ? `Synced (${Math.ceil(syncCooldownRemaining / 60)}m)`
-                    : 'Sync Live'}
-                </span>
-              </button>
-            )}
+
 
             <a
               href="https://ads.google.com"
@@ -365,7 +338,7 @@ export function CampaignsFullView({
                     <div className="max-w-md mx-auto space-y-3">
                       <p className="text-sm font-semibold text-slate-700">No campaigns found</p>
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        Create a new Google Ads campaign above or sync with your connected Google Ads account.
+                        Create a new Google Ads campaign above or connect your Google Ads account to manage live campaigns.
                       </p>
                       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                         {onCreateCampaignClick && (

@@ -239,18 +239,6 @@ export function SettingsView({
               </div>
 
               <div className="flex items-center gap-2">
-                {onTestRefresh && (
-                  <button
-                    type="button"
-                    onClick={onTestRefresh}
-                    disabled={isSyncing}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
-                    title="Rotate access token using stored refresh token now"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
-                    <span>{isSyncing ? 'Renewing...' : 'Test Auto-Renewal'}</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setShowTokenInput(!showTokenInput)}

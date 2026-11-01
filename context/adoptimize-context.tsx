@@ -586,6 +586,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             refreshToken: activeRefreshTok,
             force: force,
             mode: 'structural',
+            cachedCampaigns: campaignsRef.current || [],
           }),
         });
 
@@ -665,6 +666,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               saveState(nextState);
               return nextState;
             });
+
+            if (user?.uid) {
+              freshCampaigns.forEach((fc) => {
+                saveCampaignToFirestore(user.uid, fc).catch(() => null);
+              });
+            }
           }
         }
       } catch (err) {
@@ -1084,20 +1091,21 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       }
 
       if (!res.ok || !data.success) {
-        const errorMsg = data.error || data.message || 'Sync failed. Check permissions.';
-        if (res.status !== 429 && !errorMsg.toLowerCase().includes('quota') && !errorMsg.toLowerCase().includes('rate limit')) {
-          setApiIssue({
-            message: errorMsg,
-            cid: state.account.clientCustomerId,
-            timestamp: new Date().toLocaleTimeString(),
-            severity: 'error',
-            statusCode: data.statusCode || res.status,
-            details: data.details,
-            accessibleCustomers: data.accessibleCustomers,
-            isAuthExpired: false,
-          });
+        const errorMsg = data.error || data.message || '';
+        const isAuthOrQuota =
+          res.status === 401 ||
+          res.status === 429 ||
+          errorMsg.toLowerCase().includes('expired') ||
+          errorMsg.toLowerCase().includes('session') ||
+          errorMsg.toLowerCase().includes('oauth') ||
+          errorMsg.toLowerCase().includes('credential') ||
+          errorMsg.toLowerCase().includes('unauthenticated') ||
+          errorMsg.toLowerCase().includes('quota') ||
+          errorMsg.toLowerCase().includes('rate limit');
+
+        if (!isAuthOrQuota && errorMsg) {
+          showToast(errorMsg);
         }
-        showToast(errorMsg);
         return;
       }
 

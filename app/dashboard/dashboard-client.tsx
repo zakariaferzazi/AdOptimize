@@ -620,10 +620,6 @@ export function DashboardClientView() {
             currency={account.currency}
             onSelectCampaign={(c) => setSelectedCampaign(c)}
             onToggleStatus={handleToggleCampaignStatus}
-            onOpenSyncCampaigns={handleSync}
-            isSyncing={isSyncing}
-            syncCooldownRemaining={syncCooldownRemaining}
-            lastSyncTimestamp={lastSyncTimestamp}
             onViewAll={() => router.push('/campaigns')}
           />
         </div>

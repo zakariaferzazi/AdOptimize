@@ -232,35 +232,6 @@ export function CampaignsTable({
             </button>
           </div>
 
-          {onOpenSyncCampaigns && (
-            <button
-              type="button"
-              onClick={onOpenSyncCampaigns}
-              disabled={isSyncing || syncCooldownRemaining > 0}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                isSyncing
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                  : syncCooldownRemaining > 0
-                  ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed opacity-80'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200/60 cursor-pointer'
-              }`}
-              title={
-                syncCooldownRemaining > 0
-                  ? `Protected by 10m developer quota cooldown (Optmyzr pattern). Next sync in ${Math.ceil(syncCooldownRemaining / 60)}m.`
-                  : 'Fetch fresh campaign statuses and metrics directly from Google Ads'
-              }
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
-              <span>
-                {isSyncing
-                  ? 'Syncing...'
-                  : syncCooldownRemaining > 0
-                  ? `Synced (${Math.ceil(syncCooldownRemaining / 60)}m)`
-                  : 'Sync Live Status'}
-              </span>
-            </button>
-          )}
-
           {onViewAll && (
             <button
               onClick={onViewAll}
@@ -333,19 +304,6 @@ export function CampaignsTable({
                         ? 'Google Ads accounts without campaigns or newly created campaigns will appear here once live synced.'
                         : 'Clear the search query or change status filter to inspect your ad groups.'}
                     </p>
-                    {campaigns.length === 0 && onOpenSyncCampaigns && (
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={onOpenSyncCampaigns}
-                          disabled={isSyncing}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-400' : 'text-emerald-400'}`} />
-                          <span>{isSyncing ? 'Syncing...' : 'Sync with Google Ads'}</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </td>
               </tr>
