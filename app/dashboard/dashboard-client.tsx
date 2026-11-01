@@ -71,6 +71,8 @@ export function DashboardClientView() {
     selectedCampaign,
     setSelectedCampaign,
     isSyncing,
+    syncCooldownRemaining,
+    lastSyncTimestamp,
     handleSync,
   } = useAdOptimize();
 
@@ -620,6 +622,8 @@ export function DashboardClientView() {
             onToggleStatus={handleToggleCampaignStatus}
             onOpenSyncCampaigns={handleSync}
             isSyncing={isSyncing}
+            syncCooldownRemaining={syncCooldownRemaining}
+            lastSyncTimestamp={lastSyncTimestamp}
             onViewAll={() => router.push('/campaigns')}
           />
         </div>

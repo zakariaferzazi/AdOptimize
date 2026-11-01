@@ -61,6 +61,26 @@ export async function POST(req: NextRequest) {
 
       console.warn(`[Sync API] Quota cooldown active until ${new Date(quotaCooldown.retryAfter).toLocaleTimeString()} (${remainingSec}s remaining). Serving cached data.`);
 
+      let fallbackCamps = Array.isArray(cachedCampaigns) && cachedCampaigns.length > 0 ? cachedCampaigns : [];
+      let fallbackKeys = Array.isArray(cachedKeywords) && cachedKeywords.length > 0 ? cachedKeywords : [];
+      let fallbackTerms = Array.isArray(cachedSearchTerms) && cachedSearchTerms.length > 0 ? cachedSearchTerms : [];
+
+      if (fallbackCamps.length === 0 && userId) {
+        try {
+          const { fetchUserCampaigns, fetchUserKeywords, fetchUserSearchTerms } = await import('@/lib/firestore-service');
+          const [camps, keys, terms] = await Promise.all([
+            fetchUserCampaigns(userId),
+            fetchUserKeywords(userId),
+            fetchUserSearchTerms(userId),
+          ]);
+          if (camps.length > 0) fallbackCamps = camps;
+          if (keys.length > 0) fallbackKeys = keys;
+          if (terms.length > 0) fallbackTerms = terms;
+        } catch (dbErr) {
+          console.warn('[Sync API] Could not load database campaigns during quota cooldown:', dbErr);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         lastSyncAt: syncTimestamp,
@@ -70,9 +90,9 @@ export async function POST(req: NextRequest) {
         retryDelaySeconds: remainingSec,
         quotaResetTime: quotaCooldown.retryAfter,
         message: quotaMsg,
-        campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
-        keywords: Array.isArray(cachedKeywords) ? cachedKeywords : [],
-        searchTerms: Array.isArray(cachedSearchTerms) ? cachedSearchTerms : [],
+        campaigns: fallbackCamps,
+        keywords: fallbackKeys,
+        searchTerms: fallbackTerms,
       });
     }
 

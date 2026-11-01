@@ -32,6 +32,8 @@ interface CampaignsTableProps {
   onOpenSyncCampaigns?: () => void;
   onToggleStatus?: (campaignId: string) => void;
   isSyncing?: boolean;
+  syncCooldownRemaining?: number;
+  lastSyncTimestamp?: number | null;
   selectedCampaignId?: string; // If filtered by top campaign selector
   period?: DateRangePeriod;
   customDays?: number;
@@ -48,6 +50,8 @@ export function CampaignsTable({
   onOpenSyncCampaigns,
   onToggleStatus,
   isSyncing = false,
+  syncCooldownRemaining = 0,
+  lastSyncTimestamp = null,
   selectedCampaignId = 'ALL',
   period = 'LAST_30_DAYS',
   customDays = 14,
@@ -232,12 +236,28 @@ export function CampaignsTable({
             <button
               type="button"
               onClick={onOpenSyncCampaigns}
-              disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-60 rounded-xl text-xs font-semibold transition-all cursor-pointer border border-slate-200/60"
-              title="Fetch live campaign statuses and metrics directly from Google Ads"
+              disabled={isSyncing || syncCooldownRemaining > 0}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                isSyncing
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : syncCooldownRemaining > 0
+                  ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed opacity-80'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200/60 cursor-pointer'
+              }`}
+              title={
+                syncCooldownRemaining > 0
+                  ? `Protected by 10m developer quota cooldown (Optmyzr pattern). Next sync in ${Math.ceil(syncCooldownRemaining / 60)}m.`
+                  : 'Fetch fresh campaign statuses and metrics directly from Google Ads'
+              }
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-600'}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Live Status'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
+              <span>
+                {isSyncing
+                  ? 'Syncing...'
+                  : syncCooldownRemaining > 0
+                  ? `Synced (${Math.ceil(syncCooldownRemaining / 60)}m)`
+                  : 'Sync Live Status'}
+              </span>
             </button>
           )}
 

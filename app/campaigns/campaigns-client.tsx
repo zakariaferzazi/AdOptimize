@@ -23,6 +23,8 @@ export function CampaignsClientView() {
     showToast,
     handleSync,
     isSyncing,
+    syncCooldownRemaining,
+    lastSyncTimestamp,
   } = useAdOptimize();
 
   const { account, campaigns, keywords, searchTerms } = state;
@@ -112,6 +114,8 @@ export function CampaignsClientView() {
         onCreateCampaignClick={() => setIsCreateModalOpen(true)}
         onOpenSyncCampaigns={handleSync}
         isSyncing={isSyncing}
+        syncCooldownRemaining={syncCooldownRemaining}
+        lastSyncTimestamp={lastSyncTimestamp}
         isMutatingId={mutatingCampaignId}
       />
 

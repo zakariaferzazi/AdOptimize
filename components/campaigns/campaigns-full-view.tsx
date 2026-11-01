@@ -38,6 +38,8 @@ interface CampaignsFullViewProps {
   onOpenSyncCampaigns?: () => void;
   onDeleteCampaign?: (campaignId: string) => void;
   isSyncing?: boolean;
+  syncCooldownRemaining?: number;
+  lastSyncTimestamp?: number | null;
   isMutatingId?: string | null;
 }
 
@@ -51,6 +53,8 @@ export function CampaignsFullView({
   onOpenSyncCampaigns,
   onDeleteCampaign,
   isSyncing = false,
+  syncCooldownRemaining = 0,
+  lastSyncTimestamp = null,
   isMutatingId = null,
 }: CampaignsFullViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,11 +187,28 @@ export function CampaignsFullView({
               <button
                 type="button"
                 onClick={onOpenSyncCampaigns}
-                disabled={isSyncing}
-                className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                disabled={isSyncing || syncCooldownRemaining > 0}
+                className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors border ${
+                  isSyncing
+                    ? 'bg-emerald-950/70 border-emerald-500/60 text-[#00d67d]'
+                    : syncCooldownRemaining > 0
+                    ? 'bg-slate-900/60 border-slate-700/50 text-slate-400 cursor-not-allowed opacity-80'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-white cursor-pointer'
+                }`}
+                title={
+                  syncCooldownRemaining > 0
+                    ? `Protected by 10m developer quota cooldown (Optmyzr pattern). Next sync in ${Math.ceil(syncCooldownRemaining / 60)}m.`
+                    : 'Sync fresh data from Google Ads'
+                }
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#00d67d]' : 'text-slate-400'}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Live'}</span>
+                <span>
+                  {isSyncing
+                    ? 'Syncing...'
+                    : syncCooldownRemaining > 0
+                    ? `Synced (${Math.ceil(syncCooldownRemaining / 60)}m)`
+                    : 'Sync Live'}
+                </span>
               </button>
             )}
 

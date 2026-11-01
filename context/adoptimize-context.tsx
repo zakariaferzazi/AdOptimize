@@ -97,13 +97,15 @@ interface AdOptimizeContextType {
   selectedCampaign: Campaign | null;
   setSelectedCampaign: (c: Campaign | null) => void;
   isSyncing: boolean;
+  syncCooldownRemaining: number;
+  lastSyncTimestamp: number | null;
   isTokenExpired: boolean;
   oauthToken: string | null;
   refreshToken: string | null;
   quotaResetAt: number | null;
   handleSignInWithGoogle: () => Promise<void>;
   handleSignOut: () => Promise<void>;
-  handleSync: () => Promise<void>;
+  handleSync: (force?: boolean) => Promise<void>;
   handleRefreshToken: (isSilent?: boolean) => Promise<string | null>;
   handleSaveRefreshToken: (refreshToken: string, clientSecret?: string) => Promise<boolean>;
   handleConnectAccount: (
@@ -172,6 +174,44 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     }
     return null;
   });
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('adoptimize_last_sync_timestamp');
+      if (stored) {
+        const val = Number(stored);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+    return null;
+  });
+  const [syncCooldownRemaining, setSyncCooldownRemaining] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('adoptimize_last_sync_timestamp');
+      if (stored) {
+        const val = Number(stored);
+        const elapsed = Date.now() - val;
+        if (elapsed < 10 * 60 * 1000) {
+          return Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
+        }
+      }
+    }
+    return 0;
+  });
+
+  // Cooldown countdown timer (1-second tick)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (lastSyncTimestamp) {
+        const elapsed = Date.now() - lastSyncTimestamp;
+        const remaining = Math.max(0, Math.ceil((10 * 60 * 1000 - elapsed) / 1000));
+        setSyncCooldownRemaining(remaining);
+      } else {
+        setSyncCooldownRemaining(0);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastSyncTimestamp]);
+
   const [apiIssue, setApiIssue] = useState<ApiIssue | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
@@ -600,45 +640,28 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     [isConnected, clientCustomerId, loginCustomerId, accountCurrency, user, getAccessTokenString, state.account, refreshToken]
   );
 
-  // Background synchronization: runs once on mount, then throttled 5-minute heartbeat and on window focus
+  // Optmyzr Architecture: Database-First State & Zero Aggressive Polling
+  // Page loads, tab switches, and window focus events read exclusively from local Firestore database.
+  // Live updates are streamed via Firestore real-time snapshot subscription (zero API quota used).
   useEffect(() => {
     if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
     }
 
-    // Initial sync on load
-    const initialSyncTimer = setTimeout(() => {
-      performBackgroundSync(true);
-    }, 200);
-
-    // Periodic 5-minute background sync (protects Explorer rate limits)
-    const intervalId = setInterval(() => {
-      performBackgroundSync(false);
-    }, 300000);
-
-    const handleWindowFocus = () => {
-      // Throttle window focus to minimum 2 minutes since last sync
-      if (Date.now() - lastSyncTimestampRef.current > 120000) {
+    // Passive low-frequency check: only runs once every 6 hours if account has not synced in > 6 hours
+    const passiveCheckInterval = setInterval(() => {
+      const now = Date.now();
+      const lastSync = lastSyncTimestampRef.current || (lastSyncTimestamp ? Number(lastSyncTimestamp) : 0);
+      const isQuotaActive = quotaResetAt && now < quotaResetAt;
+      if (!isQuotaActive && now - lastSync > 6 * 60 * 60 * 1000) {
         performBackgroundSync(false);
       }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastSyncTimestampRef.current > 120000) {
-        performBackgroundSync(false);
-      }
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    }, 60 * 60 * 1000); // Check once an hour if 6-hour threshold passed
 
     return () => {
-      clearTimeout(initialSyncTimer);
-      clearInterval(intervalId);
-      window.removeEventListener('focus', handleWindowFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(passiveCheckInterval);
     };
-  }, [isConnected, clientCustomerId, performBackgroundSync]);
+  }, [isConnected, clientCustomerId, quotaResetAt, lastSyncTimestamp, performBackgroundSync]);
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;
@@ -735,10 +758,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
    * 2. Attempts silent promptless GIS token acquisition
    * 3. Fallback: Prompts user in clean 1-click modal (only if not silent)
    */
-  const handleRefreshToken = async (isSilent = false): Promise<string | null> => {
+  const handleRefreshToken = async (isSilent = true): Promise<string | null> => {
     if (!isSilent) {
       setIsSyncing(true);
-      showToast('Refreshing Google Ads authorization...');
+      showToast('Refreshing Google Ads authorization in background...');
     }
     try {
       const activeRefreshTok =
@@ -747,7 +770,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         getStoredGoogleAdsRefreshToken() ||
         undefined;
 
-      // 1. First attempt: server-side token refresh via /api/google-ads/token/refresh using stored refresh token
+      if (!activeRefreshTok) {
+        console.warn('[Session] No refresh token available. Session active on cached credentials.');
+        return null;
+      }
+
+      // 1. First attempt: automated server-side token rotation via /api/google-ads/token/refresh
       const refreshRes = await fetch('/api/google-ads/token/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -779,14 +807,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
             });
           }
           if (!isSilent) {
-            showToast('Google Ads token refreshed automatically.');
+            showToast('Google Ads session refreshed automatically.');
           }
-          await performBackgroundSync(true, refreshData.accessToken);
           return refreshData.accessToken;
         }
       }
 
-      // 2. Second attempt: Silent GIS refresh without opening popup
+      // 2. Second attempt: Silent GIS token renewal without user-facing popup
       const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
       if (silentToken) {
         setOauthToken(silentToken);
@@ -803,40 +830,12 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         if (!isSilent) {
           showToast('Google Ads session renewed silently.');
         }
-        await performBackgroundSync(true, silentToken);
         return silentToken;
       }
 
-      // 3. Fallback: Prompt user to authorize cleanly in 1 click (only when explicit action, never in silent auto-renew)
-      if (!isSilent) {
-        const freshToken = await acquireGoogleAdsToken({
-          emailHint: user?.email || undefined,
-          forceFresh: true,
-        });
-
-        if (freshToken) {
-          setOauthToken(freshToken);
-          storeGoogleAdsToken(freshToken);
-          setIsTokenExpired(false);
-          if (user) {
-            saveUserAccount(user.uid, {
-              ...state.account,
-              accessToken: freshToken,
-              isTokenExpired: false,
-              lastSyncAt: new Date().toISOString(),
-            });
-          }
-          showToast('Google Ads session successfully refreshed.');
-          await performBackgroundSync(true, freshToken);
-          return freshToken;
-        }
-      }
       return null;
     } catch (err: any) {
-      const isClosed = err?.message?.includes('closed') || err?.code === 'auth/popup-closed-by-user';
-      if (!isClosed && !isSilent) {
-        showToast('Session refresh could not be completed.');
-      }
+      console.warn('[Session] Background refresh exception:', err);
       return null;
     } finally {
       if (!isSilent) {
@@ -870,7 +869,32 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     return Boolean(refreshed);
   };
 
-  const handleSync = async () => {
+  const handleSync = async (force = false) => {
+    if (!state.account.isConnected || !state.account.clientCustomerId || state.account.clientCustomerId === 'Not Connected') {
+      showToast('Please connect your Google Ads account first.');
+      return;
+    }
+
+    const now = Date.now();
+
+    // 1. Check if Developer Token explorer quota is cooling down
+    if (!force && quotaResetAt && now < quotaResetAt) {
+      const remainingSec = Math.round((quotaResetAt - now) / 1000);
+      const durationLabel =
+        remainingSec >= 3600
+          ? `~${(remainingSec / 3600).toFixed(1)}h`
+          : `${Math.ceil(remainingSec / 60)}m`;
+      showToast(`Google Ads Explorer quota resting (${durationLabel} remaining). Campaigns are active and serving from database.`);
+      return;
+    }
+
+    // 2. Optmyzr 10-minute button cooldown to protect Google Ads developer quota
+    if (!force && syncCooldownRemaining > 0) {
+      const remainingMin = Math.ceil(syncCooldownRemaining / 60);
+      showToast(`Data was synced recently (${remainingMin}m cooldown remaining to protect developer quota). Showing verified database data.`);
+      return;
+    }
+
     setIsSyncing(true);
     try {
       setApiIssue(null);
@@ -883,13 +907,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         undefined;
 
       // If token is missing, attempt seamless refresh with stored refresh token
-      if (!token) {
+      if (!token && activeRefreshTok) {
         const renewedToken = await handleRefreshToken(true);
         if (renewedToken) {
           token = renewedToken;
-        } else {
-          showToast('Please reconnect your Google Ads account.');
-          return;
         }
       }
 
@@ -903,6 +924,10 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           expiresAt: storedToken.expiresAt,
           userEmail: user?.email || undefined,
           userId: user?.uid || undefined,
+          forceRefresh: force,
+          cachedCampaigns: state.campaigns,
+          cachedKeywords: state.keywords,
+          cachedSearchTerms: state.searchTerms,
           loginCustomerId:
             state.account.loginCustomerId ||
             (typeof window !== 'undefined'
@@ -913,7 +938,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       let data = await res.json();
 
-      // If token expired / 401 unauthorized: auto-refresh using stored refresh token and retry immediately
+      // If token expired / 401: auto-refresh using stored refresh token and retry silently once
       if (!res.ok && (res.status === 401 || data.isAuthExpired)) {
         const renewedToken = await handleRefreshToken(true);
         if (renewedToken) {
@@ -927,6 +952,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
               refreshToken: activeRefreshTok,
               userEmail: user?.email || undefined,
               userId: user?.uid || undefined,
+              cachedCampaigns: state.campaigns,
+              cachedKeywords: state.keywords,
+              cachedSearchTerms: state.searchTerms,
               loginCustomerId:
                 state.account.loginCustomerId ||
                 (typeof window !== 'undefined'
@@ -948,20 +976,65 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         setRefreshToken(data.newRefreshToken);
       }
 
+      // Handle Quota Cooldown / Rate limit (HTTP 429 or RESOURCE_EXHAUSTED) gracefully
+      if (data.syncStatus === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
+        const resetTime = data.quotaResetTime || Date.now() + (data.retryDelaySeconds || 48430) * 1000;
+        setQuotaResetAt(resetTime);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('google_ads_quota_reset_at', String(resetTime));
+          } catch {}
+        }
+
+        const nowSyncTime = Date.now();
+        setLastSyncTimestamp(nowSyncTime);
+        setSyncCooldownRemaining(10 * 60);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('adoptimize_last_sync_timestamp', String(nowSyncTime));
+          } catch {}
+        }
+
+        setState((prev) => ({
+          ...prev,
+          account: {
+            ...prev.account,
+            syncStatus: 'QUOTA_PAUSED',
+            lastSyncAt: new Date().toISOString(),
+          },
+        }));
+
+        const remainingHours = ((resetTime - Date.now()) / 3600000).toFixed(1);
+        showToast(`Google Ads daily rate limit paused (~${remainingHours}h). Campaigns and metrics remain active from database cache.`);
+        return;
+      }
+
       if (!res.ok || !data.success) {
         const errorMsg = data.error || data.message || 'Sync failed. Check permissions.';
-        setApiIssue({
-          message: errorMsg,
-          cid: state.account.clientCustomerId,
-          timestamp: new Date().toLocaleTimeString(),
-          severity: 'error',
-          statusCode: data.statusCode || res.status,
-          details: data.details,
-          accessibleCustomers: data.accessibleCustomers,
-          isAuthExpired: false,
-        });
+        if (res.status !== 429 && !errorMsg.toLowerCase().includes('quota') && !errorMsg.toLowerCase().includes('rate limit')) {
+          setApiIssue({
+            message: errorMsg,
+            cid: state.account.clientCustomerId,
+            timestamp: new Date().toLocaleTimeString(),
+            severity: 'error',
+            statusCode: data.statusCode || res.status,
+            details: data.details,
+            accessibleCustomers: data.accessibleCustomers,
+            isAuthExpired: false,
+          });
+        }
         showToast(errorMsg);
         return;
+      }
+
+      // Successful live sync
+      const nowSyncTime = Date.now();
+      setLastSyncTimestamp(nowSyncTime);
+      setSyncCooldownRemaining(10 * 60); // 10 minutes cooldown (Optmyzr pattern)
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('adoptimize_last_sync_timestamp', String(nowSyncTime));
+        } catch {}
       }
 
       if (Array.isArray(data.campaigns)) {
@@ -1568,6 +1641,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         selectedCampaign,
         setSelectedCampaign,
         isSyncing,
+        syncCooldownRemaining,
+        lastSyncTimestamp,
         isTokenExpired,
         oauthToken,
         refreshToken,

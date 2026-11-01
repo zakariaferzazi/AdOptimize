@@ -56,6 +56,8 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
     selectedCampaign,
     setSelectedCampaign,
     isSyncing,
+    syncCooldownRemaining,
+    lastSyncTimestamp,
     handleSignInWithGoogle,
     handleSignOut,
     handleSync,
@@ -150,6 +152,8 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
           account={account}
           anomalies={anomalies}
           isSyncing={isSyncing}
+          syncCooldownRemaining={syncCooldownRemaining}
+          lastSyncTimestamp={lastSyncTimestamp}
           user={user}
           authLoading={authLoading}
           onRefreshSync={handleSync}
@@ -170,8 +174,8 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
 
         {/* Dynamic View Container */}
         <main className="flex-1 px-3.5 sm:px-6 lg:px-8 pb-10 space-y-6 max-w-7xl w-full mx-auto min-w-0">
-          {/* Real Google Ads API Issue Alert Banner */}
-          {apiIssue && (
+          {/* Real Google Ads API Issue Alert Banner (exclude 429 quota cooldown so cached database data renders smoothly) */}
+          {apiIssue && apiIssue.statusCode !== 429 && !apiIssue.message.toLowerCase().includes('quota') && !apiIssue.message.toLowerCase().includes('rate limit') && (
             <div className="bg-rose-50/95 border-2 border-rose-300 rounded-3xl p-5 shadow-sm text-slate-900 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3.5">
@@ -325,7 +329,7 @@ export function AppShell({ children, title, headerExtra }: AppShellProps) {
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
         account={account}
-        onSync={handleSync}
+        onSync={() => handleSync(true)}
         isSyncing={isSyncing}
       />
 
