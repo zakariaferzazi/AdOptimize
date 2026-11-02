@@ -275,12 +275,14 @@ function extractGoogleAdsError(
     }
 
     let message = detailMsg || mainMsg || `Google Ads API Error (HTTP ${status})`;
-    if (status === 401 || String(message).toLowerCase().includes('invalid authentication credentials')) {
-      message = 'Google Ads Verification Error: Request had invalid or expired authentication credentials. Please re-authenticate your Google Ads account to renew your OAuth session.';
+    const isAuth = status === 401 || String(message).toLowerCase().includes('invalid authentication credentials');
+    if (isAuth) {
+      message = 'Google Ads session refreshing in background.';
     }
     return {
       error: errorCodeStr ? `${message} (${errorCodeStr})` : message,
       details: data.error.details ? JSON.stringify(data.error.details) : (data.error.message || undefined),
+      isAuthExpired: isAuth,
       isQuotaExhausted: false,
     };
   }
@@ -1721,11 +1723,23 @@ export async function fetchStructuralEntities(
     };
 
     for (const version of GOOGLE_ADS_API_VERSIONS) {
-      const res = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
+      let res = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: gaqlQuery }),
       });
+
+      // If 403: retry with cleanCid as login-customer-id
+      if (res.status === 403 && !loginCustomerId) {
+        const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
+          method: 'POST',
+          headers: { ...headers, 'login-customer-id': cleanCid },
+          body: JSON.stringify({ query: gaqlQuery }),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      }
 
       const parsed = await safeParseResponse(res);
 

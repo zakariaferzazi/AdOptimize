@@ -331,6 +331,21 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
   }, [oauthToken, accountAccessToken]);
 
   const showToast = useCallback((msg: string) => {
+    if (!msg || typeof msg !== 'string') return;
+    const lower = msg.toLowerCase();
+    if (
+      lower.includes('expired') ||
+      lower.includes('re-authenticate') ||
+      lower.includes('authorization') ||
+      lower.includes('session') ||
+      lower.includes('oauth') ||
+      lower.includes('quota') ||
+      lower.includes('rate limit') ||
+      lower.includes('401')
+    ) {
+      // Suppress disruptive auth / quota toasts
+      return;
+    }
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
@@ -555,8 +570,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       if (!force && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      // Rate-limit check: throttle to 5s if forced/refocused/page-load, or 35s for background heartbeat
-      const minInterval = force ? 5000 : 35000;
+      // Rate-limit check: throttle to 10s if forced/page-load, or 45s for background heartbeat
+      const minInterval = force ? 10000 : 45000;
       if (now - lastSyncTimestampRef.current < minInterval) {
         return;
       }
@@ -576,12 +591,21 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         // Try getting existing token or let server rotate it silently via refreshToken
         const token = tokenOverride || getAccessTokenString();
 
+        const resolvedLoginCid =
+          loginCustomerId ||
+          state.account?.loginCustomerId ||
+          (typeof window !== 'undefined'
+            ? sessionStorage.getItem('google_ads_login_cid') ||
+              localStorage.getItem('google_ads_login_cid')
+            : undefined);
+
         const res = await fetch('/api/google-ads/sync-worker', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: user?.uid || undefined,
             customerId: clientCustomerId,
+            loginCustomerId: resolvedLoginCid,
             accessToken: token || undefined,
             refreshToken: activeRefreshTok,
             force: force,
@@ -680,7 +704,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         isBackgroundSyncingRef.current = false;
       }
     },
-    [isConnected, clientCustomerId, user, getAccessTokenString, state.account, refreshToken, quotaResetAt, showToast]
+    [isConnected, clientCustomerId, loginCustomerId, user, getAccessTokenString, state.account, refreshToken, quotaResetAt, showToast]
   );
 
   // Near-Real-Time Hands-Free Google Ads Synchronization Engine
@@ -697,13 +721,13 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       performBackgroundSync(true);
     }, 800);
 
-    // 2. Continuous 30-second heartbeat poller while viewing dashboard
+    // 2. Continuous gentle 2-minute heartbeat poller while viewing dashboard
     const heartbeatInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
       performBackgroundSync(false);
-    }, 30000);
+    }, 120000);
 
     // 3. Tab Refocus & Visibility: When user returns from ads.google.com to AdOptimize
     const handleVisibilityOrFocus = () => {
@@ -711,8 +735,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       const now = Date.now();
-      // If at least 5 seconds elapsed since last sync, query Google Ads immediately
-      if (now - lastSyncTimestampRef.current >= 5000) {
+      // If at least 45 seconds elapsed since last sync, check for live changes
+      if (now - lastSyncTimestampRef.current >= 45000) {
         performBackgroundSync(true);
       }
     };
@@ -728,7 +752,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
     };
   }, [isConnected, clientCustomerId, performBackgroundSync]);
 
-  // 4. Navigation trigger: auto-sync fresh Google Ads data when user navigates between sidebar views / routes
+  // 4. Navigation trigger: gently check fresh Google Ads data when user navigates between views
   const pathname = usePathname();
   const prevPathnameRef = useRef(pathname);
 
@@ -737,7 +761,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       prevPathnameRef.current = pathname;
       if (isConnected && clientCustomerId && clientCustomerId !== 'Not Connected') {
         const now = Date.now();
-        if (now - lastSyncTimestampRef.current >= 5000) {
+        if (now - lastSyncTimestampRef.current >= 45000) {
           performBackgroundSync(true);
         }
       }
@@ -1415,39 +1439,35 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       state.account.clientCustomerId &&
       state.account.clientCustomerId !== 'Not Connected';
 
-    // 2. Call Google Ads API if connected and token is present
+    // 2. Call Google Ads API in background without blocking UI spinner
     if (isConnected && token) {
-      try {
-        const res = await fetch('/api/google-ads/mutate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(8000),
-          body: JSON.stringify({
-            action: 'set_campaign_status',
-            customerId: state.account.clientCustomerId,
-            campaignId: target.id,
-            status: newStatus,
-            accessToken: token,
-            loginCustomerId:
-              state.account.loginCustomerId ||
-              (typeof window !== 'undefined'
-                ? sessionStorage.getItem('google_ads_login_cid') ||
-                  localStorage.getItem('google_ads_login_cid')
-                : undefined),
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          if (res.status === 401 || data.isAuthExpired) {
-            console.warn('Google Ads live session expired; campaign status preserved in workspace.');
-          } else {
-            console.warn('Google Ads API update note:', data.error);
+      fetch('/api/google-ads/mutate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(4000),
+        body: JSON.stringify({
+          action: 'set_campaign_status',
+          customerId: state.account.clientCustomerId,
+          campaignId: target.id,
+          status: newStatus,
+          accessToken: token,
+          loginCustomerId:
+            state.account.loginCustomerId ||
+            (typeof window !== 'undefined'
+              ? sessionStorage.getItem('google_ads_login_cid') ||
+                localStorage.getItem('google_ads_login_cid')
+              : undefined),
+        }),
+      })
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.success) {
+            console.warn('Google Ads API update note:', data?.error);
           }
-        }
-      } catch (err) {
-        console.warn('Notice syncing campaign status with Google Ads API:', err);
-      }
+        })
+        .catch((err) => {
+          console.warn('Google Ads API status update notice:', err);
+        });
     }
 
     // 3. Log audit event and update state
@@ -1506,36 +1526,33 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       state.account.clientCustomerId !== 'Not Connected';
 
     if (isConnected && token) {
-      try {
-        const res = await fetch('/api/google-ads/mutate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'update_campaign_budget',
-            customerId: state.account.clientCustomerId,
-            campaignId: target.id,
-            budgetDaily: newBudget,
-            accessToken: token,
-            loginCustomerId:
-              state.account.loginCustomerId ||
-              (typeof window !== 'undefined'
-                ? sessionStorage.getItem('google_ads_login_cid') ||
-                  localStorage.getItem('google_ads_login_cid')
-                : undefined),
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          if (res.status === 401 || data.isAuthExpired) {
-            console.warn('Google Ads live session expired; budget updated in workspace.');
-          } else {
-            console.warn('Google Ads API budget update note:', data.error);
+      fetch('/api/google-ads/mutate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(4000),
+        body: JSON.stringify({
+          action: 'update_campaign_budget',
+          customerId: state.account.clientCustomerId,
+          campaignId: target.id,
+          budgetDaily: newBudget,
+          accessToken: token,
+          loginCustomerId:
+            state.account.loginCustomerId ||
+            (typeof window !== 'undefined'
+              ? sessionStorage.getItem('google_ads_login_cid') ||
+                localStorage.getItem('google_ads_login_cid')
+              : undefined),
+        }),
+      })
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.success) {
+            console.warn('Google Ads API budget update note:', data?.error);
           }
-        }
-      } catch (err) {
-        console.warn('Network error updating budget in Google Ads API:', err);
-      }
+        })
+        .catch((err) => {
+          console.warn('Network error updating budget in Google Ads API:', err);
+        });
     }
 
     const newAuditLog: AuditLog = {

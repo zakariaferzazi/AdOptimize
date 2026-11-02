@@ -23,7 +23,8 @@ async function processUserSync(
   incomingAccessToken?: string,
   incomingRefreshToken?: string,
   incomingCustomerId?: string,
-  incomingCachedCampaigns?: Campaign[]
+  incomingCachedCampaigns?: Campaign[],
+  loginCustomerId?: string
 ): Promise<{
   success: boolean;
   userId?: string;
@@ -107,7 +108,7 @@ async function processUserSync(
           forceRefresh: force,
         },
         async (activeToken: string) => {
-          return fetchStructuralEntities(cleanCid, activeToken, devToken);
+          return fetchStructuralEntities(cleanCid, activeToken, devToken, loginCustomerId);
         }
       );
 
@@ -323,6 +324,7 @@ export async function POST(req: NextRequest) {
       force = false,
       mode = 'structural',
       cachedCampaigns = [],
+      loginCustomerId,
     } = body;
 
     const result = await processUserSync(
@@ -332,7 +334,8 @@ export async function POST(req: NextRequest) {
       accessToken,
       refreshToken,
       customerId,
-      cachedCampaigns
+      cachedCampaigns,
+      loginCustomerId
     );
     return NextResponse.json(result);
   } catch (err: any) {

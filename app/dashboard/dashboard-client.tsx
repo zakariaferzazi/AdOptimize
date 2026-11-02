@@ -341,72 +341,7 @@ export function DashboardClientView() {
         <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Left: Campaign & Date Selectors */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            {/* 1. Campaign Selector */}
-            <div ref={campaignDropdownRef} className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCampaignDropdown(!showCampaignDropdown);
-                  setShowDateDropdown(false);
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs hover:bg-slate-100 text-xs text-slate-700 transition-colors cursor-pointer"
-              >
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-semibold text-slate-900 truncate max-w-[130px] sm:max-w-[200px]">
-                  {selectedCampaignObj ? selectedCampaignObj.name : `All Campaigns (${campaigns.length})`}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              </button>
-
-              {showCampaignDropdown && (
-                <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
-                  <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                    Filter by Campaign
-                  </div>
-                  <div className="p-1 space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectCampaign('ALL')}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                        selectedCampaignId === 'ALL'
-                          ? 'bg-emerald-50 text-emerald-900 font-bold'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>All Campaigns</span>
-                      <span className="text-[11px] font-mono text-slate-400">{campaigns.length} total</span>
-                    </button>
-
-                    {campaigns.map((camp) => (
-                      <button
-                        key={camp.id}
-                        type="button"
-                        onClick={() => handleSelectCampaign(camp.id)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                          selectedCampaignId === camp.id
-                            ? 'bg-emerald-50 text-emerald-900 font-bold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 pr-2">
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              camp.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`}
-                          />
-                          <span className="truncate">{camp.name}</span>
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                          {getCurrencySymbol(account.currency)}{Number(camp.spend || 0).toFixed(0)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 2. Date Range Selector */}
+            {/* Date Range Selector */}
             <div ref={dateDropdownRef} className="relative">
               <button
                 type="button"
@@ -501,21 +436,7 @@ export function DashboardClientView() {
               )}
             </div>
 
-            {/* Active Filter Pill */}
-            {selectedCampaignObj && (
-              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-xl text-xs font-semibold flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${selectedCampaignObj.status === 'ENABLED' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                <span className="truncate max-w-[130px]">{selectedCampaignObj.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleSelectCampaign('ALL')}
-                  className="hover:text-rose-600 ml-0.5 cursor-pointer font-bold"
-                  title="Clear filter"
-                >
-                  ×
-                </button>
-              </span>
-            )}
+
           </div>
 
           {/* Right: Info & Customize KPIs Button */}
