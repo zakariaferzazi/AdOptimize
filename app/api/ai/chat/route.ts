@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendOpenRouterChat, ChatCompletionMessage, resolveModelId, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
 import { GOOGLE_ADS_TOOL_DEFINITIONS, executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
 import { ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
+import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 /**
  * Intelligent deterministic optimization engine.
@@ -98,11 +99,12 @@ async function synthesizeDeterministicGoogleAdsResponse(
   }
 
   // Synthesize Markdown Content
+  const sym = getCurrencySymbol(account.currency);
   const totalSpend = campaigns.reduce((s, c) => s + (c.spend || 0), 0);
   const totalConv = campaigns.reduce((s, c) => s + (c.conversions || 0), 0);
   const blendedCpa = totalConv > 0 ? totalSpend / totalConv : 0;
   const totalVal = campaigns.reduce((s, c) => s + (c.conversionValue || 0), 0);
-  const accountRoas = totalSpend > 0 ? (totalVal > 0 ? totalVal / totalSpend : (totalConv * 80) / totalSpend) : 0;
+  const accountRoas = totalSpend > 0 ? totalVal / totalSpend : 0;
 
   const bleeders = campaigns.filter((c) => c.conversions === 0 && c.spend >= 40);
   const totalBleederSpend = bleeders.reduce((s, c) => s + c.spend, 0);
@@ -111,16 +113,16 @@ async function synthesizeDeterministicGoogleAdsResponse(
 
   if (isWasted) {
     reply = `## Executive Summary
-I have audited your active campaigns, auction logs, and search queries for **${account.accountName}**. We detected **$${totalBleederSpend.toFixed(2)}** in non-converting ad spend that can be eliminated or reclaimed immediately.
+I have audited your active campaigns, auction logs, and search queries for **${account.accountName}**. We detected **${sym}${totalBleederSpend.toFixed(2)}** in non-converting ad spend that can be eliminated or reclaimed immediately.
 
 ## Key Findings
-- **Zero-Conversion Bleeders**: **${bleeders.length}** campaign${bleeders.length !== 1 ? 's' : ''} consumed **$${totalBleederSpend.toFixed(2)}** without generating any conversions.
+- **Zero-Conversion Bleeders**: **${bleeders.length}** campaign${bleeders.length !== 1 ? 's' : ''} consumed **${sym}${totalBleederSpend.toFixed(2)}** without generating any conversions.
 - **Search Query Leakage**: Several broad match queries accrued clicks on non-buying traffic.
-- **Blended Account CPA**: Currently **$${blendedCpa.toFixed(2)}** across **${totalConv}** conversions.
+- **Blended Account CPA**: Currently **${totalConv > 0 ? `${sym}${blendedCpa.toFixed(2)}` : '—'}** across **${totalConv}** conversions.
 
-| Campaign | Status | 7d Spend | Conversions | CPA | Action |
+| Campaign | Status | Spend | Conversions | CPA | Action |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-${campaigns.slice(0, 5).map((c) => `| **${c.name}** | ${c.status} | $${c.spend.toFixed(2)} | ${c.conversions} | $${c.cpa.toFixed(2)} | ${c.conversions === 0 ? 'Pause / Cut Budget' : 'Scale'} |`).join('\n')}
+${campaigns.slice(0, 5).map((c) => `| **${c.name}** | ${c.status} | ${sym}${c.spend.toFixed(2)} | ${c.conversions} | ${c.conversions > 0 ? `${sym}${c.cpa.toFixed(2)}` : '—'} | ${c.conversions === 0 ? 'Pause / Cut Budget' : 'Scale'} |`).join('\n')}
 
 ## Root Cause Analysis
 1. **Unconstrained Broad Match**: Search queries are matching informational searches rather than high commercial intent.
@@ -139,14 +141,14 @@ ${campaigns.slice(0, 5).map((c) => `| **${c.name}** | ${c.status} | $${c.spend.t
 I analyzed your daily pacing across **${campaigns.length} campaigns** to evaluate marginal return on ad spend (ROAS).
 
 ## Key Allocation Findings
-- **Top Efficiency Campaign**: **${topCamp?.name}** is generating **${(topCamp?.roas || 3.8).toFixed(2)}x ROAS** with an average CPA of **$${(topCamp?.cpa || 24).toFixed(2)}**.
-- **Underperforming Campaign**: **${lowestCamp?.name}** is operating at **${(lowestCamp?.roas || 1.1).toFixed(2)}x ROAS** ($${(lowestCamp?.cpa || 85).toFixed(2)} CPA).
-- **Projected Opportunity**: Reallocating **$15.00/day** from ${lowestCamp?.name} to ${topCamp?.name} will generate approximately **+$380.00/month** in additional conversion value.
+- **Top Efficiency Campaign**: **${topCamp?.name}** is generating **${(topCamp?.roas || 0).toFixed(2)}x ROAS** with an average CPA of **${topCamp?.conversions ? `${sym}${topCamp.cpa.toFixed(2)}` : '—'}**.
+- **Underperforming Campaign**: **${lowestCamp?.name}** is operating at **${(lowestCamp?.roas || 0).toFixed(2)}x ROAS** (${lowestCamp?.conversions ? `${sym}${lowestCamp.cpa.toFixed(2)} CPA` : '0 conversions'}).
+- **Projected Opportunity**: Reallocating **${sym}15.00/day** from ${lowestCamp?.name} to ${topCamp?.name} will reallocate ad spend directly into verified converting auctions.
 
 | Campaign | Current Daily Budget | Proposed Daily Budget | Net Shift | Expected Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| **${lowestCamp?.name}** | $${(lowestCamp?.budgetDaily || 50).toFixed(2)}/day | $${Math.max(10, Math.round((lowestCamp?.budgetDaily || 50) * 0.75)).toFixed(2)}/day | -$${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Cut wasted ad spend |
-| **${topCamp?.name}** | $${(topCamp?.budgetDaily || 75).toFixed(2)}/day | $${Math.round((topCamp?.budgetDaily || 75) + ((lowestCamp?.budgetDaily || 50) * 0.25)).toFixed(2)}/day | +$${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Scale high-ROAS conversions |
+| **${lowestCamp?.name}** | ${sym}${(lowestCamp?.budgetDaily || 50).toFixed(2)}/day | ${sym}${Math.max(10, Math.round((lowestCamp?.budgetDaily || 50) * 0.75)).toFixed(2)}/day | -${sym}${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Cut wasted ad spend |
+| **${topCamp?.name}** | ${sym}${(topCamp?.budgetDaily || 75).toFixed(2)}/day | ${sym}${Math.round((topCamp?.budgetDaily || 75) + ((lowestCamp?.budgetDaily || 50) * 0.25)).toFixed(2)}/day | +${sym}${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Scale high-ROAS conversions |
 
 ## Recommended Next Steps
 Ask me to prepare the budget update for any campaign when you are ready to review and apply the change in Google Ads.`;

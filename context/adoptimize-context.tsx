@@ -993,10 +993,9 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    // 2. Optmyzr 10-minute button cooldown to protect Google Ads developer quota
-    if (!force && syncCooldownRemaining > 0) {
-      const remainingMin = Math.ceil(syncCooldownRemaining / 60);
-      showToast(`Data was synced recently (${remainingMin}m cooldown remaining to protect developer quota). Showing verified database data.`);
+    // 2. Debounce cooldown (5 seconds) to prevent accidental double clicks while allowing immediate sync
+    if (!force && syncCooldownRemaining > 595) {
+      showToast('Syncing is already in progress. Please wait a moment.');
       return;
     }
 
@@ -1136,7 +1135,7 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
       // Successful live sync
       const nowSyncTime = Date.now();
       setLastSyncTimestamp(nowSyncTime);
-      setSyncCooldownRemaining(10 * 60); // 10 minutes cooldown (Optmyzr pattern)
+      setSyncCooldownRemaining(5); // 5 seconds debounce
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('adoptimize_last_sync_timestamp', String(nowSyncTime));
@@ -1145,6 +1144,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
 
       if (Array.isArray(data.campaigns)) {
         const detectedCurrency = data.currency || state.account.currency || 'USD';
+        const detectedTimezone = data.timeZone || state.account.timezone || 'UTC';
+        const detectedAccountName = data.accountName || state.account.accountName;
         const enabledCount = data.campaigns.filter((c: any) => c.status === 'ENABLED').length;
         const pausedCount = data.campaigns.filter((c: any) => c.status === 'PAUSED').length;
 
@@ -1157,6 +1158,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           account: {
             ...prev.account,
             currency: detectedCurrency,
+            timezone: detectedTimezone,
+            accountName: detectedAccountName,
             lastSyncAt: new Date().toISOString(),
             syncStatus: 'SYNCED',
             totalCampaignsCount: data.campaigns.length,
@@ -1170,6 +1173,8 @@ export function AdOptimizeProvider({ children }: { children: React.ReactNode }) 
           saveUserAccount(user.uid, {
             ...state.account,
             currency: detectedCurrency,
+            timezone: detectedTimezone,
+            accountName: detectedAccountName,
             lastSyncAt: new Date().toISOString(),
             syncStatus: 'SYNCED',
             totalCampaignsCount: data.campaigns.length,

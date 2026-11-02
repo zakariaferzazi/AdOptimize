@@ -98,186 +98,18 @@ export function CampaignAnalysisPage({
   >('spend');
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
-  // Filter items for this campaign (with contextual fallback if Google Ads API only returned campaign-level data)
+  // Filter items for this campaign strictly from Google Ads data
   const campaignKeywords = useMemo(() => {
-    const existing = keywords.filter((k) => k.campaignId === campaign.id);
-    if (existing.length > 0) return existing;
-
-    const words = String(campaign.name || 'Core Service').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).filter((w) => w.length > 2);
-    const w1 = words[0] || 'service';
-    const w2 = words[1] || 'solutions';
-    const baseSpend = Number(campaign.allTimeSpend ?? campaign.spend ?? 120);
-    const baseClicks = Number(campaign.allTimeClicks ?? campaign.clicks ?? 40);
-
-    return [
-      {
-        id: `kw-${campaign.id}-1`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        keyword: `${w1} ${w2}`,
-        matchType: 'PHRASE' as const,
-        spend: Number((baseSpend * 0.28).toFixed(2)),
-        clicks: Math.max(1, Math.round(baseClicks * 0.3)),
-        impressions: Math.max(20, Math.round(baseClicks * 4.5)),
-        ctr: 6.8,
-        cpc: Number((baseSpend * 0.28 / Math.max(1, Math.round(baseClicks * 0.3))).toFixed(2)),
-        conversions: Math.max(1, Math.round(campaign.conversions || 2)),
-        cpa: Number(campaign.cpa || 28),
-        qualityScore: 9,
-        status: 'ENABLED' as const,
-        flag: 'TOP_PERFORMER' as const,
-      },
-      {
-        id: `kw-${campaign.id}-2`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        keyword: `best ${w1} company`,
-        matchType: 'EXACT' as const,
-        spend: Number((baseSpend * 0.22).toFixed(2)),
-        clicks: Math.max(1, Math.round(baseClicks * 0.25)),
-        impressions: Math.max(15, Math.round(baseClicks * 3.8)),
-        ctr: 7.2,
-        cpc: Number((baseSpend * 0.22 / Math.max(1, Math.round(baseClicks * 0.25))).toFixed(2)),
-        conversions: Math.max(1, Math.round(campaign.conversions || 2)),
-        cpa: Number(campaign.cpa || 24),
-        qualityScore: 8,
-        status: 'ENABLED' as const,
-        flag: 'TOP_PERFORMER' as const,
-      },
-      {
-        id: `kw-${campaign.id}-3`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        keyword: `hire ${w1} professional`,
-        matchType: 'PHRASE' as const,
-        spend: Number((baseSpend * 0.18).toFixed(2)),
-        clicks: Math.max(1, Math.round(baseClicks * 0.18)),
-        impressions: Math.max(12, Math.round(baseClicks * 3.2)),
-        ctr: 5.6,
-        cpc: Number((baseSpend * 0.18 / Math.max(1, Math.round(baseClicks * 0.18))).toFixed(2)),
-        conversions: Math.max(0, Math.round(campaign.conversions || 1)),
-        cpa: Number(campaign.cpa || 32),
-        qualityScore: 7,
-        status: 'ENABLED' as const,
-        flag: 'NORMAL' as const,
-      },
-      {
-        id: `kw-${campaign.id}-4`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        keyword: `cheap ${w1} free download`,
-        matchType: 'BROAD' as const,
-        spend: Number((baseSpend * 0.14).toFixed(2)),
-        clicks: Math.max(1, Math.round(baseClicks * 0.14)),
-        impressions: Math.max(30, Math.round(baseClicks * 6)),
-        ctr: 2.3,
-        cpc: Number((baseSpend * 0.14 / Math.max(1, Math.round(baseClicks * 0.14))).toFixed(2)),
-        conversions: 0,
-        cpa: Number((baseSpend * 0.14).toFixed(2)),
-        qualityScore: 4,
-        status: 'ENABLED' as const,
-        flag: 'HIGH_SPEND_ZERO_CONV' as const,
-      },
-    ];
-  }, [keywords, campaign]);
+    return keywords.filter((k) => k.campaignId === campaign.id);
+  }, [keywords, campaign.id]);
 
   const campaignSearchTerms = useMemo(() => {
-    const existing = searchTerms.filter((s) => s.campaignId === campaign.id);
-    if (existing.length > 0) return existing;
-
-    const words = String(campaign.name || 'Core Service').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).filter((w) => w.length > 2);
-    const w1 = words[0] || 'service';
-    const baseSpend = Number(campaign.allTimeSpend ?? campaign.spend ?? 100);
-
-    return [
-      {
-        id: `st-${campaign.id}-1`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        searchTerm: `${w1} pricing plans review`,
-        impressions: 120,
-        clicks: 18,
-        spend: Number((baseSpend * 0.24).toFixed(2)),
-        conversions: 2,
-        cpa: Number(((baseSpend * 0.24) / 2).toFixed(2)),
-        intentRelevance: 'HIGH' as const,
-        recommendedAction: 'ADD_KEYWORD' as const,
-        wastedSpendEstimate: 0,
-        status: 'ACTIVE' as const,
-      },
-      {
-        id: `st-${campaign.id}-2`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        searchTerm: `free ${w1} crack download`,
-        impressions: 95,
-        clicks: 14,
-        spend: Number((baseSpend * 0.15).toFixed(2)),
-        conversions: 0,
-        cpa: Number((baseSpend * 0.15).toFixed(2)),
-        intentRelevance: 'LOW' as const,
-        recommendedAction: 'ADD_NEGATIVE' as const,
-        wastedSpendEstimate: Number((baseSpend * 0.15).toFixed(2)),
-        status: 'ACTIVE' as const,
-      },
-      {
-        id: `st-${campaign.id}-3`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        searchTerm: `how to cancel ${w1} subscription`,
-        impressions: 60,
-        clicks: 8,
-        spend: Number((baseSpend * 0.12).toFixed(2)),
-        conversions: 0,
-        cpa: Number((baseSpend * 0.12).toFixed(2)),
-        intentRelevance: 'LOW' as const,
-        recommendedAction: 'ADD_NEGATIVE' as const,
-        wastedSpendEstimate: Number((baseSpend * 0.12).toFixed(2)),
-        status: 'ACTIVE' as const,
-      },
-      {
-        id: `st-${campaign.id}-4`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        searchTerm: `best enterprise ${w1} solution`,
-        impressions: 140,
-        clicks: 22,
-        spend: Number((baseSpend * 0.28).toFixed(2)),
-        conversions: 3,
-        cpa: Number(((baseSpend * 0.28) / 3).toFixed(2)),
-        intentRelevance: 'HIGH' as const,
-        recommendedAction: 'ADD_KEYWORD' as const,
-        wastedSpendEstimate: 0,
-        status: 'ACTIVE' as const,
-      },
-    ];
-  }, [searchTerms, campaign]);
+    return searchTerms.filter((s) => s.campaignId === campaign.id);
+  }, [searchTerms, campaign.id]);
 
   const campaignAds = useMemo(() => {
-    const existing = ads.filter((a) => a.campaignId === campaign.id);
-    if (existing.length > 0) return existing;
-
-    const words = String(campaign.name || 'Core Service').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).filter((w) => w.length > 2);
-    const w1 = words[0] || 'Official';
-    return [
-      {
-        id: `ad-${campaign.id}-1`,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        headline1: `${w1} Solutions 2026`,
-        headline2: 'Automate & Optimize Today',
-        headline3: 'Official Partner Site',
-        description1: `Award-winning ${w1} performance platform. Start optimizing conversions with active monitoring.`,
-        description2: 'Trusted by 10,000+ businesses worldwide. Free initial audit and instant setup.',
-        finalUrl: `https://${w1.toLowerCase()}.com/overview`,
-        adStrength: 'EXCELLENT' as const,
-        aiCritique: 'High relevance headlines matching commercial search intent. CTR is tracking above industry averages.',
-        ctr: Number((campaign.ctr || 5.2).toFixed(2)),
-        conversions: Number(campaign.conversions || 8),
-        cpa: Number(campaign.cpa || 28),
-      },
-    ];
-  }, [ads, campaign]);
+    return ads.filter((a) => a.campaignId === campaign.id);
+  }, [ads, campaign.id]);
 
   const campaignInsights = useMemo(
     () => insights.filter((i) => i.campaignId === campaign.id),
@@ -981,52 +813,60 @@ export function CampaignAnalysisPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono">
-                    {campaignKeywords.map((kw) => (
-                      <tr key={kw.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-sans font-semibold text-slate-900">
-                          <div className="flex items-center gap-2">
-                            <span>{kw.keyword}</span>
-                            {kw.flag === 'TOP_PERFORMER' && (
-                              <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded font-sans">
-                                Top Winner
-                              </span>
-                            )}
-                            {kw.flag === 'HIGH_SPEND_ZERO_CONV' && (
-                              <span className="text-[10px] bg-rose-50 text-rose-700 font-bold px-1.5 py-0.5 rounded font-sans">
-                                Bleeder
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3 text-[11px] text-slate-500 uppercase">{kw.matchType}</td>
-                        <td className="py-3.5 px-3 text-right">${Number(kw.spend || 0).toFixed(2)}</td>
-                        <td className="py-3.5 px-3 text-right">{kw.clicks}</td>
-                        <td className="py-3.5 px-3 text-right font-bold text-slate-900">{kw.conversions}</td>
-                        <td className="py-3.5 px-3 text-right font-bold">
-                          <span className={kw.cpa > 80 ? 'text-rose-600' : 'text-slate-900'}>
-                            ${Number(kw.cpa || 0).toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-bold ${
-                              kw.qualityScore >= 8
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : kw.qualityScore <= 4
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {kw.qualityScore}/10
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-right">
-                          <span className="text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                            {kw.status || 'ENABLED'}
-                          </span>
+                    {campaignKeywords.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
+                          No targeted keywords returned for this campaign. (Non-Search campaigns such as Performance Max and Display do not use standalone keywords).
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      campaignKeywords.map((kw) => (
+                        <tr key={kw.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4 font-sans font-semibold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <span>{kw.keyword}</span>
+                              {kw.flag === 'TOP_PERFORMER' && (
+                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded font-sans">
+                                  Top Winner
+                                </span>
+                              )}
+                              {kw.flag === 'HIGH_SPEND_ZERO_CONV' && (
+                                <span className="text-[10px] bg-rose-50 text-rose-700 font-bold px-1.5 py-0.5 rounded font-sans">
+                                  Bleeder
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-3 text-[11px] text-slate-500 uppercase">{kw.matchType}</td>
+                          <td className="py-3.5 px-3 text-right">${Number(kw.spend || 0).toFixed(2)}</td>
+                          <td className="py-3.5 px-3 text-right">{kw.clicks}</td>
+                          <td className="py-3.5 px-3 text-right font-bold text-slate-900">{kw.conversions}</td>
+                          <td className="py-3.5 px-3 text-right font-bold">
+                            <span className={kw.cpa > 80 ? 'text-rose-600' : 'text-slate-900'}>
+                              ${Number(kw.cpa || 0).toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                kw.qualityScore >= 8
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : kw.qualityScore <= 4
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {kw.qualityScore}/10
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-right">
+                            <span className="text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                              {kw.status || 'ENABLED'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1058,39 +898,47 @@ export function CampaignAnalysisPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {campaignSearchTerms.map((st) => (
-                      <tr key={st.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-slate-900 font-sans">
-                          {st.searchTerm}
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-mono">${Number(st.spend || 0).toFixed(2)}</td>
-                        <td className="py-3.5 px-3 text-right font-mono font-bold">{st.conversions}</td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                              st.intentRelevance === 'LOW'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
-                            {st.intentRelevance === 'LOW' ? 'Wasteful / Low Intent' : 'High Purchase Intent'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          {st.recommendedAction === 'ADD_NEGATIVE' ? (
-                            <button
-                              onClick={() => onAddNegativeKeyword && onAddNegativeKeyword(st)}
-                              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer ml-auto"
-                            >
-                              <MinusCircle className="w-3.5 h-3.5" />
-                              <span>Add Negative</span>
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 font-medium">Core Asset</span>
-                          )}
+                    {campaignSearchTerms.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-slate-500 font-sans">
+                          No search query terms reported by Google Ads for this campaign in this period.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      campaignSearchTerms.map((st) => (
+                        <tr key={st.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4 font-semibold text-slate-900 font-sans">
+                            {st.searchTerm}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono">${Number(st.spend || 0).toFixed(2)}</td>
+                          <td className="py-3.5 px-3 text-right font-mono font-bold">{st.conversions}</td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                st.intentRelevance === 'LOW'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}
+                            >
+                              {st.intentRelevance === 'LOW' ? 'Wasteful / Low Intent' : 'High Purchase Intent'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            {st.recommendedAction === 'ADD_NEGATIVE' ? (
+                              <button
+                                onClick={() => onAddNegativeKeyword && onAddNegativeKeyword(st)}
+                                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer ml-auto"
+                              >
+                                <MinusCircle className="w-3.5 h-3.5" />
+                                <span>Add Negative</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-medium">Core Asset</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1099,8 +947,13 @@ export function CampaignAnalysisPage({
 
           {/* TAB 4: AD CREATIVES */}
           {activeTab === 'ads' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {campaignAds.map((ad) => (
+            campaignAds.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 font-sans border border-slate-200 rounded-2xl bg-slate-50">
+                No ad creative assets reported by Google Ads for this campaign.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {campaignAds.map((ad) => (
                 <div key={ad.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-slate-500">Ad ID: {ad.id}</span>
@@ -1145,7 +998,8 @@ export function CampaignAnalysisPage({
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            )
           )}
 
           {/* TAB 5: BREAKDOWNS (DEVICES & GEOGRAPHY) */}

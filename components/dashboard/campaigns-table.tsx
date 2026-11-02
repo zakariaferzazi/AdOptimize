@@ -63,29 +63,7 @@ export function CampaignsTable({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  // Multiplier scale for date range
-  const periodMultiplier = useMemo(() => {
-    switch (period) {
-      case 'TODAY':
-      case 'YESTERDAY':
-        return 1 / 30;
-      case 'LAST_2_DAYS':
-        return 2 / 30;
-      case 'LAST_7_DAYS':
-        return 7 / 30;
-      case 'LAST_14_DAYS':
-        return 14 / 30;
-      case 'THIS_MONTH':
-        return Math.min(new Date().getDate(), 30) / 30;
-      case 'CUSTOM':
-        return (customDays || 14) / 30;
-      case 'LAST_MONTH':
-      case 'LAST_30_DAYS':
-      case 'ALL_TIME':
-      default:
-        return 1.0;
-    }
-  }, [period, customDays]);
+
 
   const enabledCount = campaigns.filter((c) => c.status === 'ENABLED').length;
   const pausedCount = campaigns.filter((c) => c.status === 'PAUSED').length;

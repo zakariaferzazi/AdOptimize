@@ -37,6 +37,8 @@ async function processUserSync(
   changesSummary?: string[];
   status: string;
   currency?: string;
+  timeZone?: string;
+  accountName?: string;
   message: string;
   newAccessToken?: string;
   newRefreshToken?: string;
@@ -270,7 +272,7 @@ async function processUserSync(
         forceRefresh: force,
       },
       async (activeToken: string) => {
-        return queryLiveCampaigns(cleanCid, activeToken, devToken, undefined, { forceRefresh: force });
+        return queryLiveCampaigns(cleanCid, activeToken, devToken, loginCustomerId, { forceRefresh: force });
       }
     );
 
@@ -285,6 +287,8 @@ async function processUserSync(
         searchTerms: syncResult.searchTerms || [],
         status: 'SYNCED',
         currency: syncResult.currency || 'USD',
+        timeZone: syncResult.timeZone,
+        accountName: syncResult.accountName,
         message: `Successfully synchronized ${syncResult.campaigns.length} campaigns from Google Ads.`,
         newAccessToken: syncResult.newAccessToken,
         newRefreshToken: syncResult.newRefreshToken,

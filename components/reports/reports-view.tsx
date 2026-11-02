@@ -1,31 +1,51 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import {
   FileText,
   Download,
   Printer,
   Calendar,
-  TrendingUp,
-  CheckCircle2,
-  AlertCircle,
-  Share2,
-  DollarSign
 } from 'lucide-react';
-import { Campaign, PerformanceMetric, AIInsight, GoogleAdsAccount } from '@/types/adoptimize';
-import { getCurrencySymbol } from '@/lib/metrics-calculator';
+import { Campaign, AIInsight, GoogleAdsAccount, DateRangePeriod } from '@/types/adoptimize';
+import { getCurrencySymbol, getCampaignPeriodMetrics, CalculatedPeriodMetrics } from '@/lib/metrics-calculator';
 
 interface ReportsViewProps {
   campaigns: Campaign[];
-  metrics: PerformanceMetric;
+  metrics: CalculatedPeriodMetrics;
   insights: AIInsight[];
   account: GoogleAdsAccount;
+  selectedPeriod?: DateRangePeriod;
+  onSelectPeriod?: (period: DateRangePeriod) => void;
 }
 
-export function ReportsView({ campaigns, metrics, insights, account }: ReportsViewProps) {
+export function ReportsView({
+  campaigns,
+  metrics,
+  insights,
+  account,
+  selectedPeriod = 'LAST_7_DAYS',
+  onSelectPeriod,
+}: ReportsViewProps) {
   const sym = getCurrencySymbol(account.currency);
-  const [reportPeriod, setReportPeriod] = useState('Last 7 Days');
+
+  const getPeriodDisplayLabel = (p: DateRangePeriod) => {
+    switch (p) {
+      case 'TODAY': return 'Today';
+      case 'YESTERDAY': return 'Yesterday';
+      case 'LAST_2_DAYS': return 'Last 2 Days';
+      case 'LAST_7_DAYS': return 'Last 7 Days';
+      case 'LAST_14_DAYS': return 'Last 14 Days';
+      case 'LAST_30_DAYS': return 'Last 30 Days';
+      case 'THIS_MONTH': return 'This Month';
+      case 'LAST_MONTH': return 'Last Month';
+      case 'ALL_TIME': return 'All Time';
+      default: return 'Last 7 Days';
+    }
+  };
+
+  const periodLabel = getPeriodDisplayLabel(selectedPeriod);
 
   const handlePrint = () => {
     window.print();
@@ -33,28 +53,41 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
 
   const handleDownloadCsv = () => {
     const headers = ['Campaign', 'Type', 'Daily Budget', 'Spend', 'Conversions', 'CPA', 'ROAS'];
-    const rows = campaigns.map((c) => [
-      `"${c.name}"`,
-      c.type,
-      c.budgetDaily,
-      c.spend,
-      c.conversions,
-      c.cpa.toFixed(2),
-      c.roas.toFixed(2),
-    ]);
+    const rows = campaigns.map((c) => {
+      const m = getCampaignPeriodMetrics(c, selectedPeriod);
+      return [
+        `"${c.name.replace(/"/g, '""')}"`,
+        c.type,
+        c.budgetDaily,
+        m.spend.toFixed(2),
+        m.conversions,
+        m.conversions > 0 ? m.cpa.toFixed(2) : '0.00',
+        m.spend > 0 ? m.roas.toFixed(2) : '0.00',
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `adoptimize_report_${Date.now()}.csv`);
+    link.setAttribute('download', `adoptimize_report_${selectedPeriod.toLowerCase()}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const topCampaign = [...campaigns].sort((a, b) => b.roas - a.roas)[0];
-  const lowestCampaign = [...campaigns].sort((a, b) => a.roas - b.roas)[0];
+  const campaignsWithMetrics = campaigns.map((c) => ({
+    campaign: c,
+    metrics: getCampaignPeriodMetrics(c, selectedPeriod),
+  }));
+
+  const topCampaignItem = [...campaignsWithMetrics]
+    .filter((cm) => cm.metrics.spend > 0)
+    .sort((a, b) => b.metrics.roas - a.metrics.roas)[0];
+
+  const lowestCampaignItem = [...campaignsWithMetrics]
+    .filter((cm) => cm.metrics.spend > 0)
+    .sort((a, b) => a.metrics.roas - b.metrics.roas)[0];
 
   return (
     <div className="space-y-6">
@@ -69,14 +102,33 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             Performance Reports & Briefs
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1 leading-relaxed">
-            Audit report ready for leadership, founders, and agency client presentations.
+            Audit report ready for leadership, founders, and agency client presentations. Grounded in live Google Ads metrics.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {onSelectPeriod && (
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#00d67d]" />
+              <select
+                value={selectedPeriod}
+                onChange={(e) => onSelectPeriod(e.target.value as DateRangePeriod)}
+                className="bg-transparent text-xs text-white font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="LAST_7_DAYS" className="bg-slate-900">Last 7 Days</option>
+                <option value="LAST_14_DAYS" className="bg-slate-900">Last 14 Days</option>
+                <option value="LAST_30_DAYS" className="bg-slate-900">Last 30 Days</option>
+                <option value="TODAY" className="bg-slate-900">Today</option>
+                <option value="YESTERDAY" className="bg-slate-900">Yesterday</option>
+                <option value="THIS_MONTH" className="bg-slate-900">This Month</option>
+                <option value="ALL_TIME" className="bg-slate-900">All Time</option>
+              </select>
+            </div>
+          )}
+
           <button
             onClick={handleDownloadCsv}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -118,7 +170,7 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
           </div>
 
           <div className="text-right text-xs text-slate-500 font-mono">
-            <div>Period: {reportPeriod}</div>
+            <div>Period: <strong className="text-slate-800">{periodLabel}</strong></div>
             <div>Generated: {new Date().toLocaleDateString()}</div>
           </div>
         </div>
@@ -131,18 +183,18 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-xs sm:text-sm text-slate-800 leading-relaxed space-y-2">
             {campaigns.length === 0 ? (
               <p className="text-slate-500 italic">
-                No campaign data currently recorded in this account. Connect your Google Ads account or create your first campaign to generate live performance audits.
+                No campaign data currently recorded in this account. Connect your Google Ads account to generate live performance audits.
               </p>
             ) : (
               <>
                 <p>
-                  Over the reporting period, your account deployed <strong>{sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong> in advertising capital across {campaigns.length} campaigns, generating <strong>{metrics.conversions} conversions</strong> at a blended CPA of <strong>{sym}{metrics.cpa.toFixed(2)}</strong> and an aggregate ROAS of <strong>{metrics.roas.toFixed(2)}x</strong>.
+                  Over the reporting period ({periodLabel}), your account deployed <strong>{sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> in advertising capital across {campaigns.length} campaigns, generating <strong>{metrics.conversions} conversions</strong> at a blended CPA of <strong>{metrics.conversions > 0 ? `${sym}${metrics.cpa.toFixed(2)}` : '—'}</strong> and an aggregate ROAS of <strong>{metrics.spend > 0 ? `${metrics.roas.toFixed(2)}x` : '—'}</strong>.
                 </p>
-                {topCampaign && (
+                {topCampaignItem && (
                   <p>
-                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaign.name}&quot;</em> generated {topCampaign.conversions} conversions with a strong ROAS of <strong>{topCampaign.roas.toFixed(2)}x</strong> at {sym}{topCampaign.cpa.toFixed(2)} CPA.
-                    {lowestCampaign && lowestCampaign.id !== topCampaign.id && lowestCampaign.spend > 0 && (
-                      <span> In contrast, <em>&quot;{lowestCampaign.name}&quot;</em> absorbed {sym}{lowestCampaign.spend.toLocaleString()} with {lowestCampaign.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
+                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaignItem.campaign.name}&quot;</em> generated {topCampaignItem.metrics.conversions} conversions with a return of <strong>{topCampaignItem.metrics.roas.toFixed(2)}x ROAS</strong> at {topCampaignItem.metrics.conversions > 0 ? `${sym}${topCampaignItem.metrics.cpa.toFixed(2)} CPA` : '0 conv'}.
+                    {lowestCampaignItem && lowestCampaignItem.campaign.id !== topCampaignItem.campaign.id && lowestCampaignItem.metrics.spend > 0 && (
+                      <span> In contrast, <em>&quot;{lowestCampaignItem.campaign.name}&quot;</em> absorbed {sym}{lowestCampaignItem.metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} with {lowestCampaignItem.metrics.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
                     )}
                   </p>
                 )}
@@ -154,13 +206,13 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
         {/* Key Aggregate Metrics Cards */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            2. Core Financial & Acquisition Metrics
+            2. Core Financial & Acquisition Metrics ({periodLabel})
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="text-[11px] text-slate-500 font-medium">Total Spend</div>
               <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                {sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -174,14 +226,14 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="text-[11px] text-slate-500 font-medium">Blended CPA</div>
               <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                {sym}{metrics.cpa.toFixed(2)}
+                {metrics.conversions > 0 ? `${sym}${metrics.cpa.toFixed(2)}` : '—'}
               </div>
             </div>
 
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="text-[11px] text-slate-500 font-medium">Account ROAS</div>
               <div className="text-xl font-bold font-mono text-emerald-600 mt-1">
-                {metrics.roas.toFixed(2)}x
+                {metrics.spend > 0 ? `${metrics.roas.toFixed(2)}x` : '—'}
               </div>
             </div>
           </div>
@@ -190,7 +242,7 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
         {/* Campaign Breakdown Table */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            3. Campaign Breakdown
+            3. Campaign Breakdown ({periodLabel})
           </h3>
           <div className="border border-slate-100 rounded-2xl overflow-hidden">
             <table className="w-full text-left text-xs">
@@ -212,16 +264,25 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
                     </td>
                   </tr>
                 ) : (
-                  campaigns.map((c) => (
-                    <tr key={c.id}>
-                      <td className="py-2.5 px-3 font-sans font-bold text-slate-900">{c.name}</td>
-                      <td className="py-2.5 px-3 font-sans text-slate-500">{c.type}</td>
-                      <td className="py-2.5 px-3 text-right">{sym}{c.spend.toLocaleString()}</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">{c.conversions}</td>
-                      <td className="py-2.5 px-3 text-right">{sym}{c.cpa.toFixed(2)}</td>
-                      <td className="py-2.5 px-3 text-right text-emerald-600 font-bold">{c.roas.toFixed(2)}x</td>
-                    </tr>
-                  ))
+                  campaigns.map((c) => {
+                    const m = getCampaignPeriodMetrics(c, selectedPeriod);
+                    return (
+                      <tr key={c.id}>
+                        <td className="py-2.5 px-3 font-sans font-bold text-slate-900">{c.name}</td>
+                        <td className="py-2.5 px-3 font-sans text-slate-500">{c.type}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                          {sym}{m.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">{m.conversions}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          {m.conversions > 0 ? `${sym}${m.cpa.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-emerald-600 font-bold">
+                          {m.spend > 0 ? `${m.roas.toFixed(2)}x` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -234,16 +295,22 @@ export function ReportsView({ campaigns, metrics, insights, account }: ReportsVi
             4. Priority Action Recommendations
           </h3>
           <div className="space-y-2.5">
-            {insights.slice(0, 3).map((ins) => (
-              <div key={ins.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
-                <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
-                  <span>{ins.problem}</span>
-                  <span className="font-mono text-emerald-700">{ins.confidence}% Confidence</span>
-                </div>
-                <div className="text-slate-600 leading-relaxed">{ins.recommendedAction}</div>
-                <div className="text-emerald-700 font-semibold mt-1">Impact: {ins.expectedImpact}</div>
+            {insights.length === 0 ? (
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-500">
+                All campaigns are operating within normal efficiency thresholds.
               </div>
-            ))}
+            ) : (
+              insights.slice(0, 3).map((ins) => (
+                <div key={ins.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
+                  <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                    <span>{ins.problem}</span>
+                    <span className="font-mono text-emerald-700">{ins.confidence}% Confidence</span>
+                  </div>
+                  <div className="text-slate-600 leading-relaxed">{ins.recommendedAction}</div>
+                  <div className="text-emerald-700 font-semibold mt-1">Impact: {ins.expectedImpact}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

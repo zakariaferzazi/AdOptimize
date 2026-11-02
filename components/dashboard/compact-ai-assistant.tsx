@@ -24,6 +24,7 @@ import {
   calculateCampaignsMetrics,
   formatCurrency,
   getCurrencySymbol,
+  getCampaignPeriodMetrics,
 } from '@/lib/metrics-calculator';
 
 interface CompactAiAssistantProps {
@@ -118,17 +119,24 @@ export function CompactAiAssistant({
             customerId: account.clientCustomerId,
             accountName: account.accountName,
             currency: account.currency,
+            period,
+            periodLabel,
+            periodMetrics,
             campaignsCount: campaigns.length,
-            campaigns: campaigns.slice(0, 15).map((c) => ({
-              id: c.id,
-              name: c.name,
-              status: c.status,
-              spend: c.spend,
-              conversions: c.conversions,
-              cpa: c.cpa,
-              roas: c.roas,
-              budgetDaily: c.budgetDaily,
-            })),
+            campaigns: campaigns.slice(0, 15).map((c) => {
+              const m = getCampaignPeriodMetrics(c, period, customDays);
+              return {
+                id: c.id,
+                name: c.name,
+                status: c.status,
+                spend: m.spend,
+                conversions: m.conversions,
+                conversionValue: m.conversionValue,
+                cpa: m.cpa,
+                roas: m.roas,
+                budgetDaily: c.budgetDaily,
+              };
+            }),
             anomaliesCount: anomalies.length,
           },
           userEmail: userEmail || undefined,

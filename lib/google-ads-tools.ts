@@ -429,7 +429,7 @@ export async function executeGoogleAdsTool(
       const totalConv = campaigns.reduce((s, c) => s + (c.conversions || 0), 0);
       const totalValue = campaigns.reduce((s, c) => s + (c.conversionValue || 0), 0);
       const blendedCpa = totalConv > 0 ? totalSpend / totalConv : 0;
-      const accountRoas = totalSpend > 0 ? (totalValue > 0 ? totalValue / totalSpend : (totalConv * 80) / totalSpend) : 0;
+      const accountRoas = totalSpend > 0 ? totalValue / totalSpend : 0;
 
       const headers = ['Metric', 'Current Performance', 'Benchmark / Status'];
       const rows = [

@@ -136,7 +136,7 @@ export function CampaignsFullView({
       const m = getCampaignPeriodMetrics(c, selectedPeriod);
       totalSpend += m.spend;
       totalConv += m.conversions;
-      totalRevenue += (m.conversions * (c.conversionValue || 120));
+      totalRevenue += m.conversionValue;
     });
 
     const avgCpa = totalConv > 0 ? totalSpend / totalConv : 0;

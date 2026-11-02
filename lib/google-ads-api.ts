@@ -18,6 +18,8 @@ export interface GoogleAdsApiResult {
   isQuotaExhausted?: boolean;
   retryDelaySeconds?: number;
   currency?: string;
+  timeZone?: string;
+  accountName?: string;
   fromCache?: boolean;
 }
 
@@ -605,28 +607,71 @@ export async function queryLiveCampaigns(
         };
       }
 
-      // Query 30-day daily breakdown to calculate exact daily spend and populate timeframe metrics
-      const dailyMap = new Map<string, Map<string, any>>();
-      const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
-      const yesterdayDate = new Date(now);
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+      // Extract customer timezone, currency, and descriptive name from Google Ads response
+      let detectedCurrency: string | undefined = undefined;
+      let detectedTimeZone: string | undefined = undefined;
+      let detectedAccountName: string | undefined = undefined;
 
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+      const resultsBatches = Array.isArray(data) ? data : [data];
+      for (const batch of resultsBatches) {
+        for (const row of batch.results || []) {
+          const cust = row.customer;
+          if (cust) {
+            if ((cust.currencyCode || cust.currency_code) && !detectedCurrency) {
+              detectedCurrency = String(cust.currencyCode || cust.currency_code).toUpperCase().trim();
+            }
+            if ((cust.timeZone || cust.time_zone) && !detectedTimeZone) {
+              detectedTimeZone = String(cust.timeZone || cust.time_zone).trim();
+            }
+            if ((cust.descriptiveName || cust.descriptive_name) && !detectedAccountName) {
+              detectedAccountName = String(cust.descriptiveName || cust.descriptive_name).trim();
+            }
+          }
+        }
+      }
+
+      // Compute dates strictly aligned with the customer's exact Google Ads timezone
+      const accountTz = detectedTimeZone || 'UTC';
+      const formatTzDate = (d: Date): string => {
+        try {
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: accountTz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          });
+          return formatter.format(d);
+        } catch {
+          return d.toISOString().slice(0, 10);
+        }
+      };
+
+      const now = new Date();
+      const todayStr = formatTzDate(now);
+
+      // Construct base date in customer timezone to avoid day slippage
+      const [nowYear, nowMonth, nowDay] = todayStr.split('-').map(Number);
+      const baseCustomerDate = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay, 12, 0, 0));
+
+      const yesterdayDate = new Date(baseCustomerDate.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayStr = formatTzDate(yesterdayDate);
+
+      const thirtyDaysAgoDate = new Date(baseCustomerDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgoStr = formatTzDate(thirtyDaysAgoDate);
 
       const last30Dates: string[] = [];
       for (let i = 29; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        last30Dates.push(d.toISOString().slice(0, 10)); // 'YYYY-MM-DD'
+        const d = new Date(baseCustomerDate.getTime() - i * 24 * 60 * 60 * 1000);
+        last30Dates.push(formatTzDate(d));
       }
+
       const last7Dates = last30Dates.slice(-7);
       const last14Dates = last30Dates.slice(-14);
       const currentMonthPrefix = todayStr.slice(0, 7);
       const thisMonthDates = last30Dates.filter((d) => d.startsWith(currentMonthPrefix));
+
+      // Query 30-day daily breakdown to calculate exact daily spend and populate timeframe metrics
+      const dailyMap = new Map<string, Map<string, any>>();
 
       try {
         const gaqlDailyQuery = `
@@ -744,19 +789,20 @@ export async function queryLiveCampaigns(
             for (const row of batch.results || []) {
               const kwText = row.adGroupCriterion?.keyword?.text;
               if (kwText) {
-                const kwSpend = Number(((row.metrics?.costMicros || 0) / 1_000_000).toFixed(2));
+                const rawCostMicros = Number(row.metrics?.costMicros ?? row.metrics?.cost_micros ?? 0);
+                const kwSpend = Number((rawCostMicros / 1_000_000).toFixed(2));
                 const kwClicks = Number(row.metrics?.clicks || 0);
                 const kwImpr = Number(row.metrics?.impressions || 0);
                 const kwConv = Number(row.metrics?.conversions || 0);
-                const kwCpa = kwConv > 0 ? Number((kwSpend / kwConv).toFixed(2)) : kwSpend;
+                const kwCpa = kwConv > 0 ? Number((kwSpend / kwConv).toFixed(2)) : 0;
                 const kwCtr = kwImpr > 0 ? Number(((kwClicks / kwImpr) * 100).toFixed(2)) : 0;
                 const kwCpc = kwClicks > 0 ? Number((kwSpend / kwClicks).toFixed(2)) : 0;
-                const rawMatch = String(row.adGroupCriterion?.keyword?.matchType || 'BROAD').toUpperCase();
+                const rawMatch = String(row.adGroupCriterion?.keyword?.matchType || row.adGroupCriterion?.keyword?.match_type || 'BROAD').toUpperCase();
                 const matchType = rawMatch.includes('EXACT') ? 'EXACT' : rawMatch.includes('PHRASE') ? 'PHRASE' : 'BROAD';
-                const qs = Number(row.adGroupCriterion?.qualityInfo?.qualityScore || 7);
+                const qs = Number(row.adGroupCriterion?.qualityInfo?.qualityScore ?? row.adGroupCriterion?.quality_info?.quality_score ?? 7);
 
                 liveKeywords.push({
-                  id: `kw-${row.adGroupCriterion?.criterionId || liveKeywords.length + 1}`,
+                  id: `kw-${row.adGroupCriterion?.criterionId || row.adGroupCriterion?.criterion_id || liveKeywords.length + 1}`,
                   campaignId: `camp-live-${row.campaign?.id}`,
                   campaignName: row.campaign?.name || 'Campaign',
                   keyword: kwText,
@@ -815,11 +861,12 @@ export async function queryLiveCampaigns(
           const batchesSt = Array.isArray(parsedSt.data) ? parsedSt.data : [parsedSt.data];
           for (const batch of batchesSt) {
             for (const row of batch.results || []) {
-              const queryText = row.searchTermView?.searchTerm;
+              const queryText = row.searchTermView?.searchTerm || row.searchTermView?.search_term;
               if (queryText) {
-                const stSpend = Number(((row.metrics?.costMicros || 0) / 1_000_000).toFixed(2));
+                const rawCostMicros = Number(row.metrics?.costMicros ?? row.metrics?.cost_micros ?? 0);
+                const stSpend = Number((rawCostMicros / 1_000_000).toFixed(2));
                 const stConv = Number(row.metrics?.conversions || 0);
-                const stCpa = stConv > 0 ? Number((stSpend / stConv).toFixed(2)) : stSpend;
+                const stCpa = stConv > 0 ? Number((stSpend / stConv).toFixed(2)) : 0;
                 const isBleeder = stSpend > 30 && stConv === 0;
 
                 liveSearchTerms.push({
@@ -843,30 +890,27 @@ export async function queryLiveCampaigns(
       }
 
       const parsedCampaigns: any[] = [];
-      const resultsBatches = Array.isArray(data) ? data : [data];
-      let detectedCurrency: string | undefined = undefined;
 
       for (const batch of resultsBatches) {
         const results = batch.results || [];
         for (const row of results) {
-          if (row.customer?.currencyCode && !detectedCurrency) {
-            detectedCurrency = String(row.customer.currencyCode).toUpperCase().trim();
-          }
           const camp = row.campaign || {};
           const allTimeMetrics = row.metrics || {};
-          const budget = row.campaignBudget || {};
+          const budget = row.campaignBudget || row.campaign_budget || {};
 
-          const allTimeSpend = Number(((allTimeMetrics.costMicros || 0) / 1_000_000).toFixed(2));
+          const rawAllTimeCost = Number(allTimeMetrics.costMicros ?? allTimeMetrics.cost_micros ?? 0);
+          const allTimeSpend = Number((rawAllTimeCost / 1_000_000).toFixed(2));
           const allTimeClicks = Number(allTimeMetrics.clicks || 0);
           const allTimeImpressions = Number(allTimeMetrics.impressions || 0);
           const allTimeConversions = Number(allTimeMetrics.conversions || 0);
-          const allTimeConvValue = Number(((allTimeMetrics.conversionsValue || 0)).toFixed(2));
-          const allTimeCpa = allTimeConversions > 0 ? Number((allTimeSpend / allTimeConversions).toFixed(2)) : (allTimeSpend > 0 ? allTimeSpend : 0);
+          const allTimeConvValue = Number(Number(allTimeMetrics.conversionsValue ?? allTimeMetrics.conversions_value ?? 0).toFixed(2));
+          const allTimeCpa = allTimeConversions > 0 ? Number((allTimeSpend / allTimeConversions).toFixed(2)) : 0;
           const allTimeRoas = allTimeSpend > 0 ? Number((allTimeConvValue / allTimeSpend).toFixed(2)) : 0;
           const allTimeCtr = allTimeImpressions > 0 ? Number(((allTimeClicks / allTimeImpressions) * 100).toFixed(2)) : 0;
           const allTimeCpc = allTimeClicks > 0 ? Number((allTimeSpend / allTimeClicks).toFixed(2)) : 0;
 
-          const budgetDaily = Number(((budget.amountMicros || 0) / 1_000_000).toFixed(2));
+          const rawBudgetMicros = Number(budget.amountMicros ?? budget.amount_micros ?? 0);
+          const budgetDaily = Number((rawBudgetMicros / 1_000_000).toFixed(2));
 
           const campIdStr = String(camp.id || '');
           const campDailyMetrics = dailyMap.get(campIdStr);
@@ -880,16 +924,17 @@ export async function queryLiveCampaigns(
             for (const ds of dates) {
               const m = campDailyMetrics?.get(ds);
               if (m) {
-                wSpend += Number(((m.costMicros || 0) / 1_000_000).toFixed(2));
+                const dayCost = Number(m.costMicros ?? m.cost_micros ?? 0);
+                wSpend += dayCost / 1_000_000;
                 wClicks += Number(m.clicks || 0);
                 wImpressions += Number(m.impressions || 0);
                 wConversions += Number(m.conversions || 0);
-                wConvValue += Number(((m.conversionsValue || 0)).toFixed(2));
+                wConvValue += Number(m.conversionsValue ?? m.conversions_value ?? 0);
               }
             }
             wSpend = Number(wSpend.toFixed(2));
             wConvValue = Number(wConvValue.toFixed(2));
-            const cpa = wConversions > 0 ? Number((wSpend / wConversions).toFixed(2)) : (wSpend > 0 ? wSpend : 0);
+            const cpa = wConversions > 0 ? Number((wSpend / wConversions).toFixed(2)) : 0;
             const roas = wSpend > 0 ? Number((wConvValue / wSpend).toFixed(2)) : 0;
             const ctr = wImpressions > 0 ? Number(((wClicks / wImpressions) * 100).toFixed(2)) : 0;
             const cpc = wClicks > 0 ? Number((wSpend / wClicks).toFixed(2)) : 0;
@@ -926,12 +971,13 @@ export async function queryLiveCampaigns(
 
           for (const dateStr of last30Dates) {
             const m = campDailyMetrics?.get(dateStr);
-            const daySpend = m ? Number(((m.costMicros || 0) / 1_000_000).toFixed(2)) : 0;
-            const dayClicks = m ? Number(m.clicks || 0) : 0;
-            const dayImpressions = m ? Number(m.impressions || 0) : 0;
-            const dayConversions = m ? Number(m.conversions || 0) : 0;
-            const dayConvValue = m ? Number(((m.conversionsValue || 0)).toFixed(2)) : 0;
-            const dayCpa = dayConversions > 0 ? Number((daySpend / dayConversions).toFixed(2)) : daySpend;
+            const dayCost = Number(m?.costMicros ?? m?.cost_micros ?? 0);
+            const daySpend = Number((dayCost / 1_000_000).toFixed(2));
+            const dayClicks = Number(m?.clicks || 0);
+            const dayImpressions = Number(m?.impressions || 0);
+            const dayConversions = Number(m?.conversions || 0);
+            const dayConvValue = Number(Number(m?.conversionsValue ?? m?.conversions_value ?? 0).toFixed(2));
+            const dayCpa = dayConversions > 0 ? Number((daySpend / dayConversions).toFixed(2)) : 0;
             const dayRoas = daySpend > 0 ? Number((dayConvValue / daySpend).toFixed(2)) : 0;
 
             historicalPoints.push({
@@ -946,21 +992,21 @@ export async function queryLiveCampaigns(
             });
           }
 
-          // Default metrics use 30-day window, or all-time if 30-day has no spend
-          const spend = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.spend : (allTimeSpend > 0 ? allTimeSpend : sevenDaysMetrics.spend);
-          const conversions = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.conversions : (allTimeConversions > 0 ? allTimeConversions : sevenDaysMetrics.conversions);
-          const clicks = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.clicks : (allTimeClicks > 0 ? allTimeClicks : sevenDaysMetrics.clicks);
-          const impressions = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.impressions : (allTimeImpressions > 0 ? allTimeImpressions : sevenDaysMetrics.impressions);
-          const convValue = thirtyDaysMetrics.spend > 0 ? thirtyDaysMetrics.conversionValue : (allTimeConvValue > 0 ? allTimeConvValue : sevenDaysMetrics.conversionValue);
+          // Exact 30-day metrics (never fabricate or substitute with all-time spend)
+          const spend = thirtyDaysMetrics.spend;
+          const conversions = thirtyDaysMetrics.conversions;
+          const clicks = thirtyDaysMetrics.clicks;
+          const impressions = thirtyDaysMetrics.impressions;
+          const convValue = thirtyDaysMetrics.conversionValue;
 
-          const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : (spend > 0 ? spend : 0);
+          const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : 0;
           const roas = spend > 0 ? Number((convValue / spend).toFixed(2)) : 0;
           const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
           const cpc = clicks > 0 ? Number((spend / clicks).toFixed(2)) : 0;
           const convRate = clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0;
 
           let channelType = 'SEARCH';
-          const rawType = (camp.advertisingChannelType || '').toUpperCase();
+          const rawType = String(camp.advertisingChannelType || camp.advertising_channel_type || '').toUpperCase();
           if (rawType.includes('PERFORMANCE_MAX') || rawType.includes('PMAX')) channelType = 'PERFORMANCE_MAX';
           else if (rawType.includes('DISPLAY')) channelType = 'DISPLAY';
           else if (rawType.includes('SHOPPING')) channelType = 'SHOPPING';
@@ -970,114 +1016,15 @@ export async function queryLiveCampaigns(
           const campaignFullId = `camp-live-${camp.id}`;
           const campName = camp.name || `Campaign ${camp.id}`;
 
-          // Check keywords for this campaign
-          let campKeywords = liveKeywords.filter((k) => k.campaignId === campaignFullId);
-          if (campKeywords.length === 0) {
-            // Synthesize contextual keywords matching campaign name so keywords count is never 0
-            const words = String(campName || 'Campaign').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).filter((w: string) => w.length > 2);
-            const topic1 = words[0] || 'service';
-            const topic2 = words[1] || 'agency';
+          // Real keywords for this campaign only — no synthetic data
+          const campKeywords = liveKeywords.filter((k) => k.campaignId === campaignFullId);
 
-            const synthetic = [
-              { keyword: `${topic1} ${topic2}`, matchType: 'PHRASE', qs: 8, flag: 'TOP_PERFORMER' },
-              { keyword: `best ${topic1} company`, matchType: 'EXACT', qs: 9, flag: 'TOP_PERFORMER' },
-              { keyword: `hire ${topic1} specialist`, matchType: 'PHRASE', qs: 7, flag: 'NORMAL' },
-              { keyword: `top rated ${topic1}`, matchType: 'EXACT', qs: 8, flag: 'TOP_PERFORMER' },
-              { keyword: `cheap ${topic1} discount`, matchType: 'BROAD', qs: 4, flag: 'HIGH_SPEND_ZERO_CONV' },
-              { keyword: `free ${topic1} download`, matchType: 'BROAD', qs: 3, flag: 'HIGH_SPEND_ZERO_CONV' },
-            ];
-
-            const baseSpend = Math.max(spend > 0 ? spend : allTimeSpend, 80);
-            const baseClicks = Math.max(clicks > 0 ? clicks : allTimeClicks, 20);
-
-            campKeywords = synthetic.map((sk, idx) => {
-              const kwSpend = Number((baseSpend * (0.26 - idx * 0.03)).toFixed(2));
-              const kwClicks = Math.max(1, Math.round(baseClicks * (0.24 - idx * 0.025)));
-              const kwConv = sk.flag === 'HIGH_SPEND_ZERO_CONV' ? 0 : Math.max(1, Math.round(kwClicks * 0.1));
-              return {
-                id: `kw-${campaignFullId}-${idx + 1}`,
-                campaignId: campaignFullId,
-                campaignName: campName,
-                keyword: sk.keyword,
-                matchType: sk.matchType as 'EXACT' | 'PHRASE' | 'BROAD',
-                spend: kwSpend,
-                clicks: kwClicks,
-                impressions: kwClicks * 16,
-                ctr: Number(((1 / 16) * 100).toFixed(2)),
-                cpc: kwClicks > 0 ? Number((kwSpend / kwClicks).toFixed(2)) : 1.5,
-                conversions: kwConv,
-                cpa: kwConv > 0 ? Number((kwSpend / kwConv).toFixed(2)) : kwSpend,
-                qualityScore: sk.qs,
-                status: 'ENABLED' as const,
-                flag: sk.flag as any,
-              };
-            });
-            liveKeywords.push(...campKeywords);
-          }
-
-          // Check search terms for this campaign
-          let campSearchTerms = liveSearchTerms.filter((st) => st.campaignId === campaignFullId);
-          if (campSearchTerms.length === 0) {
-            const words = String(campName || 'Campaign').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).filter((w: string) => w.length > 2);
-            const topic = words[0] || 'brand';
-            const baseSpend = Math.max(spend > 0 ? spend : allTimeSpend, 50);
-
-            campSearchTerms = [
-              {
-                id: `st-${campaignFullId}-1`,
-                campaignId: campaignFullId,
-                campaignName: campName,
-                searchTerm: `${topic} solutions review`,
-                spend: Number((baseSpend * 0.22).toFixed(2)),
-                conversions: 3,
-                cpa: Number(((baseSpend * 0.22) / 3).toFixed(2)),
-                intentRelevance: 'HIGH' as const,
-                recommendedAction: 'ADD_KEYWORD' as const,
-                suggestedMatchType: 'EXACT' as const,
-              },
-              {
-                id: `st-${campaignFullId}-2`,
-                campaignId: campaignFullId,
-                campaignName: campName,
-                searchTerm: `free ${topic} crack license`,
-                spend: Number((baseSpend * 0.16).toFixed(2)),
-                conversions: 0,
-                cpa: Number((baseSpend * 0.16).toFixed(2)),
-                intentRelevance: 'LOW' as const,
-                recommendedAction: 'ADD_NEGATIVE' as const,
-                suggestedMatchType: 'EXACT' as const,
-              },
-              {
-                id: `st-${campaignFullId}-3`,
-                campaignId: campaignFullId,
-                campaignName: campName,
-                searchTerm: `how to cancel ${topic} service`,
-                spend: Number((baseSpend * 0.11).toFixed(2)),
-                conversions: 0,
-                cpa: Number((baseSpend * 0.11).toFixed(2)),
-                intentRelevance: 'LOW' as const,
-                recommendedAction: 'ADD_NEGATIVE' as const,
-                suggestedMatchType: 'PHRASE' as const,
-              },
-              {
-                id: `st-${campaignFullId}-4`,
-                campaignId: campaignFullId,
-                campaignName: campName,
-                searchTerm: `professional ${topic} services near me`,
-                spend: Number((baseSpend * 0.28).toFixed(2)),
-                conversions: 4,
-                cpa: Number(((baseSpend * 0.28) / 4).toFixed(2)),
-                intentRelevance: 'HIGH' as const,
-                recommendedAction: 'ADD_KEYWORD' as const,
-                suggestedMatchType: 'EXACT' as const,
-              },
-            ];
-            liveSearchTerms.push(...campSearchTerms);
-          }
-
-          const rawStatus = String(camp.status || camp.primaryStatus || '').toUpperCase();
+          const rawStatus = String(camp.status || camp.primaryStatus || camp.primary_status || '').toUpperCase();
           const isCampEnabled = rawStatus === 'ENABLED' || rawStatus === 'ELIGIBLE' || rawStatus.includes('ENABLE');
           const campStatus: 'ENABLED' | 'PAUSED' = isCampEnabled ? 'ENABLED' : 'PAUSED';
+
+          // Prior period calculation derived from previous 15-day slice of the 30-day window
+          const prior15Metrics = calcWindow(last30Dates.slice(0, 15));
 
           parsedCampaigns.push({
             id: campaignFullId,
@@ -1125,29 +1072,31 @@ export async function queryLiveCampaigns(
               },
             },
             healthStatus: (roas >= 3.0 || allTimeRoas >= 3.0) ? 'HEALTHY' : (cpa > 80 || allTimeCpa > 80) ? 'WARNING' : 'HEALTHY',
-            healthScore: Math.min(99, Math.max(50, Math.round((roas || allTimeRoas) * 16) + (camp.status === 'ENABLED' ? 25 : 10))),
+            healthScore: Math.min(99, Math.max(50, Math.round((roas || allTimeRoas) * 16) + (campStatus === 'ENABLED' ? 25 : 10))),
             historicalPoints,
             trendPoints: historicalPoints.slice(-14).map((p) => p.conversions || p.spend),
             keywordsCount: campKeywords.length,
-            activeAdsCount: Math.max(3, Math.round((clicks || allTimeClicks || 10) / 12)),
+            activeAdsCount: 1,
             primaryGoal: 'MAXIMIZE_CONVERSIONS',
             previousPeriod: {
-              spend: Number((spend * 0.9).toFixed(2)),
-              conversions: Math.round(conversions * 0.9),
-              cpa: cpa > 0 ? Number((cpa * 1.05).toFixed(2)) : 0,
-              roas: roas > 0 ? Number((roas * 0.95).toFixed(2)) : 0,
+              spend: prior15Metrics.spend,
+              conversions: prior15Metrics.conversions,
+              cpa: prior15Metrics.cpa,
+              roas: prior15Metrics.roas,
             },
           });
         }
       }
 
-      const finalResult: GoogleAdsApiResult = {
+      const finalResult: GoogleAdsApiResult & { timeZone?: string; accountName?: string } = {
         success: true,
         campaigns: parsedCampaigns,
         keywords: liveKeywords,
         searchTerms: liveSearchTerms,
         loginCustomerIdUsed: discoveredLoginCid,
         currency: detectedCurrency,
+        timeZone: detectedTimeZone,
+        accountName: detectedAccountName,
       };
 
       // Cache for 30 seconds (30,000 ms) to throttle rapid duplicate requests while enabling near-real-time update detection

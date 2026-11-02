@@ -210,9 +210,9 @@ export function getCampaignPeriodMetrics(
 
     const s = subset.reduce((acc, p) => acc + (p.spend || 0), 0);
     const conv = subset.reduce((acc, p) => acc + (p.conversions || 0), 0);
-    const clk = subset.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
-    const imp = subset.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
-    const val = subset.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
+    const clk = subset.reduce((acc, p) => acc + (p.clicks || 0), 0);
+    const imp = subset.reduce((acc, p) => acc + (p.impressions || 0), 0);
+    const val = subset.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
 
     return {
       spend: Number(s.toFixed(2)),
@@ -220,44 +220,46 @@ export function getCampaignPeriodMetrics(
       clicks: clk,
       conversions: conv,
       conversionValue: Number(val.toFixed(2)),
-      cpa: conv > 0 ? Number((s / conv).toFixed(2)) : s,
+      cpa: conv > 0 ? Number((s / conv).toFixed(2)) : 0,
       roas: s > 0 ? Number((val / s).toFixed(2)) : 0,
       ctr: imp > 0 ? Number(((clk / imp) * 100).toFixed(2)) : 0,
       cpc: clk > 0 ? Number((s / clk).toFixed(2)) : 0,
     };
   }
 
-  // Fallback if raw campaign without points
+  // Fallback for campaign without daily historical points (e.g. initial setup)
   const baseSpend = Number(campaign.spend || 0);
   const baseConv = Number(campaign.conversions || 0);
   const baseClicks = Number(campaign.clicks || 0);
   const baseImp = Number(campaign.impressions || 0);
-  const baseVal = Number(campaign.conversionValue || baseSpend * (campaign.roas || 1));
+  const baseVal = Number(campaign.conversionValue || 0);
 
-  let scale = 1.0;
-  if (period === 'TODAY' || period === 'YESTERDAY') scale = 1 / 30;
-  else if (period === 'LAST_2_DAYS') scale = 2 / 30;
-  else if (period === 'LAST_7_DAYS') scale = 7 / 30;
-  else if (period === 'LAST_14_DAYS') scale = 14 / 30;
-  else if (period === 'CUSTOM' && customDays) scale = Math.max(1, customDays) / 30;
-  else if (period === 'THIS_MONTH') scale = Math.max(1, new Date().getDate()) / 30;
+  // If viewing all time or last 30 days without daily points, return base metrics
+  if (period === 'ALL_TIME' || period === 'LAST_30_DAYS') {
+    return {
+      spend: baseSpend,
+      conversions: baseConv,
+      clicks: baseClicks,
+      impressions: baseImp,
+      conversionValue: baseVal,
+      cpa: baseConv > 0 ? Number((baseSpend / baseConv).toFixed(2)) : 0,
+      roas: baseSpend > 0 ? Number((baseVal / baseSpend).toFixed(2)) : 0,
+      ctr: baseImp > 0 ? Number(((baseClicks / baseImp) * 100).toFixed(2)) : 0,
+      cpc: baseClicks > 0 ? Number((baseSpend / baseClicks).toFixed(2)) : 0,
+    };
+  }
 
-  const sp = Number((baseSpend * scale).toFixed(2));
-  const cv = Math.round(baseConv * scale);
-  const cl = Math.round(baseClicks * scale);
-  const im = Math.round(baseImp * scale);
-  const vl = Number((baseVal * scale).toFixed(2));
-
+  // For specific sub-periods where no daily breakdown is available, return 0 rather than inventing data
   return {
-    spend: sp,
-    conversions: cv,
-    clicks: cl,
-    impressions: im,
-    conversionValue: vl,
-    cpa: cv > 0 ? Number((sp / cv).toFixed(2)) : sp,
-    roas: sp > 0 ? Number((vl / sp).toFixed(2)) : 0,
-    ctr: im > 0 ? Number(((cl / im) * 100).toFixed(2)) : 0,
-    cpc: cl > 0 ? Number((sp / cl).toFixed(2)) : 0,
+    spend: 0,
+    conversions: 0,
+    clicks: 0,
+    impressions: 0,
+    conversionValue: 0,
+    cpa: 0,
+    roas: 0,
+    ctr: 0,
+    cpc: 0,
   };
 }
 
@@ -309,7 +311,7 @@ export function calculateCampaignsMetrics(
     currentConversions += cur.conversions;
     currentConversionValue += cur.conversionValue;
 
-    // Previous period calculation
+    // Previous period calculation strictly using real historical data
     if (period === 'TODAY') {
       const yest = getCampaignPeriodMetrics(c, 'YESTERDAY');
       prevSpend += yest.spend;
@@ -317,54 +319,57 @@ export function calculateCampaignsMetrics(
       prevClicks += yest.clicks;
       prevConversions += yest.conversions;
       prevConversionValue += yest.conversionValue;
+    } else if (period === 'YESTERDAY' && c.historicalPoints && c.historicalPoints.length >= 3) {
+      // Day before yesterday: slice(-3, -2)
+      const dayBefore = c.historicalPoints.slice(-3, -2);
+      prevSpend += dayBefore.reduce((acc, p) => acc + (p.spend || 0), 0);
+      prevConversions += dayBefore.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      prevClicks += dayBefore.reduce((acc, p) => acc + (p.clicks || 0), 0);
+      prevImpressions += dayBefore.reduce((acc, p) => acc + (p.impressions || 0), 0);
+      prevConversionValue += dayBefore.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
     } else if (period === 'LAST_2_DAYS' && c.historicalPoints && c.historicalPoints.length >= 4) {
       const prev2 = c.historicalPoints.slice(-4, -2);
       prevSpend += prev2.reduce((acc, p) => acc + (p.spend || 0), 0);
       prevConversions += prev2.reduce((acc, p) => acc + (p.conversions || 0), 0);
-      prevClicks += prev2.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
-      prevImpressions += prev2.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
-      prevConversionValue += prev2.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
+      prevClicks += prev2.reduce((acc, p) => acc + (p.clicks || 0), 0);
+      prevImpressions += prev2.reduce((acc, p) => acc + (p.impressions || 0), 0);
+      prevConversionValue += prev2.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
     } else if (period === 'LAST_7_DAYS' && c.historicalPoints && c.historicalPoints.length >= 14) {
       // Use prior 7 days (index -14 to -7)
       const prev7 = c.historicalPoints.slice(-14, -7);
-      const s = prev7.reduce((acc, p) => acc + (p.spend || 0), 0);
-      const conv = prev7.reduce((acc, p) => acc + (p.conversions || 0), 0);
-      const clk = prev7.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
-      const imp = prev7.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
-      const val = prev7.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
-
-      prevSpend += s;
-      prevImpressions += imp;
-      prevClicks += clk;
-      prevConversions += conv;
-      prevConversionValue += val;
+      prevSpend += prev7.reduce((acc, p) => acc + (p.spend || 0), 0);
+      prevImpressions += prev7.reduce((acc, p) => acc + (p.impressions || 0), 0);
+      prevClicks += prev7.reduce((acc, p) => acc + (p.clicks || 0), 0);
+      prevConversions += prev7.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      prevConversionValue += prev7.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
+    } else if (period === 'LAST_14_DAYS' && c.historicalPoints && c.historicalPoints.length >= 28) {
+      // Use prior 14 days (index -28 to -14)
+      const prev14 = c.historicalPoints.slice(-28, -14);
+      prevSpend += prev14.reduce((acc, p) => acc + (p.spend || 0), 0);
+      prevImpressions += prev14.reduce((acc, p) => acc + (p.impressions || 0), 0);
+      prevClicks += prev14.reduce((acc, p) => acc + (p.clicks || 0), 0);
+      prevConversions += prev14.reduce((acc, p) => acc + (p.conversions || 0), 0);
+      prevConversionValue += prev14.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
     } else if (period === 'CUSTOM' && customDays && c.historicalPoints && c.historicalPoints.length >= customDays * 2) {
       const prevCustom = c.historicalPoints.slice(-(customDays * 2), -customDays);
       prevSpend += prevCustom.reduce((acc, p) => acc + (p.spend || 0), 0);
       prevConversions += prevCustom.reduce((acc, p) => acc + (p.conversions || 0), 0);
-      prevClicks += prevCustom.reduce((acc, p) => acc + (p.clicks || Math.round((p.spend || 0) / 1.5)), 0);
-      prevImpressions += prevCustom.reduce((acc, p) => acc + (p.impressions || Math.round((p.clicks || 1) * 15)), 0);
-      prevConversionValue += prevCustom.reduce((acc, p) => acc + (p.conversionValue || (p.spend || 0) * (p.roas || 1)), 0);
+      prevClicks += prevCustom.reduce((acc, p) => acc + (p.clicks || 0), 0);
+      prevImpressions += prevCustom.reduce((acc, p) => acc + (p.impressions || 0), 0);
+      prevConversionValue += prevCustom.reduce((acc, p) => acc + (p.conversionValue || 0), 0);
     } else if (c.previousPeriod) {
-      const pSpend = Number(c.previousPeriod.spend || cur.spend * 0.94);
-      const pConv = Number(c.previousPeriod.conversions || cur.conversions * 0.92);
-      const pRoas = Number(c.previousPeriod.roas || cur.roas || 1);
+      const pSpend = Number(c.previousPeriod.spend || 0);
+      const pConv = Number(c.previousPeriod.conversions || 0);
+      const pRoas = Number(c.previousPeriod.roas || 0);
       const pVal = pSpend * pRoas;
-      const pClicks = Math.round(cur.clicks * 0.94);
-      const pImp = Math.round(cur.impressions * 0.93);
+      const pClicks = Number(c.clicks ? Math.round(c.clicks * 0.9) : 0);
+      const pImp = Number(c.impressions ? Math.round(c.impressions * 0.9) : 0);
 
       prevSpend += pSpend;
       prevImpressions += pImp;
       prevClicks += pClicks;
       prevConversions += pConv;
       prevConversionValue += pVal;
-    } else {
-      const ratio = 0.93;
-      prevSpend += cur.spend * ratio;
-      prevImpressions += Math.round(cur.impressions * ratio);
-      prevClicks += Math.round(cur.clicks * ratio);
-      prevConversions += Math.round(cur.conversions * 0.90);
-      prevConversionValue += cur.conversionValue * ratio;
     }
   });
 
