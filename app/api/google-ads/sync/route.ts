@@ -7,6 +7,10 @@ import {
 } from '@/lib/google-ads-api';
 import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
+// Sync must always run live; never serve a statically cached response.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -28,7 +32,6 @@ export async function POST(req: NextRequest) {
     const validation = validateAndFormatCustomerId(customerId || '');
     const cleanCid = validation.isValid ? validation.clean : String(customerId || '').replace(/\D/g, '');
     const formattedCid = validation.isValid ? validation.formatted : customerId;
-    const syncTimestamp = new Date().toISOString();
 
     if (!cleanCid || cleanCid.length !== 10) {
       return NextResponse.json(
@@ -81,9 +84,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Not a successful sync: do not report a new lastSyncAt.
       return NextResponse.json({
-        success: true,
-        lastSyncAt: syncTimestamp,
+        success: false,
+        lastSyncAt: null,
         syncStatus: 'QUOTA_PAUSED',
         isLiveApi: false,
         isQuotaExhausted: true,
@@ -112,14 +116,18 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    if (liveResult.success) {
+    if (liveResult.success && !liveResult.isQuotaExhausted) {
       const realCampaigns = liveResult.campaigns || [];
       const realKeywords = liveResult.keywords || [];
       const realSearchTerms = liveResult.searchTerms || [];
 
+      // lastSyncAt is the moment the data was actually fetched from Google Ads
+      // (for a short-lived dedupe cache hit, that is the original fetch time).
+      const fetchedAt = liveResult.fetchedAt || new Date().toISOString();
+
       return NextResponse.json({
         success: true,
-        lastSyncAt: syncTimestamp,
+        lastSyncAt: fetchedAt,
         syncStatus: 'SYNCED',
         isLiveApi: !liveResult.fromCache,
         fromCache: Boolean(liveResult.fromCache),
@@ -158,8 +166,8 @@ export async function POST(req: NextRequest) {
         : (Array.isArray(cachedSearchTerms) ? cachedSearchTerms : []);
 
       return NextResponse.json({
-        success: true,
-        lastSyncAt: syncTimestamp,
+        success: false,
+        lastSyncAt: null,
         syncStatus: 'QUOTA_PAUSED',
         isLiveApi: false,
         isQuotaExhausted: true,
@@ -177,15 +185,18 @@ export async function POST(req: NextRequest) {
 
     // If query failed due to authentication after auto-retry was attempted
     if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
-      return NextResponse.json({
-        success: true,
-        lastSyncAt: syncTimestamp,
-        syncStatus: 'AUTH_EXPIRED',
-        isAuthExpired: true,
-        statusCode: 200,
-        message: 'Google Ads session refreshing in background. Cached campaigns preserved.',
-        campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          lastSyncAt: null,
+          syncStatus: 'AUTH_EXPIRED',
+          isAuthExpired: true,
+          statusCode: 401,
+          message: 'Google Ads session expired. Data was not refreshed; please reconnect Google Ads.',
+          campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
+        },
+        { status: 401 }
+      );
     }
 
     // Google Ads returned another API error: format cleanly
@@ -198,7 +209,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        lastSyncAt: syncTimestamp,
+        lastSyncAt: null,
         syncStatus: 'ERROR',
         isLiveApi: false,
         apiError: cleanErr,

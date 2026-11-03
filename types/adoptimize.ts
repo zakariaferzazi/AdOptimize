@@ -276,6 +276,8 @@ export interface GoogleAdsAccount {
   timezone?: string;
   isConnected: boolean;
   lastSyncAt: string;
+  /** ISO time of the last sync that actually fetched and stored fresh Google Ads data. */
+  lastSuccessfulSyncAt?: string;
   syncStatus: 'SYNCED' | 'SYNCING' | 'ERROR' | 'IDLE' | 'QUOTA_PAUSED';
   quotaResetAt?: number;
   isDemo: boolean;

@@ -8,7 +8,8 @@ import {
   getDocs,
   query,
   orderBy,
-  onSnapshot
+  onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import {
@@ -838,5 +839,63 @@ export async function clearAllUserData(userId: string) {
     });
   } catch (e) {
     console.warn('Error resetting account:', e);
+  }
+}
+
+// 15. Persist a complete Google Ads sync snapshot.
+// Upserts every fresh document and deletes documents that no longer exist in Google Ads,
+// so stale campaigns/keywords/search terms are never re-loaded from the database.
+async function replaceCollectionDocs<T extends { id: string }>(
+  userId: string,
+  colName: 'campaigns' | 'keywords' | 'searchTerms',
+  freshItems: T[]
+): Promise<void> {
+  const colRef = collection(db, 'users', userId, colName);
+  const existingSnap = await getDocs(colRef);
+  const freshIds = new Set(freshItems.map((i) => i.id));
+
+  type Op = { type: 'set'; id: string; data: any } | { type: 'delete'; id: string };
+  const ops: Op[] = [];
+  for (const item of freshItems) {
+    if (item?.id) ops.push({ type: 'set', id: item.id, data: cleanForFirestore(item) });
+  }
+  existingSnap.forEach((d) => {
+    if (!freshIds.has(d.id)) ops.push({ type: 'delete', id: d.id });
+  });
+
+  // Firestore batches are limited to 500 operations
+  for (let i = 0; i < ops.length; i += 450) {
+    const batch = writeBatch(db);
+    for (const op of ops.slice(i, i + 450)) {
+      const ref = doc(db, 'users', userId, colName, op.id);
+      if (op.type === 'set') batch.set(ref, op.data);
+      else batch.delete(ref);
+    }
+    await batch.commit();
+  }
+}
+
+export async function persistGoogleAdsSyncSnapshot(
+  userId: string,
+  snapshot: {
+    campaigns: Campaign[];
+    keywords?: Keyword[];
+    searchTerms?: SearchTerm[];
+    accountPatch: Partial<GoogleAdsAccount>;
+  }
+): Promise<void> {
+  const path = `users/${userId}`;
+  try {
+    await replaceCollectionDocs(userId, 'campaigns', snapshot.campaigns);
+    if (Array.isArray(snapshot.keywords)) {
+      await replaceCollectionDocs(userId, 'keywords', snapshot.keywords);
+    }
+    if (Array.isArray(snapshot.searchTerms)) {
+      await replaceCollectionDocs(userId, 'searchTerms', snapshot.searchTerms);
+    }
+    const accountRef = doc(db, 'users', userId, 'accounts', 'primary');
+    await setDoc(accountRef, cleanForFirestore(snapshot.accountPatch), { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }

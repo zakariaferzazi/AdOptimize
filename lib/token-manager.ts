@@ -86,7 +86,6 @@ export async function saveTokenData(tokenData: StoredTokenData): Promise<void> {
           accessToken: tokenData.accessToken,
           expiresAt: tokenData.expiresAt,
           ...(tokenData.refreshToken ? { refreshToken: tokenData.refreshToken } : {}),
-          lastSyncAt: new Date().toISOString(),
           isTokenExpired: false,
         },
         { merge: true }

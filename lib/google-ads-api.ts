@@ -21,6 +21,8 @@ export interface GoogleAdsApiResult {
   timeZone?: string;
   accountName?: string;
   fromCache?: boolean;
+  /** ISO timestamp of when this data was actually fetched from the Google Ads API */
+  fetchedAt?: string;
 }
 
 export interface QuotaCooldownState {
@@ -82,7 +84,8 @@ async function fetchWithBackoff(
   let attempt = 0;
   while (true) {
     try {
-      const res = await fetch(url, options);
+      // Always bypass any framework/data cache: sync must reflect live Google Ads data
+      const res = await fetch(url, { cache: 'no-store', ...options });
 
       // If transient HTTP 5xx error, retry with exponential backoff
       if ((res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
@@ -672,6 +675,7 @@ export async function queryLiveCampaigns(
 
       // Query 30-day daily breakdown to calculate exact daily spend and populate timeframe metrics
       const dailyMap = new Map<string, Map<string, any>>();
+      let dailyMetricsError: GoogleAdsApiResult | null = null;
 
       try {
         const gaqlDailyQuery = `
@@ -729,7 +733,18 @@ export async function queryLiveCampaigns(
         }
 
         const parsedDaily = await safeParseResponse(resDaily);
-        if (resDaily.ok && parsedDaily.isJson) {
+        if (!resDaily.ok || !parsedDaily.isJson) {
+          const errInfo = extractGoogleAdsError(parsedDaily.isJson ? parsedDaily.data : null, resDaily.status, parsedDaily.rawText);
+          dailyMetricsError = {
+            success: false,
+            error: `Could not fetch daily performance metrics from Google Ads: ${errInfo.error}`,
+            details: errInfo.details,
+            statusCode: resDaily.status,
+            isAuthExpired: errInfo.isAuthExpired,
+            isQuotaExhausted: errInfo.isQuotaExhausted,
+            retryDelaySeconds: errInfo.retryDelaySeconds,
+          };
+        } else {
           const batchesDaily = Array.isArray(parsedDaily.data) ? parsedDaily.data : [parsedDaily.data];
           for (const batch of batchesDaily) {
             for (const row of batch.results || []) {
@@ -744,8 +759,27 @@ export async function queryLiveCampaigns(
             }
           }
         }
-      } catch (errDaily) {
+      } catch (errDaily: any) {
         console.warn('Google Ads 30-day daily query notice:', errDaily);
+        dailyMetricsError = {
+          success: false,
+          error: `Could not fetch daily performance metrics from Google Ads: ${errDaily?.message || 'network error'}`,
+        };
+      }
+
+      // Never return a "successful" sync with missing performance metrics: that would overwrite
+      // real stored metrics with zeros (or let callers mark stale data as freshly synced).
+      if (dailyMetricsError) {
+        if (dailyMetricsError.isQuotaExhausted && cached?.data) {
+          return {
+            ...cached.data,
+            fromCache: true,
+            isQuotaExhausted: true,
+            retryDelaySeconds: dailyMetricsError.retryDelaySeconds,
+            details: dailyMetricsError.details,
+          };
+        }
+        return dailyMetricsError;
       }
 
       // Query keywords from keyword_view
@@ -1097,6 +1131,7 @@ export async function queryLiveCampaigns(
         currency: detectedCurrency,
         timeZone: detectedTimeZone,
         accountName: detectedAccountName,
+        fetchedAt: new Date().toISOString(),
       };
 
       // Cache for 30 seconds (30,000 ms) to throttle rapid duplicate requests while enabling near-real-time update detection

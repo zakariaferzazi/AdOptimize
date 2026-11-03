@@ -9,6 +9,10 @@ import {
 import { executeWithAutoTokenRetry, loadTokenData } from '@/lib/token-manager';
 import { Campaign, CampaignType } from '@/types/adoptimize';
 
+// Sync must always run live; never serve a statically cached response.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * Optmyzr-Pattern Background Sync Worker
  *
@@ -36,6 +40,12 @@ async function processUserSync(
   changesCount?: number;
   changesSummary?: string[];
   status: string;
+  /** ISO time the returned data was fetched from Google Ads. Only set when status === 'SYNCED'. */
+  lastSyncAt?: string;
+  /** True only when performance metrics (spend, clicks, conversions...) were refreshed from the API. */
+  metricsRefreshed?: boolean;
+  retryDelaySeconds?: number;
+  error?: string;
   currency?: string;
   timeZone?: string;
   accountName?: string;
@@ -76,7 +86,8 @@ async function processUserSync(
     if (quotaCooldown && !force && mode !== 'structural') {
       const remainingSec = Math.max(1, Math.round((quotaCooldown.retryAfter - Date.now()) / 1000));
       return {
-        success: true,
+        success: false,
+        retryDelaySeconds: remainingSec,
         userId,
         customerId: cleanCid,
         campaigns: existingCampaigns,
@@ -116,7 +127,8 @@ async function processUserSync(
 
       if (structuralResult.isQuotaExhausted) {
         return {
-          success: true,
+          success: false,
+          retryDelaySeconds: structuralResult.retryDelaySeconds,
           userId,
           customerId: cleanCid,
           campaigns: existingCampaigns,
@@ -236,6 +248,8 @@ async function processUserSync(
           changesCount: changesDetected,
           changesSummary,
           status: 'SYNCED',
+          lastSyncAt: new Date().toISOString(),
+          metricsRefreshed: false,
           currency: structuralResult.currency || 'USD',
           message:
             changesDetected > 0
@@ -247,15 +261,17 @@ async function processUserSync(
         };
       }
 
-      // If structural query failed due to auth without quota crash, return existing
+      // Structural query failed: report the failure honestly so the client keeps its
+      // previous "last synced" time instead of stamping stale data as fresh.
       return {
-        success: true,
+        success: false,
         userId,
         customerId: cleanCid,
         campaigns: existingCampaigns,
         campaignsCount: existingCampaigns.length,
-        status: structuralResult.isAuthExpired ? 'AUTH_EXPIRED' : 'SYNCED',
-        message: 'Serving database cache.',
+        status: structuralResult.isAuthExpired ? 'AUTH_EXPIRED' : 'ERROR',
+        error: structuralResult.error,
+        message: 'Google Ads sync failed. Showing previously synced data.',
       };
     }
 
@@ -276,9 +292,11 @@ async function processUserSync(
       }
     );
 
-    if (syncResult.success && Array.isArray(syncResult.campaigns)) {
+    if (syncResult.success && !syncResult.isQuotaExhausted && Array.isArray(syncResult.campaigns)) {
       return {
         success: true,
+        lastSyncAt: syncResult.fetchedAt || new Date().toISOString(),
+        metricsRefreshed: true,
         userId,
         customerId: cleanCid,
         campaignsCount: syncResult.campaigns.length,
@@ -296,19 +314,41 @@ async function processUserSync(
       };
     }
 
+    if (syncResult.isQuotaExhausted) {
+      return {
+        success: false,
+        userId,
+        customerId: cleanCid,
+        campaigns: existingCampaigns,
+        campaignsCount: existingCampaigns.length,
+        status: 'QUOTA_PAUSED',
+        retryDelaySeconds: syncResult.retryDelaySeconds,
+        message: 'Google Ads quota cooling down. Showing previously synced data.',
+        newAccessToken: syncResult.newAccessToken,
+        newRefreshToken: syncResult.newRefreshToken,
+        newExpiresAt: syncResult.newExpiresAt,
+      };
+    }
+
     return {
-      success: true,
+      success: false,
       userId,
       customerId: cleanCid,
       campaigns: existingCampaigns,
       campaignsCount: existingCampaigns.length,
-      status: 'PRESERVED',
-      message: 'Serving cached campaigns.',
+      status: syncResult.isAuthExpired || syncResult.statusCode === 401 ? 'AUTH_EXPIRED' : 'ERROR',
+      error: syncResult.error,
+      message: syncResult.error
+        ? `Google Ads sync failed: ${String(syncResult.error).slice(0, 200)}`
+        : 'Google Ads sync failed. Showing previously synced data.',
+      newAccessToken: syncResult.newAccessToken,
+      newRefreshToken: syncResult.newRefreshToken,
+      newExpiresAt: syncResult.newExpiresAt,
     };
   } catch (err: any) {
     console.warn(`[SyncWorker] Handled exception for user ${userId}:`, err?.message);
     return {
-      success: true,
+      success: false,
       userId,
       status: 'FALLBACK',
       message: 'Preserving current campaign data.',
@@ -344,7 +384,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err: any) {
     return NextResponse.json({
-      success: true,
+      success: false,
       status: 'FALLBACK',
       message: 'Preserving cached data.',
       campaigns: [],
