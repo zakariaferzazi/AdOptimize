@@ -886,7 +886,7 @@ export async function persistGoogleAdsSyncSnapshot(
     searchTerms?: SearchTerm[];
     accountPatch: Partial<GoogleAdsAccount>;
   }
-): Promise<void> {
+): Promise<boolean> {
   const path = `users/${userId}`;
   try {
     await replaceCollectionDocs(userId, 'campaigns', snapshot.campaigns);
@@ -898,8 +898,10 @@ export async function persistGoogleAdsSyncSnapshot(
     }
     const accountRef = doc(db, 'users', userId, 'accounts', 'primary');
     await setDoc(accountRef, cleanForFirestore(snapshot.accountPatch), { merge: true });
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+    return false;
   }
 }
 

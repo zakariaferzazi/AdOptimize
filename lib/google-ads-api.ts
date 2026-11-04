@@ -740,6 +740,7 @@ export async function queryLiveCampaigns(
             method: 'POST',
             headers: activeHeaders,
             body: JSON.stringify({ query: gaqlDailyQuery }),
+            cache: 'no-store',
           }
         );
 
@@ -765,6 +766,7 @@ export async function queryLiveCampaigns(
               method: 'POST',
               headers: activeHeaders,
               body: JSON.stringify({ query: fallbackQuery }),
+              cache: 'no-store',
             }
           );
         }

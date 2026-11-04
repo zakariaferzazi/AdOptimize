@@ -104,14 +104,34 @@ export function getInitialState(): AdOptimizeState {
           return getCleanInitialState();
         }
 
-        // If we have a dedicated connected account, ensure it's merged into the state
+        // If we have a dedicated connected account, ensure it's merged into the state.
+        // Never let an older connection snapshot override newer sync timestamps/status.
         if (dedicatedConnectedAccount) {
+          const persistedSyncTs = new Date(
+            parsed?.account?.lastSuccessfulSyncAt || parsed?.account?.lastSyncAt || 0
+          ).getTime();
+          const dedicatedSyncTs = new Date(
+            dedicatedConnectedAccount.lastSuccessfulSyncAt || dedicatedConnectedAccount.lastSyncAt || 0
+          ).getTime();
+          const persistedIsFresher =
+            !isNaN(persistedSyncTs) && persistedSyncTs > (isNaN(dedicatedSyncTs) ? 0 : dedicatedSyncTs);
+
+          const fresherFields: Partial<GoogleAdsAccount> = {};
+          if (persistedIsFresher && parsed?.account) {
+            if (parsed.account.lastSyncAt) fresherFields.lastSyncAt = parsed.account.lastSyncAt;
+            if (parsed.account.lastSuccessfulSyncAt) {
+              fresherFields.lastSuccessfulSyncAt = parsed.account.lastSuccessfulSyncAt;
+            }
+            if (parsed.account.syncStatus) fresherFields.syncStatus = parsed.account.syncStatus;
+          }
+
           return {
             ...parsed,
             account: {
               ...parsed.account,
               ...dedicatedConnectedAccount,
               isConnected: true,
+              ...fresherFields,
             },
             isDemoMode: false,
           };
@@ -151,6 +171,7 @@ export function clearSavedState(): void {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('adoptimize_state_v1');
       localStorage.removeItem('adoptimize_connected_account');
+      localStorage.removeItem('adoptimize_last_successful_sync_at');
       localStorage.removeItem('adoptimize_onboarding_completed');
       localStorage.removeItem('adoptimize_selected_campaign_id');
       localStorage.removeItem('adoptimize_selected_date_range');

@@ -331,6 +331,9 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   const isBackgroundSyncingRef = useRef<boolean>(false);
   const lastSyncTimestampRef = useRef<number>(0);
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
+  // True while this browser holds a newer successful sync than Firestore; used to stop
+  // an older Firestore snapshot from overwriting fresher local data.
+  const preferLocalDataRef = useRef<boolean>(false);
 
   const accountAccessToken = state.account?.accessToken;
   const getAccessTokenString = useCallback((): string | null => {
@@ -475,6 +478,32 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             }
           }
 
+          // If this browser holds a newer successful sync than Firestore, keep the local
+          // snapshot and repair Firestore instead of letting the older one overwrite it.
+          const localSuccessfulTs = (() => {
+            if (typeof window === 'undefined') return 0;
+            try {
+              const stored = Number(localStorage.getItem(LAST_SUCCESSFUL_SYNC_KEY));
+              return !isNaN(stored) && stored > 0 ? stored : 0;
+            } catch {
+              return 0;
+            }
+          })();
+          const remoteSuccessfulTs = remoteAccount?.lastSuccessfulSyncAt
+            ? new Date(remoteAccount.lastSuccessfulSyncAt).getTime()
+            : 0;
+          const localSnapshot = getInitialState();
+          const localAccountMatchesRemote =
+            localSnapshot.account.isConnected &&
+            localSnapshot.account.clientCustomerId !== 'Not Connected' &&
+            (!remoteAccount?.clientCustomerId ||
+              localSnapshot.account.clientCustomerId === remoteAccount.clientCustomerId);
+          const localIsFresher =
+            localAccountMatchesRemote &&
+            localSuccessfulTs > 0 &&
+            localSuccessfulTs > (isNaN(remoteSuccessfulTs) ? 0 : remoteSuccessfulTs);
+          preferLocalDataRef.current = localIsFresher;
+
           if (remoteAccount?.accessToken) {
             setOauthToken(remoteAccount.accessToken);
             storeGoogleAdsToken(remoteAccount.accessToken);
@@ -511,10 +540,18 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           setState((prev) => {
             const nextState = {
               ...prev,
-              account: remoteAccount || prev.account,
-              campaigns: remoteCampaigns.length > 0 ? remoteCampaigns : prev.campaigns,
-              keywords: remoteKeywords.length > 0 ? remoteKeywords : prev.keywords,
-              searchTerms: remoteSearchTerms.length > 0 ? remoteSearchTerms : prev.searchTerms,
+              account: localIsFresher
+                ? { ...(remoteAccount || prev.account), ...prev.account }
+                : (remoteAccount || prev.account),
+              campaigns: localIsFresher
+                ? prev.campaigns
+                : (remoteCampaigns.length > 0 ? remoteCampaigns : prev.campaigns),
+              keywords: localIsFresher
+                ? prev.keywords
+                : (remoteKeywords.length > 0 ? remoteKeywords : prev.keywords),
+              searchTerms: localIsFresher
+                ? prev.searchTerms
+                : (remoteSearchTerms.length > 0 ? remoteSearchTerms : prev.searchTerms),
               insights: remoteInsights.length > 0 ? remoteInsights : prev.insights,
               anomalies: remoteAnomalies.length > 0 ? remoteAnomalies : prev.anomalies,
               budgetRecommendations: remoteRecs.length > 0 ? remoteRecs : prev.budgetRecommendations,
@@ -526,11 +563,31 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             return nextState;
           });
 
+          // Push the fresher local snapshot into Firestore so the live subscription and
+          // future page loads do not fall back to the older stored campaigns.
+          if (localIsFresher && currentUser) {
+            let repaired = false;
+            try {
+              repaired = await persistGoogleAdsSyncSnapshot(currentUser.uid, {
+                campaigns: localSnapshot.campaigns,
+                keywords: localSnapshot.keywords,
+                searchTerms: localSnapshot.searchTerms,
+                accountPatch: localSnapshot.account,
+              });
+            } catch (repairErr) {
+              console.warn('[Sync] Could not repair stale Firestore snapshot:', repairErr);
+            }
+            // Only accept live Firestore snapshots again once the repair actually landed.
+            preferLocalDataRef.current = !repaired;
+          }
+
           // Subscribe to real-time Firestore updates for user's campaigns
           if (unsubscribeCampaignsRef.current) {
             unsubscribeCampaignsRef.current();
           }
           unsubscribeCampaignsRef.current = subscribeToUserCampaigns(currentUser.uid, (liveCampaigns) => {
+            // Ignore an older stored snapshot while this browser has fresher synced data.
+            if (preferLocalDataRef.current) return;
             setState((prev) => {
               // If account is disconnected, keep campaigns empty
               if (!prev.account.isConnected || prev.account.clientCustomerId === 'Not Connected') {
@@ -631,10 +688,19 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           isDemoMode: false,
         };
         saveState(nextState);
+        // Keep the dedicated connected-account snapshot fresh too; otherwise the next
+        // page load merges a stale account (old lastSyncAt/syncStatus) over this state.
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('adoptimize_connected_account', JSON.stringify(nextState.account));
+          } catch {}
+        }
         return nextState;
       });
 
       setLastSyncTimestamp(fetchedAtMs);
+      // This snapshot is now the freshest data; allow Firestore updates again.
+      preferLocalDataRef.current = false;
       setIsTokenExpired(false);
       setQuotaResetAt(null);
       if (typeof window !== 'undefined') {
@@ -1408,6 +1474,9 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
     setRefreshToken(null);
     setSelectedCampaign(null);
     setApiIssue(null);
+    setLastSyncTimestamp(null);
+    lastSyncTimestampRef.current = 0;
+    preferLocalDataRef.current = false;
 
     // Clear all storage keys & save clean state
     clearSavedState();
@@ -1463,18 +1532,34 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       state.account.clientCustomerId &&
       state.account.clientCustomerId !== 'Not Connected';
 
-    // 2. Call Google Ads API in background without blocking UI spinner
-    if (isConnected && token) {
-      fetch('/api/google-ads/mutate', {
+    const revertOptimistic = () => {
+      setState((prev) => ({
+        ...prev,
+        campaigns: prev.campaigns.map((c) =>
+          c.id === campaignId && c.status === newStatus ? { ...c, status: oldStatus } : c
+        ),
+      }));
+    };
+
+    // 2. Send the change to Google Ads and only keep it once Google confirms success
+    if (!isConnected || !token) {
+      revertOptimistic();
+      showToast('Connect Google Ads before changing campaign status.');
+      return false;
+    }
+
+    let mutateData: any = null;
+    try {
+      const res = await fetch('/api/google-ads/mutate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(4000),
         body: JSON.stringify({
           action: 'set_campaign_status',
           customerId: state.account.clientCustomerId,
           campaignId: target.id,
           status: newStatus,
           accessToken: token,
+          refreshToken: state.account.refreshToken || refreshToken || undefined,
           loginCustomerId:
             state.account.loginCustomerId ||
             (typeof window !== 'undefined'
@@ -1482,16 +1567,27 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
                 localStorage.getItem('google_ads_login_cid')
               : undefined),
         }),
-      })
-        .then(async (res) => {
-          const data = await res.json().catch(() => null);
-          if (!res.ok || !data?.success) {
-            console.warn('Google Ads API update note:', data?.error);
-          }
-        })
-        .catch((err) => {
-          console.warn('Google Ads API status update notice:', err);
-        });
+      });
+      mutateData = await res.json().catch(() => null);
+      if (mutateData?.newAccessToken) {
+        storeGoogleAdsToken(mutateData.newAccessToken, 3600, mutateData.newExpiresAt);
+        setOauthToken(mutateData.newAccessToken);
+        setIsTokenExpired(false);
+      }
+      if (mutateData?.newRefreshToken) {
+        storeGoogleAdsRefreshToken(mutateData.newRefreshToken);
+        setRefreshToken(mutateData.newRefreshToken);
+      }
+      if (!res.ok || !mutateData?.success) {
+        revertOptimistic();
+        showToast(mutateData?.error || 'Google Ads rejected the status change. Campaign was not updated.');
+        return false;
+      }
+    } catch (err) {
+      console.warn('Google Ads API status update notice:', err);
+      revertOptimistic();
+      showToast('Could not reach Google Ads. Campaign status was not changed.');
+      return false;
     }
 
     // 3. Log audit event and update state
@@ -1549,17 +1645,36 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       state.account.clientCustomerId &&
       state.account.clientCustomerId !== 'Not Connected';
 
-    if (isConnected && token) {
-      fetch('/api/google-ads/mutate', {
+    const revertOptimistic = () => {
+      setState((prev) => ({
+        ...prev,
+        campaigns: prev.campaigns.map((c) =>
+          c.id === campaignId && Math.abs(c.budgetDaily - newBudget) < 0.005
+            ? { ...c, budgetDaily: oldBudget }
+            : c
+        ),
+      }));
+    };
+
+    // Only keep the optimistic budget once Google Ads confirms the update
+    if (!isConnected || !token) {
+      revertOptimistic();
+      showToast('Connect Google Ads before updating the campaign budget.');
+      return false;
+    }
+
+    let mutateData: any = null;
+    try {
+      const res = await fetch('/api/google-ads/mutate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(4000),
         body: JSON.stringify({
           action: 'update_campaign_budget',
           customerId: state.account.clientCustomerId,
           campaignId: target.id,
           budgetDaily: newBudget,
           accessToken: token,
+          refreshToken: state.account.refreshToken || refreshToken || undefined,
           loginCustomerId:
             state.account.loginCustomerId ||
             (typeof window !== 'undefined'
@@ -1567,16 +1682,27 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
                 localStorage.getItem('google_ads_login_cid')
               : undefined),
         }),
-      })
-        .then(async (res) => {
-          const data = await res.json().catch(() => null);
-          if (!res.ok || !data?.success) {
-            console.warn('Google Ads API budget update note:', data?.error);
-          }
-        })
-        .catch((err) => {
-          console.warn('Network error updating budget in Google Ads API:', err);
-        });
+      });
+      mutateData = await res.json().catch(() => null);
+      if (mutateData?.newAccessToken) {
+        storeGoogleAdsToken(mutateData.newAccessToken, 3600, mutateData.newExpiresAt);
+        setOauthToken(mutateData.newAccessToken);
+        setIsTokenExpired(false);
+      }
+      if (mutateData?.newRefreshToken) {
+        storeGoogleAdsRefreshToken(mutateData.newRefreshToken);
+        setRefreshToken(mutateData.newRefreshToken);
+      }
+      if (!res.ok || !mutateData?.success) {
+        revertOptimistic();
+        showToast(mutateData?.error || 'Google Ads rejected the budget change. Budget was not updated.');
+        return false;
+      }
+    } catch (err) {
+      console.warn('Network error updating budget in Google Ads API:', err);
+      revertOptimistic();
+      showToast('Could not reach Google Ads. Campaign budget was not changed.');
+      return false;
     }
 
     const newAuditLog: AuditLog = {
