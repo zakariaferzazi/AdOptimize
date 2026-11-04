@@ -23,7 +23,7 @@ export interface MetricWithDelta {
   changeText: string;
   changePercent: number;
   isPositiveChange: boolean;
-  isNegativeBad: boolean; // true if an increase is considered negative/bad (e.g. CPA, CPC)
+  isNegativeBad: boolean; // true if an increase is considered good/bad (e.g. CPA, CPC)
   subContext: string;
 }
 
