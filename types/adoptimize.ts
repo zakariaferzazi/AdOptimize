@@ -1,0 +1,437 @@
+export type CampaignType = 'SEARCH' | 'PERFORMANCE_MAX' | 'DISPLAY' | 'SHOPPING';
+export type CampaignStatus = 'ENABLED' | 'PAUSED';
+export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'OPPORTUNITY';
+export type CampaignGoal = 'MAXIMIZE_CONVERSIONS' | 'TARGET_CPA' | 'TARGET_ROAS' | 'MAXIMIZE_VALUE';
+
+export interface PerformanceMetric {
+  spend: number;
+  conversions: number;
+  conversionValue: number;
+  cpa: number;
+  roas: number;
+  ctr: number;
+  cpc: number;
+  impressions: number;
+  clicks: number;
+  conversionRate: number;
+}
+
+export interface MetricComparison {
+  current: PerformanceMetric;
+  previous: PerformanceMetric;
+  deltas: {
+    spend: number;
+    conversions: number;
+    conversionValue: number;
+    cpa: number;
+    roas: number;
+    ctr: number;
+    cpc: number;
+    impressions: number;
+    clicks: number;
+    conversionRate: number;
+  };
+}
+
+export interface Campaign {
+  id: string;
+  accountId: string;
+  name: string;
+  type: CampaignType;
+  status: CampaignStatus;
+  budgetDaily: number;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  conversions: number;
+  cpa: number;
+  conversionValue: number;
+  roas: number;
+  conversionRate: number;
+  healthStatus: HealthStatus;
+  healthScore: number; // 0 to 100
+  trendPoints: number[]; // sparkline data
+  historicalPoints: {
+    date: string;
+    spend: number;
+    conversions: number;
+    cpa: number;
+    roas: number;
+    clicks?: number;
+    impressions?: number;
+    conversionValue?: number;
+  }[];
+  timeframeMetrics?: {
+    TODAY?: CampaignTimeframeData;
+    YESTERDAY?: CampaignTimeframeData;
+    LAST_2_DAYS?: CampaignTimeframeData;
+    LAST_7_DAYS?: CampaignTimeframeData;
+    LAST_14_DAYS?: CampaignTimeframeData;
+    LAST_30_DAYS?: CampaignTimeframeData;
+    THIS_MONTH?: CampaignTimeframeData;
+    LAST_MONTH?: CampaignTimeframeData;
+    ALL_TIME?: CampaignTimeframeData;
+  };
+  previousPeriod?: {
+    spend: number;
+    conversions: number;
+    cpa: number;
+    roas: number;
+  };
+  keywordsCount: number;
+  activeAdsCount: number;
+  primaryGoal?: CampaignGoal;
+  allTimeSpend?: number;
+  allTimeClicks?: number;
+  allTimeImpressions?: number;
+  allTimeConversions?: number;
+  allTimeConversionValue?: number;
+  allTimeCtr?: number;
+  allTimeCpc?: number;
+  allTimeCpa?: number;
+  allTimeRoas?: number;
+}
+
+export interface CampaignTimeframeData {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  conversionValue: number;
+  cpa: number;
+  roas: number;
+  ctr: number;
+  cpc: number;
+}
+
+export interface Keyword {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  keyword: string;
+  matchType: 'EXACT' | 'PHRASE' | 'BROAD';
+  spend: number;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  cpc: number;
+  conversions: number;
+  cpa: number;
+  qualityScore: number; // 1 to 10
+  status: 'ENABLED' | 'PAUSED';
+  flag?: 'HIGH_SPEND_ZERO_CONV' | 'TOP_PERFORMER' | 'RISING_CPA' | 'LOW_QUALITY_SCORE' | 'NORMAL';
+}
+
+export interface SearchTerm {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  searchTerm: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  conversions: number;
+  cpa: number;
+  recommendedAction: 'ADD_NEGATIVE' | 'ADD_KEYWORD' | 'MONITOR' | 'NONE';
+  wastedSpendEstimate: number;
+  intentRelevance: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'ACTIVE' | 'ADDED_AS_NEGATIVE' | 'DISMISSED';
+}
+
+export interface AdCreative {
+  id: string;
+  campaignId: string;
+  headline1: string;
+  headline2: string;
+  headline3: string;
+  description1: string;
+  description2: string;
+  finalUrl: string;
+  adStrength: 'POOR' | 'AVERAGE' | 'GOOD' | 'EXCELLENT';
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  conversions: number;
+  cpa: number;
+  status: 'ENABLED' | 'PAUSED';
+  aiCritique: string;
+}
+
+export interface BreakdownItem {
+  name: string;
+  spend: number;
+  conversions: number;
+  cpa: number;
+  roas: number;
+  sharePercent: number;
+}
+
+export interface AnomalyAlert {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  metric: 'CPA' | 'ROAS' | 'SPEND' | 'CONVERSIONS' | 'CTR' | 'CPC';
+  severity: 'CRITICAL' | 'WARNING' | 'OPPORTUNITY';
+  title: string;
+  whatChanged: string;
+  whenChanged: string;
+  whyItMatters: string;
+  recommendedAction: string;
+  detectedAt: string;
+  resolved: boolean;
+  autoExecutable: boolean;
+}
+
+export interface AIInsight {
+  id: string;
+  campaignId?: string;
+  campaignName?: string;
+  category: 'CRITICAL_ISSUE' | 'BUDGET_OPPORTUNITY' | 'PERFORMANCE_IMPROVEMENT' | 'WASTED_SPEND' | 'GROWTH_OPPORTUNITY' | 'ANOMALY';
+  problem: string;
+  whyItMatters: string;
+  evidence: {
+    metric: string;
+    before: string;
+    current: string;
+    changePercent: string;
+    context: string;
+  };
+  recommendedAction: string;
+  expectedImpact: string;
+  confidence: number; // 0-100
+  status: 'NEW' | 'REVIEWED' | 'DISMISSED' | 'APPLIED';
+  createdAt: string;
+  actionPayload?: {
+    type: 'BUDGET_CHANGE' | 'PAUSE_KEYWORD' | 'ADD_NEGATIVE_KEYWORD' | 'BID_STRATEGY_ADJUST';
+    targetId: string;
+    targetName: string;
+    oldValue: string | number;
+    newValue: string | number;
+  };
+}
+
+export interface BudgetRecommendation {
+  id: string;
+  campaignFromId: string;
+  campaignFromName: string;
+  campaignToId: string;
+  campaignToName: string;
+  currentBudgetFrom: number;
+  proposedBudgetFrom: number;
+  currentBudgetTo: number;
+  proposedBudgetTo: number;
+  reallocatedAmount: number;
+  reason: string;
+  supportingMetrics: {
+    fromRoas: number;
+    toRoas: number;
+    fromCpa: number;
+    toCpa: number;
+    fromSpend: number;
+    toSpend: number;
+  };
+  estimatedMonthlyImpact: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  appliedAt?: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  category: 'MONITOR' | 'RECOMMEND' | 'AUTO_OPTIMIZE';
+  conditionDescription: string;
+  conditionMetric: 'CPA' | 'ROAS' | 'SPEND_NO_CONV' | 'CPC_SPIKE' | 'CTR_DROP';
+  conditionOperator: '>' | '<' | 'SPIKE_PERCENT';
+  conditionValue: number;
+  durationDays: number;
+  actionType: 'NOTIFY' | 'RECOMMEND_BUDGET_CUT' | 'FLAG_KEYWORD' | 'PAUSE_SEARCH_TERM' | 'PAUSE_CAMPAIGN';
+  actionDescription: string;
+  enabled: boolean;
+  requiresApproval: boolean;
+  maxBudgetShiftLimitPercent: number; // safeguard e.g. 15%
+  lastTriggeredAt?: string;
+  executionCount: number;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  campaignId: string;
+  campaignName: string;
+  actionType: string;
+  previousValue: string;
+  newValue: string;
+  reason: string;
+  source: 'USER' | 'AUTOMATION_RULE' | 'AI_RECOMMENDATION' | 'GOOGLE_ADS' | 'SYSTEM' | 'GOOGLE_ADS_SYNC';
+  userOrSystem: string;
+  status: 'EXECUTED' | 'REVERTED' | 'SCHEDULED';
+  canRevert: boolean;
+}
+
+export interface GoogleAdsAccount {
+  id: string;
+  clientCustomerId: string;
+  accountName: string;
+  currency: string;
+  timezone?: string;
+  isConnected: boolean;
+  lastSyncAt: string;
+  /** ISO time of the last sync that actually fetched and stored fresh Google Ads data. */
+  lastSuccessfulSyncAt?: string;
+  syncStatus: 'SYNCED' | 'SYNCING' | 'ERROR' | 'IDLE' | 'QUOTA_PAUSED';
+  quotaResetAt?: number;
+  isDemo: boolean;
+  totalCampaignsCount: number;
+  monthlySpendCap?: number;
+  verifiedLive?: boolean;
+  connectionType?: 'oauth_api' | 'direct_workspace';
+  loginCustomerId?: string;
+  developerToken?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  isTokenExpired?: boolean;
+}
+
+export interface ProposedAccountChange {
+  id: string;
+  actionType: 'UPDATE_BUDGET' | 'PAUSE_CAMPAIGN' | 'ENABLE_CAMPAIGN' | 'REALLOCATE_BUDGET' | 'ADD_NEGATIVE_KEYWORD' | 'UPDATE_SETTINGS';
+  campaignId: string;
+  campaignName: string;
+  currentSettings: string;
+  proposedChanges: string;
+  reason: string;
+  evidence: string;
+  potentialRisks: string;
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED';
+  executionResult?: string;
+  appliedAt?: string;
+  payload?: Record<string, any>;
+}
+
+export interface ToolCallExecution {
+  id: string;
+  name: string;
+  args: Record<string, any>;
+  result?: any;
+  status: 'running' | 'success' | 'error';
+  executionTimeMs?: number;
+}
+
+export interface InteractiveRecommendationCard {
+  id: string;
+  type: 'WASTED_SPEND' | 'BUDGET_REALLOCATION' | 'UNDERPERFORMING_CAMPAIGN' | 'SEARCH_TERMS' | 'BUDGET_OPPORTUNITY';
+  title: string;
+  campaignId?: string;
+  campaignName: string;
+  finding: string;
+  metrics?: Array<{ label: string; value: string }> | {
+    spend?: number;
+    conversions?: number;
+    cpa?: number;
+    roas?: number;
+  };
+  actions?: Array<{
+    label: string;
+    prompt: string;
+    isPrimary?: boolean;
+  }>;
+  recommendedActions?: Array<{
+    label: string;
+    prompt: string;
+    variant?: 'primary' | 'danger' | 'default';
+    isPrimary?: boolean;
+  }>;
+}
+
+export type InteractiveRecommendation = InteractiveRecommendationCard;
+
+export interface AnalysisSummaryDetail {
+  campaignsCount?: number;
+  dateRangeExamined?: string;
+  aspectsExamined: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  citedCampaigns?: string[];
+  suggestedAction?: {
+    label: string;
+    type: string;
+    targetId?: string;
+  };
+  toolCalls?: ToolCallExecution[];
+  actionProposal?: ProposedAccountChange;
+  recommendations?: InteractiveRecommendationCard[];
+  analysisDetails?: AnalysisSummaryDetail;
+  tableData?: {
+    headers: string[];
+    rows: (string | number)[][];
+    caption?: string;
+  };
+  modelUsed?: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  createdAt: number | string;
+  updatedAt: number | string;
+  model?: string;
+  messages: ChatMessage[];
+}
+
+export type DateRangePeriod =
+  | 'TODAY'
+  | 'YESTERDAY'
+  | 'LAST_2_DAYS'
+  | 'LAST_7_DAYS'
+  | 'LAST_14_DAYS'
+  | 'LAST_30_DAYS'
+  | 'THIS_MONTH'
+  | 'LAST_MONTH'
+  | 'ALL_TIME'
+  | 'PREVIOUS_PERIOD'
+  | 'CUSTOM';
+
+export type KpiMetricId =
+  | 'spend'
+  | 'impressions'
+  | 'clicks'
+  | 'ctr'
+  | 'cpc'
+  | 'conversions'
+  | 'conversionRate'
+  | 'cpa'
+  | 'conversionValue'
+  | 'roas';
+
+export interface KpiCardConfig {
+  id: KpiMetricId;
+  label: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface PlanFeature {
+  name: string;
+  included: boolean;
+  limit?: string;
+}
+
+export interface SubscriptionPlan {
+  id: 'FREE' | 'PRO' | 'BUSINESS';
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  annualPriceMonthly: number;
+  badge?: string;
+  popular?: boolean;
+  accountLimit: string;
+  spendLimit: string;
+  features: string[];
+}

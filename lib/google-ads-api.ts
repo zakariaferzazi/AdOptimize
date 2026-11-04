@@ -1,0 +1,1904 @@
+/**
+ * Google Ads API Integration Module
+ * Handles official Google Ads API v17 endpoints with real OAuth tokens and Customer IDs.
+ */
+
+export interface GoogleAdsApiResult {
+  success: boolean;
+  customers?: string[];
+  campaigns?: any[];
+  keywords?: any[];
+  searchTerms?: any[];
+  error?: string;
+  details?: string;
+  statusCode?: number;
+  accessibleCustomers?: string[];
+  loginCustomerIdUsed?: string;
+  isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
+  currency?: string;
+  timeZone?: string;
+  accountName?: string;
+  fromCache?: boolean;
+  /** ISO timestamp of when this data was actually fetched from the Google Ads API */
+  fetchedAt?: string;
+}
+
+export interface QuotaCooldownState {
+  isExhausted: boolean;
+  retryAfter: number;
+  delaySec: number;
+  message: string;
+}
+
+// In-memory query cache with TTL to throttle Google Ads API calls
+interface CachedQueryResult {
+  data: GoogleAdsApiResult;
+  timestamp: number;
+  expiresAt: number;
+}
+
+const liveQueryCache = new Map<string, CachedQueryResult>();
+let globalQuotaCooldown: QuotaCooldownState | null = null;
+
+export function getQuotaCooldownStatus(): QuotaCooldownState | null {
+  if (globalQuotaCooldown) {
+    if (Date.now() < globalQuotaCooldown.retryAfter) {
+      return globalQuotaCooldown;
+    }
+    // Cooldown elapsed, restore normal operations
+    console.log('[Google Ads API Quota] Rate limit cooldown has elapsed. Normal API calls resumed.');
+    globalQuotaCooldown = null;
+  }
+  return null;
+}
+
+export function resetQuotaCooldown(): void {
+  globalQuotaCooldown = null;
+  console.log('[Google Ads API Quota] Rate limit cooldown manually reset.');
+}
+
+export function clearGoogleAdsCache(customerId?: string): void {
+  if (customerId) {
+    const clean = customerId.replace(/\D/g, '');
+    for (const key of Array.from(liveQueryCache.keys())) {
+      if (key.includes(clean)) {
+        liveQueryCache.delete(key);
+      }
+    }
+  } else {
+    liveQueryCache.clear();
+  }
+}
+
+/**
+ * Executes fetch with exponential backoff for transient server/network errors (HTTP 5xx).
+ * Does NOT retry immediately on 429 / RESOURCE_EXHAUSTED; instead lets cooldown handle it.
+ */
+async function fetchWithBackoff(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 2
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    try {
+      // Always bypass any framework/data cache: sync must reflect live Google Ads data
+      const res = await fetch(url, { cache: 'no-store', ...options });
+
+      // If transient HTTP 5xx error, retry with exponential backoff
+      if ((res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+        attempt++;
+        const backoffMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        console.warn(`[Google Ads API] Transient HTTP ${res.status}. Retrying in ${Math.round(backoffMs)}ms (attempt ${attempt}/${maxRetries})...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      return res;
+    } catch (netErr: any) {
+      if (attempt < maxRetries) {
+        attempt++;
+        const backoffMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        console.warn(`[Google Ads API] Network failure: ${netErr.message}. Retrying in ${Math.round(backoffMs)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+      throw netErr;
+    }
+  }
+}
+
+/**
+ * Validates a Google Ads Customer ID (CID).
+ * Google Ads Customer IDs are always exactly 10 digits (e.g. 123-456-7890 or 1234567890).
+ */
+export function validateAndFormatCustomerId(rawId: string): { isValid: boolean; formatted: string; clean: string; error?: string } {
+  if (!rawId || typeof rawId !== 'string') {
+    return { isValid: false, formatted: '', clean: '', error: 'Customer ID is required.' };
+  }
+
+  const clean = rawId.replace(/\D/g, '');
+
+  if (clean.length !== 10) {
+    return {
+      isValid: false,
+      formatted: rawId,
+      clean,
+      error: `Invalid Google Ads Customer ID: "${rawId}". Google Ads CIDs must contain exactly 10 digits (e.g. 123-456-7890). Found ${clean.length} digits.`,
+    };
+  }
+
+  // Must not be all zeros or dummy values
+  if (/^0{10}$/.test(clean) || clean === '1234567890') {
+    return {
+      isValid: false,
+      formatted: `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`,
+      clean,
+      error: 'Please enter your actual 10-digit Google Ads Customer ID from ads.google.com, not a placeholder.',
+    };
+  }
+
+  const formatted = `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
+  return { isValid: true, formatted, clean };
+}
+
+// Active Google Ads API versions for 2026 (v17-v22 are sunset/retired)
+const GOOGLE_ADS_API_VERSIONS = ['v26', 'v25', 'v24', 'v23'];
+
+/**
+ * Safely parses response body into JSON, preventing SyntaxError: Unexpected token '<'
+ */
+async function safeParseResponse(res: Response): Promise<{ isJson: boolean; data: any; rawText: string }> {
+  try {
+    const rawText = await res.text();
+    try {
+      const data = JSON.parse(rawText);
+      return { isJson: true, data, rawText };
+    } catch {
+      return { isJson: false, data: null, rawText };
+    }
+  } catch (err: any) {
+    return { isJson: false, data: null, rawText: err.message || '' };
+  }
+}
+
+function cleanHtmlSnippet(raw: string): string {
+  return raw
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]*>?/gm, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220);
+}
+
+function extractGoogleAdsError(
+  data: any,
+  status: number,
+  rawText: string
+): {
+  error: string;
+  details?: string;
+  isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
+} {
+  const rawLower = (rawText || '').toLowerCase();
+
+  // 1. Check for Rate Limit / Quota Exhaustion (HTTP 429 or RESOURCE_EXHAUSTED)
+  const isQuotaError =
+    status === 429 ||
+    data?.status === 'RESOURCE_EXHAUSTED' ||
+    data?.error?.status === 'RESOURCE_EXHAUSTED' ||
+    data?.code === 429 ||
+    data?.error?.code === 429 ||
+    rawLower.includes('resource_exhausted') ||
+    rawLower.includes('quotaerror') ||
+    rawLower.includes('number of operations for explorer access') ||
+    rawLower.includes('too many requests');
+
+  if (isQuotaError) {
+    // Default rate limit / burst cooldown is 60 seconds (unless explicitly given by Google)
+    let delaySec = 60;
+    const match =
+      rawText.match(/retryDelay"?:\s*"(\d+)s?"/i) ||
+      rawText.match(/retry in (\d+)\s*seconds/i) ||
+      rawText.match(/"seconds":\s*(\d+)/i);
+
+    if (match && match[1]) {
+      const parsedSec = parseInt(match[1], 10);
+      if (!isNaN(parsedSec) && parsedSec > 0) {
+        // Cap burst rate limit cooldown to maximum 60 seconds so operations can resume promptly
+        delaySec = Math.min(parsedSec, 60);
+      }
+    }
+
+    const durationLabel =
+      delaySec >= 3600
+        ? `~${(delaySec / 3600).toFixed(1)}h`
+        : delaySec >= 60
+        ? `~${Math.round(delaySec / 60)}m`
+        : `${delaySec}s`;
+
+    const quotaMsg = `Google Ads API rate limit reached (cooling down for ${durationLabel}). Campaigns and metrics are served from cache.`;
+
+    globalQuotaCooldown = {
+      isExhausted: true,
+      retryAfter: Date.now() + delaySec * 1000,
+      delaySec,
+      message: quotaMsg,
+    };
+
+    console.warn(`[Google Ads API] Rate Limit / Quota: ${quotaMsg} Active cooldown until ${new Date(globalQuotaCooldown.retryAfter).toLocaleTimeString()}.`);
+
+    return {
+      error: quotaMsg,
+      details: data?.error?.message || data?.message || rawText.slice(0, 300),
+      isAuthExpired: false,
+      isQuotaExhausted: true,
+      retryDelaySeconds: delaySec,
+    };
+  }
+
+  // 2. Check for expired or invalid OAuth credentials
+  const isAuthError =
+    status === 401 ||
+    data?.error?.status === 'UNAUTHENTICATED' ||
+    /invalid authentication credentials/i.test(rawText) ||
+    /Expected OAuth 2 access token/i.test(rawText) ||
+    /UNAUTHENTICATED/i.test(rawText);
+
+  if (isAuthError) {
+    return {
+      error: 'Google Ads session refreshing in background.',
+      details: data?.error?.message || 'Request had invalid authentication credentials (HTTP 401)',
+      isAuthExpired: true,
+      isQuotaExhausted: false,
+    };
+  }
+
+  if (data?.error) {
+    const mainMsg = data.error.message || data.error.status;
+    let detailMsg = '';
+    let errorCodeStr = '';
+
+    if (Array.isArray(data.error.details)) {
+      for (const item of data.error.details) {
+        if (Array.isArray(item.errors) && item.errors.length > 0) {
+          const firstErr = item.errors[0];
+          if (firstErr.message) detailMsg = firstErr.message;
+          if (firstErr.errorCode) {
+            const keys = Object.keys(firstErr.errorCode);
+            if (keys.length > 0) {
+              errorCodeStr = `${keys[0]}: ${firstErr.errorCode[keys[0]]}`;
+            }
+          }
+        }
+      }
+    }
+
+    let message = detailMsg || mainMsg || `Google Ads API Error (HTTP ${status})`;
+    const isAuth = status === 401 || String(message).toLowerCase().includes('invalid authentication credentials');
+    if (isAuth) {
+      message = 'Google Ads session refreshing in background.';
+    }
+    return {
+      error: errorCodeStr ? `${message} (${errorCodeStr})` : message,
+      details: data.error.details ? JSON.stringify(data.error.details) : (data.error.message || undefined),
+      isAuthExpired: isAuth,
+      isQuotaExhausted: false,
+    };
+  }
+
+  if (Array.isArray(data) && data[0]?.error) {
+    return {
+      error: data[0].error.message || `Google Ads API Error (HTTP ${status})`,
+      details: JSON.stringify(data[0].error),
+    };
+  }
+
+  const cleanSnippet = cleanHtmlSnippet(rawText);
+  if (status === 404) {
+    return {
+      error: `Google Ads API returned HTTP 404 (Not Found): Customer ID does not exist or endpoint was not found.`,
+      details: cleanSnippet || undefined,
+    };
+  }
+
+  return {
+    error: `Google Ads API returned HTTP ${status}: ${cleanSnippet || 'No response body'}`,
+    details: cleanSnippet || undefined,
+  };
+}
+
+/**
+ * Calls Google Ads API to list accessible customers for the user's OAuth access token.
+ */
+export async function listAccessibleCustomers(
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<GoogleAdsApiResult> {
+  try {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    if (devToken) {
+      headers['developer-token'] = devToken;
+    }
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+    }
+
+    let lastError: GoogleAdsApiResult = {
+      success: false,
+      error: 'Failed to connect to Google Ads API',
+    };
+
+    for (const version of GOOGLE_ADS_API_VERSIONS) {
+      const res = await fetch(`https://googleads.googleapis.com/${version}/customers:listAccessibleCustomers`, {
+        method: 'GET',
+        headers,
+      });
+
+      const parsed = await safeParseResponse(res);
+
+      if (res.status === 404) {
+        // Try next version if available
+        lastError = {
+          success: false,
+          error: `Google Ads API endpoint (${version}) not found (HTTP 404)`,
+          statusCode: 404,
+        };
+        continue;
+      }
+
+      if (!parsed.isJson) {
+        const errInfo = extractGoogleAdsError(null, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+          isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const data = parsed.data;
+
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+          isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const resourceNames: string[] = data?.resourceNames || [];
+      const customerIds = resourceNames.map((r: string) => {
+        const raw = r.replace('customers/', '');
+        return raw.length === 10 ? `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}` : raw;
+      });
+
+      return {
+        success: true,
+        customers: customerIds,
+      };
+    }
+
+    return lastError;
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Failed to connect to Google Ads API endpoint',
+    };
+  }
+}
+
+/**
+ * Queries live campaigns for a verified Customer ID using Google Ads SearchStream API.
+ */
+export async function queryLiveCampaigns(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string,
+  options?: { forceRefresh?: boolean }
+): Promise<GoogleAdsApiResult> {
+  try {
+    const cleanCid = cleanCustomerId.replace(/\D/g, '');
+    const cacheKey = `${cleanCid}:${loginCustomerId ? loginCustomerId.replace(/\D/g, '') : 'default'}`;
+    const cached = liveQueryCache.get(cacheKey);
+
+    // 1. Check if global rate limit cooldown is active (HTTP 429 / RESOURCE_EXHAUSTED)
+    const cooldown = getQuotaCooldownStatus();
+    if (cooldown) {
+      const remainingSec = Math.max(1, Math.round((cooldown.retryAfter - Date.now()) / 1000));
+      const remainingHours = (remainingSec / 3600).toFixed(1);
+      console.warn(`[Google Ads API] Request throttled: Explorer developer token quota cooldown active (~${remainingHours}h remaining, ${remainingSec}s). Serving verified data from cache.`);
+
+      if (cached?.data) {
+        return {
+          ...cached.data,
+          fromCache: true,
+          isQuotaExhausted: true,
+          retryDelaySeconds: remainingSec,
+          details: cooldown.message,
+        };
+      }
+
+      return {
+        success: false,
+        isQuotaExhausted: true,
+        retryDelaySeconds: remainingSec,
+        error: cooldown.message,
+        details: `Google Ads rate limit cooldown active until ${new Date(cooldown.retryAfter).toLocaleTimeString()}.`,
+      };
+    }
+
+    // 2. Check in-memory query cache with 30-second TTL to throttle redundant outgoing API queries
+    if (!options?.forceRefresh && cached && Date.now() < cached.expiresAt) {
+      console.log(`[Google Ads API Cache] Serving live campaigns for CID ${cleanCid} from cache (${Math.round((cached.expiresAt - Date.now()) / 1000)}s TTL remaining).`);
+      return {
+        ...cached.data,
+        fromCache: true,
+      };
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    if (developerToken) {
+      headers['developer-token'] = developerToken;
+    }
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+    }
+
+    // Google Ads Query Language (GAQL)
+    const gaqlQuery = `
+      SELECT
+        customer.currency_code,
+        customer.descriptive_name,
+        customer.time_zone,
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        campaign.advertising_channel_type,
+        campaign_budget.amount_micros,
+        metrics.cost_micros,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM campaign
+      WHERE campaign.status != 'REMOVED'
+      ORDER BY campaign.id DESC
+      LIMIT 200
+    `;
+
+    let lastError: GoogleAdsApiResult = {
+      success: false,
+      error: 'Google Ads SearchStream query failed',
+    };
+
+    for (const version of GOOGLE_ADS_API_VERSIONS) {
+      let res = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: gaqlQuery }),
+      });
+
+      let discoveredLoginCid: string | undefined = undefined;
+      let accessibleList: string[] = [];
+
+      // If 403 Permission Denied:
+      if (res.status === 403) {
+        // Step 1: try once with cleanCustomerId as login-customer-id (if not tried yet)
+        if (!loginCustomerId) {
+          const retryHeaders = {
+            ...headers,
+            'login-customer-id': cleanCustomerId,
+          };
+          const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+            method: 'POST',
+            headers: retryHeaders,
+            body: JSON.stringify({ query: gaqlQuery }),
+          });
+          if (retryRes.ok) {
+            res = retryRes;
+            discoveredLoginCid = cleanCustomerId;
+          }
+        }
+
+        // Step 2: If still 403, query listAccessibleCustomers to discover linked accounts or manager MCCs
+        if (res.status === 403) {
+          try {
+            const listRes = await listAccessibleCustomers(accessToken, developerToken);
+            if (listRes.success && Array.isArray(listRes.customers) && listRes.customers.length > 0) {
+              accessibleList = listRes.customers;
+              // Test each accessible account as a potential Manager Account (MCC)
+              for (const acc of accessibleList.slice(0, 3)) {
+                const cleanAcc = acc.replace(/\D/g, '');
+                if (cleanAcc !== cleanCustomerId && cleanAcc !== loginCustomerId) {
+                  const mccHeaders = {
+                    ...headers,
+                    'login-customer-id': cleanAcc,
+                  };
+                  const mccRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`, {
+                    method: 'POST',
+                    headers: mccHeaders,
+                    body: JSON.stringify({ query: gaqlQuery }),
+                  });
+                  if (mccRes.ok) {
+                    res = mccRes;
+                    discoveredLoginCid = acc;
+                    break;
+                  }
+                }
+              }
+            }
+          } catch {
+            // listAccessibleCustomers failed, proceed with error extraction
+          }
+        }
+      }
+
+      const parsed = await safeParseResponse(res);
+
+      if (res.status === 404) {
+        // Version sunset or invalid, try next version
+        lastError = {
+          success: false,
+          error: `Google Ads SearchStream API (${version}) returned HTTP 404 for CID ${cleanCustomerId}. Customer ID may not exist in Google Ads.`,
+          statusCode: 404,
+        };
+        continue;
+      }
+
+      if (!parsed.isJson) {
+        const errInfo = extractGoogleAdsError(null, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+          accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
+          isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const data = parsed.data;
+
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        let finalErrorMsg = errInfo.error;
+        if (res.status === 403) {
+          if (accessibleList.length > 0) {
+            finalErrorMsg = `The caller does not have permission for CID ${cleanCustomerId}. Your Google login has access to: ${accessibleList.join(', ')}.`;
+          } else {
+            finalErrorMsg = `The caller does not have permission for CID ${cleanCustomerId}. Check that your signed-in Google account has been granted access in Google Ads (ads.google.com → Tools & Settings → Access and Security) or provide your Manager CID.`;
+          }
+        }
+        return {
+          success: false,
+          error: finalErrorMsg,
+          details: errInfo.details,
+          statusCode: res.status,
+          accessibleCustomers: accessibleList.length > 0 ? accessibleList : undefined,
+          isAuthExpired: errInfo.isAuthExpired,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      // Extract customer timezone, currency, and descriptive name from Google Ads response
+      let detectedCurrency: string | undefined = undefined;
+      let detectedTimeZone: string | undefined = undefined;
+      let detectedAccountName: string | undefined = undefined;
+
+      const resultsBatches = Array.isArray(data) ? data : [data];
+      for (const batch of resultsBatches) {
+        for (const row of batch.results || []) {
+          const cust = row.customer;
+          if (cust) {
+            if ((cust.currencyCode || cust.currency_code) && !detectedCurrency) {
+              detectedCurrency = String(cust.currencyCode || cust.currency_code).toUpperCase().trim();
+            }
+            if ((cust.timeZone || cust.time_zone) && !detectedTimeZone) {
+              detectedTimeZone = String(cust.timeZone || cust.time_zone).trim();
+            }
+            if ((cust.descriptiveName || cust.descriptive_name) && !detectedAccountName) {
+              detectedAccountName = String(cust.descriptiveName || cust.descriptive_name).trim();
+            }
+          }
+        }
+      }
+
+      // Compute dates strictly aligned with the customer's exact Google Ads timezone
+      const accountTz = detectedTimeZone || 'UTC';
+      const formatTzDate = (d: Date): string => {
+        try {
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: accountTz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          });
+          return formatter.format(d);
+        } catch {
+          return d.toISOString().slice(0, 10);
+        }
+      };
+
+      const now = new Date();
+      const todayStr = formatTzDate(now);
+
+      // Construct base date at noon UTC in customer timezone to avoid day slippage
+      const [nowYear, nowMonth, nowDay] = todayStr.split('-').map(Number);
+      const baseCustomerDate = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay, 12, 0, 0));
+
+      const yesterdayDate = new Date(baseCustomerDate.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayStr = formatTzDate(yesterdayDate);
+
+      // Query past 65 days to ensure full coverage of previous calendar month and completed timeframes
+      const sixtyFiveDaysAgoDate = new Date(baseCustomerDate.getTime() - 65 * 24 * 60 * 60 * 1000);
+      const sixtyFiveDaysAgoStr = formatTzDate(sixtyFiveDaysAgoDate);
+
+      // Google Ads official "Last 7 Days": The 7 completed days preceding today (yesterday - 6 to yesterday)
+      const last7CompletedDates: string[] = [];
+      for (let i = 7; i >= 1; i--) {
+        const d = new Date(baseCustomerDate.getTime() - i * 24 * 60 * 60 * 1000);
+        last7CompletedDates.push(formatTzDate(d));
+      }
+
+      // Google Ads official "Last 14 Days": The 14 completed days preceding today (yesterday - 13 to yesterday)
+      const last14CompletedDates: string[] = [];
+      for (let i = 14; i >= 1; i--) {
+        const d = new Date(baseCustomerDate.getTime() - i * 24 * 60 * 60 * 1000);
+        last14CompletedDates.push(formatTzDate(d));
+      }
+
+      // Google Ads official "Last 30 Days": The 30 completed days preceding today (yesterday - 29 to yesterday)
+      const last30CompletedDates: string[] = [];
+      for (let i = 30; i >= 1; i--) {
+        const d = new Date(baseCustomerDate.getTime() - i * 24 * 60 * 60 * 1000);
+        last30CompletedDates.push(formatTzDate(d));
+      }
+
+      // 30 days including today for historical chart sparklines
+      const last30ChartDates: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(baseCustomerDate.getTime() - i * 24 * 60 * 60 * 1000);
+        last30ChartDates.push(formatTzDate(d));
+      }
+
+      // "This Month": from 1st of current month up to today
+      const currentMonthPrefix = todayStr.slice(0, 7);
+      const thisMonthDates: string[] = [];
+      for (let day = 1; day <= nowDay; day++) {
+        const dayFormatted = `${currentMonthPrefix}-${String(day).padStart(2, '0')}`;
+        thisMonthDates.push(dayFormatted);
+      }
+
+      // "Last Month": full previous calendar month
+      const prevMonthDate = new Date(Date.UTC(nowYear, nowMonth - 2, 1, 12, 0, 0));
+      const prevMonthYear = prevMonthDate.getUTCFullYear();
+      const prevMonthNum = prevMonthDate.getUTCMonth() + 1;
+      const prevMonthPrefix = `${prevMonthYear}-${String(prevMonthNum).padStart(2, '0')}`;
+      const daysInPrevMonth = new Date(Date.UTC(nowYear, nowMonth - 1, 0)).getUTCDate();
+      const lastMonthDates: string[] = [];
+      for (let day = 1; day <= daysInPrevMonth; day++) {
+        lastMonthDates.push(`${prevMonthPrefix}-${String(day).padStart(2, '0')}`);
+      }
+
+      // Query daily breakdown to calculate exact performance metrics matching Google Ads UI
+      const dailyMap = new Map<string, Map<string, any>>();
+      let dailyMetricsError: GoogleAdsApiResult | null = null;
+
+      try {
+        const gaqlDailyQuery = `
+          SELECT
+            campaign.id,
+            segments.date,
+            metrics.cost_micros,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.conversions,
+            metrics.conversions_value
+          FROM campaign
+          WHERE campaign.status != 'REMOVED'
+            AND segments.date BETWEEN '${sixtyFiveDaysAgoStr}' AND '${todayStr}'
+          ORDER BY segments.date ASC
+        `;
+
+        const activeHeaders = discoveredLoginCid
+          ? { ...headers, 'login-customer-id': discoveredLoginCid.replace(/\D/g, '') }
+          : headers;
+
+        let resDaily = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers: activeHeaders,
+            body: JSON.stringify({ query: gaqlDailyQuery }),
+          }
+        );
+
+        // Fallback to DURING LAST_30_DAYS if BETWEEN is rejected by API version
+        if (!resDaily.ok) {
+          const fallbackQuery = `
+            SELECT
+              campaign.id,
+              segments.date,
+              metrics.cost_micros,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM campaign
+            WHERE campaign.status != 'REMOVED'
+              AND segments.date DURING LAST_30_DAYS
+            ORDER BY segments.date ASC
+          `;
+          resDaily = await fetch(
+            `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+            {
+              method: 'POST',
+              headers: activeHeaders,
+              body: JSON.stringify({ query: fallbackQuery }),
+            }
+          );
+        }
+
+        const parsedDaily = await safeParseResponse(resDaily);
+        if (!resDaily.ok || !parsedDaily.isJson) {
+          const errInfo = extractGoogleAdsError(parsedDaily.isJson ? parsedDaily.data : null, resDaily.status, parsedDaily.rawText);
+          dailyMetricsError = {
+            success: false,
+            error: `Could not fetch daily performance metrics from Google Ads: ${errInfo.error}`,
+            details: errInfo.details,
+            statusCode: resDaily.status,
+            isAuthExpired: errInfo.isAuthExpired,
+            isQuotaExhausted: errInfo.isQuotaExhausted,
+            retryDelaySeconds: errInfo.retryDelaySeconds,
+          };
+        } else {
+          const batchesDaily = Array.isArray(parsedDaily.data) ? parsedDaily.data : [parsedDaily.data];
+          for (const batch of batchesDaily) {
+            for (const row of batch.results || []) {
+              const cId = String(row.campaign?.id || '');
+              const dateStr = String(row.segments?.date || '');
+              if (cId && dateStr) {
+                if (!dailyMap.has(cId)) {
+                  dailyMap.set(cId, new Map());
+                }
+                dailyMap.get(cId)!.set(dateStr, row.metrics || {});
+              }
+            }
+          }
+        }
+      } catch (errDaily: any) {
+        console.warn('Google Ads 30-day daily query notice:', errDaily);
+        dailyMetricsError = {
+          success: false,
+          error: `Could not fetch daily performance metrics from Google Ads: ${errDaily?.message || 'network error'}`,
+        };
+      }
+
+      // Never return a "successful" sync with missing performance metrics: that would overwrite
+      // real stored metrics with zeros (or let callers mark stale data as freshly synced).
+      if (dailyMetricsError) {
+        if (dailyMetricsError.isQuotaExhausted && cached?.data) {
+          return {
+            ...cached.data,
+            fromCache: true,
+            isQuotaExhausted: true,
+            retryDelaySeconds: dailyMetricsError.retryDelaySeconds,
+            details: dailyMetricsError.details,
+          };
+        }
+        return dailyMetricsError;
+      }
+
+      // Query keywords from keyword_view
+      const liveKeywords: any[] = [];
+      try {
+        const gaqlKeywordsQuery = `
+          SELECT
+            campaign.id,
+            campaign.name,
+            ad_group_criterion.criterion_id,
+            ad_group_criterion.keyword.text,
+            ad_group_criterion.keyword.match_type,
+            ad_group_criterion.status,
+            ad_group_criterion.quality_info.quality_score,
+            metrics.cost_micros,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.conversions
+          FROM keyword_view
+          WHERE campaign.status != 'REMOVED'
+            AND ad_group_criterion.status != 'REMOVED'
+          ORDER BY metrics.cost_micros DESC
+          LIMIT 100
+        `;
+        const activeHeaders = discoveredLoginCid
+          ? { ...headers, 'login-customer-id': discoveredLoginCid.replace(/\D/g, '') }
+          : headers;
+
+        const resKw = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers: activeHeaders,
+            body: JSON.stringify({ query: gaqlKeywordsQuery }),
+          }
+        );
+        const parsedKw = await safeParseResponse(resKw);
+        if (resKw.ok && parsedKw.isJson) {
+          const batchesKw = Array.isArray(parsedKw.data) ? parsedKw.data : [parsedKw.data];
+          for (const batch of batchesKw) {
+            for (const row of batch.results || []) {
+              const kwText = row.adGroupCriterion?.keyword?.text;
+              if (kwText) {
+                const rawCostMicros = Number(row.metrics?.costMicros ?? row.metrics?.cost_micros ?? 0);
+                const kwSpend = Number((rawCostMicros / 1_000_000).toFixed(2));
+                const kwClicks = Number(row.metrics?.clicks || 0);
+                const kwImpr = Number(row.metrics?.impressions || 0);
+                const kwConv = Number(row.metrics?.conversions || 0);
+                const kwCpa = kwConv > 0 ? Number((kwSpend / kwConv).toFixed(2)) : 0;
+                const kwCtr = kwImpr > 0 ? Number(((kwClicks / kwImpr) * 100).toFixed(2)) : 0;
+                const kwCpc = kwClicks > 0 ? Number((kwSpend / kwClicks).toFixed(2)) : 0;
+                const rawMatch = String(row.adGroupCriterion?.keyword?.matchType || row.adGroupCriterion?.keyword?.match_type || 'BROAD').toUpperCase();
+                const matchType = rawMatch.includes('EXACT') ? 'EXACT' : rawMatch.includes('PHRASE') ? 'PHRASE' : 'BROAD';
+                const qs = Number(row.adGroupCriterion?.qualityInfo?.qualityScore ?? row.adGroupCriterion?.quality_info?.quality_score ?? 7);
+
+                liveKeywords.push({
+                  id: `kw-${row.adGroupCriterion?.criterionId || row.adGroupCriterion?.criterion_id || liveKeywords.length + 1}`,
+                  campaignId: `camp-live-${row.campaign?.id}`,
+                  campaignName: row.campaign?.name || 'Campaign',
+                  keyword: kwText,
+                  matchType,
+                  spend: kwSpend,
+                  clicks: kwClicks,
+                  impressions: kwImpr,
+                  ctr: kwCtr,
+                  cpc: kwCpc,
+                  conversions: kwConv,
+                  cpa: kwCpa,
+                  qualityScore: qs,
+                  status: row.adGroupCriterion?.status === 'ENABLED' ? 'ENABLED' : 'PAUSED',
+                  flag: kwSpend > 40 && kwConv === 0 ? 'HIGH_SPEND_ZERO_CONV' : kwConv > 4 ? 'TOP_PERFORMER' : 'NORMAL',
+                });
+              }
+            }
+          }
+        }
+      } catch (errKw) {
+        console.warn('Keywords query notice:', errKw);
+      }
+
+      // Query search terms from search_term_view
+      const liveSearchTerms: any[] = [];
+      try {
+        const gaqlSearchTermsQuery = `
+          SELECT
+            campaign.id,
+            campaign.name,
+            search_term_view.search_term,
+            search_term_view.status,
+            metrics.cost_micros,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.conversions
+          FROM search_term_view
+          WHERE campaign.status != 'REMOVED'
+          ORDER BY metrics.cost_micros DESC
+          LIMIT 100
+        `;
+        const activeHeaders = discoveredLoginCid
+          ? { ...headers, 'login-customer-id': discoveredLoginCid.replace(/\D/g, '') }
+          : headers;
+
+        const resSt = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers: activeHeaders,
+            body: JSON.stringify({ query: gaqlSearchTermsQuery }),
+          }
+        );
+        const parsedSt = await safeParseResponse(resSt);
+        if (resSt.ok && parsedSt.isJson) {
+          const batchesSt = Array.isArray(parsedSt.data) ? parsedSt.data : [parsedSt.data];
+          for (const batch of batchesSt) {
+            for (const row of batch.results || []) {
+              const queryText = row.searchTermView?.searchTerm || row.searchTermView?.search_term;
+              if (queryText) {
+                const rawCostMicros = Number(row.metrics?.costMicros ?? row.metrics?.cost_micros ?? 0);
+                const stSpend = Number((rawCostMicros / 1_000_000).toFixed(2));
+                const stConv = Number(row.metrics?.conversions || 0);
+                const stCpa = stConv > 0 ? Number((stSpend / stConv).toFixed(2)) : 0;
+                const isBleeder = stSpend > 30 && stConv === 0;
+
+                liveSearchTerms.push({
+                  id: `st-${liveSearchTerms.length + 1}`,
+                  campaignId: `camp-live-${row.campaign?.id}`,
+                  campaignName: row.campaign?.name || 'Campaign',
+                  searchTerm: queryText,
+                  spend: stSpend,
+                  conversions: stConv,
+                  cpa: stCpa,
+                  intentRelevance: isBleeder ? 'LOW' : 'HIGH',
+                  recommendedAction: isBleeder ? 'ADD_NEGATIVE' : 'KEEP',
+                  suggestedMatchType: 'EXACT',
+                });
+              }
+            }
+          }
+        }
+      } catch (errSt) {
+        console.warn('Search terms query notice:', errSt);
+      }
+
+      const parsedCampaigns: any[] = [];
+
+      for (const batch of resultsBatches) {
+        const results = batch.results || [];
+        for (const row of results) {
+          const camp = row.campaign || {};
+          const allTimeMetrics = row.metrics || {};
+          const budget = row.campaignBudget || row.campaign_budget || {};
+
+          const rawAllTimeCost = Number(allTimeMetrics.costMicros ?? allTimeMetrics.cost_micros ?? 0);
+          const allTimeSpend = Number((rawAllTimeCost / 1_000_000).toFixed(2));
+          const allTimeClicks = Number(allTimeMetrics.clicks || 0);
+          const allTimeImpressions = Number(allTimeMetrics.impressions || 0);
+          const allTimeConversions = Number(allTimeMetrics.conversions || 0);
+          const allTimeConvValue = Number(Number(allTimeMetrics.conversionsValue ?? allTimeMetrics.conversions_value ?? 0).toFixed(2));
+          const allTimeCpa = allTimeConversions > 0 ? Number((allTimeSpend / allTimeConversions).toFixed(2)) : 0;
+          const allTimeRoas = allTimeSpend > 0 ? Number((allTimeConvValue / allTimeSpend).toFixed(2)) : 0;
+          const allTimeCtr = allTimeImpressions > 0 ? Number(((allTimeClicks / allTimeImpressions) * 100).toFixed(2)) : 0;
+          const allTimeCpc = allTimeClicks > 0 ? Number((allTimeSpend / allTimeClicks).toFixed(2)) : 0;
+
+          const rawBudgetMicros = Number(budget.amountMicros ?? budget.amount_micros ?? 0);
+          const budgetDaily = Number((rawBudgetMicros / 1_000_000).toFixed(2));
+
+          const campIdStr = String(camp.id || '');
+          const campDailyMetrics = dailyMap.get(campIdStr);
+
+          const calcWindow = (dates: string[]) => {
+            let wSpend = 0;
+            let wClicks = 0;
+            let wImpressions = 0;
+            let wConversions = 0;
+            let wConvValue = 0;
+            for (const ds of dates) {
+              const m = campDailyMetrics?.get(ds);
+              if (m) {
+                const dayCost = Number(m.costMicros ?? m.cost_micros ?? 0);
+                wSpend += dayCost / 1_000_000;
+                wClicks += Number(m.clicks || 0);
+                wImpressions += Number(m.impressions || 0);
+                wConversions += Number(m.conversions || 0);
+                wConvValue += Number(m.conversionsValue ?? m.conversions_value ?? 0);
+              }
+            }
+            wSpend = Number(wSpend.toFixed(2));
+            wConvValue = Number(wConvValue.toFixed(2));
+            const cpa = wConversions > 0 ? Number((wSpend / wConversions).toFixed(2)) : 0;
+            const roas = wSpend > 0 ? Number((wConvValue / wSpend).toFixed(2)) : 0;
+            const ctr = wImpressions > 0 ? Number(((wClicks / wImpressions) * 100).toFixed(2)) : 0;
+            const cpc = wClicks > 0 ? Number((wSpend / wClicks).toFixed(2)) : 0;
+            return {
+              spend: wSpend,
+              impressions: wImpressions,
+              clicks: wClicks,
+              conversions: wConversions,
+              conversionValue: wConvValue,
+              cpa,
+              roas,
+              ctr,
+              cpc,
+            };
+          };
+
+          const todayMetrics = calcWindow([todayStr]);
+          const yesterdayMetrics = calcWindow([yesterdayStr]);
+          const sevenDaysMetrics = calcWindow(last7CompletedDates);
+          const fourteenDaysMetrics = calcWindow(last14CompletedDates);
+          const thirtyDaysMetrics = calcWindow(last30CompletedDates);
+          const thisMonthMetrics = calcWindow(thisMonthDates);
+          const lastMonthMetrics = calcWindow(lastMonthDates);
+
+          const historicalPoints: {
+            date: string;
+            spend: number;
+            conversions: number;
+            cpa: number;
+            roas: number;
+            clicks: number;
+            impressions: number;
+            conversionValue: number;
+          }[] = [];
+
+          for (const dateStr of last30ChartDates) {
+            const m = campDailyMetrics?.get(dateStr);
+            const dayCost = Number(m?.costMicros ?? m?.cost_micros ?? 0);
+            const daySpend = Number((dayCost / 1_000_000).toFixed(2));
+            const dayClicks = Number(m?.clicks || 0);
+            const dayImpressions = Number(m?.impressions || 0);
+            const dayConversions = Number(m?.conversions || 0);
+            const dayConvValue = Number(Number(m?.conversionsValue ?? m?.conversions_value ?? 0).toFixed(2));
+            const dayCpa = dayConversions > 0 ? Number((daySpend / dayConversions).toFixed(2)) : 0;
+            const dayRoas = daySpend > 0 ? Number((dayConvValue / daySpend).toFixed(2)) : 0;
+
+            historicalPoints.push({
+              date: dateStr,
+              spend: daySpend,
+              conversions: dayConversions,
+              cpa: dayCpa,
+              roas: dayRoas,
+              clicks: dayClicks,
+              impressions: dayImpressions,
+              conversionValue: dayConvValue,
+            });
+          }
+
+          // Exact 30-day metrics (never fabricate or substitute with all-time spend)
+          const spend = thirtyDaysMetrics.spend;
+          const conversions = thirtyDaysMetrics.conversions;
+          const clicks = thirtyDaysMetrics.clicks;
+          const impressions = thirtyDaysMetrics.impressions;
+          const convValue = thirtyDaysMetrics.conversionValue;
+
+          const cpa = conversions > 0 ? Number((spend / conversions).toFixed(2)) : 0;
+          const roas = spend > 0 ? Number((convValue / spend).toFixed(2)) : 0;
+          const ctr = impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0;
+          const cpc = clicks > 0 ? Number((spend / clicks).toFixed(2)) : 0;
+          const convRate = clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0;
+
+          let channelType = 'SEARCH';
+          const rawType = String(camp.advertisingChannelType || camp.advertising_channel_type || '').toUpperCase();
+          if (rawType.includes('PERFORMANCE_MAX') || rawType.includes('PMAX')) channelType = 'PERFORMANCE_MAX';
+          else if (rawType.includes('DISPLAY')) channelType = 'DISPLAY';
+          else if (rawType.includes('SHOPPING')) channelType = 'SHOPPING';
+          else if (rawType.includes('VIDEO')) channelType = 'VIDEO';
+          else if (rawType.includes('DEMAND_GEN') || rawType.includes('DISCOVERY')) channelType = 'DEMAND_GEN';
+
+          const campaignFullId = `camp-live-${camp.id}`;
+          const campName = camp.name || `Campaign ${camp.id}`;
+
+          // Real keywords for this campaign only — no synthetic data
+          const campKeywords = liveKeywords.filter((k) => k.campaignId === campaignFullId);
+
+          const rawStatus = String(camp.status || camp.primaryStatus || camp.primary_status || '').toUpperCase();
+          const isCampEnabled = rawStatus === 'ENABLED' || rawStatus === 'ELIGIBLE' || rawStatus.includes('ENABLE');
+          const campStatus: 'ENABLED' | 'PAUSED' = isCampEnabled ? 'ENABLED' : 'PAUSED';
+
+          // Prior period calculation derived from previous 15-day slice of the 30-day window
+          const prior15Metrics = calcWindow(last30CompletedDates.slice(0, 15));
+
+          parsedCampaigns.push({
+            id: campaignFullId,
+            accountId: `acc-${cleanCustomerId}`,
+            name: campName,
+            type: channelType,
+            status: campStatus,
+            budgetDaily,
+            spend,
+            impressions,
+            clicks,
+            ctr,
+            cpc,
+            conversions,
+            cpa,
+            conversionValue: convValue,
+            roas,
+            conversionRate: convRate,
+            allTimeSpend,
+            allTimeClicks,
+            allTimeImpressions,
+            allTimeConversions,
+            allTimeConversionValue: allTimeConvValue,
+            allTimeCtr,
+            allTimeCpc,
+            allTimeCpa,
+            allTimeRoas,
+            timeframeMetrics: {
+              TODAY: todayMetrics,
+              YESTERDAY: yesterdayMetrics,
+              LAST_7_DAYS: sevenDaysMetrics,
+              LAST_14_DAYS: fourteenDaysMetrics,
+              LAST_30_DAYS: thirtyDaysMetrics,
+              THIS_MONTH: thisMonthMetrics,
+              LAST_MONTH: lastMonthMetrics,
+              ALL_TIME: {
+                spend: allTimeSpend,
+                impressions: allTimeImpressions,
+                clicks: allTimeClicks,
+                conversions: allTimeConversions,
+                conversionValue: allTimeConvValue,
+                cpa: allTimeCpa,
+                roas: allTimeRoas,
+                ctr: allTimeCtr,
+                cpc: allTimeCpc,
+              },
+            },
+            healthStatus: (roas >= 3.0 || allTimeRoas >= 3.0) ? 'HEALTHY' : (cpa > 80 || allTimeCpa > 80) ? 'WARNING' : 'HEALTHY',
+            healthScore: Math.min(99, Math.max(50, Math.round((roas || allTimeRoas) * 16) + (campStatus === 'ENABLED' ? 25 : 10))),
+            historicalPoints,
+            trendPoints: historicalPoints.slice(-14).map((p) => p.conversions || p.spend),
+            keywordsCount: campKeywords.length,
+            activeAdsCount: 1,
+            primaryGoal: 'MAXIMIZE_CONVERSIONS',
+            previousPeriod: {
+              spend: prior15Metrics.spend,
+              conversions: prior15Metrics.conversions,
+              cpa: prior15Metrics.cpa,
+              roas: prior15Metrics.roas,
+            },
+          });
+        }
+      }
+
+      const finalResult: GoogleAdsApiResult & { timeZone?: string; accountName?: string } = {
+        success: true,
+        campaigns: parsedCampaigns,
+        keywords: liveKeywords,
+        searchTerms: liveSearchTerms,
+        loginCustomerIdUsed: discoveredLoginCid,
+        currency: detectedCurrency,
+        timeZone: detectedTimeZone,
+        accountName: detectedAccountName,
+        fetchedAt: new Date().toISOString(),
+      };
+
+      // Cache for 30 seconds (30,000 ms) to throttle rapid duplicate requests while enabling near-real-time update detection
+      liveQueryCache.set(cacheKey, {
+        data: finalResult,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + 30 * 1000,
+      });
+
+      return finalResult;
+    }
+
+    if (lastError.isQuotaExhausted && cached?.data) {
+      return {
+        ...cached.data,
+        isQuotaExhausted: true,
+        retryDelaySeconds: lastError.retryDelaySeconds,
+        details: lastError.details,
+        fromCache: true,
+      };
+    }
+
+    return lastError;
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Error querying Google Ads SearchStream API',
+    };
+  }
+}
+
+/**
+ * Verifies if a specific customer ID is accessible by the authenticated user in Google Ads.
+ */
+export async function verifyCustomerAccess(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string,
+  userEmail?: string
+): Promise<{
+  accessible: boolean;
+  reason?: string;
+  campaigns?: any[];
+  keywords?: any[];
+  searchTerms?: any[];
+  loginCustomerIdUsed?: string;
+  currency?: string;
+  statusCode?: number;
+  details?: string;
+  accessibleCustomers?: string[];
+  isAuthExpired?: boolean;
+}> {
+  const formattedCid = cleanCustomerId.length === 10
+    ? `${cleanCustomerId.slice(0, 3)}-${cleanCustomerId.slice(3, 6)}-${cleanCustomerId.slice(6)}`
+    : cleanCustomerId;
+
+  // First, query live campaigns directly for this Customer ID
+  const liveResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken, loginCustomerId);
+  if (liveResult.success) {
+    return {
+      accessible: true,
+      campaigns: liveResult.campaigns || [],
+      keywords: liveResult.keywords || [],
+      searchTerms: liveResult.searchTerms || [],
+      loginCustomerIdUsed: liveResult.loginCustomerIdUsed,
+      currency: liveResult.currency,
+      statusCode: 200,
+    };
+  }
+
+  // Handle immediate 401 auth expiration
+  if (liveResult.statusCode === 401 || liveResult.isAuthExpired) {
+    return {
+      accessible: false,
+      reason: liveResult.error || 'Google Ads session refreshing.',
+      statusCode: 401,
+      isAuthExpired: true,
+      details: liveResult.details || 'OAuth 2 access token refresh in progress',
+    };
+  }
+
+  // Second, check listAccessibleCustomers for direct access
+  const listResult = await listAccessibleCustomers(accessToken, developerToken, loginCustomerId);
+  if (listResult.statusCode === 401 || listResult.isAuthExpired) {
+    return {
+      accessible: false,
+      reason: listResult.error || 'Google Ads session refreshing.',
+      statusCode: 401,
+      isAuthExpired: true,
+      details: listResult.details || 'OAuth 2 access token refresh in progress',
+    };
+  }
+
+  const foundAccounts = listResult.customers || [];
+
+  if (foundAccounts.length > 0) {
+    const isDirectMatch = foundAccounts.some((c) => String(c || '').replace(/\D/g, '') === cleanCustomerId);
+    if (isDirectMatch) {
+      // It exists in listAccessibleCustomers! Try again with explicit login-customer-id
+      const retryResult = await queryLiveCampaigns(cleanCustomerId, accessToken, developerToken, cleanCustomerId);
+      if (retryResult.success) {
+        return {
+          accessible: true,
+          campaigns: retryResult.campaigns || [],
+          keywords: retryResult.keywords || [],
+          searchTerms: retryResult.searchTerms || [],
+          loginCustomerIdUsed: retryResult.loginCustomerIdUsed || cleanCustomerId,
+          currency: retryResult.currency,
+          statusCode: 200,
+        };
+      }
+      return {
+        accessible: true,
+        campaigns: retryResult.campaigns || [],
+        keywords: retryResult.keywords || [],
+        searchTerms: retryResult.searchTerms || [],
+        loginCustomerIdUsed: cleanCustomerId,
+        currency: retryResult.currency,
+        reason: retryResult.error,
+        statusCode: retryResult.statusCode || 200,
+        details: retryResult.details,
+        accessibleCustomers: foundAccounts,
+        isAuthExpired: retryResult.isAuthExpired,
+      };
+    }
+
+    return {
+      accessible: false,
+      reason: `The caller does not have permission for CID ${formattedCid}. Your Google login (${userEmail || 'current user'}) has access to ${foundAccounts.length} account${foundAccounts.length > 1 ? 's' : ''}: ${foundAccounts.join(', ')}. Select one of your accessible accounts or grant access in ads.google.com.`,
+      statusCode: 403,
+      accessibleCustomers: foundAccounts,
+      details: JSON.stringify({ accessibleAccounts: foundAccounts }),
+    };
+  }
+
+  if (liveResult.statusCode === 403 || listResult.statusCode === 403) {
+    return {
+      accessible: false,
+      reason: `The caller does not have permission: The authenticated Google account ${userEmail ? `(${userEmail})` : ''} does not have user access to CID ${formattedCid} in ads.google.com. Go to Tools & Settings → Access and Security in Google Ads to invite this email, or switch to the Google account that manages this CID.`,
+      statusCode: 403,
+      details: liveResult.details || listResult.details,
+    };
+  }
+
+  return {
+    accessible: false,
+    reason: liveResult.error || listResult.error || `Customer ID ${formattedCid} not found or not accessible with this Google account.`,
+    statusCode: liveResult.statusCode || listResult.statusCode || 400,
+    details: liveResult.details || listResult.details,
+    isAuthExpired: liveResult.isAuthExpired || listResult.isAuthExpired,
+  };
+}
+
+/**
+ * Mutates a campaign status directly in Google Ads (ENABLED or PAUSED).
+ */
+export async function mutateGoogleAdsCampaignStatus(
+  cleanCustomerId: string,
+  campaignId: string,
+  status: 'ENABLED' | 'PAUSED',
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; error?: string; campaignId?: string; status?: string; statusCode?: number; details?: string }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = campaignId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  const payload = {
+    operations: [
+      {
+        updateMask: 'status',
+        update: {
+          resourceName: `customers/${cleanCid}/campaigns/${cleanCampId}`,
+          status: status,
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/campaigns:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok) {
+        clearGoogleAdsCache(cleanCid);
+        return {
+          success: true,
+          campaignId: cleanCampId,
+          status,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads campaign mutate attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to update campaign status in Google Ads.',
+  };
+}
+
+/**
+ * Updates a campaign's daily budget directly in Google Ads.
+ */
+export async function mutateGoogleAdsCampaignBudget(
+  cleanCustomerId: string,
+  campaignId: string,
+  newDailyBudget: number,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; error?: string; newDailyBudget?: number; statusCode?: number; details?: string }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = campaignId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  // 1. First, retrieve the campaign's budget resourceName via searchStream
+  let budgetResourceName: string | null = null;
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const budgetQuery = `
+        SELECT campaign.id, campaign.campaign_budget
+        FROM campaign
+        WHERE campaign.id = ${cleanCampId}
+        LIMIT 1
+      `;
+      const qRes = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query: budgetQuery }),
+        }
+      );
+      const parsedQ = await safeParseResponse(qRes);
+      if (qRes.ok && parsedQ.isJson) {
+        const batches = Array.isArray(parsedQ.data) ? parsedQ.data : [parsedQ.data];
+        for (const b of batches) {
+          for (const row of b.results || []) {
+            if (row.campaign?.campaignBudget) {
+              budgetResourceName = row.campaign.campaignBudget;
+              break;
+            }
+          }
+          if (budgetResourceName) break;
+        }
+      }
+      if (budgetResourceName) break;
+    } catch {}
+  }
+
+  if (!budgetResourceName) {
+    return {
+      success: false,
+      error: `Could not locate campaign budget resource for campaign ${cleanCampId}.`,
+    };
+  }
+
+  const payload = {
+    operations: [
+      {
+        updateMask: 'amountMicros',
+        update: {
+          resourceName: budgetResourceName,
+          amountMicros: String(Math.round(newDailyBudget * 1_000_000)),
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/campaignBudgets:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok) {
+        clearGoogleAdsCache(cleanCid);
+        return {
+          success: true,
+          newDailyBudget,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads budget mutate attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to update campaign budget in Google Ads.',
+  };
+}
+
+/**
+ * Creates a brand-new campaign directly on Google Ads with atomic budget and settings.
+ */
+export async function createGoogleAdsCampaign(
+  cleanCustomerId: string,
+  campaignData: {
+    name: string;
+    budgetDaily: number;
+    channelType?: string;
+    status?: 'ENABLED' | 'PAUSED';
+  },
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  campaignId?: string;
+  campaignResourceName?: string;
+  statusCode?: number;
+  details?: string;
+}> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (devToken) {
+    headers['developer-token'] = devToken;
+  }
+
+  if (loginCustomerId) {
+    headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+  }
+
+  const rawChannel = (campaignData.channelType || 'SEARCH').toUpperCase();
+  const validChannel = ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO'].includes(rawChannel)
+    ? rawChannel
+    : 'SEARCH';
+
+  // Atomic batch mutate operation: creates budget + campaign simultaneously
+  const payload = {
+    mutateOperations: [
+      {
+        campaignBudgetOperation: {
+          create: {
+            resourceName: `customers/${cleanCid}/campaignBudgets/-1`,
+            name: `Budget: ${campaignData.name.slice(0, 50)} (${Date.now()})`,
+            amountMicros: String(Math.round(campaignData.budgetDaily * 1_000_000)),
+            deliveryMethod: 'STANDARD',
+          },
+        },
+      },
+      {
+        campaignOperation: {
+          create: {
+            resourceName: `customers/${cleanCid}/campaigns/-2`,
+            name: campaignData.name,
+            status: campaignData.status || 'ENABLED',
+            advertisingChannelType: validChannel,
+            campaignBudget: `customers/${cleanCid}/campaignBudgets/-1`,
+            manualCpc: {},
+          },
+        },
+      },
+    ],
+  };
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const res = await fetch(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:mutate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const parsed = await safeParseResponse(res);
+      if (res.ok && parsed.isJson) {
+        const responses = parsed.data?.mutateOperationResponses || [];
+        let createdCampResource = '';
+        for (const opResp of responses) {
+          if (opResp.campaignResult?.resourceName) {
+            createdCampResource = opResp.campaignResult.resourceName;
+            break;
+          }
+        }
+        const numericId = createdCampResource ? createdCampResource.split('/').pop() : String(Date.now());
+        clearGoogleAdsCache(cleanCid);
+        return {
+          success: true,
+          campaignId: numericId,
+          campaignResourceName: createdCampResource,
+          statusCode: 200,
+        };
+      }
+
+      if (res.status === 404) continue;
+
+      const errInfo = extractGoogleAdsError(parsed.data, res.status, parsed.rawText);
+      return {
+        success: false,
+        error: errInfo.error,
+        details: errInfo.details,
+        statusCode: res.status,
+      };
+    } catch (err: any) {
+      console.warn('Google Ads campaign creation attempt failed:', err);
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Failed to create campaign in Google Ads.',
+  };
+}
+
+export interface StructuralCampaignEntity {
+  id: string;
+  rawId: string;
+  name: string;
+  type: string;
+  status: 'ENABLED' | 'PAUSED';
+  budgetDaily: number;
+}
+
+export interface StructuralKeywordEntity {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  keyword: string;
+  matchType: 'EXACT' | 'PHRASE' | 'BROAD';
+  status: 'ENABLED' | 'PAUSED';
+}
+
+export interface StructuralEntitiesResult {
+  success: boolean;
+  campaigns?: StructuralCampaignEntity[];
+  keywords?: StructuralKeywordEntity[];
+  currency?: string;
+  isQuotaExhausted?: boolean;
+  isAuthExpired?: boolean;
+  retryDelaySeconds?: number;
+  error?: string;
+  details?: string;
+  statusCode?: number;
+  newAccessToken?: string;
+  newRefreshToken?: string;
+}
+
+/**
+ * Lightweight structural sync: fetches campaign and keyword entities
+ * (IDs, names, statuses, daily budgets, match types) without heavy metrics queries,
+ * conserving Google Ads Developer Token Explorer daily quotas.
+ */
+export async function fetchStructuralEntities(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<StructuralEntitiesResult> {
+  try {
+    const cleanCid = cleanCustomerId.replace(/\D/g, '');
+
+    // 1. Check if global rate limit cooldown is active
+    const cooldown = getQuotaCooldownStatus();
+    if (cooldown) {
+      const remainingSec = Math.max(1, Math.round((cooldown.retryAfter - Date.now()) / 1000));
+      return {
+        success: false,
+        isQuotaExhausted: true,
+        retryDelaySeconds: remainingSec,
+        error: cooldown.message,
+        details: `Google Ads rate limit cooldown active until ${new Date(cooldown.retryAfter).toLocaleTimeString()}.`,
+      };
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    if (developerToken) {
+      headers['developer-token'] = developerToken;
+    }
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+    }
+
+    // Lightweight GAQL Query: entities only (no time-series metrics)
+    const gaqlQuery = `
+      SELECT
+        customer.currency_code,
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        campaign.advertising_channel_type,
+        campaign_budget.amount_micros
+      FROM campaign
+      WHERE campaign.status != 'REMOVED'
+      ORDER BY campaign.id DESC
+      LIMIT 100
+    `;
+
+    let lastError: StructuralEntitiesResult = {
+      success: false,
+      error: 'Google Ads structural query failed',
+    };
+
+    for (const version of GOOGLE_ADS_API_VERSIONS) {
+      let res = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: gaqlQuery }),
+      });
+
+      // If 403: retry with cleanCid as login-customer-id
+      if (res.status === 403 && !loginCustomerId) {
+        const retryRes = await fetch(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
+          method: 'POST',
+          headers: { ...headers, 'login-customer-id': cleanCid },
+          body: JSON.stringify({ query: gaqlQuery }),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      }
+
+      const parsed = await safeParseResponse(res);
+
+      if (res.status === 404) {
+        lastError = {
+          success: false,
+          error: `Google Ads API endpoint (${version}) not found (HTTP 404)`,
+          statusCode: 404,
+        };
+        continue;
+      }
+
+      if (!parsed.isJson) {
+        const errInfo = extractGoogleAdsError(null, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const data = parsed.data;
+
+      if (!res.ok) {
+        const errInfo = extractGoogleAdsError(data, res.status, parsed.rawText);
+        return {
+          success: false,
+          error: errInfo.error,
+          details: errInfo.details,
+          statusCode: res.status,
+          isQuotaExhausted: errInfo.isQuotaExhausted,
+          retryDelaySeconds: errInfo.retryDelaySeconds,
+        };
+      }
+
+      const batches = Array.isArray(data) ? data : [data];
+      const parsedCampaigns: StructuralCampaignEntity[] = [];
+      let detectedCurrency = 'USD';
+
+      for (const batch of batches) {
+        const results = batch.results || [];
+        for (const row of results) {
+          if (row.customer?.currencyCode) {
+            detectedCurrency = String(row.customer.currencyCode).toUpperCase().trim();
+          }
+          const camp = row.campaign || {};
+          const budget = row.campaignBudget || {};
+
+          const rawId = String(camp.id || '');
+          const campaignFullId = `camp-live-${rawId}`;
+          const campName = String(camp.name || `Campaign ${rawId}`);
+          const channelType = String(camp.advertisingChannelType || 'SEARCH');
+          const budgetDaily = Number(((budget.amountMicros || 0) / 1_000_000).toFixed(2));
+          const rawStatus = String(camp.status || '').toUpperCase();
+          const campStatus: 'ENABLED' | 'PAUSED' = rawStatus === 'ENABLED' ? 'ENABLED' : 'PAUSED';
+
+          parsedCampaigns.push({
+            id: campaignFullId,
+            rawId,
+            name: campName,
+            type: channelType,
+            status: campStatus,
+            budgetDaily,
+          });
+        }
+      }
+
+      // Fetch keywords lightweight query
+      const kwQuery = `
+        SELECT
+          campaign.id,
+          campaign.name,
+          ad_group_criterion.criterion_id,
+          ad_group_criterion.keyword.text,
+          ad_group_criterion.keyword.match_type,
+          ad_group_criterion.status
+        FROM keyword_view
+        WHERE ad_group_criterion.status != 'REMOVED'
+        LIMIT 200
+      `;
+
+      const kwRes = await fetchWithBackoff(`https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: kwQuery }),
+      }).catch(() => null);
+
+      const parsedKeywords: StructuralKeywordEntity[] = [];
+      if (kwRes && kwRes.ok) {
+        const kwParsed = await safeParseResponse(kwRes);
+        if (kwParsed.isJson) {
+          const kwBatches = Array.isArray(kwParsed.data) ? kwParsed.data : [kwParsed.data];
+          for (const batch of kwBatches) {
+            for (const row of batch.results || []) {
+              const kwCampId = String(row.campaign?.id || '');
+              const kwCampName = String(row.campaign?.name || '');
+              const crit = row.adGroupCriterion || {};
+              const rawMatchType = String(crit.keyword?.matchType || 'BROAD').toUpperCase();
+              const safeMatchType: 'EXACT' | 'PHRASE' | 'BROAD' = rawMatchType.includes('EXACT')
+                ? 'EXACT'
+                : rawMatchType.includes('PHRASE')
+                ? 'PHRASE'
+                : 'BROAD';
+              const rawStatus = String(crit.status || 'ENABLED').toUpperCase();
+              const safeStatus: 'ENABLED' | 'PAUSED' = rawStatus === 'PAUSED' ? 'PAUSED' : 'ENABLED';
+
+              parsedKeywords.push({
+                id: `kw-${kwCampId}-${crit.criterionId || Math.random().toString(36).slice(2, 7)}`,
+                campaignId: `camp-live-${kwCampId}`,
+                campaignName: kwCampName,
+                keyword: String(crit.keyword?.text || 'keyword'),
+                matchType: safeMatchType,
+                status: safeStatus,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        campaigns: parsedCampaigns,
+        keywords: parsedKeywords,
+        currency: detectedCurrency,
+      };
+    }
+
+    return lastError;
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Failed to fetch structural Google Ads entities',
+    };
+  }
+}
+

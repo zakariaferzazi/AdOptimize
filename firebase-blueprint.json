@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile and authentication details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
+    },
+    "GoogleAdsAccount": {
+      "title": "GoogleAdsAccount",
+      "description": "Connected Google Ads account details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientCustomerId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "currency": { "type": "string" },
+        "timezone": { "type": "string" },
+        "isConnected": { "type": "boolean" },
+        "lastSyncAt": { "type": "string" },
+        "syncStatus": { "type": "string" },
+        "isDemo": { "type": "boolean" },
+        "totalCampaignsCount": { "type": "number" },
+        "monthlySpendCap": { "type": "number" }
+      },
+      "required": ["id", "clientCustomerId", "accountName"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Google Ads Campaign performance and budget settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "budgetDaily": { "type": "number" },
+        "spend": { "type": "number" },
+        "impressions": { "type": "number" },
+        "clicks": { "type": "number" },
+        "ctr": { "type": "number" },
+        "cpc": { "type": "number" },
+        "conversions": { "type": "number" },
+        "cpa": { "type": "number" },
+        "conversionValue": { "type": "number" },
+        "roas": { "type": "number" },
+        "conversionRate": { "type": "number" },
+        "healthStatus": { "type": "string" },
+        "healthScore": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "status", "budgetDaily"]
+    },
+    "AIInsight": {
+      "title": "AIInsight",
+      "description": "AI-detected root cause diagnostics and recommended actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "problem": { "type": "string" },
+        "whyItMatters": { "type": "string" },
+        "recommendedAction": { "type": "string" },
+        "expectedImpact": { "type": "string" },
+        "confidence": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "category", "problem", "recommendedAction", "status"]
+    },
+    "BudgetRecommendation": {
+      "title": "BudgetRecommendation",
+      "description": "Cross-campaign budget reallocation proposal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignFromId": { "type": "string" },
+        "campaignFromName": { "type": "string" },
+        "campaignToId": { "type": "string" },
+        "campaignToName": { "type": "string" },
+        "currentBudgetFrom": { "type": "number" },
+        "proposedBudgetFrom": { "type": "number" },
+        "currentBudgetTo": { "type": "number" },
+        "proposedBudgetTo": { "type": "number" },
+        "reallocatedAmount": { "type": "number" },
+        "reason": { "type": "string" },
+        "estimatedMonthlyImpact": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "campaignFromId", "campaignToId", "status"]
+    },
+    "AutomationRule": {
+      "title": "AutomationRule",
+      "description": "Guarded automation rules for monitoring and optimization",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "conditionDescription": { "type": "string" },
+        "conditionMetric": { "type": "string" },
+        "conditionOperator": { "type": "string" },
+        "conditionValue": { "type": "number" },
+        "actionType": { "type": "string" },
+        "actionDescription": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "requiresApproval": { "type": "boolean" },
+        "maxBudgetShiftLimitPercent": { "type": "number" },
+        "executionCount": { "type": "number" }
+      },
+      "required": ["id", "name", "category", "enabled"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Historical audit record of all campaign changes and reallocations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "campaignName": { "type": "string" },
+        "actionType": { "type": "string" },
+        "previousValue": { "type": "string" },
+        "newValue": { "type": "string" },
+        "reason": { "type": "string" },
+        "source": { "type": "string" },
+        "userOrSystem": { "type": "string" },
+        "status": { "type": "string" },
+        "canRevert": { "type": "boolean" }
+      },
+      "required": ["id", "timestamp", "actionType", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Root user profile document"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": "GoogleAdsAccount",
+      "description": "Connected Google Ads account configuration"
+    },
+    "/users/{userId}/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Live Google Ads campaigns monitored for the user"
+    },
+    "/users/{userId}/insights/{insightId}": {
+      "schema": "AIInsight",
+      "description": "Root-cause diagnostics and recommendations for the user"
+    },
+    "/users/{userId}/budgetRecommendations/{recId}": {
+      "schema": "BudgetRecommendation",
+      "description": "Capital reallocation proposals"
+    },
+    "/users/{userId}/automationRules/{ruleId}": {
+      "schema": "AutomationRule",
+      "description": "User defined monitoring and optimization rules"
+    },
+    "/users/{userId}/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable change audit history"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "AdOptimize - AI Marketing Manager for Google Ads",
+  "description": "Continuous campaign monitoring, anomaly detection, budget reallocation, and automated audit-proof optimizations for Google Ads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
