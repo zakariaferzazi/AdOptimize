@@ -43,7 +43,7 @@ export interface QuotaCooldownState {
   message: string;
 }
 
-// In-memory query cache with TTL to throttle Google Ads API calls
+// In-memory query cache used only as a fallback when Google Ads is unavailable.
 interface CachedQueryResult {
   data: GoogleAdsApiResult;
   timestamp: number;
@@ -476,15 +476,6 @@ export async function queryLiveCampaigns(
         retryDelaySeconds: remainingSec,
         error: cooldown.message,
         details: `Google Ads rate limit cooldown active until ${new Date(cooldown.retryAfter).toLocaleTimeString()}.`,
-      };
-    }
-
-    // 2. Check in-memory query cache with 30-second TTL to throttle redundant outgoing API queries
-    if (!options?.forceRefresh && cached && Date.now() < cached.expiresAt) {
-      console.log(`[Google Ads API Cache] Serving live campaigns for CID ${cleanCid} from cache (${Math.round((cached.expiresAt - Date.now()) / 1000)}s TTL remaining).`);
-      return {
-        ...cached.data,
-        fromCache: true,
       };
     }
 
