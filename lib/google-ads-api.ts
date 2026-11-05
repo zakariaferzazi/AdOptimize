@@ -423,9 +423,11 @@ export async function queryLiveCampaigns(
     const cacheKey = `${cleanCid}:${loginCustomerId ? loginCustomerId.replace(/\D/g, '') : 'default'}`;
     const cached = liveQueryCache.get(cacheKey);
 
-    // 1. Check if global rate limit cooldown is active (HTTP 429 / RESOURCE_EXHAUSTED)
+    // 1. Check if global rate limit cooldown is active (HTTP 429 / RESOURCE_EXHAUSTED).
+    // An explicit force-refresh must still attempt a live query instead of silently
+    // serving cached data and letting the caller believe it fetched fresh metrics.
     const cooldown = getQuotaCooldownStatus();
-    if (cooldown) {
+    if (cooldown && !options?.forceRefresh) {
       const remainingSec = Math.max(1, Math.round((cooldown.retryAfter - Date.now()) / 1000));
       const remainingHours = (remainingSec / 3600).toFixed(1);
       console.warn(`[Google Ads API] Request throttled: Explorer developer token quota cooldown active (~${remainingHours}h remaining, ${remainingSec}s). Serving verified data from cache.`);
@@ -1161,6 +1163,12 @@ export async function queryLiveCampaigns(
             },
           });
         }
+      }
+
+      // A successful live query proves the API is currently usable, so any stale
+      // global cooldown from an earlier request can be cleared.
+      if (globalQuotaCooldown) {
+        resetQuotaCooldown();
       }
 
       const finalResult: GoogleAdsApiResult & { timeZone?: string; accountName?: string } = {

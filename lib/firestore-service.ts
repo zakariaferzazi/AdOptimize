@@ -125,7 +125,11 @@ export async function saveCampaignToFirestore(userId: string, campaign: Campaign
   try {
     const docRef = doc(db, 'users', userId, 'campaigns', campaign.id);
     await Promise.race([
-      setDoc(docRef, cleanForFirestore(campaign), { merge: true }),
+      setDoc(
+        docRef,
+        cleanForFirestore({ ...campaign, __syncedAt: Date.now() } as Campaign),
+        { merge: true }
+      ),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore write timeout')), 2000)),
     ]);
   } catch (error) {
@@ -851,7 +855,8 @@ export async function clearAllUserData(userId: string) {
 async function replaceCollectionDocs<T extends { id: string }>(
   userId: string,
   colName: 'campaigns' | 'keywords' | 'searchTerms',
-  freshItems: T[]
+  freshItems: T[],
+  snapshotTimestamp?: number
 ): Promise<void> {
   const colRef = collection(db, 'users', userId, colName);
   const existingSnap = await getDocs(colRef);
@@ -860,7 +865,13 @@ async function replaceCollectionDocs<T extends { id: string }>(
   type Op = { type: 'set'; id: string; data: any } | { type: 'delete'; id: string };
   const ops: Op[] = [];
   for (const item of freshItems) {
-    if (item?.id) ops.push({ type: 'set', id: item.id, data: cleanForFirestore(item) });
+    if (item?.id) {
+      const data: any = cleanForFirestore(item);
+      if (snapshotTimestamp && colName === 'campaigns') {
+        data.__syncedAt = snapshotTimestamp;
+      }
+      ops.push({ type: 'set', id: item.id, data });
+    }
   }
   existingSnap.forEach((d) => {
     if (!freshIds.has(d.id)) ops.push({ type: 'delete', id: d.id });
@@ -889,7 +900,10 @@ export async function persistGoogleAdsSyncSnapshot(
 ): Promise<boolean> {
   const path = `users/${userId}`;
   try {
-    await replaceCollectionDocs(userId, 'campaigns', snapshot.campaigns);
+    const rawSnapshotTs = snapshot.accountPatch.lastSuccessfulSyncAt || snapshot.accountPatch.lastSyncAt;
+    const parsedSnapshotTs = rawSnapshotTs ? new Date(rawSnapshotTs).getTime() : NaN;
+    const snapshotTs = !isNaN(parsedSnapshotTs) && parsedSnapshotTs > 0 ? parsedSnapshotTs : Date.now();
+    await replaceCollectionDocs(userId, 'campaigns', snapshot.campaigns, snapshotTs);
     if (Array.isArray(snapshot.keywords)) {
       await replaceCollectionDocs(userId, 'keywords', snapshot.keywords);
     }

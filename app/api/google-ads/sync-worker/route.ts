@@ -44,6 +44,8 @@ async function processUserSync(
   lastSyncAt?: string;
   /** True only when performance metrics (spend, clicks, conversions...) were refreshed from the API. */
   metricsRefreshed?: boolean;
+  /** True when Google Ads data was served from the short-lived server cache. */
+  fromCache?: boolean;
   retryDelaySeconds?: number;
   error?: string;
   currency?: string;
@@ -297,6 +299,7 @@ async function processUserSync(
         success: true,
         lastSyncAt: syncResult.fetchedAt || new Date().toISOString(),
         metricsRefreshed: true,
+        fromCache: Boolean(syncResult.fromCache),
         userId,
         customerId: cleanCid,
         campaignsCount: syncResult.campaigns.length,

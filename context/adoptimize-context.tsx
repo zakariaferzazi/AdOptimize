@@ -143,6 +143,26 @@ const LAST_SUCCESSFUL_SYNC_KEY = 'adoptimize_last_successful_sync_at';
 const BACKGROUND_SYNC_HEARTBEAT_MS = 5 * 60 * 1000;
 const BACKGROUND_SYNC_MIN_GAP_MS = 2 * 60 * 1000;
 
+function getLocalSuccessfulSyncTs(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const stored = Number(localStorage.getItem(LAST_SUCCESSFUL_SYNC_KEY));
+    return !isNaN(stored) && stored > 0 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function getCampaignSnapshotTs(campaigns: Campaign[] | undefined): number {
+  if (!Array.isArray(campaigns) || campaigns.length === 0) return 0;
+  let latest = 0;
+  for (const campaign of campaigns) {
+    const ts = Number((campaign as Campaign & { __syncedAt?: number }).__syncedAt) || 0;
+    if (ts > latest) latest = ts;
+  }
+  return latest;
+}
+
 const AdOptimizeContext = createContext<AdOptimizeContextType | undefined>(undefined);
 
 export function AdOptimizeProvider({ children }: { children: React.ReactNode }) {
@@ -480,15 +500,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
           // If this browser holds a newer successful sync than Firestore, keep the local
           // snapshot and repair Firestore instead of letting the older one overwrite it.
-          const localSuccessfulTs = (() => {
-            if (typeof window === 'undefined') return 0;
-            try {
-              const stored = Number(localStorage.getItem(LAST_SUCCESSFUL_SYNC_KEY));
-              return !isNaN(stored) && stored > 0 ? stored : 0;
-            } catch {
-              return 0;
-            }
-          })();
           const remoteSuccessfulTs = remoteAccount?.lastSuccessfulSyncAt
             ? new Date(remoteAccount.lastSuccessfulSyncAt).getTime()
             : 0;
@@ -498,11 +509,12 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             localSnapshot.account.clientCustomerId !== 'Not Connected' &&
             (!remoteAccount?.clientCustomerId ||
               localSnapshot.account.clientCustomerId === remoteAccount.clientCustomerId);
-          const localIsFresher =
+          const initialLocalSuccessfulTs = getLocalSuccessfulSyncTs();
+          const initialLocalIsFresher =
             localAccountMatchesRemote &&
-            localSuccessfulTs > 0 &&
-            localSuccessfulTs > (isNaN(remoteSuccessfulTs) ? 0 : remoteSuccessfulTs);
-          preferLocalDataRef.current = localIsFresher;
+            initialLocalSuccessfulTs > 0 &&
+            initialLocalSuccessfulTs >= (isNaN(remoteSuccessfulTs) ? 0 : remoteSuccessfulTs);
+          preferLocalDataRef.current = initialLocalIsFresher;
 
           if (remoteAccount?.accessToken) {
             setOauthToken(remoteAccount.accessToken);
@@ -537,19 +549,43 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
           if (!isSubscribed) return;
 
+          // A sync may have completed while the Firestore reads above were in flight.
+          // Re-evaluate freshness now so that older remote data cannot overwrite it.
+          const currentLocalSuccessfulTs = getLocalSuccessfulSyncTs();
+          const remoteCampaignsTs = getCampaignSnapshotTs(remoteCampaigns);
+          const remoteDataTs = Math.max(
+            isNaN(remoteSuccessfulTs) ? 0 : remoteSuccessfulTs,
+            remoteCampaignsTs
+          );
+          const localIsFresher =
+            localAccountMatchesRemote &&
+            currentLocalSuccessfulTs > 0 &&
+            currentLocalSuccessfulTs >= remoteDataTs;
+          const syncCompletedDuringHydration =
+            currentLocalSuccessfulTs > initialLocalSuccessfulTs;
+          if (localIsFresher) {
+            preferLocalDataRef.current = true;
+          }
+
           setState((prev) => {
+            // Re-check once more when the updater actually runs; a sync may have
+            // completed after the freshness check above.
+            const latestLocalTs = getLocalSuccessfulSyncTs();
+            const applyLocalSnapshot =
+              localIsFresher ||
+              (localAccountMatchesRemote && latestLocalTs > 0 && latestLocalTs >= remoteDataTs);
             const nextState = {
               ...prev,
-              account: localIsFresher
+              account: applyLocalSnapshot
                 ? { ...(remoteAccount || prev.account), ...prev.account }
                 : (remoteAccount || prev.account),
-              campaigns: localIsFresher
+              campaigns: applyLocalSnapshot
                 ? prev.campaigns
                 : (remoteCampaigns.length > 0 ? remoteCampaigns : prev.campaigns),
-              keywords: localIsFresher
+              keywords: applyLocalSnapshot
                 ? prev.keywords
                 : (remoteKeywords.length > 0 ? remoteKeywords : prev.keywords),
-              searchTerms: localIsFresher
+              searchTerms: applyLocalSnapshot
                 ? prev.searchTerms
                 : (remoteSearchTerms.length > 0 ? remoteSearchTerms : prev.searchTerms),
               insights: remoteInsights.length > 0 ? remoteInsights : prev.insights,
@@ -565,7 +601,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
           // Push the fresher local snapshot into Firestore so the live subscription and
           // future page loads do not fall back to the older stored campaigns.
-          if (localIsFresher && currentUser) {
+          if (localIsFresher && currentUser && !syncCompletedDuringHydration) {
             let repaired = false;
             try {
               repaired = await persistGoogleAdsSyncSnapshot(currentUser.uid, {
@@ -577,8 +613,11 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             } catch (repairErr) {
               console.warn('[Sync] Could not repair stale Firestore snapshot:', repairErr);
             }
-            // Only accept live Firestore snapshots again once the repair actually landed.
-            preferLocalDataRef.current = !repaired;
+            // Only accept live Firestore snapshots again once the repair actually landed
+            // and no newer sync completed while the repair was running.
+            if (repaired && getLocalSuccessfulSyncTs() <= currentLocalSuccessfulTs) {
+              preferLocalDataRef.current = false;
+            }
           }
 
           // Subscribe to real-time Firestore updates for user's campaigns
@@ -586,8 +625,14 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             unsubscribeCampaignsRef.current();
           }
           unsubscribeCampaignsRef.current = subscribeToUserCampaigns(currentUser.uid, (liveCampaigns) => {
-            // Ignore an older stored snapshot while this browser has fresher synced data.
+            const localSuccessfulTs = getLocalSuccessfulSyncTs();
+            const liveSnapshotTs = getCampaignSnapshotTs(liveCampaigns);
+
+            // Ignore Firestore while a fresh sync is being applied/persisted.
             if (preferLocalDataRef.current) return;
+            // Campaign snapshot timestamps are persisted alongside each sync; documents
+            // written before that timestamp existed are treated as older than local data.
+            if (localSuccessfulTs > 0 && liveSnapshotTs < localSuccessfulTs) return;
             setState((prev) => {
               // If account is disconnected, keep campaigns empty
               if (!prev.account.isConnected || prev.account.clientCustomerId === 'Not Connected') {
@@ -658,7 +703,19 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   const commitSuccessfulSync = useCallback(
     (data: any) => {
       const parsedFetchedAt = typeof data.lastSyncAt === 'string' ? new Date(data.lastSyncAt).getTime() : NaN;
-      const fetchedAtMs = !isNaN(parsedFetchedAt) && parsedFetchedAt > 0 ? Math.min(parsedFetchedAt, Date.now()) : Date.now();
+      const previousSuccessfulTs = getLocalSuccessfulSyncTs();
+      const rawFetchedAtMs = !isNaN(parsedFetchedAt) && parsedFetchedAt > 0
+        ? Math.min(parsedFetchedAt, Date.now())
+        : Date.now();
+
+      // A cached server response must never roll local data or the "last updated"
+      // time back to an older snapshot.
+      const isCachedResponse = Boolean(data.fromCache) || data.isLiveApi === false;
+      if (isCachedResponse && rawFetchedAtMs < previousSuccessfulTs) {
+        return;
+      }
+
+      const fetchedAtMs = Math.max(rawFetchedAtMs, previousSuccessfulTs);
       const fetchedAtIso = new Date(fetchedAtMs).toISOString();
 
       const freshCampaigns: Campaign[] = Array.isArray(data.campaigns) ? data.campaigns : [];
@@ -677,6 +734,10 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         ...(data.newAccessToken ? { accessToken: data.newAccessToken } : {}),
         ...(data.newRefreshToken ? { refreshToken: data.newRefreshToken } : {}),
       };
+
+      // Keep this browser's fresh snapshot authoritative while the Firestore write is
+      // in flight; otherwise an older real-time snapshot can overwrite it immediately.
+      preferLocalDataRef.current = true;
 
       setState((prev) => {
         const nextState = {
@@ -699,8 +760,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       });
 
       setLastSyncTimestamp(fetchedAtMs);
-      // This snapshot is now the freshest data; allow Firestore updates again.
-      preferLocalDataRef.current = false;
       setIsTokenExpired(false);
       setQuotaResetAt(null);
       if (typeof window !== 'undefined') {
@@ -716,7 +775,17 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           keywords: freshKeywords,
           searchTerms: freshSearchTerms,
           accountPatch,
-        }).catch((err) => console.warn('[Sync] Could not persist fresh Google Ads data:', err));
+        })
+          .then((persisted) => {
+            if (!persisted) return;
+            // Only re-enable Firestore updates if this is still the newest sync.
+            if (getLocalSuccessfulSyncTs() <= fetchedAtMs) {
+              preferLocalDataRef.current = false;
+            }
+          })
+          .catch((err) => console.warn('[Sync] Could not persist fresh Google Ads data:', err));
+      } else {
+        preferLocalDataRef.current = false;
       }
     },
     [user]
