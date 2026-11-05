@@ -27,8 +27,6 @@ import {
   logOut,
 } from '@/lib/firebase';
 import {
-  requestGoogleAdsAccessToken,
-  acquireGoogleAdsToken,
   isGoogleAdsTokenExpired,
   isTokenEligibleForAutoRenewal,
   getStoredGoogleAdsToken,

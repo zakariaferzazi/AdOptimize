@@ -41,6 +41,7 @@ export function ConnectAccountsStep({
       // 1. Acquire Google OAuth access token
       const token = await acquireGoogleAdsToken({
         emailHint: user?.email || undefined,
+        forceFresh: true,
       });
 
       if (!token) {

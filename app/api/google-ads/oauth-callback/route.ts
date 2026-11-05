@@ -83,6 +83,7 @@ export async function GET() {
         var searchParams = new URLSearchParams(window.location.search);
 
         var token = hashParams.get('access_token') || searchParams.get('access_token');
+        var code = searchParams.get('code');
         var error = hashParams.get('error') || searchParams.get('error');
         var errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
 
@@ -127,6 +128,15 @@ export async function GET() {
             setTimeout(function() {
               window.location.href = '/';
             }, 800);
+          }
+        } else if (code) {
+          if (statusEl) statusEl.textContent = 'Connected! Closing window...';
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({
+              type: 'GOOGLE_ADS_OAUTH_CODE',
+              code: code
+            }, '*');
+            setTimeout(function() { window.close(); }, 500);
           }
         } else {
           if (statusEl) statusEl.textContent = 'Waiting for authorization response...';

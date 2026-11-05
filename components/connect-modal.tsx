@@ -70,6 +70,7 @@ export function ConnectModal({
       // 1. Acquire Google Ads OAuth token
       const token = await acquireGoogleAdsToken({
         emailHint: userEmail || undefined,
+        forceFresh: true,
       });
 
       if (!token) {

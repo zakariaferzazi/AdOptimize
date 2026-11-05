@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { DashboardClientView } from './dashboard-client';
 
-// Dashboard state is loaded in the client from Firebase/localStorage.
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Executive Dashboard - Google Ads Live Performance | AdOptimize',

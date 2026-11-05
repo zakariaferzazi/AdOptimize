@@ -314,6 +314,77 @@ export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): P
 }
 
 /**
+ * Explicit connect-only OAuth flow. Unlike the implicit token flow above, this
+ * exchanges an authorization code for a durable refresh token.
+ */
+export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): Promise<string> {
+  if (typeof window === 'undefined') {
+    throw new Error('Google OAuth must be initiated from the browser.');
+  }
+
+  const activeClientId = await getGoogleAdsClientId();
+  const scope = encodeURIComponent(`${GOOGLE_ADS_SCOPE} email profile`);
+  const state = `adwords_code_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  let oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&prompt=consent&client_id=${encodeURIComponent(
+    activeClientId
+  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}`;
+  if (emailHint) oauthUrl += `&login_hint=${encodeURIComponent(emailHint)}`;
+
+  return new Promise((resolve, reject) => {
+    const popup = window.open(
+      oauthUrl,
+      'google_ads_oauth_window',
+      'width=520,height=650,status=no,menubar=no,toolbar=no'
+    );
+    if (!popup) {
+      reject(new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.'));
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      clearInterval(closeCheck);
+      window.removeEventListener('message', onMessage);
+    };
+    const onMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') {
+        cleanup();
+        reject(new Error(event.data.error || 'Google Ads authorization was not completed.'));
+        return;
+      }
+      if (event.data?.type !== 'GOOGLE_ADS_OAUTH_CODE' || !event.data.code) return;
+
+      try {
+        const response = await fetch('/api/google-ads/oauth-exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: event.data.code }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success || !data.accessToken) {
+          throw new Error(data.error || 'Google authorization code exchange failed.');
+        }
+        storeGoogleAdsToken(data.accessToken, data.expiresIn || 3600, data.expiresAt);
+        if (data.refreshToken) storeGoogleAdsRefreshToken(data.refreshToken);
+        cleanup();
+        resolve(data.accessToken);
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    };
+    const closeCheck = setInterval(() => {
+      if (popup.closed && !settled) {
+        cleanup();
+        reject(new Error('Google authorization window was closed.'));
+      }
+    }, 500);
+    window.addEventListener('message', onMessage);
+  });
+}
+
+/**
  * Helper to store token in both sessionStorage and localStorage with expiration tracking
  */
 export function storeGoogleAdsToken(token: string, expiresInSeconds = 3600, expiresAtMs?: number): void {
@@ -496,53 +567,9 @@ export async function acquireGoogleAdsToken(options?: {
     return stored.token;
   }
 
-  // 2. Before prompting, try a promptless GIS refresh. This is the only renewal
-  // path available for implicit-flow tokens because Google does not issue refresh tokens.
-  if (!options?.forceFresh) {
-    const silentToken = await trySilentGoogleAdsTokenRefresh(options?.emailHint);
-    if (silentToken) return silentToken;
-  }
-
-  // 3. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
-  try {
-    const { auth, googleAdsProvider } = await import('@/lib/firebase');
-    const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-    googleAdsProvider.setCustomParameters(
-      options?.emailHint
-        ? { prompt: 'select_account', login_hint: options.emailHint }
-        : { prompt: 'select_account' }
-    );
-    const result = await signInWithPopup(auth, googleAdsProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential?.accessToken) {
-      storeGoogleAdsToken(credential.accessToken);
-      return credential.accessToken;
-    }
-  } catch (fbErr: any) {
-    if (
-      fbErr?.code === 'auth/popup-closed-by-user' ||
-      fbErr?.code === 'auth/cancelled-popup-request'
-    ) {
-      throw new Error('Google authorization window was closed.');
-    }
-    console.warn('Firebase token acquisition notice:', fbErr?.message || fbErr);
-  }
-
-  const isProduction =
-    typeof window !== 'undefined' && window.location.origin === 'https://adoptimize.app';
-
-  // 2. If on adoptimize.app, attempt GIS
-  if (isProduction && options?.preferredMethod !== 'firebase') {
-    try {
-      const token = await requestGoogleAdsAccessToken(options?.emailHint);
-      if (token) return token;
-    } catch (gisErr: any) {
-      console.warn('GIS notice, switching to standard OAuth popup:', gisErr?.message || gisErr);
-    }
-  }
-
-  // 3. Fallback: Standard OAuth popup flow (uses approved redirect URI https://adoptimize.app/api/google-ads/oauth-callback)
-  return requestGoogleAdsAccessTokenViaPopup(options?.emailHint);
+  // Interactive authorization is reached only from explicit connect/switch
+  // actions. Use the code flow so future background renewals are automatic.
+  return requestGoogleAdsCredentialsViaPopup(options?.emailHint);
 }
 
 /**
@@ -551,4 +578,3 @@ export async function acquireGoogleAdsToken(options?: {
 export async function acquireGoogleAdsTokenViaFirebase(emailHint?: string): Promise<string> {
   return acquireGoogleAdsToken({ emailHint });
 }
-

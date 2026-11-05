@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { AdOptimizeRootClient } from './root-client';
 
-// This entry page is entirely client-owned. Static delivery avoids invoking
-// Cloudflare server rendering before browser auth/localStorage is available.
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',

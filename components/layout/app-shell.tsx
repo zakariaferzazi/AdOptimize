@@ -120,6 +120,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
       clearStoredGoogleAdsToken();
       const token = await acquireGoogleAdsToken({
         emailHint: user?.email || undefined,
+        forceFresh: true,
       });
       if (token) {
         await handleSync();
