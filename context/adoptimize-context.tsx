@@ -965,6 +965,13 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   // 2. Continuous 30s active heartbeat poller while tab is open
   // 3. Instant tab-refocus / visibilitychange trigger when switching back to window/tab
   useEffect(() => {
+    // Wait until Firebase and the persisted account/token state are hydrated.
+    // Starting before hydration can consume the page-load sync attempt with an
+    // empty/stale token and leave the dashboard on the previous snapshot.
+    if (authLoading || isInitialLoading) {
+      return;
+    }
+
     if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
       return;
     }
@@ -1003,7 +1010,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
-  }, [isConnected, clientCustomerId, performBackgroundSync]);
+  },   [authLoading, isInitialLoading, isConnected, clientCustomerId, performBackgroundSync]);
 
 
   const handleSignInWithGoogle = async () => {
