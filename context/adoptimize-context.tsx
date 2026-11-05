@@ -31,6 +31,7 @@ import {
   acquireGoogleAdsToken,
   trySilentGoogleAdsTokenRefresh,
   isGoogleAdsTokenExpired,
+  isTokenEligibleForAutoRenewal,
   getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
   storeGoogleAdsToken,
@@ -298,35 +299,58 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       const ts = tsStr ? Number(tsStr) : 0;
       const elapsedMs = ts > 0 ? Date.now() - ts : 0;
       // Proactively rotate token at 50 minutes without user prompts
-      const nearingExpiry = elapsedMs > 50 * 60 * 1000;
+      const hasStoredToken = Boolean(getStoredGoogleAdsToken().token);
+      const nearingExpiry =
+        hasStoredToken &&
+        (elapsedMs > 50 * 60 * 1000 ||
+          isTokenEligibleForAutoRenewal() ||
+          isGoogleAdsTokenExpired());
 
-      if (nearingExpiry && activeRefreshTok) {
+      if (nearingExpiry) {
         isRenewing = true;
         try {
-          const res = await fetch('/api/google-ads/token/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              refreshToken: activeRefreshTok,
-              customerId: state.account.clientCustomerId,
-              userEmail: user?.email || undefined,
-              userId: user?.uid || undefined,
-            }),
-          });
-          const data = await res.json();
-          if (res.ok && data.success && data.accessToken) {
-            storeGoogleAdsToken(data.accessToken);
-            setOauthToken(data.accessToken);
-            setIsTokenExpired(false);
-            if (data.refreshToken) {
-              storeGoogleAdsRefreshToken(data.refreshToken);
-              setRefreshToken(data.refreshToken);
+          if (activeRefreshTok) {
+            const res = await fetch('/api/google-ads/token/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                refreshToken: activeRefreshTok,
+                customerId: state.account.clientCustomerId,
+                userEmail: user?.email || undefined,
+                userId: user?.uid || undefined,
+              }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success && data.accessToken) {
+              storeGoogleAdsToken(data.accessToken);
+              setOauthToken(data.accessToken);
+              setIsTokenExpired(false);
+              if (data.refreshToken) {
+                storeGoogleAdsRefreshToken(data.refreshToken);
+                setRefreshToken(data.refreshToken);
+              }
+              if (user) {
+                saveUserAccount(user.uid, {
+                  ...state.account,
+                  accessToken: data.accessToken,
+                  refreshToken: data.refreshToken || activeRefreshTok,
+                  isTokenExpired: false,
+                });
+              }
+              return;
             }
+          }
+
+          // Implicit OAuth tokens have no refresh token; renew them silently through GIS.
+          const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
+          if (silentToken) {
+            setOauthToken(silentToken);
+            storeGoogleAdsToken(silentToken);
+            setIsTokenExpired(false);
             if (user) {
               saveUserAccount(user.uid, {
                 ...state.account,
-                accessToken: data.accessToken,
-                refreshToken: data.refreshToken || activeRefreshTok,
+                accessToken: silentToken,
                 isTokenExpired: false,
               });
             }
@@ -827,7 +851,19 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           undefined;
 
         // Try getting existing token or let server rotate it silently via refreshToken
-        const token = tokenOverride || getAccessTokenString();
+        let token = tokenOverride || getAccessTokenString();
+        const storedToken = getStoredGoogleAdsToken();
+        const needsTokenRenewal =
+          !token || storedToken.isExpired || isTokenEligibleForAutoRenewal();
+        if (needsTokenRenewal && !activeRefreshTok) {
+          const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
+          if (silentToken) {
+            token = silentToken;
+            setOauthToken(silentToken);
+            storeGoogleAdsToken(silentToken);
+            setIsTokenExpired(false);
+          }
+        }
 
         const resolvedLoginCid =
           loginCustomerId ||
@@ -1014,42 +1050,57 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       setIsTokenExpired(false);
     }
 
+    // The connect response is a real live Google Ads snapshot. Record it as a
+    // successful sync so hydration does not treat it as older than Firestore.
+    const connectedAtIso = connectedAccount.lastSyncAt || new Date().toISOString();
+    const connectedAtMs = new Date(connectedAtIso).getTime() || Date.now();
     const mergedAccount: GoogleAdsAccount = {
       ...connectedAccount,
       accessToken: validToken || undefined,
       isConnected: true,
       isTokenExpired: false,
+      lastSyncAt: connectedAtIso,
+      lastSuccessfulSyncAt: connectedAccount.lastSuccessfulSyncAt || connectedAtIso,
     };
 
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('adoptimize_connected_account', JSON.stringify(mergedAccount));
         localStorage.setItem('adoptimize_onboarding_completed', 'true');
+        localStorage.setItem(LAST_SUCCESSFUL_SYNC_KEY, String(connectedAtMs));
       } catch {}
     }
 
+    preferLocalDataRef.current = Boolean(user);
     setState((prev) => {
       const nextState = {
         ...prev,
         account: mergedAccount,
-        campaigns: syncedCampaigns && syncedCampaigns.length > 0 ? syncedCampaigns : prev.campaigns,
-        keywords: syncedKeywords && syncedKeywords.length > 0 ? syncedKeywords : prev.keywords,
-        searchTerms: syncedSearchTerms && syncedSearchTerms.length > 0 ? syncedSearchTerms : prev.searchTerms,
+        campaigns: syncedCampaigns ?? prev.campaigns,
+        keywords: syncedKeywords ?? prev.keywords,
+        searchTerms: syncedSearchTerms ?? prev.searchTerms,
         isDemoMode: false,
       };
       saveState(nextState);
       return nextState;
     });
 
+    setLastSyncTimestamp(connectedAtMs);
     setApiIssue(null);
     setIsTokenExpired(false);
     showToast(`Connected: ${connectedAccount.clientCustomerId}`);
 
     if (user) {
-      saveUserAccount(user.uid, mergedAccount);
-      if (syncedCampaigns && syncedCampaigns.length > 0) {
-        syncedCampaigns.forEach((c) => saveCampaignToFirestore(user.uid, c));
-      }
+      persistGoogleAdsSyncSnapshot(user.uid, {
+        campaigns: syncedCampaigns || [],
+        keywords: syncedKeywords,
+        searchTerms: syncedSearchTerms,
+        accountPatch: mergedAccount,
+      })
+        .then((persisted) => {
+          if (persisted) preferLocalDataRef.current = false;
+        })
+        .catch((err) => console.warn('[Connect] Could not persist initial Google Ads snapshot:', err));
     }
   };
 
@@ -1078,21 +1129,23 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         undefined;
 
       if (!activeRefreshTok) {
-        console.warn('[Session] No refresh token available. Session active on cached credentials.');
-        return null;
+        console.warn('[Session] No refresh token available; trying silent GIS renewal.');
       }
 
       // 1. First attempt: automated server-side token rotation via /api/google-ads/token/refresh
-      const refreshRes = await fetch('/api/google-ads/token/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          refreshToken: activeRefreshTok,
-          customerId: state.account.clientCustomerId,
-          userEmail: user?.email || undefined,
-          userId: user?.uid || undefined,
-        }),
-      }).catch(() => null);
+      let refreshRes: Response | null = null;
+      if (activeRefreshTok) {
+        refreshRes = await fetch('/api/google-ads/token/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            refreshToken: activeRefreshTok,
+            customerId: state.account.clientCustomerId,
+            userEmail: user?.email || undefined,
+            userId: user?.uid || undefined,
+          }),
+        }).catch(() => null);
+      }
 
       if (refreshRes && refreshRes.ok) {
         const refreshData = await refreshRes.json();
@@ -1210,8 +1263,10 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         getStoredGoogleAdsRefreshToken() ||
         undefined;
 
-      // If token is missing, attempt seamless refresh with stored refresh token
-      if (!token && activeRefreshTok) {
+      // Refresh before syncing when the implicit-flow access token is missing,
+      // expired, or close to expiry. Otherwise Google Ads returns 401 forever
+      // and the dashboard keeps displaying the initial connection snapshot.
+      if (!token || storedToken.isExpired || isTokenEligibleForAutoRenewal()) {
         const renewedToken = await handleRefreshToken(true);
         if (renewedToken) {
           token = renewedToken;

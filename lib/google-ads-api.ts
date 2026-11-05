@@ -23,6 +23,17 @@ export interface GoogleAdsApiResult {
   fromCache?: boolean;
   /** ISO timestamp of when this data was actually fetched from the Google Ads API */
   fetchedAt?: string;
+  /** Live-request evidence used to verify campaign discovery and metric coverage. */
+  diagnostics?: {
+    customerId: string;
+    apiVersion: string;
+    requestedAt: string;
+    campaignRows: number;
+    enabledCampaigns: number;
+    pausedCampaigns: number;
+    dailyMetricRows: number;
+    statusCounts: Record<string, number>;
+  };
 }
 
 export interface QuotaCooldownState {
@@ -492,7 +503,6 @@ export async function queryLiveCampaigns(
       FROM campaign
       WHERE campaign.status != 'REMOVED'
       ORDER BY campaign.id DESC
-      LIMIT 200
     `;
 
     let lastError: GoogleAdsApiResult = {
@@ -1171,6 +1181,22 @@ export async function queryLiveCampaigns(
         resetQuotaCooldown();
       }
 
+      const statusCounts: Record<string, number> = {};
+      for (const campaign of parsedCampaigns) {
+        const status = String(campaign.status || 'UNKNOWN');
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      }
+      const dailyMetricRows = Array.from(dailyMap.values()).reduce(
+        (total, dates) => total + dates.size,
+        0
+      );
+
+      console.info(
+        `[Google Ads API] LIVE ${version} CID ${cleanCid}: ` +
+          `${parsedCampaigns.length} campaigns (${statusCounts.ENABLED || 0} enabled, ` +
+          `${statusCounts.PAUSED || 0} paused), ${dailyMetricRows} daily metric rows.`
+      );
+
       const finalResult: GoogleAdsApiResult & { timeZone?: string; accountName?: string } = {
         success: true,
         campaigns: parsedCampaigns,
@@ -1181,6 +1207,16 @@ export async function queryLiveCampaigns(
         timeZone: detectedTimeZone,
         accountName: detectedAccountName,
         fetchedAt: new Date().toISOString(),
+        diagnostics: {
+          customerId: cleanCid,
+          apiVersion: version,
+          requestedAt: new Date().toISOString(),
+          campaignRows: parsedCampaigns.length,
+          enabledCampaigns: statusCounts.ENABLED || 0,
+          pausedCampaigns: statusCounts.PAUSED || 0,
+          dailyMetricRows,
+          statusCounts,
+        },
       };
 
       // Cache for 30 seconds (30,000 ms) to throttle rapid duplicate requests while enabling near-real-time update detection
@@ -1747,7 +1783,6 @@ export async function fetchStructuralEntities(
       FROM campaign
       WHERE campaign.status != 'REMOVED'
       ORDER BY campaign.id DESC
-      LIMIT 100
     `;
 
     let lastError: StructuralEntitiesResult = {

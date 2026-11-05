@@ -344,12 +344,6 @@ export function storeGoogleAdsToken(token: string, expiresInSeconds = 3600, expi
 export function isGoogleAdsTokenExpired(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // If a refresh token is stored, session is self-healing and uninterrupted
-  const refreshToken = getStoredGoogleAdsRefreshToken();
-  if (refreshToken && refreshToken.trim()) {
-    return false;
-  }
-
   let token = sessionStorage.getItem('google_ads_oauth_token');
   if (!token) {
     try {
@@ -357,8 +351,27 @@ export function isGoogleAdsTokenExpired(): boolean {
     } catch {}
   }
 
-  // Only consider expired if there is absolutely no token in storage
-  return !token || !token.trim();
+  if (!token || !token.trim()) return true;
+
+  // Implicit-flow access tokens last one hour. Checking that a token string
+  // merely exists causes every sync after that hour to reuse a dead token.
+  const expiresAtStr =
+    sessionStorage.getItem('google_ads_token_expires_at') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
+  const expiresAt = expiresAtStr ? Number(expiresAtStr) : NaN;
+  if (!isNaN(expiresAt) && expiresAt > 0) {
+    return Date.now() >= expiresAt;
+  }
+
+  const issuedAtStr =
+    sessionStorage.getItem('google_ads_oauth_token_timestamp') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
+  const issuedAt = issuedAtStr ? Number(issuedAtStr) : NaN;
+  if (!isNaN(issuedAt) && issuedAt > 0) {
+    return Date.now() >= issuedAt + 3600 * 1000;
+  }
+
+  return false;
 }
 
 /**
@@ -476,13 +489,21 @@ export async function acquireGoogleAdsToken(options?: {
   forceFirebase?: boolean;
   forceFresh?: boolean;
 }): Promise<string> {
-  // 1. If existing token is already available, reuse it immediately (do not prompt user again)
+  // 1. Reuse only a token that is still valid. Returning an expired implicit-flow
+  // token here made every reconnect/sync reuse dead credentials indefinitely.
   const stored = getStoredGoogleAdsToken();
-  if (stored.token && !options?.forceFresh) {
+  if (stored.token && !stored.isExpired && !options?.forceFresh) {
     return stored.token;
   }
 
-  // 1. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
+  // 2. Before prompting, try a promptless GIS refresh. This is the only renewal
+  // path available for implicit-flow tokens because Google does not issue refresh tokens.
+  if (!options?.forceFresh) {
+    const silentToken = await trySilentGoogleAdsTokenRefresh(options?.emailHint);
+    if (silentToken) return silentToken;
+  }
+
+  // 3. Try Firebase GoogleAuthProvider with AdWords scope (authorized redirect domain, avoids all passkey prompts)
   try {
     const { auth, googleAdsProvider } = await import('@/lib/firebase');
     const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');

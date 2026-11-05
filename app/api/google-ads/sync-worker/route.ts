@@ -46,6 +46,17 @@ async function processUserSync(
   metricsRefreshed?: boolean;
   /** True when Google Ads data was served from the short-lived server cache. */
   fromCache?: boolean;
+  /** Evidence of the live Google Ads query: row counts, statuses, and API version. */
+  diagnostics?: {
+    customerId: string;
+    apiVersion: string;
+    requestedAt: string;
+    campaignRows: number;
+    enabledCampaigns: number;
+    pausedCampaigns: number;
+    dailyMetricRows: number;
+    statusCounts: Record<string, number>;
+  };
   retryDelaySeconds?: number;
   error?: string;
   currency?: string;
@@ -300,6 +311,7 @@ async function processUserSync(
         lastSyncAt: syncResult.fetchedAt || new Date().toISOString(),
         metricsRefreshed: true,
         fromCache: Boolean(syncResult.fromCache),
+        diagnostics: syncResult.diagnostics,
         userId,
         customerId: cleanCid,
         campaignsCount: syncResult.campaigns.length,

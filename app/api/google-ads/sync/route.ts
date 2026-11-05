@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
         currency: liveResult.currency,
         timeZone: liveResult.timeZone,
         accountName: liveResult.accountName,
+        diagnostics: liveResult.diagnostics,
         message: realCampaigns.length > 0
           ? `Successfully synchronized ${realCampaigns.length} live campaigns from Google Ads for account ${formattedCid}.`
           : `Google Ads account ${formattedCid} is connected. No campaigns found in this account.`,
