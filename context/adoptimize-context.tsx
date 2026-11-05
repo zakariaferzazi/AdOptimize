@@ -873,24 +873,32 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
               localStorage.getItem('google_ads_login_cid')
             : undefined);
 
-        const res = await fetch('/api/google-ads/sync-worker', {
+        const res = await fetch('/api/google-ads/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
           body: JSON.stringify({
-            userId: user?.uid || undefined,
             customerId: clientCustomerId,
             loginCustomerId: resolvedLoginCid,
             accessToken: token || undefined,
             refreshToken: activeRefreshTok,
-            force: force,
-            // Full mode: fetch fresh performance metrics, not just status/budget
-            mode: 'full',
-            cachedCampaigns: [],
+            expiresAt: storedToken.expiresAt,
+            userEmail: user?.email || undefined,
+            userId: user?.uid || undefined,
+            forceRefresh: force,
+            cachedCampaigns: campaignsRef.current || [],
+            cachedKeywords: state.keywords,
+            cachedSearchTerms: state.searchTerms,
           }),
         });
 
-        const data = await res.json();
+        const responseText = await res.text();
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(`Google Ads sync returned HTTP ${res.status} instead of JSON.`);
+        }
         if (data.newAccessToken) {
           storeGoogleAdsToken(data.newAccessToken, 3600, data.newExpiresAt);
           setOauthToken(data.newAccessToken);
@@ -902,7 +910,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         }
 
         // Rate limit paused handling (cap to 60s max). Last-updated time is NOT changed.
-        if (data.status === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
+        if (data.syncStatus === 'QUOTA_PAUSED' || data.status === 'QUOTA_PAUSED' || data.isQuotaExhausted || res.status === 429) {
           const resetTime = Date.now() + Math.min(data.retryDelaySeconds || 60, 60) * 1000;
           setQuotaResetAt(resetTime);
           if (typeof window !== 'undefined') {
@@ -914,7 +922,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (res.ok && data.success && data.status === 'SYNCED' && data.metricsRefreshed && Array.isArray(data.campaigns)) {
+        if (res.ok && data.success && (data.syncStatus === 'SYNCED' || data.status === 'SYNCED') && Array.isArray(data.campaigns)) {
           const freshCampaigns: Campaign[] = data.campaigns;
           const existingCampaigns = campaignsRef.current || [];
 
@@ -946,7 +954,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         }
 
         // Sync failed (auth/API error): keep previously synced data and the previous last-updated time
-        if (data.status === 'AUTH_EXPIRED') {
+        if (data.status === 'AUTH_EXPIRED' || data.syncStatus === 'AUTH_EXPIRED') {
           setIsTokenExpired(true);
         }
         console.warn('[Background Sync] Google Ads sync did not complete:', data.status, data.error || data.message);
@@ -957,7 +965,20 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         isBackgroundSyncingRef.current = false;
       }
     },
-    [isConnected, clientCustomerId, loginCustomerId, user, getAccessTokenString, state.account, refreshToken, quotaResetAt, showToast, commitSuccessfulSync]
+    [
+      isConnected,
+      clientCustomerId,
+      loginCustomerId,
+      user,
+      getAccessTokenString,
+      state.account,
+      state.keywords,
+      state.searchTerms,
+      refreshToken,
+      quotaResetAt,
+      showToast,
+      commitSuccessfulSync,
+    ]
   );
 
   // Near-Real-Time Hands-Free Google Ads Synchronization Engine
