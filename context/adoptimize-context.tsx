@@ -374,6 +374,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
   const isBackgroundSyncingRef = useRef<boolean>(false);
   const lastSyncTimestampRef = useRef<number>(0);
+  const handleRefreshTokenRef = useRef<((isSilent?: boolean) => Promise<string | null>) | null>(null);
   const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
   // True while this browser holds a newer successful sync than Firestore; used to stop
   // an older Firestore snapshot from overwriting fresher local data.
@@ -855,14 +856,23 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         const storedToken = getStoredGoogleAdsToken();
         const needsTokenRenewal =
           !token || storedToken.isExpired || isTokenEligibleForAutoRenewal();
-        if (needsTokenRenewal && !activeRefreshTok) {
-          const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
-          if (silentToken) {
-            token = silentToken;
-            setOauthToken(silentToken);
-            storeGoogleAdsToken(silentToken);
-            setIsTokenExpired(false);
+        if (needsTokenRenewal) {
+          // Never send an expired access token to Google Ads. The previous
+          // branch skipped renewal whenever a refresh token existed, which
+          // caused every hourly sync to fail with 401.
+          const renewedToken = handleRefreshTokenRef.current
+            ? await handleRefreshTokenRef.current(true)
+            : null;
+          if (renewedToken) {
+            token = renewedToken;
           }
+        }
+
+        if (!token || isGoogleAdsTokenExpired()) {
+          setIsTokenExpired(true);
+          setState((prev) => ({ ...prev, account: { ...prev.account, syncStatus: 'ERROR' as const } }));
+          console.warn('[Background Sync] No valid Google Ads access token available.');
+          return;
         }
 
         const resolvedLoginCid =
@@ -873,7 +883,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
               localStorage.getItem('google_ads_login_cid')
             : undefined);
 
-        const res = await fetch('/api/google-ads/sync', {
+        let res = await fetch('/api/google-ads/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
@@ -892,12 +902,46 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           }),
         });
 
-        const responseText = await res.text();
+        let responseText = await res.text();
         let data: any;
         try {
           data = JSON.parse(responseText);
         } catch {
           throw new Error(`Google Ads sync returned HTTP ${res.status} instead of JSON.`);
+        }
+
+        // A token can be revoked server-side before its local expiry time.
+        // Renew once and retry the same live request before showing stale data.
+        if (res.status === 401) {
+          const renewedToken = handleRefreshTokenRef.current
+            ? await handleRefreshTokenRef.current(true)
+            : null;
+          if (renewedToken) {
+            token = renewedToken;
+            const retryRes = await fetch('/api/google-ads/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store',
+              body: JSON.stringify({
+                customerId: clientCustomerId,
+                loginCustomerId: resolvedLoginCid,
+                accessToken: renewedToken,
+                userEmail: user?.email || undefined,
+                userId: user?.uid || undefined,
+                forceRefresh: true,
+                cachedCampaigns: campaignsRef.current || [],
+                cachedKeywords: state.keywords,
+                cachedSearchTerms: state.searchTerms,
+              }),
+            });
+            res = retryRes;
+            responseText = await res.text();
+            try {
+              data = JSON.parse(responseText);
+            } catch {
+              throw new Error(`Google Ads sync retry returned HTTP ${res.status} instead of JSON.`);
+            }
+          }
         }
         if (data.newAccessToken) {
           storeGoogleAdsToken(data.newAccessToken, 3600, data.newExpiresAt);
@@ -1144,7 +1188,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
    * 2. Attempts silent promptless GIS token acquisition
    * 3. Fallback: Prompts user in clean 1-click modal (only if not silent)
    */
-  const handleRefreshToken = async (isSilent = true): Promise<string | null> => {
+  const handleRefreshToken = useCallback(async (isSilent = true): Promise<string | null> => {
     if (!isSilent) {
       setIsSyncing(true);
       showToast('Refreshing Google Ads authorization in background...');
@@ -1228,7 +1272,14 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         setIsSyncing(false);
       }
     }
-  };
+  }, [refreshToken, state.account, user, showToast]);
+
+  useEffect(() => {
+    handleRefreshTokenRef.current = handleRefreshToken;
+    return () => {
+      handleRefreshTokenRef.current = null;
+    };
+  }, [handleRefreshToken]);
 
   const handleSaveRefreshToken = async (newRefreshToken: string, clientSecret?: string): Promise<boolean> => {
     if (!newRefreshToken || !newRefreshToken.trim()) return false;
