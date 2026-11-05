@@ -1186,10 +1186,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         getStoredGoogleAdsRefreshToken() ||
         undefined;
 
-      if (!activeRefreshTok) {
-        console.warn('[Session] No refresh token available; trying silent GIS renewal.');
-      }
-
       // 1. First attempt: automated server-side token rotation via /api/google-ads/token/refresh
       let refreshRes: Response | null = null;
       if (activeRefreshTok) {
@@ -1203,6 +1199,10 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             userId: user?.uid || undefined,
           }),
         }).catch(() => null);
+      }
+
+      if (!activeRefreshTok) {
+        console.warn('[Session] No stored Google Ads refresh credential; automatic renewal is unavailable.');
       }
 
       if (refreshRes && refreshRes.ok) {
