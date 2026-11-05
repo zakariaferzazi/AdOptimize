@@ -325,9 +325,20 @@ export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): P
   const activeClientId = await getGoogleAdsClientId();
   const scope = encodeURIComponent(`${GOOGLE_ADS_SCOPE} email profile`);
   const state = `adwords_code_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const verifierBytes = new Uint8Array(32);
+  crypto.getRandomValues(verifierBytes);
+  const codeVerifier = base64UrlEncode(verifierBytes);
+  const challengeBytes = new Uint8Array(await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(codeVerifier)
+  ));
+  const codeChallenge = base64UrlEncode(challengeBytes);
+  sessionStorage.setItem('google_ads_oauth_code_verifier', codeVerifier);
   let oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&prompt=consent&client_id=${encodeURIComponent(
     activeClientId
-  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}`;
+  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}&code_challenge=${encodeURIComponent(
+    codeChallenge
+  )}&code_challenge_method=S256`;
   if (emailHint) oauthUrl += `&login_hint=${encodeURIComponent(emailHint)}`;
 
   return new Promise((resolve, reject) => {
@@ -359,7 +370,10 @@ export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): P
         const response = await fetch('/api/google-ads/oauth-exchange', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: event.data.code }),
+          body: JSON.stringify({
+            code: event.data.code,
+            codeVerifier: sessionStorage.getItem('google_ads_oauth_code_verifier'),
+          }),
         });
         const data = await response.json();
         if (!response.ok || !data.success || !data.accessToken) {
@@ -367,12 +381,14 @@ export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): P
         }
         storeGoogleAdsToken(data.accessToken, data.expiresIn || 3600, data.expiresAt);
         if (data.refreshToken) storeGoogleAdsRefreshToken(data.refreshToken);
+        sessionStorage.removeItem('google_ads_oauth_code_verifier');
         cleanup();
         resolve(data.accessToken);
       } catch (error) {
         cleanup();
         reject(error);
       }
+
     };
     const closeCheck = setInterval(() => {
       if (popup.closed && !settled) {
@@ -382,6 +398,12 @@ export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): P
     }, 500);
     window.addEventListener('message', onMessage);
   });
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 /**

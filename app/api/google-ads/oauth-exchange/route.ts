@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 export async function POST(req: NextRequest) {
   try {
-    const { code } = await req.json().catch(() => ({}));
+    const { code, codeVerifier } = await req.json().catch(() => ({}));
     if (!code || typeof code !== 'string') {
       return NextResponse.json({ success: false, error: 'Authorization code is required.' }, { status: 400 });
     }
@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     };
+    if (typeof codeVerifier === 'string' && codeVerifier.trim()) {
+      params.code_verifier = codeVerifier.trim();
+    }
     if (clientSecret) params.client_secret = clientSecret;
 
     const response = await fetch('https://oauth2.googleapis.com/token', {

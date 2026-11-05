@@ -72,7 +72,10 @@ export async function GET() {
 
   <script>
     (function() {
+      var completed = false;
+
       function completeOAuth() {
+        if (completed) return;
         var statusEl = document.getElementById('status');
         var descEl = document.getElementById('desc');
         var titleEl = document.getElementById('title');
@@ -86,6 +89,7 @@ export async function GET() {
         var code = searchParams.get('code');
         var error = hashParams.get('error') || searchParams.get('error');
         var errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+        if (error || token || code) completed = true;
 
         if (error) {
           if (titleEl) titleEl.textContent = 'Authorization Failed';
