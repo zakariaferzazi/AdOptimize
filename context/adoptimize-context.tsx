@@ -29,7 +29,6 @@ import {
 import {
   requestGoogleAdsAccessToken,
   acquireGoogleAdsToken,
-  trySilentGoogleAdsTokenRefresh,
   isGoogleAdsTokenExpired,
   isTokenEligibleForAutoRenewal,
   getStoredGoogleAdsToken,
@@ -341,20 +340,9 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Implicit OAuth tokens have no refresh token; renew them silently through GIS.
-          const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
-          if (silentToken) {
-            setOauthToken(silentToken);
-            storeGoogleAdsToken(silentToken);
-            setIsTokenExpired(false);
-            if (user) {
-              saveUserAccount(user.uid, {
-                ...state.account,
-                accessToken: silentToken,
-                isTokenExpired: false,
-              });
-            }
-          }
+          // Do not invoke GIS here. Even prompt='' may open an authorization
+          // window when silent authorization is unavailable. Interactive OAuth
+          // is reserved for explicit connect/switch-account actions.
         } catch {
           // If network error during auto-renew, maintain state
         } finally {
@@ -1242,25 +1230,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           }
           return refreshData.accessToken;
         }
-      }
-
-      // 2. Second attempt: Silent GIS token renewal without user-facing popup
-      const silentToken = await trySilentGoogleAdsTokenRefresh(user?.email || undefined);
-      if (silentToken) {
-        setOauthToken(silentToken);
-        storeGoogleAdsToken(silentToken);
-        setIsTokenExpired(false);
-        if (user) {
-          saveUserAccount(user.uid, {
-            ...state.account,
-            accessToken: silentToken,
-            isTokenExpired: false,
-          });
-        }
-        if (!isSilent) {
-          showToast('Google Ads session renewed silently.');
-        }
-        return silentToken;
       }
 
       return null;
