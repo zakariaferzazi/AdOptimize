@@ -83,6 +83,16 @@ export function clearGoogleAdsCache(customerId?: string): void {
   }
 }
 
+function getCacheTokenFingerprint(accessToken: string, developerToken?: string): string {
+  const value = `${developerToken || ''}:${accessToken}`;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 /**
  * Executes fetch with exponential backoff for transient server/network errors (HTTP 5xx).
  * Does NOT retry immediately on 429 / RESOURCE_EXHAUSTED; instead lets cooldown handle it.
@@ -431,8 +441,15 @@ export async function queryLiveCampaigns(
 ): Promise<GoogleAdsApiResult> {
   try {
     const cleanCid = cleanCustomerId.replace(/\D/g, '');
-    const cacheKey = `${cleanCid}:${loginCustomerId ? loginCustomerId.replace(/\D/g, '') : 'default'}`;
+    const cacheKey = `${cleanCid}:${loginCustomerId ? loginCustomerId.replace(/\D/g, '') : 'default'}:${getCacheTokenFingerprint(
+      accessToken,
+      developerToken
+    )}`;
     const cached = liveQueryCache.get(cacheKey);
+
+    if (options?.forceRefresh) {
+      liveQueryCache.delete(cacheKey);
+    }
 
     // 1. Check if global rate limit cooldown is active (HTTP 429 / RESOURCE_EXHAUSTED).
     // An explicit force-refresh must still attempt a live query instead of silently
@@ -1946,4 +1963,3 @@ export async function fetchStructuralEntities(
     };
   }
 }
-

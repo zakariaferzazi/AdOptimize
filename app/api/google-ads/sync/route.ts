@@ -4,6 +4,7 @@ import {
   queryLiveCampaigns,
   getQuotaCooldownStatus,
   resetQuotaCooldown,
+  clearGoogleAdsCache,
 } from '@/lib/google-ads-api';
 import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
@@ -48,6 +49,9 @@ export async function POST(req: NextRequest) {
     // If user explicitly triggers a forced refresh, clear any active cooldown
     if (forceRefresh) {
       resetQuotaCooldown();
+      // A manual refresh must not be able to reuse a snapshot created with an
+      // earlier token or by another request in this server instance.
+      clearGoogleAdsCache(cleanCid);
     }
 
     // Check if Developer Token explorer quota is currently in cooldown period
