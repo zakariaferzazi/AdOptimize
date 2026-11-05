@@ -6,7 +6,6 @@ import {
   resetQuotaCooldown,
   clearGoogleAdsCache,
 } from '@/lib/google-ads-api';
-import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
 // Sync must always run live; never serve a statically cached response.
 export const dynamic = 'force-dynamic';
@@ -18,10 +17,7 @@ export async function POST(req: NextRequest) {
     const {
       customerId,
       accessToken,
-      refreshToken,
-      expiresAt,
       userId,
-      userEmail,
       loginCustomerId,
       developerToken,
       forceRefresh = false,
@@ -104,20 +100,30 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Execute with automated token refresh & 401 automatic retry
-    const liveResult = await executeWithAutoTokenRetry(
-      {
-        userId,
-        userEmail,
-        customerId: cleanCid,
-        incomingAccessToken: accessToken,
-        incomingRefreshToken: refreshToken,
-        incomingExpiresAt: expiresAt ? Number(expiresAt) : undefined,
-        forceRefresh,
-      },
-      async (activeToken: string) => {
-        return queryLiveCampaigns(cleanCid, activeToken, devToken, loginCustomerId, { forceRefresh });
-      }
+    if (!accessToken || typeof accessToken !== 'string' || !accessToken.trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          lastSyncAt: null,
+          syncStatus: 'AUTH_EXPIRED',
+          isAuthExpired: true,
+          statusCode: 401,
+          message: 'Google Ads access token is missing. Reconnect or authorize Google Ads again.',
+          campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
+        },
+        { status: 401 }
+      );
+    }
+
+    // Token renewal is performed in the browser before this request. Keeping
+    // this route independent of the server Firebase/Firestore token manager
+    // prevents runtime initialization failures in the deployed API worker.
+    const liveResult = await queryLiveCampaigns(
+      cleanCid,
+      accessToken.trim(),
+      devToken,
+      loginCustomerId,
+      { forceRefresh }
     );
 
     if (liveResult.success && !liveResult.isQuotaExhausted) {
@@ -148,9 +154,6 @@ export async function POST(req: NextRequest) {
         campaigns: realCampaigns,
         keywords: realKeywords,
         searchTerms: realSearchTerms,
-        newAccessToken: liveResult.newAccessToken,
-        newRefreshToken: liveResult.newRefreshToken,
-        newExpiresAt: liveResult.newExpiresAt,
       });
     }
 
@@ -182,9 +185,6 @@ export async function POST(req: NextRequest) {
         campaigns: fallbackCampaigns,
         keywords: fallbackKeywords,
         searchTerms: fallbackSearchTerms,
-        newAccessToken: liveResult.newAccessToken,
-        newRefreshToken: liveResult.newRefreshToken,
-        newExpiresAt: liveResult.newExpiresAt,
       });
     }
 
@@ -226,9 +226,6 @@ export async function POST(req: NextRequest) {
         accessibleCustomers: liveResult.accessibleCustomers || [],
         message: `Google Ads notice for account ${formattedCid}: ${cleanErr}`,
         campaigns: Array.isArray(cachedCampaigns) ? cachedCampaigns : [],
-        newAccessToken: liveResult.newAccessToken,
-        newRefreshToken: liveResult.newRefreshToken,
-        newExpiresAt: liveResult.newExpiresAt,
       },
       { status: liveResult.statusCode && liveResult.statusCode >= 400 ? liveResult.statusCode : 400 }
     );
