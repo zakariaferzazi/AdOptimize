@@ -298,7 +298,7 @@ export interface GoogleAdsAccount {
 
 export interface ProposedAccountChange {
   id: string;
-  actionType: 'UPDATE_BUDGET' | 'PAUSE_CAMPAIGN' | 'ENABLE_CAMPAIGN' | 'REALLOCATE_BUDGET' | 'ADD_NEGATIVE_KEYWORD' | 'UPDATE_SETTINGS';
+  actionType: 'UPDATE_BUDGET' | 'PAUSE_CAMPAIGN' | 'ENABLE_CAMPAIGN' | 'REALLOCATE_BUDGET' | 'ADD_NEGATIVE_KEYWORD' | 'UPDATE_SETTINGS' | 'CREATE_CAMPAIGN';
   campaignId: string;
   campaignName: string;
   currentSettings: string;

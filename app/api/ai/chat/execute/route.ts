@@ -4,6 +4,7 @@ import {
   clearGoogleAdsCache,
   mutateGoogleAdsCampaignBudget,
   mutateGoogleAdsCampaignStatus,
+  createGoogleAdsCampaign,
   queryLiveCampaigns,
 } from '@/lib/google-ads-api';
 import { ProposedAccountChange } from '@/types/adoptimize';
@@ -77,6 +78,29 @@ export async function POST(req: NextRequest) {
     };
 
     switch (proposal.actionType) {
+      case 'CREATE_CAMPAIGN': {
+        const draft = proposal.payload || {};
+        const creation = await createGoogleAdsCampaign(
+          customerId,
+          {
+            name: String(draft.name || proposal.campaignName),
+            budgetDaily: Number(draft.budgetDaily),
+            channelType: String(draft.channelType || 'SEARCH'),
+            status: 'PAUSED',
+          },
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
+        );
+        if (!creation.success) throw new Error(creation.error || 'Google Ads rejected the campaign draft.');
+        result = {
+          success: true,
+          message: `Paused campaign draft "${draft.name || proposal.campaignName}" was created in Google Ads. It will not serve ads until enabled.`,
+          data: { campaignId: creation.campaignId, campaignResourceName: creation.campaignResourceName },
+        };
+        break;
+      }
+
       case 'UPDATE_BUDGET': {
         const newDailyBudget = proposal.payload?.newDailyBudget;
         const mutation = await mutateGoogleAdsCampaignBudget(

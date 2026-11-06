@@ -316,9 +316,23 @@ RESPONSE FORMATTING GUIDELINES:
 
     const requestedCampaign = resolveCampaignReference(message, toolContext.campaigns);
     const lowerMessage = message.toLowerCase();
-    const isExplicitMutation = /\b(pause|enable|resume|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage);
+    const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
+    const isExplicitMutation = /\b(pause|enable|resume|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage) || isCreateCampaign;
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
-    if (requestedCampaign) {
+    if (isCreateCampaign) {
+      const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
+      const namedCampaign = /(?:called|named)\s+([^,.;]+?)(?=\s+(?:with|at|on)\b|$)/i.exec(message)?.[1];
+      const budget = /(?:budget|spend)\s*(?:of|at|to)?\s*\$?\s*(\d+(?:\.\d{1,2})?)/i.exec(message)?.[1] || '10';
+      evidenceTools.push({
+        name: 'create_campaign',
+        args: {
+          name: (quotedName || namedCampaign || 'New Google Ads Campaign').trim(),
+          budgetDaily: Number(budget),
+          channelType: /\b(performance max|pmax)\b/i.test(message) ? 'PERFORMANCE_MAX' : /\b(display)\b/i.test(message) ? 'DISPLAY' : 'SEARCH',
+          reason: 'User requested a campaign draft through the AI Marketing Agent.',
+        },
+      });
+    } else if (requestedCampaign) {
       const requestedBudget = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:per\s*day|\/\s*day|daily)?\b/i.exec(message)?.[1];
       evidenceTools.push({
         name: isExplicitMutation

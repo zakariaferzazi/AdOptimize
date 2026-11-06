@@ -277,6 +277,23 @@ export const GOOGLE_ADS_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'create_campaign',
+      description: 'Prepare a confirmation proposal to create a paused Google Ads campaign draft with the user-specified name, daily budget, and channel.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Campaign name' },
+          budgetDaily: { type: 'number', description: 'Daily budget in account currency' },
+          channelType: { type: 'string', enum: ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO'] },
+          reason: { type: 'string', description: 'Reason for creating the draft' },
+        },
+        required: ['name', 'budgetDaily'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'update_campaign_budget',
       description: 'Modify the daily budget of a Google Ads campaign. Prepares a confirmation card for explicit user approval before execution.',
       parameters: {
@@ -965,6 +982,34 @@ export async function executeGoogleAdsTool(
     }
 
     // --- ACTIONS (WITH SAFE CONFIRMATION CARD REQUIREMENT) ---
+    case 'create_campaign': {
+      const name = String(args.name || '').trim();
+      const budgetDaily = Number(args.budgetDaily);
+      if (!name) return { success: false, error: 'Campaign name is required.' };
+      if (!Number.isFinite(budgetDaily) || budgetDaily <= 0) {
+        return { success: false, error: 'Daily budget must be a positive number.' };
+      }
+      const channelType = String(args.channelType || 'SEARCH').toUpperCase();
+      const proposal: ProposedAccountChange = {
+        id: `prop-create-campaign-${Date.now()}`,
+        actionType: 'CREATE_CAMPAIGN',
+        campaignId: `draft-${Date.now()}`,
+        campaignName: name,
+        currentSettings: 'Campaign does not exist yet',
+        proposedChanges: `Create a PAUSED ${channelType} campaign draft with a daily budget of ${account.currency} ${budgetDaily.toFixed(2)}`,
+        reason: args.reason || 'User requested a new campaign draft.',
+        evidence: `Requested campaign name: ${name} · Requested daily budget: ${account.currency} ${budgetDaily.toFixed(2)}`,
+        potentialRisks: 'The campaign will be created paused and will not serve ads until separately enabled.',
+        status: 'PENDING_APPROVAL',
+        payload: { name, budgetDaily, channelType, status: 'PAUSED' },
+      };
+      return {
+        success: true,
+        actionProposal: proposal,
+        message: `I prepared a paused campaign draft named "${name}" with a ${account.currency} ${budgetDaily.toFixed(2)} daily budget. Approve it to create the campaign in Google Ads.`,
+      };
+    }
+
     case 'update_campaign_budget': {
       const camp = findCampaign(args.campaignNameOrId);
       if (!camp) {
