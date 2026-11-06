@@ -7,7 +7,7 @@ import { Sidebar, NavTab } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectModal } from '@/components/connect-modal';
 import { CopilotDrawer } from '@/components/copilot/copilot-drawer';
-import { AdOptimizeProvider, useAdOptimize } from '@/context/adoptimize-context';
+import { useAdOptimize } from '@/context/adoptimize-context';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -26,11 +26,7 @@ interface AppShellProps {
 }
 
 export function AppShell(props: AppShellProps) {
-  return (
-    <AdOptimizeProvider>
-      <AppShellInner {...props} />
-    </AdOptimizeProvider>
-  );
+  return <AppShellInner {...props} />;
 }
 
 function AppShellInner({ children, title, headerExtra }: AppShellProps) {
