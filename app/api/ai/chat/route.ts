@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOpenRouterChat, ChatCompletionMessage, resolveModelId, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
-import { GOOGLE_ADS_TOOL_DEFINITIONS, executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
+import { sendOpenRouterChat, ChatCompletionMessage, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
+import { executeGoogleAdsTool, resolveCampaignReference, ToolContext } from '@/lib/google-ads-tools';
 import { ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 import { queryLiveCampaigns } from '@/lib/google-ads-api';
@@ -293,7 +293,7 @@ RESPONSE FORMATTING GUIDELINES:
    - Format ROAS as X.Xx (e.g. 3.40x).
    - Format CPA as $XX.XX.
    - Bold important metric names and values.
-4. When the user explicitly asks to change a campaign (for example, "pause", "enable", or "set the budget to"), call the corresponding action tool to prepare a confirmation card. When the user asks what they should do, diagnose or recommend, use read-only analysis tools and do not prepare a mutation.
+4. The server has already retrieved the relevant evidence before this request. Do not request tools or claim to have performed a new action. For explicit changes, describe the prepared confirmation proposal supplied in the evidence; for recommendations, remain read-only.
 5. NEVER mention internal function names (e.g. "get_account_performance", "find_wasted_spend").
 6. NEVER mention API keys, JSON payloads, or developer terms. Speak strictly in business and PPC advertising terms.
 8. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.
@@ -314,163 +314,85 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    // Append the new user query
+    const requestedCampaign = resolveCampaignReference(message, toolContext.campaigns);
+    const lowerMessage = message.toLowerCase();
+    const isExplicitMutation = /\b(pause|enable|resume|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage);
+    const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
+    if (requestedCampaign) {
+      const requestedBudget = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:per\s*day|\/\s*day|daily)?\b/i.exec(message)?.[1];
+      evidenceTools.push({
+        name: isExplicitMutation
+          ? (/\b(pause|enable|resume)\b/.test(lowerMessage)
+            ? (/\b(enable|resume)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
+            : requestedBudget ? 'update_campaign_budget' : 'get_campaign_performance')
+          : 'analyze_campaign',
+        args: {
+          campaignNameOrId: requestedCampaign.name,
+          ...(requestedBudget ? { newDailyBudget: Number(requestedBudget), reason: 'User requested this budget change through the AI Marketing Agent.' } : {}),
+        },
+      });
+      if (/\b(search|query|keyword|term)\b/.test(lowerMessage)) {
+        evidenceTools.push({ name: 'get_search_terms', args: { campaignNameOrId: requestedCampaign.name, filter: 'ALL' } });
+      }
+    } else if (/\b(waste|leak|bleed|inefficient|zero conversions?)\b/.test(lowerMessage)) {
+      evidenceTools.push({ name: 'find_wasted_spend', args: {} });
+    } else if (/\b(change|history|compare|previous|why)\b/.test(lowerMessage)) {
+      evidenceTools.push({ name: 'get_performance_changes', args: {} }, { name: 'get_change_history', args: { limit: 10 } });
+    } else if (/\b(budget|roas|cpa|conversion|performance|campaigns?)\b/.test(lowerMessage)) {
+      evidenceTools.push({ name: 'get_account_overview', args: {} }, { name: 'get_campaigns', args: { status: 'ALL' } });
+    } else {
+      evidenceTools.push({ name: 'get_account_overview', args: {} });
+    }
+
+    const executedToolCalls: ToolCallExecution[] = [];
+    let capturedProposal: ProposedAccountChange | undefined;
+    let capturedTableData: any;
+    const evidence: Array<{ tool: string; result: unknown }> = [];
+    const interactiveRecommendations: InteractiveRecommendationCard[] = [];
+    for (const plannedTool of evidenceTools) {
+      const startedAt = Date.now();
+      const result = await executeGoogleAdsTool(plannedTool.name, plannedTool.args, toolContext);
+      executedToolCalls.push({
+        id: `pre-${Date.now()}-${plannedTool.name}`,
+        name: plannedTool.name,
+        args: plannedTool.args,
+        result: result.data || result.message,
+        status: result.success ? 'success' : 'error',
+        executionTimeMs: Date.now() - startedAt,
+      });
+      evidence.push({ tool: plannedTool.name, result: result.success ? result.data || result.message : { error: result.error } });
+      if (result.actionProposal) capturedProposal = result.actionProposal;
+      if (result.tableData) capturedTableData = result.tableData;
+      if (result.recommendationCards) interactiveRecommendations.push(...result.recommendationCards);
+    }
+
+    // Append the new user query and the already-fetched evidence. OpenRouter only
+    // writes the response; it does not need a second call to execute or summarize tools.
     formattedMessages.push({
       role: 'user',
-      content: message,
+      content: `${message}\n\nREAL ACCOUNT EVIDENCE (already retrieved; do not invent beyond it):\n${JSON.stringify(evidence)}`,
     });
 
-    let firstResponse: OpenRouterResponse = { reply: '', toolCalls: undefined, modelUsed: displayName };
-    let remoteFailed = false;
-
+    let response: OpenRouterResponse;
     try {
-      firstResponse = await sendOpenRouterChat({
+      response = await sendOpenRouterChat({
         model: requestedModel as any,
         tier: requestedModel as any,
         messages: formattedMessages,
-        tools: GOOGLE_ADS_TOOL_DEFINITIONS,
         temperature: 0.2,
       });
-    } catch {
-      remoteFailed = true;
-    }
-
-    if (remoteFailed) {
+    } catch (error) {
+      console.error('[AI Chat] OpenRouter request failed:', error);
       return NextResponse.json(
         { success: false, error: 'OpenRouter could not process this request. No account changes were made.' },
         { status: 502 }
       );
     }
-    if (!firstResponse.reply && !firstResponse.toolCalls?.length) {
+    if (!response.reply) {
       return NextResponse.json(
         { success: false, error: 'OpenRouter returned no usable response. No account changes were made.' },
         { status: 502 }
       );
-    }
-
-    let executedToolCalls: ToolCallExecution[] = [];
-    let capturedProposal: ProposedAccountChange | undefined;
-    let capturedTableData: any;
-    let interactiveRecommendations: InteractiveRecommendationCard[] = [];
-    let finalReply = firstResponse.reply;
-
-    // Handle tool execution loop if model requested tools
-    if (firstResponse.toolCalls && firstResponse.toolCalls.length > 0) {
-      const toolMessages: ChatCompletionMessage[] = [...formattedMessages];
-
-      toolMessages.push({
-        role: 'assistant',
-        content: firstResponse.reply || null,
-        tool_calls: firstResponse.toolCalls.map((tc: any) => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments),
-          },
-        })),
-      });
-
-      for (const tc of firstResponse.toolCalls) {
-        const startTime = Date.now();
-        const execResult = await executeGoogleAdsTool(tc.name, tc.arguments, toolContext);
-        const duration = Date.now() - startTime;
-
-        executedToolCalls.push({
-          id: tc.id,
-          name: tc.name,
-          args: tc.arguments,
-          result: execResult.data || execResult.message,
-          status: execResult.success ? 'success' : 'error',
-          executionTimeMs: duration,
-        });
-
-        if (execResult.actionProposal) {
-          capturedProposal = execResult.actionProposal;
-        }
-        if (execResult.tableData) {
-          capturedTableData = execResult.tableData;
-        }
-
-        // Generate structured interactive recommendation cards based on tool findings
-        if (tc.name === 'find_wasted_spend' && execResult.data?.bleeders && Array.isArray(execResult.data.bleeders)) {
-          execResult.data.bleeders.slice(0, 2).forEach((b: any, idx: number) => {
-            interactiveRecommendations.push({
-              id: `rec-waste-${b.id || idx}`,
-              type: 'WASTED_SPEND',
-              title: 'Potential Wasted Spend',
-              campaignName: b.name,
-              finding: `The campaign spent $${Number(b.spend || 0).toFixed(2)} without recording conversions during the selected period.`,
-              metrics: { spend: b.spend, conversions: 0, cpa: b.cpa },
-              actions: [
-                { label: 'Inspect Search Terms', prompt: `Inspect non-converting search terms for ${b.name}` },
-                { label: 'Analyze Campaign', prompt: `Perform a detailed performance diagnosis on ${b.name}` },
-                { label: 'Review Optimization Recommendation', prompt: `Recommend how to adjust or pause ${b.name} to eliminate waste` },
-              ],
-            });
-          });
-        }
-
-        toolMessages.push({
-          role: 'tool',
-          tool_call_id: tc.id,
-          name: tc.name,
-          content: JSON.stringify(execResult),
-        });
-      }
-
-      // Second pass to synthesize results
-      const secondResponse = await sendOpenRouterChat({
-        model: requestedModel as any,
-        tier: requestedModel as any,
-        messages: toolMessages,
-        temperature: 0.2,
-      });
-
-      if (secondResponse.reply) {
-        finalReply = secondResponse.reply;
-      }
-
-      // Some providers use a second tool round after inspecting the first result.
-      // Execute that round and send its result back before producing the final answer.
-      if (secondResponse.toolCalls?.length) {
-        toolMessages.push({
-          role: 'assistant',
-          content: secondResponse.reply || null,
-          tool_calls: secondResponse.toolCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
-          })),
-        });
-        for (const tc of secondResponse.toolCalls) {
-          const startTime = Date.now();
-          const execResult = await executeGoogleAdsTool(tc.name, tc.arguments, toolContext);
-          executedToolCalls.push({
-            id: tc.id,
-            name: tc.name,
-            args: tc.arguments,
-            result: execResult.data || execResult.message,
-            status: execResult.success ? 'success' : 'error',
-            executionTimeMs: Date.now() - startTime,
-          });
-          if (execResult.actionProposal && !capturedProposal) capturedProposal = execResult.actionProposal;
-          if (execResult.tableData && !capturedTableData) capturedTableData = execResult.tableData;
-          toolMessages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            name: tc.name,
-            content: JSON.stringify(execResult),
-          });
-        }
-        const finalResponse = await sendOpenRouterChat({
-          model: requestedModel as any,
-          tier: requestedModel as any,
-          messages: toolMessages,
-          temperature: 0.2,
-        });
-        if (finalResponse.reply) finalReply = finalResponse.reply;
-      }
     }
 
     // Build user-friendly analysis details
@@ -492,16 +414,18 @@ RESPONSE FORMATTING GUIDELINES:
       };
     }
 
+    console.info(`[AI Chat] OpenRouter requests for user message: 1; precomputed tools: ${executedToolCalls.map((tool) => tool.name).join(', ') || 'none'}`);
     return NextResponse.json({
       success: true,
-      reply: finalReply || 'I inspected your account data. See the details above.',
+      reply: response.reply,
       toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
       actionProposal: capturedProposal,
       recommendations: interactiveRecommendations.length > 0 ? interactiveRecommendations : undefined,
       analysisDetails,
       tableData: capturedTableData,
-      modelUsed: firstResponse.modelUsed || displayName,
-    });
+      modelUsed: response.modelUsed || displayName,
+      openRouterRequestCount: 1,
+    }, { headers: { 'X-OpenRouter-Requests': '1' } });
   } catch (err: any) {
     console.error('Error in /api/ai/chat:', err);
     return NextResponse.json(
