@@ -11,11 +11,14 @@ export async function POST(req: NextRequest) {
     }
 
     const clientId =
-      process.env.GOOGLE_ADS_CLIENT_ID ||
-      process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
+      process.env.GOOGLE_ADS_CLIENT_ID?.trim() ||
+      process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID?.trim() ||
       '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
-    const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || process.env.CLIENT_SECRET;
-    const redirectUri = 'https://adoptimize.app/api/google-ads/oauth-callback';
+    const clientSecret =
+      process.env.GOOGLE_ADS_CLIENT_SECRET?.trim() ||
+      process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+      process.env.CLIENT_SECRET?.trim();
+    const redirectUri = `${process.env.APP_URL?.trim() || 'https://adoptimize.app'}/api/google-ads/oauth-callback`;
     const params: Record<string, string> = {
       code,
       client_id: clientId,

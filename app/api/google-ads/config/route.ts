@@ -12,5 +12,8 @@ export async function GET() {
     appUrl: process.env.APP_URL || 'https://adoptimize.app',
     requiredOrigin: 'https://adoptimize.app',
     developerTokenConfigured: Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN),
+    oauthClientSecretConfigured: Boolean(
+      process.env.GOOGLE_ADS_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || process.env.CLIENT_SECRET
+    ),
   });
 }
