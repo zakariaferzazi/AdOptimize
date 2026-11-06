@@ -1,5 +1,5 @@
 /**
- * Google Ads API Integration Module
+ * Google Ads API Integration Module.
  * Handles official Google Ads API v17 endpoints with real OAuth tokens and Customer IDs.
  */
 
