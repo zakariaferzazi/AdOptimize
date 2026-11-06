@@ -242,6 +242,15 @@ export function PerformanceChart({
   const hoveredIdx = hoverIndex !== null ? hoverIndex : primaryCoords.length - 1;
   const hoveredPoint = primaryCoords[hoveredIdx] || null;
   const hoveredData = daysData[hoveredIdx] || null;
+  const dateLabelIndexes = useMemo(() => {
+    if (daysData.length <= 8) return daysData.map((_, index) => index);
+    const indexes = new Set<number>([0, daysData.length - 1]);
+    const step = (daysData.length - 1) / 6;
+    for (let index = 1; index < 6; index += 1) {
+      indexes.add(Math.round(index * step));
+    }
+    return Array.from(indexes).sort((a, b) => a - b);
+  }, [daysData]);
 
   const getPeriodLabel = (p: DateRangePeriod) => {
     switch (p) {
@@ -531,7 +540,9 @@ export function PerformanceChart({
 
           {/* X Axis Date Labels */}
           <div className="flex justify-between items-center px-4 pt-3 border-t border-slate-100 text-xs font-medium text-slate-500">
-            {daysData.map((d, idx) => (
+            {dateLabelIndexes.map((idx) => {
+              const d = daysData[idx];
+              return (
               <button
                 key={idx}
                 onClick={() => setHoverIndex(idx)}
@@ -541,7 +552,8 @@ export function PerformanceChart({
               >
                 {d.label}
               </button>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

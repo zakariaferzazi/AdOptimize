@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { BarChart3, Globe2, Monitor, MousePointerClick, Search, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { BarChart3, Globe2, Monitor, MousePointerClick, Search, TrendingUp, Wallet } from 'lucide-react';
 import { Campaign, Keyword, SearchTerm, BreakdownItem } from '@/types/adoptimize';
 import { CalculatedPeriodMetrics, formatCurrency } from '@/lib/metrics-calculator';
 
@@ -44,10 +44,6 @@ export function DashboardAnalyticsSections({
   monthlySpendCap,
   onOpenCampaign,
 }: DashboardAnalyticsSectionsProps) {
-  const qualityScore = keywords.length ? keywords.reduce((sum, keyword) => sum + keyword.qualityScore, 0) / keywords.length : null;
-  const auditScore = campaigns.length
-    ? Math.round(campaigns.reduce((sum, campaign) => sum + Math.max(0, Math.min(100, campaign.healthScore || 0)), 0) / campaigns.length)
-    : null;
   const spendTarget = monthlySpendCap || 0;
   const spendProgress = spendTarget ? Math.min(100, (currentMetrics.spend / spendTarget) * 100) : 0;
   type RankedItem = { id: string; name: string; metric: string; onClick?: () => void };
@@ -65,6 +61,12 @@ export function DashboardAnalyticsSections({
       {items.slice(0, 6).map((item) => <div key={item.name} className="flex items-center justify-between text-xs"><span className="capitalize text-slate-600">{item.name.toLowerCase()}</span><span className="font-semibold text-slate-800">{item.sharePercent.toFixed(1)}% · {formatCurrency(item.spend, currency)}</span></div>)}
     </div>
   ) : <div className="mt-3"><EmptyState>Segmentation is unavailable for this account sync.</EmptyState></div>;
+  const deviceTotals = deviceBreakdown.reduce((totals, item) => ({
+    spend: totals.spend + item.spend,
+    impressions: totals.impressions + (item.impressions || 0),
+    clicks: totals.clicks + (item.clicks || 0),
+    conversions: totals.conversions + item.conversions,
+  }), { spend: 0, impressions: 0, clicks: 0, conversions: 0 });
 
   return (
     <div className="space-y-8">
@@ -78,15 +80,7 @@ export function DashboardAnalyticsSections({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Monitor className="h-4 w-4 text-emerald-600" />Device distribution</div>{renderBreakdown(deviceBreakdown)}</div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><MousePointerClick className="h-4 w-4 text-emerald-600" />Device metrics</div><div className="mt-3"><EmptyState>Device-level spend, impressions, clicks and conversions are unavailable.</EmptyState></div></div>
-        </div>
-      </Section>
-
-      <Section title="Account Health & Recommendations" description="AdOptimize health signals are separate from Google&apos;s keyword Quality Score and optimization score." icon={ShieldCheck}>
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="text-[11px] font-semibold text-slate-500">AdOptimize PPC audit score</div><div className="mt-1 text-3xl font-bold text-slate-900">{auditScore === null ? '—' : `${auditScore}/100`}</div><div className="mt-2 text-[11px] text-slate-500">{auditScore === null ? 'Not enough synchronized data.' : 'Based on campaign health signals.'}</div></div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="text-[11px] font-semibold text-slate-500">Account quality signals</div><div className="mt-1 text-xl font-bold text-slate-900">{qualityScore === null ? '—' : `${qualityScore.toFixed(1)}/10`}</div><div className="mt-2 text-[11px] text-slate-500">Average keyword Quality Score; not an account-level score.</div></div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="text-[11px] font-semibold text-slate-500">Google recommendations</div><div className="mt-3"><EmptyState>Google optimization recommendations are not returned by the current API queries.</EmptyState></div></div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><MousePointerClick className="h-4 w-4 text-emerald-600" />Device performance</div>{deviceBreakdown.length ? <div className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><div className="text-slate-500">Spend</div><div className="mt-1 font-bold text-slate-900">{formatCurrency(deviceTotals.spend, currency)}</div></div><div><div className="text-slate-500">Impressions</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.impressions.toLocaleString()}</div></div><div><div className="text-slate-500">Clicks</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.clicks.toLocaleString()}</div></div><div><div className="text-slate-500">Conversions</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.conversions.toFixed(1)}</div></div></div> : <div className="mt-3"><EmptyState>Device metrics are unavailable for this account sync.</EmptyState></div>}</div>
         </div>
       </Section>
 
