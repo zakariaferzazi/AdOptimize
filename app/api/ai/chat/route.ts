@@ -334,30 +334,17 @@ RESPONSE FORMATTING GUIDELINES:
       remoteFailed = true;
     }
 
-    const isOfflineOrError =
-      remoteFailed ||
-      !firstResponse.reply ||
-      firstResponse.reply.includes('AI credentials are not configured') ||
-      firstResponse.reply.includes('unable to complete this analysis');
-
-    // If external model call did not return an answer, seamlessly trigger direct synthesis
-    if (isOfflineOrError) {
-      const fallbackResult = await synthesizeDeterministicGoogleAdsResponse(
-        message,
-        toolContext,
-        displayName
+    if (remoteFailed) {
+      return NextResponse.json(
+        { success: false, error: 'OpenRouter could not process this request. No account changes were made.' },
+        { status: 502 }
       );
-
-      return NextResponse.json({
-        success: true,
-        reply: fallbackResult.reply,
-        toolCalls: fallbackResult.executedToolCalls.length > 0 ? fallbackResult.executedToolCalls : undefined,
-        actionProposal: fallbackResult.capturedProposal,
-        recommendations: fallbackResult.interactiveRecommendations.length > 0 ? fallbackResult.interactiveRecommendations : undefined,
-        analysisDetails: fallbackResult.analysisDetails,
-        tableData: fallbackResult.capturedTableData,
-        modelUsed: displayName,
-      });
+    }
+    if (!firstResponse.reply && !firstResponse.toolCalls?.length) {
+      return NextResponse.json(
+        { success: false, error: 'OpenRouter returned no usable response. No account changes were made.' },
+        { status: 502 }
+      );
     }
 
     let executedToolCalls: ToolCallExecution[] = [];

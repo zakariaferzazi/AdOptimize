@@ -185,6 +185,18 @@ export function AiChatView({
     }
   };
 
+  const updateSessions = (updater: (current: ChatSession[]) => ChatSession[]) => {
+    setSessions((current) => {
+      const updated = updater(current);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch {
+        // storage unavailable
+      }
+      return updated;
+    });
+  };
+
   const currentSession = useMemo(() => {
     return sessions.find((s) => s.id === currentSessionId) || sessions[0] || null;
   }, [sessions, currentSessionId]);
@@ -287,6 +299,7 @@ export function AiChatView({
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
     if (!query || isLoading) return;
+    const requestSessionId = currentSessionId;
 
     setErrorMessage(null);
     setPreservedDraft(query);
@@ -380,9 +393,9 @@ export function AiChatView({
       };
 
       const finalMessages = [...updatedMessages, assistantMessage];
-      saveSessions(
-        sessions.map((s) =>
-          s.id === currentSessionId
+      updateSessions((current) =>
+        current.map((s) =>
+          s.id === requestSessionId
             ? { ...s, messages: finalMessages, updatedAt: Date.now() }
             : s
         )
@@ -396,9 +409,9 @@ export function AiChatView({
           content: 'Analysis was stopped.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
-        saveSessions(
-          sessions.map((s) =>
-            s.id === currentSessionId
+        updateSessions((current) =>
+          current.map((s) =>
+            s.id === requestSessionId
               ? { ...s, messages: [...updatedMessages, cancelledMessage] }
               : s
           )
@@ -445,8 +458,7 @@ export function AiChatView({
       ],
     };
 
-    const nextSessions = [newSession, ...sessions];
-    saveSessions(nextSessions);
+    updateSessions((current) => [newSession, ...current]);
     setCurrentSessionId(newSession.id);
     setErrorMessage(null);
     setInputValue('');
@@ -455,20 +467,29 @@ export function AiChatView({
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const remaining = sessions.filter((s) => s.id !== id);
-    if (remaining.length === 0) {
-      handleNewConversation();
-    } else {
+    const nextCurrentId = currentSessionId === id ? remaining[0]?.id : currentSessionId;
+    if (remaining.length > 0) {
       saveSessions(remaining);
-      if (currentSessionId === id) {
-        setCurrentSessionId(remaining[0].id);
-      }
+      if (currentSessionId === id) setCurrentSessionId(nextCurrentId);
+      return;
     }
+
+    const emptySession: ChatSession = {
+      id: `session-${Date.now()}`,
+      title: 'New Conversation',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      model: selectedModel,
+      messages: [{ id: `welcome-${Date.now()}`, role: 'assistant', content: WELCOME_TEXT, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), modelUsed: 'Google Ads Assistant' }],
+    };
+    saveSessions([emptySession]);
+    setCurrentSessionId(emptySession.id);
   };
 
   const handleRenameSession = (id: string) => {
     if (!editingSessionTitle.trim()) return;
-    saveSessions(
-      sessions.map((s) =>
+    updateSessions((current) =>
+      current.map((s) =>
         s.id === id ? { ...s, title: editingSessionTitle.trim() } : s
       )
     );
@@ -510,8 +531,8 @@ export function AiChatView({
         onMutateCampaign(resData.data.updatedCampaign, resData.data.auditLog);
       }
 
-      saveSessions(
-        sessions.map((s) => {
+      updateSessions((current) =>
+        current.map((s) => {
           if (s.id === currentSessionId) {
             return {
               ...s,
@@ -535,8 +556,8 @@ export function AiChatView({
         })
       );
     } catch (err: any) {
-      saveSessions(
-        sessions.map((s) => {
+      updateSessions((current) =>
+        current.map((s) => {
           if (s.id === currentSessionId) {
             return {
               ...s,
@@ -564,8 +585,8 @@ export function AiChatView({
   };
 
   const handleDeclineProposal = (proposalId: string, messageId: string) => {
-    saveSessions(
-      sessions.map((s) => {
+    updateSessions((current) =>
+      current.map((s) => {
         if (s.id === currentSessionId) {
           return {
             ...s,
