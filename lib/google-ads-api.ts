@@ -512,7 +512,6 @@ export async function queryLiveCampaigns(
         metrics.conversions_value
       FROM campaign
       WHERE campaign.status != 'REMOVED'
-      ORDER BY campaign.id DESC
     `;
 
     let lastError: GoogleAdsApiResult = {

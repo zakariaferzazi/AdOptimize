@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
       accessToken: context.accessToken,
     };
 
-    let liveDataStatus = 'The supplied account snapshot could not be refreshed before this request.';
+    let liveDataStatus = 'Using the latest synchronized account snapshot supplied by the dashboard.';
     if (
       toolContext.accessToken &&
       toolContext.account.clientCustomerId &&
@@ -256,11 +256,11 @@ export async function POST(req: NextRequest) {
           toolContext.searchTerms = (liveResult.searchTerms || []) as ToolContext['searchTerms'];
           liveDataStatus = `Live Google Ads data was fetched at ${liveResult.fetchedAt || new Date().toISOString()}.`;
         } else {
-          liveDataStatus = `Live refresh failed: ${liveResult.error || 'Google Ads did not return data'}. Do not present the supplied snapshot as current.`;
+          liveDataStatus = `Live refresh failed: ${liveResult.error || 'Google Ads did not return data'}. Use the supplied synchronized snapshot and clearly label it as the latest available data, not a live refresh.`;
         }
       } catch (error) {
         console.error('[AI Chat] Live Google Ads refresh failed:', error);
-        liveDataStatus = 'Live refresh failed unexpectedly. Do not present the supplied snapshot as current.';
+        liveDataStatus = 'Live refresh failed unexpectedly. Use the supplied synchronized snapshot and clearly label it as the latest available data.';
       }
     }
 
@@ -342,6 +342,9 @@ RESPONSE FORMATTING GUIDELINES:
       evidenceTools.push({ name: 'get_account_overview', args: {} }, { name: 'get_campaigns', args: { status: 'ALL' } });
     } else {
       evidenceTools.push({ name: 'get_account_overview', args: {} });
+    }
+    if (!requestedCampaign && !evidenceTools.some((tool) => tool.name === 'get_campaigns')) {
+      evidenceTools.push({ name: 'get_campaigns', args: { status: 'ALL' } });
     }
 
     const executedToolCalls: ToolCallExecution[] = [];
