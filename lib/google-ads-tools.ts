@@ -415,13 +415,45 @@ export async function executeGoogleAdsTool(
 ): Promise<ToolExecutionResult> {
   const { campaigns = [], keywords = [], searchTerms = [], auditLogs = [], anomalies = [], insights = [], recommendations = [], rules = [], account } = context;
 
-  // Helper to find a campaign by ID or partial name
+  // Resolve natural-language campaign references against the full Google Ads name.
   const findCampaign = (query?: string): Campaign | undefined => {
     if (!query) return undefined;
-    const q = query.toLowerCase().trim();
-    return campaigns.find(
-      (c) => c.id.toLowerCase() === q || c.name.toLowerCase().includes(q) || q.includes(c.name.toLowerCase())
-    );
+    const normalize = (value: string) => value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\b(campaign|campaigns|app|my|the|about|please|analyze|analyse|performance|how|what|should|do)\b/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    const rawQuery = query.trim().toLowerCase();
+    const exactId = campaigns.find((campaign) => campaign.id.toLowerCase() === rawQuery);
+    if (exactId) return exactId;
+
+    const queryTokens = new Set(normalize(query));
+    if (queryTokens.size === 0) return undefined;
+
+    let best: Campaign | undefined;
+    let bestScore = 0;
+    for (const campaign of campaigns) {
+      const campaignName = campaign.name.toLowerCase();
+      if (campaignName.includes(rawQuery) || rawQuery.includes(campaignName)) return campaign;
+
+      const campaignTokens = new Set(normalize(campaign.name));
+      const overlap = [...queryTokens].filter((token) => campaignTokens.has(token)).length;
+      const queryCoverage = overlap / queryTokens.size;
+      const campaignCoverage = overlap / campaignTokens.size;
+      const score = (queryCoverage * 0.7) + (campaignCoverage * 0.3);
+
+      if (
+        overlap >= 2 &&
+        queryCoverage >= 0.5 &&
+        score > bestScore
+      ) {
+        best = campaign;
+        bestScore = score;
+      }
+    }
+
+    return best;
   };
 
   switch (toolName) {

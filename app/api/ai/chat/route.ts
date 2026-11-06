@@ -275,6 +275,7 @@ OPERATING RULES:
 4. Action tools create approval proposals. Never claim a change was executed until the user approves it and the execution endpoint reports success.
 5. After a confirmed mutation, verify the changed campaign through fresh Google Ads data before reporting success.
 6. Respect the account currency and the available reporting window. If a requested date range is unavailable, say so instead of silently substituting another range.
+7. Campaign references may be informal or shortened. Match the user's meaningful campaign words to the closest actual campaign name returned by the account; for example, "dress better ai app" refers to "Dress Better AI promotion-App". Only ask for clarification when multiple campaigns are genuinely plausible.
 
 LIVE-DATA STATUS:
 ${liveDataStatus}
@@ -292,11 +293,11 @@ RESPONSE FORMATTING GUIDELINES:
    - Format ROAS as X.Xx (e.g. 3.40x).
    - Format CPA as $XX.XX.
    - Bold important metric names and values.
-4. When suggesting campaign changes (e.g. updating daily budget, pausing a campaign, or enabling a campaign), always call the corresponding action tool (e.g. update_campaign_budget, pause_campaign, enable_campaign). This generates an interactive confirmation card for the user's explicit approval.
+4. When the user explicitly asks to change a campaign (for example, "pause", "enable", or "set the budget to"), call the corresponding action tool to prepare a confirmation card. When the user asks what they should do, diagnose or recommend, use read-only analysis tools and do not prepare a mutation.
 5. NEVER mention internal function names (e.g. "get_account_performance", "find_wasted_spend").
 6. NEVER mention API keys, JSON payloads, or developer terms. Speak strictly in business and PPC advertising terms.
-7. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.
-8. State clearly what you found, what you recommend, and what you actually did.`;
+8. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.
+9. State clearly what you found, what you recommend, and what you actually did.`;
 
     const formattedMessages: ChatCompletionMessage[] = [
       { role: 'system', content: systemPrompt },
