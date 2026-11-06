@@ -3,6 +3,7 @@ import { sendOpenRouterChat, ChatCompletionMessage, resolveModelId, getModelDisp
 import { GOOGLE_ADS_TOOL_DEFINITIONS, executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
 import { ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
+import { queryLiveCampaigns } from '@/lib/google-ads-api';
 
 /**
  * Intelligent deterministic optimization engine.
@@ -35,14 +36,14 @@ async function synthesizeDeterministicGoogleAdsResponse(
     if (matchedCamp) {
       const res = await executeGoogleAdsTool('pause_campaign', { campaignNameOrId: matchedCamp.name }, toolContext);
       if (res.actionProposal) capturedProposal = res.actionProposal;
-      toolNamesToRun = ['pause_campaign', 'get_campaign_performance'];
+      toolNamesToRun = [];
     }
   } else if (isEnable) {
     const matchedCamp = campaigns.find((c) => q.includes(c.name.toLowerCase())) || campaigns.find((c) => c.status === 'PAUSED') || campaigns[0];
     if (matchedCamp) {
       const res = await executeGoogleAdsTool('enable_campaign', { campaignNameOrId: matchedCamp.name }, toolContext);
       if (res.actionProposal) capturedProposal = res.actionProposal;
-      toolNamesToRun = ['enable_campaign', 'get_campaign_performance'];
+      toolNamesToRun = [];
     }
   } else if (isWasted) {
     toolNamesToRun = ['find_wasted_spend', 'get_search_terms', 'identify_underperforming_campaigns'];
@@ -124,15 +125,13 @@ I have audited your active campaigns, auction logs, and search queries for **${a
 | :--- | :--- | :--- | :--- | :--- | :--- |
 ${campaigns.slice(0, 5).map((c) => `| **${c.name}** | ${c.status} | ${sym}${c.spend.toFixed(2)} | ${c.conversions} | ${c.conversions > 0 ? `${sym}${c.cpa.toFixed(2)}` : '—'} | ${c.conversions === 0 ? 'Pause / Cut Budget' : 'Scale'} |`).join('\n')}
 
-## Root Cause Analysis
-1. **Unconstrained Broad Match**: Search queries are matching informational searches rather than high commercial intent.
-2. **Missing Negatives**: Negative keyword lists have not isolated non-converting modifier terms.
-3. **Midday Budget Depletion**: Budget is burning early on low-margin terms, preventing evening peak conversions.
+## Evidence-Based Interpretation
+The synchronized campaign and search-term records show where spend occurred without conversions. The available data does not by itself prove broad-match intent, missing negatives, or intraday budget depletion, so those causes should be verified before making changes.
 
 ## Recommended Next Steps
-- **Review Confirmation Cards**: Check the recommended action cards below to inspect search queries or propose budget cuts.
-- **Add Negative Keywords**: Isolate the non-converting search terms shown in the table.
-- **Shift Capital**: Reallocate daily budget toward top converting search sets.`;
+- Review the exact non-converting queries in the confirmation cards.
+- Decide which specific queries or campaigns should be changed.
+- Apply only the approved campaign change; no changes have been made by this analysis.`;
   } else if (isBudget) {
     const topCamp = [...campaigns].sort((a, b) => (b.roas || 0) - (a.roas || 0))[0];
     const lowestCamp = [...campaigns].filter((c) => c.spend > 0).sort((a, b) => (a.roas || 0) - (b.roas || 0))[0];
@@ -143,12 +142,12 @@ I analyzed your daily pacing across **${campaigns.length} campaigns** to evaluat
 ## Key Allocation Findings
 - **Top Efficiency Campaign**: **${topCamp?.name}** is generating **${(topCamp?.roas || 0).toFixed(2)}x ROAS** with an average CPA of **${topCamp?.conversions ? `${sym}${topCamp.cpa.toFixed(2)}` : '—'}**.
 - **Underperforming Campaign**: **${lowestCamp?.name}** is operating at **${(lowestCamp?.roas || 0).toFixed(2)}x ROAS** (${lowestCamp?.conversions ? `${sym}${lowestCamp.cpa.toFixed(2)} CPA` : '0 conversions'}).
-- **Projected Opportunity**: Reallocating **${sym}15.00/day** from ${lowestCamp?.name} to ${topCamp?.name} will reallocate ad spend directly into verified converting auctions.
+- **Opportunity to investigate**: ${topCamp?.name || 'No campaign'} has the strongest observed ROAS in the synchronized data, while ${lowestCamp?.name || 'no campaign'} has the weakest among campaigns with spend. This is not a forecast and does not authorize a budget change.
 
 | Campaign | Current Daily Budget | Proposed Daily Budget | Net Shift | Expected Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| **${lowestCamp?.name}** | ${sym}${(lowestCamp?.budgetDaily || 50).toFixed(2)}/day | ${sym}${Math.max(10, Math.round((lowestCamp?.budgetDaily || 50) * 0.75)).toFixed(2)}/day | -${sym}${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Cut wasted ad spend |
-| **${topCamp?.name}** | ${sym}${(topCamp?.budgetDaily || 75).toFixed(2)}/day | ${sym}${Math.round((topCamp?.budgetDaily || 75) + ((lowestCamp?.budgetDaily || 50) * 0.25)).toFixed(2)}/day | +${sym}${Math.round((lowestCamp?.budgetDaily || 50) * 0.25)}.00/day | Scale high-ROAS conversions |
+| **${lowestCamp?.name || '—'}** | ${lowestCamp ? `${sym}${lowestCamp.budgetDaily.toFixed(2)}/day` : '—'} | Not proposed | — | Review evidence first |
+| **${topCamp?.name || '—'}** | ${topCamp ? `${sym}${topCamp.budgetDaily.toFixed(2)}/day` : '—'} | Not proposed | — | Review evidence first |
 
 ## Recommended Next Steps
 Ask me to prepare the budget update for any campaign when you are ready to review and apply the change in Google Ads.`;
@@ -237,9 +236,48 @@ export async function POST(req: NextRequest) {
       accessToken: context.accessToken,
     };
 
+    let liveDataStatus = 'The supplied account snapshot could not be refreshed before this request.';
+    if (
+      toolContext.accessToken &&
+      toolContext.account.clientCustomerId &&
+      toolContext.account.clientCustomerId !== 'Not Connected'
+    ) {
+      try {
+        const liveResult = await queryLiveCampaigns(
+          toolContext.account.clientCustomerId,
+          toolContext.accessToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId,
+          { forceRefresh: true }
+        );
+        if (liveResult.success) {
+          toolContext.campaigns = (liveResult.campaigns || []) as ToolContext['campaigns'];
+          toolContext.keywords = (liveResult.keywords || []) as ToolContext['keywords'];
+          toolContext.searchTerms = (liveResult.searchTerms || []) as ToolContext['searchTerms'];
+          liveDataStatus = `Live Google Ads data was fetched at ${liveResult.fetchedAt || new Date().toISOString()}.`;
+        } else {
+          liveDataStatus = `Live refresh failed: ${liveResult.error || 'Google Ads did not return data'}. Do not present the supplied snapshot as current.`;
+        }
+      } catch (error) {
+        console.error('[AI Chat] Live Google Ads refresh failed:', error);
+        liveDataStatus = 'Live refresh failed unexpectedly. Do not present the supplied snapshot as current.';
+      }
+    }
+
     const systemPrompt = `You are the Google Ads Optimization Specialist for AdOptimize.app.
 You communicate directly like a senior, highly experienced Google Ads performance marketer.
 You have direct access to tools that query the user's connected Google Ads account and suggest or perform optimizations.
+
+OPERATING RULES:
+1. Determine the user's exact objective and scope before acting. If the request is ambiguous, ask one short clarification question and do not call a tool.
+2. Use the live-data status below and tools as the source of truth. Never invent metrics, causes, recommendations, campaign names, or completed actions.
+3. Analysis requests are read-only. Action requests must affect only the named campaign or setting.
+4. Action tools create approval proposals. Never claim a change was executed until the user approves it and the execution endpoint reports success.
+5. After a confirmed mutation, verify the changed campaign through fresh Google Ads data before reporting success.
+6. Respect the account currency and the available reporting window. If a requested date range is unavailable, say so instead of silently substituting another range.
+
+LIVE-DATA STATUS:
+${liveDataStatus}
 
 RESPONSE FORMATTING GUIDELINES:
 1. Always ground your analysis strictly in the account's real data retrieved via tools.
@@ -257,7 +295,8 @@ RESPONSE FORMATTING GUIDELINES:
 4. When suggesting campaign changes (e.g. updating daily budget, pausing a campaign, or enabling a campaign), always call the corresponding action tool (e.g. update_campaign_budget, pause_campaign, enable_campaign). This generates an interactive confirmation card for the user's explicit approval.
 5. NEVER mention internal function names (e.g. "get_account_performance", "find_wasted_spend").
 6. NEVER mention API keys, JSON payloads, or developer terms. Speak strictly in business and PPC advertising terms.
-7. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.`;
+7. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.
+8. State clearly what you found, what you recommend, and what you actually did.`;
 
     const formattedMessages: ChatCompletionMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -403,6 +442,47 @@ RESPONSE FORMATTING GUIDELINES:
       if (secondResponse.reply) {
         finalReply = secondResponse.reply;
       }
+
+      // Some providers use a second tool round after inspecting the first result.
+      // Execute that round and send its result back before producing the final answer.
+      if (secondResponse.toolCalls?.length) {
+        toolMessages.push({
+          role: 'assistant',
+          content: secondResponse.reply || null,
+          tool_calls: secondResponse.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+          })),
+        });
+        for (const tc of secondResponse.toolCalls) {
+          const startTime = Date.now();
+          const execResult = await executeGoogleAdsTool(tc.name, tc.arguments, toolContext);
+          executedToolCalls.push({
+            id: tc.id,
+            name: tc.name,
+            args: tc.arguments,
+            result: execResult.data || execResult.message,
+            status: execResult.success ? 'success' : 'error',
+            executionTimeMs: Date.now() - startTime,
+          });
+          if (execResult.actionProposal && !capturedProposal) capturedProposal = execResult.actionProposal;
+          if (execResult.tableData && !capturedTableData) capturedTableData = execResult.tableData;
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            name: tc.name,
+            content: JSON.stringify(execResult),
+          });
+        }
+        const finalResponse = await sendOpenRouterChat({
+          model: requestedModel as any,
+          tier: requestedModel as any,
+          messages: toolMessages,
+          temperature: 0.2,
+        });
+        if (finalResponse.reply) finalReply = finalResponse.reply;
+      }
     }
 
     // Build user-friendly analysis details
@@ -436,11 +516,9 @@ RESPONSE FORMATTING GUIDELINES:
     });
   } catch (err: any) {
     console.error('Error in /api/ai/chat:', err);
-    // Even in catch block, provide fallback rather than raw error
-    return NextResponse.json({
-      success: true,
-      reply: 'I inspected your account data and campaign pacing. Please select one of the suggested prompts below or ask a specific question about your campaigns.',
-      modelUsed: 'DeepSeek',
-    });
+    return NextResponse.json(
+      { success: false, error: 'The marketing agent could not complete this request. No account changes were made.' },
+      { status: 500 }
+    );
   }
 }

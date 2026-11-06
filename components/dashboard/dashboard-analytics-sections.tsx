@@ -61,12 +61,9 @@ export function DashboardAnalyticsSections({
       {items.slice(0, 6).map((item) => <div key={item.name} className="flex items-center justify-between text-xs"><span className="capitalize text-slate-600">{item.name.toLowerCase()}</span><span className="font-semibold text-slate-800">{item.sharePercent.toFixed(1)}% · {formatCurrency(item.spend, currency)}</span></div>)}
     </div>
   ) : <div className="mt-3"><EmptyState>Segmentation is unavailable for this account sync.</EmptyState></div>;
-  const deviceTotals = deviceBreakdown.reduce((totals, item) => ({
-    spend: totals.spend + item.spend,
-    impressions: totals.impressions + (item.impressions || 0),
-    clicks: totals.clicks + (item.clicks || 0),
-    conversions: totals.conversions + item.conversions,
-  }), { spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+  const ppcScore = campaigns.length
+    ? Math.round(campaigns.reduce((total, campaign) => total + Math.max(0, Math.min(100, campaign.healthScore || 0)), 0) / campaigns.length)
+    : null;
 
   return (
     <div className="space-y-8">
@@ -80,7 +77,7 @@ export function DashboardAnalyticsSections({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Monitor className="h-4 w-4 text-emerald-600" />Device distribution</div>{renderBreakdown(deviceBreakdown)}</div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><MousePointerClick className="h-4 w-4 text-emerald-600" />Device performance</div>{deviceBreakdown.length ? <div className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><div className="text-slate-500">Spend</div><div className="mt-1 font-bold text-slate-900">{formatCurrency(deviceTotals.spend, currency)}</div></div><div><div className="text-slate-500">Impressions</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.impressions.toLocaleString()}</div></div><div><div className="text-slate-500">Clicks</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.clicks.toLocaleString()}</div></div><div><div className="text-slate-500">Conversions</div><div className="mt-1 font-bold text-slate-900">{deviceTotals.conversions.toFixed(1)}</div></div></div> : <div className="mt-3"><EmptyState>Device metrics are unavailable for this account sync.</EmptyState></div>}</div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><MousePointerClick className="h-4 w-4 text-emerald-600" />AdOptimize PPC Score</div>{ppcScore === null ? <div className="mt-3"><EmptyState>PPC score is unavailable until campaign health data is synchronized.</EmptyState></div> : <div className="mt-3"><div className="flex items-end gap-1"><span className="text-3xl font-bold text-slate-900">{ppcScore}</span><span className="pb-1 text-sm text-slate-500">/100</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${ppcScore >= 80 ? 'bg-emerald-500' : ppcScore >= 60 ? 'bg-amber-400' : 'bg-rose-500'}`} style={{ width: `${ppcScore}%` }} /></div><p className="mt-2 text-[11px] text-slate-500">Based on synchronized campaign health signals.</p></div>}</div>
         </div>
       </Section>
 

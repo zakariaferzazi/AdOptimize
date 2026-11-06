@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
+import {
+  clearGoogleAdsCache,
+  mutateGoogleAdsCampaignBudget,
+  mutateGoogleAdsCampaignStatus,
+  queryLiveCampaigns,
+} from '@/lib/google-ads-api';
 import { ProposedAccountChange } from '@/types/adoptimize';
 
 export async function POST(req: NextRequest) {
@@ -32,10 +38,57 @@ export async function POST(req: NextRequest) {
     };
 
     let result;
+    const customerId = String(toolContext.account.clientCustomerId || '').replace(/\D/g, '');
+    const activeToken = toolContext.accessToken;
+    if (!activeToken || customerId.length !== 10) {
+      return NextResponse.json(
+        { error: 'A connected Google Ads account with a valid access token is required.' },
+        { status: 401 }
+      );
+    }
+
+    const verifyCampaign = async (
+      campaignId: string,
+      expected?: { status?: 'ENABLED' | 'PAUSED'; budgetDaily?: number }
+    ) => {
+      clearGoogleAdsCache(customerId);
+      const verified = await queryLiveCampaigns(
+        customerId,
+        activeToken,
+        process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+        toolContext.account.loginCustomerId,
+        { forceRefresh: true }
+      );
+      if (!verified.success) {
+        throw new Error(verified.error || 'Google Ads change could not be verified.');
+      }
+      const campaign = (verified.campaigns || []).find((item: any) => String(item.id) === String(campaignId));
+      if (!campaign) throw new Error('Google Ads change succeeded but the campaign was not returned during verification.');
+      if (expected?.status && campaign.status !== expected.status) {
+        throw new Error(`Google Ads returned campaign "${campaign.name}" with status ${campaign.status}, not ${expected.status}.`);
+      }
+      if (
+        expected?.budgetDaily !== undefined &&
+        Math.abs(Number(campaign.budgetDaily || 0) - expected.budgetDaily) > 0.01
+      ) {
+        throw new Error(`Google Ads returned a daily budget of ${campaign.budgetDaily}, not ${expected.budgetDaily}.`);
+      }
+      return campaign;
+    };
 
     switch (proposal.actionType) {
       case 'UPDATE_BUDGET': {
         const newDailyBudget = proposal.payload?.newDailyBudget;
+        const mutation = await mutateGoogleAdsCampaignBudget(
+          customerId,
+          proposal.campaignId,
+          Number(newDailyBudget),
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
+        );
+        if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the budget update.');
+        const verifiedCampaign = await verifyCampaign(proposal.campaignId, { budgetDaily: Number(newDailyBudget) });
         result = await executeGoogleAdsTool(
           'update_campaign_budget',
           {
@@ -46,10 +99,21 @@ export async function POST(req: NextRequest) {
           },
           toolContext
         );
+        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Daily budget updated and verified in Google Ads for "${verifiedCampaign.name}".` };
         break;
       }
 
       case 'PAUSE_CAMPAIGN': {
+        const mutation = await mutateGoogleAdsCampaignStatus(
+          customerId,
+          proposal.campaignId,
+          'PAUSED',
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
+        );
+        if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the campaign pause.');
+        const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'PAUSED' });
         result = await executeGoogleAdsTool(
           'pause_campaign',
           {
@@ -59,10 +123,21 @@ export async function POST(req: NextRequest) {
           },
           toolContext
         );
+        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Campaign "${verifiedCampaign.name}" was paused and verified in Google Ads.` };
         break;
       }
 
       case 'ENABLE_CAMPAIGN': {
+        const mutation = await mutateGoogleAdsCampaignStatus(
+          customerId,
+          proposal.campaignId,
+          'ENABLED',
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
+        );
+        if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the campaign enable action.');
+        const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'ENABLED' });
         result = await executeGoogleAdsTool(
           'enable_campaign',
           {
@@ -72,25 +147,36 @@ export async function POST(req: NextRequest) {
           },
           toolContext
         );
+        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Campaign "${verifiedCampaign.name}" was enabled and verified in Google Ads.` };
         break;
       }
 
       case 'REALLOCATE_BUDGET': {
         const { fromCampaignId, toCampaignId, fromNewBudget, toNewBudget } = proposal.payload || {};
-        const resFrom = await executeGoogleAdsTool(
-          'update_campaign_budget',
-          { campaignNameOrId: fromCampaignId, newDailyBudget: fromNewBudget, isConfirmed: true, reason: 'Budget reallocation' },
-          toolContext
+        const fromMutation = await mutateGoogleAdsCampaignBudget(
+          customerId,
+          String(fromCampaignId),
+          Number(fromNewBudget),
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
         );
-        const resTo = await executeGoogleAdsTool(
-          'update_campaign_budget',
-          { campaignNameOrId: toCampaignId, newDailyBudget: toNewBudget, isConfirmed: true, reason: 'Budget reallocation' },
-          toolContext
+        if (!fromMutation.success) throw new Error(fromMutation.error || 'Google Ads rejected the source budget update.');
+        const toMutation = await mutateGoogleAdsCampaignBudget(
+          customerId,
+          String(toCampaignId),
+          Number(toNewBudget),
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId
         );
+        if (!toMutation.success) throw new Error(toMutation.error || 'Google Ads rejected the destination budget update.');
+        const verifiedFrom = await verifyCampaign(String(fromCampaignId), { budgetDaily: Number(fromNewBudget) });
+        const verifiedTo = await verifyCampaign(String(toCampaignId), { budgetDaily: Number(toNewBudget) });
         result = {
-          success: resFrom.success && resTo.success,
-          message: `Successfully reallocated daily budget: updated ${fromCampaignId} to $${fromNewBudget}/d and ${toCampaignId} to $${toNewBudget}/d.`,
-          data: { from: resFrom.data, to: resTo.data },
+          success: true,
+          message: `Budget reallocation was applied and verified in Google Ads: ${fromCampaignId} to $${fromNewBudget}/day and ${toCampaignId} to $${toNewBudget}/day.`,
+          data: { from: verifiedFrom, to: verifiedTo },
         };
         break;
       }
