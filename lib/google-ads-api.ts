@@ -9,6 +9,8 @@ export interface GoogleAdsApiResult {
   campaigns?: any[];
   keywords?: any[];
   searchTerms?: any[];
+  networkBreakdown?: any[];
+  deviceBreakdown?: any[];
   error?: string;
   details?: string;
   statusCode?: number;
@@ -842,6 +844,65 @@ export async function queryLiveCampaigns(
       }
 
       // Query keywords from keyword_view
+      const querySegmentBreakdown = async (segment: 'ad_network_type' | 'device') => {
+        const query = `
+          SELECT
+            segments.${segment},
+            metrics.cost_micros,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.conversions
+          FROM campaign
+          WHERE campaign.status != 'REMOVED'
+            AND segments.date DURING LAST_30_DAYS
+        `;
+        const response = await fetch(
+          `https://googleads.googleapis.com/${version}/customers/${cleanCustomerId}/googleAds:searchStream`,
+          {
+            method: 'POST',
+            headers: discoveredLoginCid
+              ? { ...headers, 'login-customer-id': discoveredLoginCid.replace(/\D/g, '') }
+              : headers,
+            body: JSON.stringify({ query }),
+            cache: 'no-store',
+          }
+        );
+        const parsed = await safeParseResponse(response);
+        if (!response.ok || !parsed.isJson) return [];
+        const totals = new Map<string, { spend: number; impressions: number; clicks: number; conversions: number }>();
+        const batches = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+        for (const batch of batches) {
+          for (const row of batch.results || []) {
+            const rawName = row.segments?.[segment] ?? row.segments?.[segment.replace(/_([a-z])/g, (_, c) => c.toUpperCase())] ?? 'UNKNOWN';
+            const name = String(rawName).replace(/^NETWORK_/, '').replace(/^DEVICE_/, '').replace(/_/g, ' ');
+            const metrics = row.metrics || {};
+            const current = totals.get(name) || { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
+            current.spend += Number(metrics.costMicros ?? metrics.cost_micros ?? 0) / 1_000_000;
+            current.impressions += Number(metrics.impressions || 0);
+            current.clicks += Number(metrics.clicks || 0);
+            current.conversions += Number(metrics.conversions || 0);
+            totals.set(name, current);
+          }
+        }
+        const totalSpend = Array.from(totals.values()).reduce((sum, item) => sum + item.spend, 0);
+        return Array.from(totals, ([name, metrics]) => ({
+          name,
+          spend: Number(metrics.spend.toFixed(2)),
+          impressions: metrics.impressions,
+          clicks: metrics.clicks,
+          conversions: metrics.conversions,
+          cpa: metrics.conversions > 0 ? Number((metrics.spend / metrics.conversions).toFixed(2)) : 0,
+          roas: 0,
+          sharePercent: totalSpend > 0 ? Number(((metrics.spend / totalSpend) * 100).toFixed(1)) : 0,
+        })).sort((a, b) => b.spend - a.spend);
+      };
+
+      const [networkBreakdown, deviceBreakdown] = await Promise.all([
+        querySegmentBreakdown('ad_network_type'),
+        querySegmentBreakdown('device'),
+      ]);
+
+      // Query keywords from keyword_view
       const liveKeywords: any[] = [];
       try {
         const gaqlKeywordsQuery = `
@@ -1210,6 +1271,8 @@ export async function queryLiveCampaigns(
         campaigns: parsedCampaigns,
         keywords: liveKeywords,
         searchTerms: liveSearchTerms,
+        networkBreakdown,
+        deviceBreakdown,
         loginCustomerIdUsed: discoveredLoginCid,
         currency: detectedCurrency,
         timeZone: detectedTimeZone,

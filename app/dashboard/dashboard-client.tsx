@@ -71,7 +71,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     handleSync,
   } = useAdOptimize();
 
-  const { account, campaigns, keywords, searchTerms, deviceBreakdown } = state;
+  const { account, campaigns, keywords, searchTerms, deviceBreakdown, networkBreakdown } = state;
 
   // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(() => {
@@ -470,6 +470,14 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
               currency={account.currency}
             />
           </div>
+          <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-300">AI Marketing Agent</div>
+              <h2 className="mt-3 text-xl font-bold">Ask your AI marketing agent anything.</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">Get clear answers about campaign performance, wasted spend and your next best optimization.</p>
+            </div>
+            <a href="/chat" className="mt-6 inline-flex w-fit items-center rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-300">Open AI Marketing Agent</a>
+          </div>
         </div>
 
         <DashboardAnalyticsSections
@@ -477,6 +485,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
           keywords={keywords}
           searchTerms={searchTerms}
           deviceBreakdown={deviceBreakdown}
+          networkBreakdown={networkBreakdown}
           currentMetrics={currentMetrics}
           currency={account.currency}
           monthlySpendCap={account.monthlySpendCap}

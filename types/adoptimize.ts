@@ -162,6 +162,8 @@ export interface AdCreative {
 export interface BreakdownItem {
   name: string;
   spend: number;
+  impressions?: number;
+  clicks?: number;
   conversions: number;
   cpa: number;
   roas: number;

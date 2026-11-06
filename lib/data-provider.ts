@@ -29,6 +29,7 @@ export interface AdOptimizeState {
   automationRules: AutomationRule[];
   auditLogs: AuditLog[];
   deviceBreakdown: BreakdownItem[];
+  networkBreakdown: BreakdownItem[];
   locationBreakdown: BreakdownItem[];
   isDemoMode: boolean;
   selectedPeriod: 'TODAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'ALL_TIME' | 'PREVIOUS_PERIOD' | 'CUSTOM';
@@ -59,6 +60,7 @@ export function getCleanInitialState(accountName?: string, customerId?: string):
     automationRules: [],
     auditLogs: [],
     deviceBreakdown: [],
+    networkBreakdown: [],
     locationBreakdown: [],
     isDemoMode: false,
     selectedPeriod: 'LAST_7_DAYS',
@@ -127,6 +129,8 @@ export function getInitialState(): AdOptimizeState {
 
           return {
             ...parsed,
+            deviceBreakdown: Array.isArray(parsed.deviceBreakdown) ? parsed.deviceBreakdown : [],
+            networkBreakdown: Array.isArray(parsed.networkBreakdown) ? parsed.networkBreakdown : [],
             account: {
               ...parsed.account,
               ...dedicatedConnectedAccount,

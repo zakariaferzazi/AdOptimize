@@ -756,6 +756,8 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           campaigns: freshCampaigns,
           keywords: freshKeywords ?? prev.keywords,
           searchTerms: freshSearchTerms ?? prev.searchTerms,
+          deviceBreakdown: Array.isArray(data.deviceBreakdown) ? data.deviceBreakdown : prev.deviceBreakdown,
+          networkBreakdown: Array.isArray(data.networkBreakdown) ? data.networkBreakdown : prev.networkBreakdown,
           account: { ...prev.account, ...accountPatch },
           isDemoMode: false,
         };
@@ -1627,6 +1629,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       automationRules: [],
       auditLogs: [],
       deviceBreakdown: [],
+      networkBreakdown: [],
       locationBreakdown: [],
       isDemoMode: false,
       selectedPeriod: 'LAST_7_DAYS',

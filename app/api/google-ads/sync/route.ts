@@ -154,6 +154,8 @@ export async function POST(req: NextRequest) {
         campaigns: realCampaigns,
         keywords: realKeywords,
         searchTerms: realSearchTerms,
+        networkBreakdown: liveResult.networkBreakdown || [],
+        deviceBreakdown: liveResult.deviceBreakdown || [],
       });
     }
 

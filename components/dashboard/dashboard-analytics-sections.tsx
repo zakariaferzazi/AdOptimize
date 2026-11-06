@@ -10,6 +10,7 @@ interface DashboardAnalyticsSectionsProps {
   keywords: Keyword[];
   searchTerms: SearchTerm[];
   deviceBreakdown: BreakdownItem[];
+  networkBreakdown: BreakdownItem[];
   currentMetrics: CalculatedPeriodMetrics;
   currency: string;
   monthlySpendCap?: number;
@@ -37,6 +38,7 @@ export function DashboardAnalyticsSections({
   keywords,
   searchTerms,
   deviceBreakdown,
+  networkBreakdown,
   currentMetrics,
   currency,
   monthlySpendCap,
@@ -55,6 +57,14 @@ export function DashboardAnalyticsSections({
     { title: 'Top keywords', icon: Search, items: [...keywords].sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks).slice(0, 5).map((item) => ({ id: item.id, name: item.keyword, metric: `${item.conversions.toFixed(1)} conv · ${formatCurrency(item.spend, currency)}` })) },
     { title: 'Search terms to review', icon: MousePointerClick, items: [...searchTerms].sort((a, b) => b.spend - a.spend).slice(0, 5).map((item) => ({ id: item.id, name: item.searchTerm, metric: `${formatCurrency(item.spend, currency)} · ${item.recommendedAction}` })) },
   ], [campaigns, keywords, searchTerms, currency, onOpenCampaign]);
+  const renderBreakdown = (items: BreakdownItem[]) => items.length ? (
+    <div className="mt-3 space-y-2.5">
+      <div className="flex h-3 overflow-hidden rounded-full bg-slate-100">
+        {items.map((item, index) => <div key={item.name} title={`${item.name}: ${item.sharePercent.toFixed(1)}%`} className={`h-full ${['bg-emerald-500', 'bg-sky-500', 'bg-violet-500', 'bg-amber-400', 'bg-rose-400'][index % 5]}`} style={{ width: `${item.sharePercent}%` }} />)}
+      </div>
+      {items.slice(0, 6).map((item) => <div key={item.name} className="flex items-center justify-between text-xs"><span className="capitalize text-slate-600">{item.name.toLowerCase()}</span><span className="font-semibold text-slate-800">{item.sharePercent.toFixed(1)}% · {formatCurrency(item.spend, currency)}</span></div>)}
+    </div>
+  ) : <div className="mt-3"><EmptyState>Segmentation is unavailable for this account sync.</EmptyState></div>;
 
   return (
     <div className="space-y-8">
@@ -64,10 +74,10 @@ export function DashboardAnalyticsSections({
             <div className="flex items-center justify-between"><div><div className="text-[11px] font-semibold text-slate-500">Projected spend</div><div className="mt-1 text-xl font-bold text-slate-900">{formatCurrency(currentMetrics.spend, currency)}</div></div>{spendTarget > 0 ? <div className={`text-xs font-bold ${spendProgress >= 100 ? 'text-rose-600' : 'text-emerald-700'}`}>{spendProgress.toFixed(0)}% of target</div> : <span className="text-xs text-slate-400">Target unavailable</span>}</div>
             {spendTarget > 0 ? <><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${spendProgress >= 100 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${spendProgress}%` }} /></div><div className="mt-2 flex justify-between text-[11px] text-slate-500"><span>Actual {formatCurrency(currentMetrics.spend, currency)}</span><span>Remaining {formatCurrency(Math.max(0, spendTarget - currentMetrics.spend), currency)}</span></div></> : <EmptyState>Set a monthly spend cap in Settings to enable pacing and overspending warnings.</EmptyState>}
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Globe2 className="h-4 w-4 text-emerald-600" />Network distribution</div><div className="mt-3"><EmptyState>Network segmentation is not present in the synchronized dataset.</EmptyState></div></div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Globe2 className="h-4 w-4 text-emerald-600" />Network distribution</div>{renderBreakdown(networkBreakdown)}</div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Monitor className="h-4 w-4 text-emerald-600" />Device distribution</div>{deviceBreakdown.length ? <div className="mt-3 space-y-2">{deviceBreakdown.map((item) => <div key={item.name} className="flex justify-between text-xs"><span>{item.name}</span><span className="font-semibold">{item.sharePercent.toFixed(1)}%</span></div>)}</div> : <div className="mt-3"><EmptyState>Device segmentation is unavailable for this account sync.</EmptyState></div>}</div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><Monitor className="h-4 w-4 text-emerald-600" />Device distribution</div>{renderBreakdown(deviceBreakdown)}</div>
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs"><div className="flex items-center gap-2 text-xs font-bold text-slate-800"><MousePointerClick className="h-4 w-4 text-emerald-600" />Device metrics</div><div className="mt-3"><EmptyState>Device-level spend, impressions, clicks and conversions are unavailable.</EmptyState></div></div>
         </div>
       </Section>
