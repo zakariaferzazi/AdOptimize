@@ -238,13 +238,13 @@ export function AiChatView({
       return;
     }
 
-    setLoadingStep(1); // "Retrieving campaign data"
+    setLoadingStep(1); // "Understanding your request"
     const timer1 = setTimeout(() => {
-      setLoadingStep(2); // "Comparing results"
+      setLoadingStep(2); // "Reviewing relevant information"
     }, 1200);
 
     const timer2 = setTimeout(() => {
-      setLoadingStep(3); // "Preparing recommendations"
+      setLoadingStep(3); // "Crafting a clear response"
     }, 2500);
 
     return () => {
@@ -1252,7 +1252,7 @@ export function AiChatView({
           );
         })}
 
-        {/* 6. Clean Multi-Step Progress Indicator During Execution */}
+        {/* 6. Neutral progress indicator during response generation */}
         {isLoading && (
           <div className="flex gap-3 max-w-2xl mr-auto animate-in fade-in duration-200">
             <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
@@ -1261,7 +1261,7 @@ export function AiChatView({
 
             <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-xs text-xs space-y-2 w-full max-w-md">
               <div className="font-bold text-slate-900 flex items-center justify-between">
-                <span>Analyzing campaign performance...</span>
+                <span>Thinking through your request<span className="inline-flex w-5 ml-0.5 text-left"><span className="animate-pulse">...</span></span></span>
                 <button
                   onClick={handleStopRequest}
                   className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer flex items-center gap-1"
@@ -1275,7 +1275,7 @@ export function AiChatView({
               <div className="space-y-1.5 text-slate-600 font-medium">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Retrieving campaign data</span>
+                  <span>Understanding your request</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1285,7 +1285,7 @@ export function AiChatView({
                     <span className="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin inline-block shrink-0" />
                   )}
                   <span className={loadingStep >= 2 ? 'text-slate-700' : 'text-slate-400'}>
-                    Comparing results
+                    Reviewing relevant information
                   </span>
                 </div>
 
@@ -1296,7 +1296,7 @@ export function AiChatView({
                     <span className="w-2 h-2 rounded-full bg-slate-300 ml-0.5 shrink-0" />
                   )}
                   <span className={loadingStep >= 3 ? 'text-slate-700' : 'text-slate-400'}>
-                    Preparing recommendations
+                    Crafting a clear response
                   </span>
                 </div>
               </div>
