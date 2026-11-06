@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
@@ -38,6 +38,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [prevPathname, setPrevPathname] = useState(pathname);
+  const syncedPathRef = useRef(pathname);
 
   // Close mobile sidebar if route changed
   if (prevPathname !== pathname) {
@@ -75,6 +76,14 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   } = useAdOptimize();
 
   const { account, campaigns, anomalies, budgetRecommendations, auditLogs } = state;
+
+  useEffect(() => {
+    if (syncedPathRef.current === pathname) return;
+    syncedPathRef.current = pathname;
+    if (!authLoading && account.isConnected && account.clientCustomerId !== 'Not Connected') {
+      void handleSync(true);
+    }
+  }, [pathname, authLoading, account.isConnected, account.clientCustomerId, handleSync]);
 
   // Determine current tab from route
   const getCurrentTab = (): NavTab => {
@@ -165,7 +174,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
           user={user}
           authLoading={authLoading}
           onRefreshSync={() => handleSync(true)}
-          onOpenConnectModal={() => setShowConnectModal(true)}
           onOpenCopilot={() => setShowCopilot(true)}
           onSelectAnomaly={(anomaly) => {
             const camp = campaigns.find((c) => c.id === anomaly.campaignId);
@@ -173,7 +181,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
           }}
           onSignInWithGoogle={handleSignInWithGoogle}
           onSignOut={handleSignOut}
-          onClearData={handleResetData}
           headerExtra={headerExtra}
           onToggleMobileMenu={() => setIsMobileSidebarOpen((prev) => !prev)}
           isDesktopSidebarCollapsed={isDesktopSidebarCollapsed}

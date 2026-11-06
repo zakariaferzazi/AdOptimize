@@ -6,14 +6,11 @@ import Link from 'next/link';
 import {
   Bell,
   RefreshCw,
-  CheckCircle2,
   ChevronDown,
-  ExternalLink,
   LogOut,
   LogIn,
   User as UserIcon,
   ShieldCheck,
-  Trash2,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,13 +29,11 @@ interface HeaderProps {
   user: User | null;
   authLoading: boolean;
   onRefreshSync: () => void;
-  onOpenConnectModal: () => void;
   onOpenCopilot?: () => void;
   onSelectAnomaly: (anomaly: AnomalyAlert) => void;
   onSearchQuery?: (q: string) => void;
   onSignInWithGoogle: () => void;
   onSignOut: () => void;
-  onClearData?: () => void;
   headerExtra?: React.ReactNode;
   onToggleMobileMenu?: () => void;
   isDesktopSidebarCollapsed?: boolean;
@@ -65,23 +60,18 @@ export function Header({
   user,
   authLoading,
   onRefreshSync,
-  onOpenConnectModal,
   onOpenCopilot,
   onSelectAnomaly,
   onSearchQuery,
   onSignInWithGoogle,
   onSignOut,
-  onClearData,
   headerExtra,
   onToggleMobileMenu,
   isDesktopSidebarCollapsed = false,
   onToggleDesktopSidebar,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  // Click-outside listeners to close dropdowns when clicking anywhere else
-  const accountDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAccountDropdown(false), showAccountDropdown);
   const notificationsDropdownRef = useClickOutside<HTMLDivElement>(() => setShowNotifications(false), showNotifications);
   const userDropdownRef = useClickOutside<HTMLDivElement>(() => setShowUserDropdown(false), showUserDropdown);
 
@@ -171,11 +161,7 @@ export function Header({
         </h1>
 
         {/* Real Google Ads Account Selector */}
-        <div ref={accountDropdownRef} className="relative shrink-0">
-          <button
-            onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-            className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs hover:border-slate-300 text-xs text-slate-700 transition-colors"
-          >
+        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-white border border-slate-200/80 rounded-full shadow-xs shrink-0">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 !account.isConnected || account.clientCustomerId === 'Not Connected'
@@ -195,56 +181,6 @@ export function Header({
                 ? 'Offline'
                 : 'Connected'}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5 shrink-0" />
-          </button>
-
-          {/* Account Dropdown */}
-          {showAccountDropdown && (
-            <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="p-2 border-b border-slate-100">
-                <div className="text-xs font-semibold text-slate-900">Active Google Ads Account</div>
-                <div className="text-[11px] text-slate-500">{account.timezone}</div>
-              </div>
-
-              <div className="p-2 space-y-1">
-                <div className="flex items-center justify-between p-2 rounded-xl text-xs bg-emerald-50 text-emerald-900">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                    <span className="font-medium truncate max-w-[150px]">{account.accountName}</span>
-                  </div>
-                  <span className="text-[11px] font-mono shrink-0 font-bold text-emerald-700">
-                    {!account.isConnected ? 'Offline' : 'Connected'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-2 border-t border-slate-100 flex flex-col gap-1">
-                <button
-                  onClick={() => {
-                    setShowAccountDropdown(false);
-                    onOpenConnectModal();
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-colors"
-                >
-                  <span>Switch Google Ads Account</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-                {onClearData && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setShowAccountDropdown(false);
-                      await onClearData();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
-                  >
-                    <span>Disconnect &amp; Clear Cache</span>
-                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {headerExtra}

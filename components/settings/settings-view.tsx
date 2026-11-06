@@ -196,12 +196,6 @@ export function SettingsView({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={onOpenConnectModal}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
-              >
-                Configure Customer ID
-              </button>
-              <button
                 type="button"
                 onClick={handleClear}
                 disabled={isClearing}
