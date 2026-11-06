@@ -1,15 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { PerformanceChart } from '@/components/dashboard/performance-chart';
-import { AiInsightsPanel } from '@/components/dashboard/ai-insights-panel';
-import { AnomaliesWidget } from '@/components/dashboard/anomalies-widget';
-import { CompactAiAssistant } from '@/components/dashboard/compact-ai-assistant';
-import { CampaignsTable } from '@/components/dashboard/campaigns-table';
 import { CampaignDetailDrawer } from '@/components/campaigns/campaign-detail-drawer';
 import { KpiCustomizerModal } from '@/components/dashboard/kpi-customizer-modal';
 import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
@@ -60,14 +54,12 @@ const METRIC_ICONS: Record<KpiMetricId, React.ComponentType<{ className?: string
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
 
 export const DashboardClientView = withAdOptimize(function DashboardClientViewInner() {
-  const router = useRouter();
   const {
     state,
     setState,
     user,
     authLoading,
     isInitialLoading,
-    oauthToken,
     setShowConnectModal,
     showToast,
     handleSaveCampaign,
@@ -77,10 +69,9 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     syncCooldownRemaining,
     lastSyncTimestamp,
     handleSync,
-    handleApplyRecommendation,
   } = useAdOptimize();
 
-  const { account, campaigns, anomalies, keywords, searchTerms, deviceBreakdown, insights, auditLogs } = state;
+  const { account, campaigns, keywords, searchTerms, deviceBreakdown } = state;
 
   // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(() => {
@@ -204,14 +195,6 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     return campaigns.filter((c) => c.id === selectedCampaignId);
   }, [campaigns, selectedCampaignId]);
 
-  // Filter anomalies based on selectedCampaignId
-  const filteredAnomalies = useMemo(() => {
-    if (selectedCampaignId === 'ALL') {
-      return anomalies;
-    }
-    return anomalies.filter((a) => a.campaignId === selectedCampaignId);
-  }, [anomalies, selectedCampaignId]);
-
   // Compute live current & previous period metrics
   const { current: currentMetrics, previous: previousMetrics, periodLabel } = useMemo(() => {
     return calculateCampaignsMetrics(filteredCampaigns, dateRange, customDays);
@@ -221,11 +204,6 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
   const allCardData = useMemo(() => {
     return buildMetricCardData(currentMetrics, previousMetrics, periodLabel, account.currency);
   }, [currentMetrics, previousMetrics, periodLabel, account.currency]);
-
-  const selectedCampaignObj = useMemo(() => {
-    if (selectedCampaignId === 'ALL') return null;
-    return campaigns.find((c) => c.id === selectedCampaignId) || null;
-  }, [campaigns, selectedCampaignId]);
 
   const handleToggleCampaignStatus = async (campaignId: string) => {
     const target = campaigns.find((c) => c.id === campaignId);
@@ -481,7 +459,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
           })}
         </div>
 
-        {/* 2. Performance Overview Chart & AI Insights Row (Requirement 3 & 4) */}
+        {/* Performance Overview Chart */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           <div className="xl:col-span-2 min-w-0">
             <PerformanceChart
@@ -492,61 +470,6 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
               currency={account.currency}
             />
           </div>
-          <div className="min-w-0">
-            <AiInsightsPanel
-              campaigns={filteredCampaigns}
-              account={account}
-              onSelectCampaign={(c) => setSelectedCampaign(c)}
-              onOpenOptimizer={() => router.push('/optimizer')}
-              onOpenAudit={() => router.push('/audit')}
-            />
-          </div>
-        </div>
-
-        {/* 3. Performance Alerts & AdOptimize AI Copilot Row (Requirement 5 & 7) */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
-          <div className="xl:col-span-2 min-w-0">
-            <AnomaliesWidget
-              alerts={filteredAnomalies}
-              selectedCampaignName={selectedCampaignObj?.name}
-              onSelectAlert={(alert) => {
-                const camp = campaigns.find((c) => c.id === alert.campaignId);
-                if (camp) {
-                  setSelectedCampaign(camp);
-                } else {
-                  router.push('/audit');
-                }
-              }}
-              onViewAll={() => router.push('/audit')}
-            />
-          </div>
-
-          <div className="min-w-0">
-            <CompactAiAssistant
-              account={account}
-              campaigns={filteredCampaigns}
-              anomalies={filteredAnomalies}
-              userEmail={user?.email}
-              userId={user?.uid}
-              accessToken={oauthToken || undefined}
-              period={dateRange}
-              customDays={customDays}
-            />
-          </div>
-        </div>
-
-        {/* 4. Active Campaigns Table (Requirement 6 & Real-time Sync) */}
-        <div className="space-y-3 min-w-0">
-          <CampaignsTable
-            campaigns={campaigns}
-            selectedCampaignId={selectedCampaignId}
-            period={dateRange}
-            customDays={customDays}
-            currency={account.currency}
-            onSelectCampaign={(c) => setSelectedCampaign(c)}
-            onToggleStatus={handleToggleCampaignStatus}
-            onViewAll={() => router.push('/campaigns')}
-          />
         </div>
 
         <DashboardAnalyticsSections
@@ -554,16 +477,10 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
           keywords={keywords}
           searchTerms={searchTerms}
           deviceBreakdown={deviceBreakdown}
-          insights={insights}
-          anomalies={filteredAnomalies}
-          auditLogs={auditLogs}
           currentMetrics={currentMetrics}
-          previousMetrics={previousMetrics}
           currency={account.currency}
           monthlySpendCap={account.monthlySpendCap}
           onOpenCampaign={(campaign) => setSelectedCampaign(campaign)}
-          onOpenReport={(path) => router.push(path)}
-          onApplyRecommendation={(id) => void handleApplyRecommendation(id)}
         />
       </div>
 
