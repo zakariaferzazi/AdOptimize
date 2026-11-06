@@ -129,7 +129,6 @@ export function AiChatView({
   const [executingProposalId, setExecutingProposalId] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
-  const [expandedAnalysisIds, setExpandedAnalysisIds] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -623,18 +622,6 @@ export function AiChatView({
     }
   };
 
-  const toggleAnalysisDetails = (msgId: string) => {
-    setExpandedAnalysisIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(msgId)) {
-        next.delete(msgId);
-      } else {
-        next.add(msgId);
-      }
-      return next;
-    });
-  };
-
   // Model options: DeepSeek, ChatGPT, Gemini (with backwards-compatible aliases)
   const aiModelDetails: Record<string, { label: string; sub: string; badge: string; icon: any }> = {
     deepseek: {
@@ -911,8 +898,6 @@ export function AiChatView({
         {/* Render Conversation Messages */}
         {messages.map((message) => {
           const isUser = message.role === 'user';
-          const isAnalysisExpanded = expandedAnalysisIds.has(message.id);
-
           return (
             <div
               key={message.id}
@@ -953,76 +938,6 @@ export function AiChatView({
                     <ChatMarkdown content={message.content} />
                   )}
 
-                  {/* Expandable "Analysis Details" section explaining data & date ranges examined without internal function names */}
-                  {!isUser && message.analysisDetails && (
-                    <div className="mt-4 pt-3 border-t border-slate-100">
-                      <button
-                        onClick={() => toggleAnalysisDetails(message.id)}
-                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Analysis Details</span>
-                        <span className="text-[10px] text-slate-400">
-                          ({message.analysisDetails.campaignsCount || 0} campaigns · {message.analysisDetails.dateRangeExamined})
-                        </span>
-                        {isAnalysisExpanded ? (
-                          <ChevronUp className="w-3 h-3 text-slate-400" />
-                        ) : (
-                          <ChevronDown className="w-3 h-3 text-slate-400" />
-                        )}
-                      </button>
-
-                      {isAnalysisExpanded && (
-                        <div className="mt-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-1.5 animate-in fade-in duration-150">
-                          <div className="font-semibold text-slate-900 text-[11px] uppercase tracking-wider">
-                            Scope of Evaluation:
-                          </div>
-                          <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-600">
-                            {message.analysisDetails.aspectsExamined.map((asp, i) => (
-                              <li key={i}>{asp}</li>
-                            ))}
-                          </ul>
-                          <div className="text-[10px] text-slate-400 pt-1">
-                            Evaluated against live Google Ads auction data and conversion metrics.
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Structured Table if returned */}
-                  {message.tableData && message.tableData.rows?.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-slate-100 overflow-x-auto">
-                      {message.tableData.caption && (
-                        <div className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{message.tableData.caption}</span>
-                        </div>
-                      )}
-                      <table className="w-full text-xs text-left border-collapse border border-slate-200 rounded-xl overflow-hidden">
-                        <thead>
-                          <tr className="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
-                            {message.tableData.headers.map((h, i) => (
-                              <th key={i} className="p-2.5">
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {message.tableData.rows.map((row, rIdx) => (
-                            <tr key={rIdx} className="hover:bg-slate-50/70">
-                              {row.map((cell, cIdx) => (
-                                <td key={cIdx} className="p-2.5 text-slate-800 font-medium">
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                 </div>
 
                 {/* 4. STRUCTURED INTERACTIVE RECOMMENDATION CARDS */}
