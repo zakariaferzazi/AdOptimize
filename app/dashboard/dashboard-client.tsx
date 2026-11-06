@@ -13,6 +13,7 @@ import { CampaignsTable } from '@/components/dashboard/campaigns-table';
 import { CampaignDetailDrawer } from '@/components/campaigns/campaign-detail-drawer';
 import { KpiCustomizerModal } from '@/components/dashboard/kpi-customizer-modal';
 import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
+import { DashboardAnalyticsSections } from '@/components/dashboard/dashboard-analytics-sections';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
@@ -76,9 +77,10 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     syncCooldownRemaining,
     lastSyncTimestamp,
     handleSync,
+    handleApplyRecommendation,
   } = useAdOptimize();
 
-  const { account, campaigns, anomalies, keywords, searchTerms } = state;
+  const { account, campaigns, anomalies, keywords, searchTerms, deviceBreakdown, insights, auditLogs } = state;
 
   // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(() => {
@@ -546,6 +548,23 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
             onViewAll={() => router.push('/campaigns')}
           />
         </div>
+
+        <DashboardAnalyticsSections
+          campaigns={filteredCampaigns}
+          keywords={keywords}
+          searchTerms={searchTerms}
+          deviceBreakdown={deviceBreakdown}
+          insights={insights}
+          anomalies={filteredAnomalies}
+          auditLogs={auditLogs}
+          currentMetrics={currentMetrics}
+          previousMetrics={previousMetrics}
+          currency={account.currency}
+          monthlySpendCap={account.monthlySpendCap}
+          onOpenCampaign={(campaign) => setSelectedCampaign(campaign)}
+          onOpenReport={(path) => router.push(path)}
+          onApplyRecommendation={(id) => void handleApplyRecommendation(id)}
+        />
       </div>
 
       {/* KPI Customizer Modal */}
@@ -572,4 +591,3 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     </AppShell>
   );
 });
-
