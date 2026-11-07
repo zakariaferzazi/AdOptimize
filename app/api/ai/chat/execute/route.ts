@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeGoogleAdsTool, ToolContext } from '@/lib/google-ads-tools';
+import { ToolContext } from '@/lib/google-ads-tools';
 import {
   clearGoogleAdsCache,
   mutateGoogleAdsCampaignBudget,
@@ -38,7 +38,12 @@ export async function POST(req: NextRequest) {
       accessToken: context.accessToken,
     };
 
-    let result;
+    let result: {
+      success: boolean;
+      error?: string;
+      message?: string;
+      data?: Record<string, any>;
+    };
     const customerId = String(toolContext.account.clientCustomerId || '').replace(/\D/g, '');
     const activeToken = toolContext.accessToken;
     if (!activeToken || customerId.length !== 10) {
@@ -52,29 +57,41 @@ export async function POST(req: NextRequest) {
       campaignId: string,
       expected?: { status?: 'ENABLED' | 'PAUSED'; budgetDaily?: number }
     ) => {
-      clearGoogleAdsCache(customerId);
-      const verified = await queryLiveCampaigns(
-        customerId,
-        activeToken,
-        process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-        toolContext.account.loginCustomerId,
-        { forceRefresh: true }
-      );
-      if (!verified.success) {
-        throw new Error(verified.error || 'Google Ads change could not be verified.');
+      let lastObservedStatus: string | undefined;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        clearGoogleAdsCache(customerId);
+        const verified = await queryLiveCampaigns(
+          customerId,
+          activeToken,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+          toolContext.account.loginCustomerId,
+          { forceRefresh: true }
+        );
+        if (!verified.success) {
+          throw new Error(verified.error || 'Google Ads change could not be verified.');
+        }
+        const campaign = (verified.campaigns || []).find((item: any) => String(item.id) === String(campaignId));
+        if (!campaign) {
+          throw new Error('Google Ads change succeeded but the campaign was not returned during verification.');
+        }
+        lastObservedStatus = campaign.status;
+        const statusMatches = !expected?.status || campaign.status === expected.status;
+        const budgetMatches =
+          expected?.budgetDaily === undefined ||
+          Math.abs(Number(campaign.budgetDaily || 0) - expected.budgetDaily) <= 0.01;
+        if (statusMatches && budgetMatches) return campaign;
+
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
       }
-      const campaign = (verified.campaigns || []).find((item: any) => String(item.id) === String(campaignId));
-      if (!campaign) throw new Error('Google Ads change succeeded but the campaign was not returned during verification.');
-      if (expected?.status && campaign.status !== expected.status) {
-        throw new Error(`Google Ads returned campaign "${campaign.name}" with status ${campaign.status}, not ${expected.status}.`);
+
+      if (expected?.status) {
+        throw new Error(
+          `Google Ads still reports campaign status ${lastObservedStatus || 'UNKNOWN'}, not ${expected.status}. No success was reported.`
+        );
       }
-      if (
-        expected?.budgetDaily !== undefined &&
-        Math.abs(Number(campaign.budgetDaily || 0) - expected.budgetDaily) > 0.01
-      ) {
-        throw new Error(`Google Ads returned a daily budget of ${campaign.budgetDaily}, not ${expected.budgetDaily}.`);
-      }
-      return campaign;
+      throw new Error('Google Ads did not return the requested campaign settings after the mutation. No success was reported.');
     };
 
     switch (proposal.actionType) {
@@ -113,17 +130,11 @@ export async function POST(req: NextRequest) {
         );
         if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the budget update.');
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { budgetDaily: Number(newDailyBudget) });
-        result = await executeGoogleAdsTool(
-          'update_campaign_budget',
-          {
-            campaignNameOrId: proposal.campaignId,
-            newDailyBudget,
-            reason: proposal.reason,
-            isConfirmed: true,
-          },
-          toolContext
-        );
-        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Daily budget updated and verified in Google Ads for "${verifiedCampaign.name}".` };
+        result = {
+          success: true,
+          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          message: `Daily budget updated and verified in Google Ads for "${verifiedCampaign.name}".`,
+        };
         break;
       }
 
@@ -138,16 +149,11 @@ export async function POST(req: NextRequest) {
         );
         if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the campaign pause.');
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'PAUSED' });
-        result = await executeGoogleAdsTool(
-          'pause_campaign',
-          {
-            campaignNameOrId: proposal.campaignId,
-            reason: proposal.reason,
-            isConfirmed: true,
-          },
-          toolContext
-        );
-        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Campaign "${verifiedCampaign.name}" was paused and verified in Google Ads.` };
+        result = {
+          success: true,
+          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          message: `Campaign "${verifiedCampaign.name}" was paused and verified in Google Ads.`,
+        };
         break;
       }
 
@@ -162,16 +168,11 @@ export async function POST(req: NextRequest) {
         );
         if (!mutation.success) throw new Error(mutation.error || 'Google Ads rejected the campaign enable action.');
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'ENABLED' });
-        result = await executeGoogleAdsTool(
-          'enable_campaign',
-          {
-            campaignNameOrId: proposal.campaignId,
-            reason: proposal.reason,
-            isConfirmed: true,
-          },
-          toolContext
-        );
-        if (result.success) result = { ...result, data: { ...result.data, verifiedCampaign }, message: `Campaign "${verifiedCampaign.name}" was enabled and verified in Google Ads.` };
+        result = {
+          success: true,
+          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          message: `Campaign "${verifiedCampaign.name}" was enabled and verified in Google Ads.`,
+        };
         break;
       }
 

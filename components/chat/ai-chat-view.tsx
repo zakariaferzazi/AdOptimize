@@ -622,43 +622,31 @@ export function AiChatView({
     }
   };
 
-  // Model options: DeepSeek, ChatGPT, Gemini (with backwards-compatible aliases)
-  const aiModelDetails: Record<string, { label: string; sub: string; badge: string; icon: any }> = {
+  // User-facing tiers keep the configured provider and model names private.
+  const aiModelDetails: Record<string, { label: string; icon: any }> = {
     deepseek: {
-      label: 'DeepSeek',
-      sub: 'Advanced analytical reasoning & CPA math',
-      badge: 'DeepSeek R1/V3',
+      label: 'Pro Model',
       icon: DeepSeekIcon,
     },
     chatgpt: {
-      label: 'ChatGPT',
-      sub: 'PPC strategy & ad copy analysis',
-      badge: 'OpenAI GPT-4o',
+      label: 'Balanced Model',
       icon: ChatGPTIcon,
     },
     gemini: {
-      label: 'Gemini',
-      sub: 'Fast SearchStream auction diagnostics',
-      badge: 'Google Gemini 2.5',
+      label: 'Fast Model',
       icon: GeminiIcon,
     },
     // Backwards-compatible aliases for previously cached sessions in localStorage
     fast: {
-      label: 'Gemini',
-      sub: 'Fast SearchStream auction diagnostics',
-      badge: 'Google Gemini 2.5',
+      label: 'Fast Model',
       icon: GeminiIcon,
     },
     balanced: {
-      label: 'ChatGPT',
-      sub: 'PPC strategy & ad copy analysis',
-      badge: 'OpenAI GPT-4o',
+      label: 'Balanced Model',
       icon: ChatGPTIcon,
     },
     advanced: {
-      label: 'DeepSeek',
-      sub: 'Advanced analytical reasoning & CPA math',
-      badge: 'DeepSeek R1/V3',
+      label: 'Pro Model',
       icon: DeepSeekIcon,
     },
   };
@@ -743,11 +731,7 @@ export function AiChatView({
                         <Icon className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{meta.badge}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{meta.sub}</p>
+                        <span className="text-xs font-bold text-slate-900">{meta.label}</span>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0 mt-1" />}
                     </button>
