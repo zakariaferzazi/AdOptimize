@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOpenRouterChat, ChatCompletionMessage, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
 import { executeGoogleAdsTool, resolveCampaignReference, ToolContext } from '@/lib/google-ads-tools';
-import { ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
+import { Campaign, ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 import { queryLiveCampaigns } from '@/lib/google-ads-api';
 
@@ -236,6 +236,17 @@ export async function POST(req: NextRequest) {
       accessToken: context.accessToken,
     };
 
+    const recentActionProposals = Array.isArray(context.recentActionProposals)
+      ? context.recentActionProposals
+      : [];
+    const recentCreatedProposal = [...recentActionProposals]
+      .reverse()
+      .find((proposal: ProposedAccountChange) =>
+        proposal.actionType === 'CREATE_CAMPAIGN' &&
+        proposal.status === 'EXECUTED' &&
+        proposal.campaignId &&
+        !String(proposal.campaignId).startsWith('draft-')
+      );
     let liveDataStatus = 'Using the latest synchronized account snapshot supplied by the dashboard.';
     if (
       toolContext.accessToken &&
@@ -262,6 +273,42 @@ export async function POST(req: NextRequest) {
         console.error('[AI Chat] Live Google Ads refresh failed:', error);
         liveDataStatus = 'Live refresh failed unexpectedly. Use the supplied synchronized snapshot and clearly label it as the latest available data.';
       }
+    }
+    if (
+      recentCreatedProposal &&
+      !toolContext.campaigns.some((campaign) => String(campaign.id) === String(recentCreatedProposal.campaignId))
+    ) {
+      const payload = recentCreatedProposal.payload || {};
+      const rawType = String(payload.channelType || 'SEARCH').toUpperCase();
+      const fallbackType: Campaign['type'] =
+        rawType === 'PERFORMANCE_MAX' || rawType === 'DISPLAY' || rawType === 'SHOPPING'
+          ? rawType
+          : 'SEARCH';
+      const fallbackCampaign: Campaign = {
+        id: String(recentCreatedProposal.campaignId),
+        accountId: toolContext.account.clientCustomerId,
+        name: recentCreatedProposal.campaignName,
+        type: fallbackType,
+        status: 'PAUSED',
+        budgetDaily: Number(payload.budgetDaily) || 0,
+        spend: 0,
+        impressions: 0,
+        clicks: 0,
+        ctr: 0,
+        cpc: 0,
+        conversions: 0,
+        cpa: 0,
+        conversionValue: 0,
+        roas: 0,
+        conversionRate: 0,
+        healthStatus: 'WARNING',
+        healthScore: 0,
+        trendPoints: [],
+        historicalPoints: [],
+        keywordsCount: 0,
+        activeAdsCount: 0,
+      };
+      toolContext.campaigns = [...toolContext.campaigns, fallbackCampaign];
     }
 
     const systemPrompt = `You are the Google Ads Optimization Specialist for AdOptimize.app.
@@ -319,12 +366,17 @@ RESPONSE FORMATTING GUIDELINES:
       .filter((turn: any) => turn.role === 'user')
       .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
       .find(Boolean);
-    let requestedCampaign = resolveCampaignReference(message, toolContext.campaigns) || previousUserCampaign;
     const lowerMessage = message.toLowerCase();
+    const requestedBudget = /\b(?:budget|spend)\b[\s\S]{0,24}?(?:\bto\b|\bat\b|\bof\b|:)?\s*\$?(\d+(?:\.\d{1,2})?)\s*(?:\$|dollars?|usd|per\s*day|\/\s*day|daily)?/i.exec(message)?.[1];
+    const isBudgetMutation =
+      requestedBudget !== undefined &&
+      /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust)\b/.test(lowerMessage);
+    let requestedCampaign = resolveCampaignReference(message, toolContext.campaigns) || previousUserCampaign;
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
     const isExplicitMutation =
       /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
       /\b(make|set|turn)\s+(it|this|that)\s+(enable|enabled|pause|paused|active|off)\b/.test(lowerMessage) ||
+      isBudgetMutation ||
       isCreateCampaign;
     const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
     const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
@@ -360,7 +412,6 @@ RESPONSE FORMATTING GUIDELINES:
         },
       });
     } else if (requestedCampaign) {
-      const requestedBudget = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:per\s*day|\/\s*day|daily)?\b/i.exec(message)?.[1];
       evidenceTools.push({
         name: isExplicitMutation
           ? (/\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage)

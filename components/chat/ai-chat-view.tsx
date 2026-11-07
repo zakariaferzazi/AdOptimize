@@ -377,6 +377,9 @@ export function AiChatView({
             recommendations,
             rules,
             accessToken,
+            recentActionProposals: messages
+              .map((message) => message.actionProposal)
+              .filter(Boolean),
           },
         }),
       });
@@ -579,11 +582,15 @@ export function AiChatView({
               ...s,
               messages: s.messages.map((msg) => {
                 if (msg.id === messageId && msg.actionProposal) {
+                  const createdCampaignId = resData.data?.campaignId;
                   return {
                     ...msg,
                     actionProposal: {
                       ...msg.actionProposal,
                       status: 'EXECUTED',
+                      ...(createdCampaignId
+                        ? { campaignId: String(createdCampaignId) }
+                        : {}),
                       executionResult: resData.message || 'Change successfully verified and executed in Google Ads.',
                       appliedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     },
