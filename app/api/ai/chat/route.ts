@@ -314,7 +314,7 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    const requestedCampaign =
+    let requestedCampaign =
       resolveCampaignReference(message, toolContext.campaigns) ||
       [...conversationHistory]
         .reverse()
@@ -327,6 +327,25 @@ RESPONSE FORMATTING GUIDELINES:
       /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
       /\b(make|set|turn)\s+(it|this|that)\s+(enable|enabled|pause|paused|active|off)\b/.test(lowerMessage) ||
       isCreateCampaign;
+    const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
+    const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
+    if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
+      const candidates = toolContext.campaigns.filter((campaign) =>
+        wantsEnable ? campaign.status === 'PAUSED' : wantsPause ? campaign.status === 'ENABLED' : true
+      );
+      if (candidates.length === 1) {
+        requestedCampaign = candidates[0];
+      } else if (candidates.length > 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `I found ${candidates.length} possible campaigns for this action. Please include the campaign name so I only change the intended one.`,
+            openRouterRequestCount: 0,
+          },
+          { status: 422 }
+        );
+      }
+    }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
     if (isCreateCampaign) {
       const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
@@ -405,7 +424,7 @@ RESPONSE FORMATTING GUIDELINES:
             success: false,
             error: actionFailure
               ? `The requested Google Ads action was not prepared: ${(actionFailure.result as { error: string }).error}`
-              : 'The requested Google Ads action could not be prepared. No account changes were made.',
+              : 'I could not identify the campaign for this action. Include its name, or refer to the campaign in your previous message. No account changes were made.',
             openRouterRequestCount: 0,
           },
           { status: 422 }
