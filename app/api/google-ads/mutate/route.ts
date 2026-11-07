@@ -6,7 +6,6 @@ import {
   createGoogleAdsCampaign,
   clearGoogleAdsCache,
 } from '@/lib/google-ads-api';
-import { executeWithAutoTokenRetry } from '@/lib/token-manager';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,10 +14,6 @@ export async function POST(req: NextRequest) {
       action,
       customerId,
       accessToken,
-      refreshToken,
-      expiresAt,
-      userId,
-      userEmail,
       loginCustomerId,
       developerToken,
       campaignId,
@@ -42,14 +37,12 @@ export async function POST(req: NextRequest) {
 
     const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
-    const tokenOptions = {
-      userId,
-      userEmail,
-      customerId: cleanCid,
-      incomingAccessToken: accessToken,
-      incomingRefreshToken: refreshToken,
-      incomingExpiresAt: expiresAt ? Number(expiresAt) : undefined,
-    };
+    if (!accessToken || typeof accessToken !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'A valid Google Ads access token is required.' },
+        { status: 401 }
+      );
+    }
 
     // 1. Action: Set Campaign Status (Pause or Enable)
     if (action === 'set_campaign_status') {
@@ -63,16 +56,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
-        return mutateGoogleAdsCampaignStatus(
-          cleanCid,
-          String(campaignId),
-          status,
-          activeToken,
-          devToken,
-          loginCustomerId
-        );
-      });
+      const result = await mutateGoogleAdsCampaignStatus(
+        cleanCid,
+        String(campaignId),
+        status,
+        accessToken,
+        devToken,
+        loginCustomerId
+      );
 
       if (result.success) {
         clearGoogleAdsCache(cleanCid);
@@ -82,9 +73,6 @@ export async function POST(req: NextRequest) {
           campaignId: result.campaignId,
           status: result.status,
           message: `Campaign status changed to ${result.status} in Google Ads.`,
-          newAccessToken: result.newAccessToken,
-          newRefreshToken: result.newRefreshToken,
-          newExpiresAt: result.newExpiresAt,
         });
       }
 
@@ -112,16 +100,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
-        return mutateGoogleAdsCampaignBudget(
-          cleanCid,
-          String(campaignId),
-          budgetNum,
-          activeToken,
-          devToken,
-          loginCustomerId
-        );
-      });
+      const result = await mutateGoogleAdsCampaignBudget(
+        cleanCid,
+        String(campaignId),
+        budgetNum,
+        accessToken,
+        devToken,
+        loginCustomerId
+      );
 
       if (result.success) {
         clearGoogleAdsCache(cleanCid);
@@ -131,9 +117,6 @@ export async function POST(req: NextRequest) {
           campaignId,
           newDailyBudget: result.newDailyBudget,
           message: `Daily budget updated to $${budgetNum.toFixed(2)}/day in Google Ads.`,
-          newAccessToken: result.newAccessToken,
-          newRefreshToken: result.newRefreshToken,
-          newExpiresAt: result.newExpiresAt,
         });
       }
 
@@ -163,20 +146,18 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = await executeWithAutoTokenRetry(tokenOptions, async (activeToken) => {
-        return createGoogleAdsCampaign(
-          cleanCid,
-          {
-            name: campName,
-            budgetDaily: campBudget,
-            channelType: campaignData?.channelType || 'SEARCH',
-            status: campaignData?.status || 'ENABLED',
-          },
-          activeToken,
-          devToken,
-          loginCustomerId
-        );
-      });
+      const result = await createGoogleAdsCampaign(
+        cleanCid,
+        {
+          name: campName,
+          budgetDaily: campBudget,
+          channelType: campaignData?.channelType || 'SEARCH',
+          status: campaignData?.status || 'ENABLED',
+        },
+        accessToken,
+        devToken,
+        loginCustomerId
+      );
 
       if (result.success) {
         clearGoogleAdsCache(cleanCid);
@@ -188,9 +169,6 @@ export async function POST(req: NextRequest) {
           name: campName,
           budgetDaily: campBudget,
           message: `Successfully created campaign "${campName}" in Google Ads!`,
-          newAccessToken: result.newAccessToken,
-          newRefreshToken: result.newRefreshToken,
-          newExpiresAt: result.newExpiresAt,
         });
       }
 
