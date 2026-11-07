@@ -48,7 +48,7 @@ export function resolveCampaignReference(query: string | undefined, campaigns: C
   const normalize = (value: string) => value
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\b(campaign|campaigns|app|my|the|about|please|analyze|analyse|performance|how|what|should|do)\b/g, ' ')
+    .replace(/\b(campaign|campaigns|app|my|the|about|please|analyze|analyse|performance|how|what|should|do|edit|change|update|set|make|budget|spend|daily|to|at|of|increase|decrease|reduce|lower|raise|cut|adjust)\b/g, ' ')
     .split(/\s+/)
     .filter(Boolean);
   const rawQuery = query.trim().toLowerCase();

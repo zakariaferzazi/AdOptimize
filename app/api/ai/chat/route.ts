@@ -361,17 +361,43 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    const previousUserCampaign = [...conversationHistory]
-      .reverse()
-      .filter((turn: any) => turn.role === 'user')
-      .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
-      .find(Boolean);
     const lowerMessage = message.toLowerCase();
     const requestedBudget = /\b(?:budget|spend)\b[\s\S]{0,24}?(?:\bto\b|\bat\b|\bof\b|:)?\s*\$?(\d+(?:\.\d{1,2})?)\s*(?:\$|dollars?|usd|per\s*day|\/\s*day|daily)?/i.exec(message)?.[1];
     const isBudgetMutation =
       requestedBudget !== undefined &&
       /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust)\b/.test(lowerMessage);
-    let requestedCampaign = resolveCampaignReference(message, toolContext.campaigns) || previousUserCampaign;
+    const resolvedCampaign = resolveCampaignReference(message, toolContext.campaigns);
+    const explicitCampaignMention = toolContext.campaigns.some((campaign) => {
+      const campaignWords = campaign.name
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length >= 4);
+      return (
+        lowerMessage.includes(campaign.id.toLowerCase()) ||
+        campaignWords.some((word) => new RegExp(`\\b${word}\\b`).test(lowerMessage))
+      );
+    });
+    const directCampaign =
+      resolvedCampaign && (explicitCampaignMention || !isBudgetMutation)
+        ? resolvedCampaign
+        : undefined;
+    const rememberedCampaign = [...recentActionProposals]
+      .reverse()
+      .map((proposal: ProposedAccountChange) =>
+        proposal.campaignId && proposal.status !== 'DECLINED' && proposal.status !== 'FAILED'
+          ? toolContext.campaigns.find((campaign) => String(campaign.id) === String(proposal.campaignId))
+          : undefined
+      )
+      .find(Boolean);
+    const previousUserCampaign = [...conversationHistory]
+      .reverse()
+      .filter((turn: any) => turn.role === 'user')
+      .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
+      .find(Boolean);
+    let requestedCampaign =
+      directCampaign ||
+      (isBudgetMutation ? rememberedCampaign : undefined) ||
+      previousUserCampaign;
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
     const isExplicitMutation =
       /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
