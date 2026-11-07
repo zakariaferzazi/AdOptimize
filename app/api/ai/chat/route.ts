@@ -225,7 +225,13 @@ export async function POST(req: NextRequest) {
 
     const toolContext: ToolContext = {
       userId: context.userId,
-      account: context.account || { accountName: 'Google Ads Account', clientCustomerId: 'Connected', isConnected: true },
+      account: {
+        ...(context.account || {}),
+        accountName: context.account?.accountName || 'Google Ads Account',
+        clientCustomerId: context.account?.clientCustomerId || 'Connected',
+        currency: context.account?.currency || 'USD',
+        isConnected: context.account?.isConnected ?? true,
+      },
       campaigns: context.campaigns || [],
       keywords: context.keywords || [],
       searchTerms: context.searchTerms || [],
@@ -373,12 +379,22 @@ RESPONSE FORMATTING GUIDELINES:
     const amountMatch =
       /(?:\b(?:budget|spend|daily|amount|cost|value)\b[\s\S]{0,32}?(?:\bto\b|\bat\b|\bof\b|:|=)?|\b(?:to|at|of|by)\b|\bmake\s+(?:it|this|that)\s+)\s*[^\d]{0,3}(\d+(?:[.,]\d{1,2})?)/i.exec(message);
     const requestedBudget = amountMatch?.[1]?.replace(',', '.');
+    const pendingProposalToRevise = [...recentActionProposals]
+      .reverse()
+      .find((proposal: ProposedAccountChange) => proposal.status === 'PENDING_APPROVAL');
+    const pendingCreateProposal =
+      pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' ? pendingProposalToRevise : undefined;
+    const isPendingProposalModification =
+      Boolean(pendingCreateProposal) && requestedBudget !== undefined;
     const isMutationLanguage =
       /\b(change|set|update|make|want|need|would like|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|switch|turn|pause|enable|disable|resume|stop|start|create|add|remove|delete|launch|draft)\b/.test(lowerMessage);
     const hasBudgetContext =
       /\b(budget|spend|daily|per\s*day|\/\s*day|amount)\b/.test(lowerMessage) ||
       /\b(make|set|change|update|adjust)\s+(it|this|that)\b/.test(lowerMessage);
-    const isBudgetMutation = requestedBudget !== undefined && isMutationLanguage && hasBudgetContext;
+    const isBudgetMutation =
+      requestedBudget !== undefined &&
+      hasBudgetContext &&
+      (isMutationLanguage || isPendingProposalModification);
     const isStatusMutation =
       /\b(pause|paused|enable|enabled|disable|disabled|resume|resuming)\b/.test(lowerMessage) ||
       (/\b(stop|off)\b/.test(lowerMessage) && /\b(campaign|ads?|advertising|it|this|that)\b/.test(lowerMessage)) ||
@@ -434,14 +450,25 @@ RESPONSE FORMATTING GUIDELINES:
       (!isMutationLanguage ? previousUserCampaign : undefined);
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
     const isExplicitMutation = isCreateCampaign || isBudgetMutation || isStatusMutation;
-    const pendingProposalToRevise = [...recentActionProposals]
-      .reverse()
-      .find((proposal: ProposedAccountChange) => proposal.status === 'PENDING_APPROVAL');
     const supersededProposalId =
       pendingProposalToRevise &&
       (isBudgetMutation || /\b(revise|edit|change|update|modify)\b/.test(lowerMessage))
         ? pendingProposalToRevise.id
         : undefined;
+    if (
+      pendingProposalToRevise &&
+      /\b(confirm|approve|approved|do it|go ahead|yes|apply)\b/.test(lowerMessage) &&
+      !isBudgetMutation &&
+      !isStatusMutation
+    ) {
+      return NextResponse.json({
+        success: true,
+        reply: 'The pending Google Ads action was not approved through chat. Please click the approval button on the exact proposal card to authorize this change.',
+        actionProposal: pendingProposalToRevise,
+        activeCampaign: activeCampaignReference,
+        openRouterRequestCount: 0,
+      });
+    }
     const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
     const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
     if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
@@ -462,8 +489,6 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
-    const pendingCreateProposal =
-      pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' ? pendingProposalToRevise : undefined;
     if (isCreateCampaign || (pendingCreateProposal && isBudgetMutation)) {
       const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
       const namedCampaign = /(?:called|named)\s+([^,.;]+?)(?=\s+(?:with|at|on)\b|$)/i.exec(message)?.[1];

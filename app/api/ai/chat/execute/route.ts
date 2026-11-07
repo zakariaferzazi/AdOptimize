@@ -108,7 +108,10 @@ export async function POST(req: NextRequest) {
         if (!verified.success) {
           throw new Error(verified.error || 'Google Ads change could not be verified.');
         }
-        const campaign = (verified.campaigns || []).find((item: any) => String(item.id) === String(campaignId));
+        const campaign = (verified.campaigns || []).find((item: any) => {
+          const itemId = String(item.id);
+          return itemId === String(campaignId) || itemId.replace(/^camp-live-/, '') === String(campaignId);
+        });
         if (!campaign) {
           throw new Error('Google Ads change succeeded but the campaign was not returned during verification.');
         }
@@ -170,10 +173,17 @@ export async function POST(req: NextRequest) {
           toolContext.account.loginCustomerId
         );
         if (!creation.success) throw new Error(creation.error || 'Google Ads rejected the campaign draft.');
+        const createdCampaignId = String(creation.campaignId || '');
+        const verifiedCampaign = await verifyCampaign(createdCampaignId, { status: 'PAUSED' });
         result = {
           success: true,
           message: `Paused campaign draft "${draft.name || proposal.campaignName}" was created in Google Ads. It will not serve ads until enabled.`,
-          data: { campaignId: creation.campaignId, campaignResourceName: creation.campaignResourceName },
+          data: {
+            campaignId: creation.campaignId,
+            campaignResourceName: creation.campaignResourceName,
+            updatedCampaign: verifiedCampaign,
+            verifiedCampaign,
+          },
         };
         break;
       }
