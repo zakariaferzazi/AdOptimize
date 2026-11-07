@@ -431,10 +431,14 @@ RESPONSE FORMATTING GUIDELINES:
       };
     }
 
+    const actionReply = capturedProposal
+      ? `The ${capturedProposal.actionType === 'ENABLE_CAMPAIGN' ? 'campaign enable' : capturedProposal.actionType === 'PAUSE_CAMPAIGN' ? 'campaign pause' : 'requested'} action is ready. Review the change below, then click the action button to apply it in Google Ads. Nothing has been changed yet.`
+      : response.reply;
+
     console.info(`[AI Chat] OpenRouter requests for user message: 1; precomputed tools: ${executedToolCalls.map((tool) => tool.name).join(', ') || 'none'}`);
     return NextResponse.json({
       success: true,
-      reply: response.reply,
+      reply: actionReply,
       toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
       actionProposal: capturedProposal,
       recommendations: interactiveRecommendations.length > 0 ? interactiveRecommendations : undefined,

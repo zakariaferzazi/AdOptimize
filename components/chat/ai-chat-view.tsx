@@ -298,6 +298,15 @@ export function AiChatView({
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
     if (!query || isLoading) return;
+    const pendingProposalMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === 'assistant' && message.actionProposal?.status === 'PENDING_APPROVAL');
+    const isApprovalReply = /^(yes|yes please|approve|approved|confirm|confirmed|do it|go ahead|enable it|pause it)$/i.test(query);
+    if (pendingProposalMessage && isApprovalReply) {
+      setInputValue('');
+      await handleApproveProposal(pendingProposalMessage.actionProposal!, pendingProposalMessage.id);
+      return;
+    }
     const requestSessionId = currentSessionId;
 
     setErrorMessage(null);
@@ -1007,10 +1016,10 @@ export function AiChatView({
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider">
-                            Proposed Google Ads Change · Explicit Approval Required
+                            Google Ads Action · Confirmation Required
                           </h4>
                           <p className="text-[11px] text-slate-500">
-                            No modifications will occur in Google Ads until you approve
+                            Review the change and click the action button to apply it
                           </p>
                         </div>
                       </div>
@@ -1119,6 +1128,12 @@ export function AiChatView({
                           <span>
                             {executingProposalId === message.actionProposal.id
                               ? 'Executing in Google Ads...'
+                              : message.actionProposal.actionType === 'ENABLE_CAMPAIGN'
+                              ? 'Enable campaign'
+                              : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
+                              ? 'Pause campaign'
+                              : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
+                              ? 'Create paused campaign'
                               : 'Approve & Execute Change'}
                           </span>
                         </button>
