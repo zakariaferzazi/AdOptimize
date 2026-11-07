@@ -12,17 +12,25 @@ import { ProposedAccountChange } from '@/types/adoptimize';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { proposal, context = {} } = body as {
+    const { proposal: rawProposal, context = {} } = body as {
       proposal: ProposedAccountChange;
       context?: any;
     };
 
-    if (!proposal || !proposal.actionType || !proposal.campaignId) {
+    if (!rawProposal || !rawProposal.actionType || !rawProposal.campaignId) {
       return NextResponse.json(
         { error: 'Invalid proposal: actionType and campaignId are required' },
         { status: 400 }
       );
     }
+    const proposal: ProposedAccountChange = {
+      ...rawProposal,
+      reason: rawProposal.reason || 'User confirmed this Google Ads action.',
+      evidence: rawProposal.evidence || 'Confirmed by the user from the action card.',
+      potentialRisks: rawProposal.potentialRisks || 'This change may affect campaign delivery or spend.',
+      currentSettings: rawProposal.currentSettings || 'Current campaign settings',
+      proposedChanges: rawProposal.proposedChanges || 'Apply the requested campaign change',
+    };
 
     const toolContext: ToolContext = {
       userId: context.userId,

@@ -507,6 +507,39 @@ export function AiChatView({
 
   // Safe Account Change Execution
   const handleApproveProposal = async (proposal: ProposedAccountChange, messageId: string) => {
+    if (!proposal || !proposal.actionType || !proposal.campaignId) {
+      updateSessions((current) =>
+        current.map((s) =>
+          s.id === currentSessionId
+            ? {
+                ...s,
+                messages: s.messages.map((msg) =>
+                  msg.id === messageId && msg.actionProposal
+                    ? {
+                        ...msg,
+                        actionProposal: {
+                          ...msg.actionProposal,
+                          status: 'FAILED',
+                          executionResult: 'This action card is incomplete. Please send the request again.',
+                        },
+                      }
+                    : msg
+                ),
+              }
+            : s
+        )
+      );
+      return;
+    }
+
+    const executableProposal: ProposedAccountChange = {
+      ...proposal,
+      reason: proposal.reason || 'User confirmed this Google Ads action.',
+      evidence: proposal.evidence || 'Confirmed by the user from the Google Ads action card.',
+      potentialRisks: proposal.potentialRisks || 'This change may affect campaign delivery or spend.',
+      currentSettings: proposal.currentSettings || 'Current campaign settings',
+      proposedChanges: proposal.proposedChanges || 'Apply the requested campaign change',
+    };
     setExecutingProposalId(proposal.id);
 
     try {
@@ -514,7 +547,7 @@ export function AiChatView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          proposal,
+          proposal: executableProposal,
           context: {
             userId,
             account,

@@ -108,14 +108,14 @@ export function ActionProposalCard({
         {/* Reason */}
         <div>
           <span className="font-bold text-slate-700">Reason for Recommendation: </span>
-          <span className="text-slate-700">{proposal.reason}</span>
+          <span className="text-slate-700">{proposal.reason || 'User-confirmed Google Ads action.'}</span>
         </div>
 
         {/* Supporting Evidence */}
         <div>
           <span className="font-bold text-slate-700">Supporting Performance Metrics: </span>
           <span className="font-mono text-[11px] text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
-            {proposal.evidence}
+            {proposal.evidence || 'Confirmed by the user from this action card.'}
           </span>
         </div>
 
@@ -123,7 +123,7 @@ export function ActionProposalCard({
         <div className="p-3 bg-amber-50/80 border border-amber-200/70 rounded-2xl text-[11px] text-amber-950 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
-            <strong>Potential Risks:</strong> {proposal.potentialRisks}
+            <strong>Potential Risks:</strong> {proposal.potentialRisks || 'This change may affect campaign delivery or spend.'}
           </span>
         </div>
       </div>
