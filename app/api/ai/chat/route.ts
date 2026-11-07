@@ -362,10 +362,21 @@ RESPONSE FORMATTING GUIDELINES:
     }
 
     const lowerMessage = message.toLowerCase();
-    const requestedBudget = /\b(?:budget|spend)\b[\s\S]{0,24}?(?:\bto\b|\bat\b|\bof\b|:)?\s*\$?(\d+(?:\.\d{1,2})?)\s*(?:\$|dollars?|usd|per\s*day|\/\s*day|daily)?/i.exec(message)?.[1];
+    const mutationVerbs = /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|alter|switch|turn|put|move|scale|cap|limit)\b/;
+    const valueAfterSetting = /\b(?:budget|spend|daily(?:\s+(?:budget|spend))?|amount|limit|cap)\b[\s\S]{0,35}?\$?\s*(\d+(?:\.\d{1,2})?)/i.exec(message)?.[1];
+    const valueBeforeSetting = /\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:\$|dollars?|usd)?\s*(?:per\s*day|\/\s*day|daily)?\s*\b(?:budget|spend|amount|limit|cap)\b/i.exec(message)?.[1];
+    const valueAfterTo = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)/i.exec(message)?.[1];
+    const requestedBudget = valueAfterSetting || valueBeforeSetting || (
+      /\b(?:budget|spend|daily|amount|limit|cap)\b/i.test(lowerMessage) ? valueAfterTo : undefined
+    );
+    const hasBudgetConcept = /\b(?:budget|spend|daily|amount|limit|cap)\b/.test(lowerMessage);
+    const hasRecentCampaignContext = Boolean(conversationCampaign || rememberedCampaign);
+    const isContextualNumericMutation =
+      hasRecentCampaignContext && /\d/.test(message) && mutationVerbs.test(lowerMessage);
     const isBudgetMutation =
-      requestedBudget !== undefined &&
-      /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust)\b/.test(lowerMessage);
+      Boolean(requestedBudget) &&
+      mutationVerbs.test(lowerMessage) &&
+      (hasBudgetConcept || isContextualNumericMutation);
     const resolvedCampaign = resolveCampaignReference(message, toolContext.campaigns);
     const explicitCampaignMention = toolContext.campaigns.some((campaign) => {
       const campaignWords = campaign.name
@@ -389,24 +400,28 @@ RESPONSE FORMATTING GUIDELINES:
           : undefined
       )
       .find(Boolean);
+    const conversationCampaign =
+      recentCreatedProposal &&
+      toolContext.campaigns.find(
+        (campaign) => String(campaign.id) === String(recentCreatedProposal.campaignId)
+      );
     const previousUserCampaign = [...conversationHistory]
       .reverse()
       .filter((turn: any) => turn.role === 'user')
       .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
       .find(Boolean);
+    const isCreateCampaign = /\b(create|new|draft|launch|build|start)\b/.test(lowerMessage) && /\b(campaign|compaign|ad campaign)\b/.test(lowerMessage);
+    const wantsEnable = /\b(enable|enabled|resume|resuming|start|active|activate|turn on|switch on)\b/.test(lowerMessage);
+    const wantsPause = /\b(pause|paused|stop|off|disable|disabled|deactivate|turn off|switch off)\b/.test(lowerMessage);
+    const isStatusMutation =
+      (wantsEnable || wantsPause) &&
+      (mutationVerbs.test(lowerMessage) || /\b(pause|enable|resume|disable|stop|activate)\b/.test(lowerMessage));
+    const isMutationIntent = isCreateCampaign || isBudgetMutation || isStatusMutation;
     let requestedCampaign =
       directCampaign ||
-      (isBudgetMutation ? rememberedCampaign : undefined) ||
+      (isMutationIntent ? conversationCampaign || rememberedCampaign : undefined) ||
       previousUserCampaign;
-    const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
-    const isExplicitMutation =
-      /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
-      /\b(make|set|turn)\s+(it|this|that)\s+(enable|enabled|pause|paused|active|off)\b/.test(lowerMessage) ||
-      isBudgetMutation ||
-      isCreateCampaign;
-    const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
-    const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
-    if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
+    if (isMutationIntent && !isCreateCampaign && !requestedCampaign) {
       const candidates = toolContext.campaigns.filter((campaign) =>
         wantsEnable ? campaign.status === 'PAUSED' : wantsPause ? campaign.status === 'ENABLED' : true
       );
@@ -439,14 +454,18 @@ RESPONSE FORMATTING GUIDELINES:
       });
     } else if (requestedCampaign) {
       evidenceTools.push({
-        name: isExplicitMutation
-          ? (/\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage)
-            ? (/\b(enable|enabled|resume|resuming|start)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
-            : requestedBudget ? 'update_campaign_budget' : 'get_campaign_performance')
+        name: isMutationIntent
+          ? (isBudgetMutation
+            ? 'update_campaign_budget'
+            : wantsEnable
+            ? 'enable_campaign'
+            : wantsPause
+            ? 'pause_campaign'
+            : 'get_campaign_performance')
           : 'analyze_campaign',
         args: {
           campaignNameOrId: requestedCampaign.name,
-          ...(requestedBudget ? { newDailyBudget: Number(requestedBudget), reason: 'User requested this budget change through the AI Marketing Agent.' } : {}),
+          ...(isBudgetMutation ? { newDailyBudget: Number(requestedBudget), reason: 'User requested this budget change through the AI Marketing Agent.' } : {}),
         },
       });
       if (/\b(search|query|keyword|term)\b/.test(lowerMessage)) {
@@ -489,7 +508,7 @@ RESPONSE FORMATTING GUIDELINES:
 
     // Mutations must not depend on a second-party model response. The local
     // action resolver has already identified the exact campaign and payload.
-    if (isExplicitMutation) {
+    if (isMutationIntent) {
       if (!capturedProposal) {
         const actionFailure = evidence.find((item) => {
           const value = item.result as { error?: string } | undefined;

@@ -111,6 +111,8 @@ export function AiChatView({
   const [selectedModel, setSelectedModel] = useState<ActiveAiModel>('deepseek');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useClickOutside<HTMLDivElement>(() => setShowModelDropdown(false), showModelDropdown);
+  const sessionsToggleRef = useRef<HTMLButtonElement>(null);
+  const sessionsDrawerRef = useRef<HTMLDivElement>(null);
 
   // Conversation history / Sessions
   const storageKey = useMemo(() => `adoptimize_chat_sessions_${userId || 'guest'}`, [userId]);
@@ -134,6 +136,30 @@ export function AiChatView({
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNearBottomRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    if (!showSessionsDrawer) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        !sessionsToggleRef.current?.contains(target) &&
+        !sessionsDrawerRef.current?.contains(target)
+      ) {
+        setShowSessionsDrawer(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowSessionsDrawer(false);
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showSessionsDrawer]);
 
   // Initialize or load sessions from localStorage
   useEffect(() => {
@@ -792,6 +818,7 @@ export function AiChatView({
 
           {/* Conversations Drawer Toggle */}
           <button
+            ref={sessionsToggleRef}
             onClick={() => setShowSessionsDrawer((p) => !p)}
             className={`px-3 py-1.5 border rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               showSessionsDrawer
@@ -818,7 +845,10 @@ export function AiChatView({
 
       {/* 2. Side History Drawer (if open) */}
       {showSessionsDrawer && (
-        <div className="absolute top-[61px] right-0 bottom-0 w-80 bg-white border-l border-slate-200 z-30 shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
+        <div
+          ref={sessionsDrawerRef}
+          className="absolute top-[61px] right-0 bottom-0 w-80 bg-white border-l border-slate-200 z-30 shadow-xl flex flex-col animate-in slide-in-from-right duration-200"
+        >
           <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
             <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
               Saved Conversations
