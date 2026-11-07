@@ -301,7 +301,7 @@ export function AiChatView({
     const pendingProposalMessage = [...messages]
       .reverse()
       .find((message) => message.role === 'assistant' && message.actionProposal?.status === 'PENDING_APPROVAL');
-    const isApprovalReply = /^(yes|yes please|approve|approved|confirm|confirmed|do it|go ahead|enable it|pause it)$/i.test(query);
+    const isApprovalReply = /^(yes|yes please|approve|approved|confirm|confirmed|confirm it|approve it|do it|go ahead|enable it|pause it|create it)$/i.test(query);
     if (pendingProposalMessage && isApprovalReply) {
       setInputValue('');
       await handleApproveProposal(pendingProposalMessage.actionProposal!, pendingProposalMessage.id);
@@ -608,8 +608,8 @@ export function AiChatView({
                     ...msg,
                     actionProposal: {
                       ...msg.actionProposal,
-                      status: 'FAILED',
-                      executionResult: err.message || 'Execution failed. Please retry.',
+                      status: 'PENDING_APPROVAL',
+                      executionResult: `${err.message || 'Execution failed.'} No changes were confirmed. You can retry the approval.`,
                     },
                   };
                 }

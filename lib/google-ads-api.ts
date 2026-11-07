@@ -1709,6 +1709,7 @@ export async function createGoogleAdsCampaign(
             name: campaignData.name,
             status: campaignData.status || 'ENABLED',
             advertisingChannelType: validChannel,
+            containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
             campaignBudget: `customers/${cleanCid}/campaignBudgets/-1`,
             manualCpc: {},
             ...(validChannel === 'SEARCH'

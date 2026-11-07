@@ -17,11 +17,33 @@ export async function POST(req: NextRequest) {
       context?: any;
     };
 
-    if (!rawProposal || !rawProposal.actionType || !rawProposal.campaignId) {
+    if (!rawProposal || !rawProposal.actionType) {
       return NextResponse.json(
-        { error: 'Invalid proposal: actionType and campaignId are required' },
+        { error: 'Invalid proposal: actionType is required' },
         { status: 400 }
       );
+    }
+    const requiresCampaignId = rawProposal.actionType !== 'CREATE_CAMPAIGN';
+    if (requiresCampaignId && !rawProposal.campaignId) {
+      return NextResponse.json(
+        { error: `Invalid proposal: campaignId is required for ${rawProposal.actionType}` },
+        { status: 400 }
+      );
+    }
+    if (rawProposal.actionType === 'CREATE_CAMPAIGN') {
+      const payload = rawProposal.payload || {};
+      if (!String(payload.name || rawProposal.campaignName || '').trim()) {
+        return NextResponse.json(
+          { error: 'Invalid proposal: campaign name is required to create a campaign' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isFinite(Number(payload.budgetDaily)) || Number(payload.budgetDaily) <= 0) {
+        return NextResponse.json(
+          { error: 'Invalid proposal: a positive daily budget is required to create a campaign' },
+          { status: 400 }
+        );
+      }
     }
     const proposal: ProposedAccountChange = {
       ...rawProposal,
@@ -295,7 +317,7 @@ export async function POST(req: NextRequest) {
     console.error('Error in /api/ai/chat/execute:', err);
     return NextResponse.json(
       { error: err.message || 'Execution failed due to an unexpected error.' },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
