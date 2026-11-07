@@ -314,13 +314,12 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    let requestedCampaign =
-      resolveCampaignReference(message, toolContext.campaigns) ||
-      [...conversationHistory]
-        .reverse()
-        .filter((turn: any) => turn.role === 'user' || turn.role === 'assistant')
-        .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
-        .find(Boolean);
+    const previousUserCampaign = [...conversationHistory]
+      .reverse()
+      .filter((turn: any) => turn.role === 'user')
+      .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
+      .find(Boolean);
+    let requestedCampaign = resolveCampaignReference(message, toolContext.campaigns) || previousUserCampaign;
     const lowerMessage = message.toLowerCase();
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
     const isExplicitMutation =

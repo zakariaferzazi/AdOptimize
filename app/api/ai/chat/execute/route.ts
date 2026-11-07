@@ -7,7 +7,7 @@ import {
   createGoogleAdsCampaign,
   queryLiveCampaigns,
 } from '@/lib/google-ads-api';
-import { ProposedAccountChange } from '@/types/adoptimize';
+import { AuditLog, ProposedAccountChange } from '@/types/adoptimize';
 
 export async function POST(req: NextRequest) {
   try {
@@ -102,6 +102,28 @@ export async function POST(req: NextRequest) {
       throw new Error('Google Ads did not return the requested campaign settings after the mutation. No success was reported.');
     };
 
+    const createAuditLog = (
+      campaignId: string,
+      campaignName: string,
+      previousValue: string,
+      newValue: string,
+      reason: string,
+      actionType: AuditLog['actionType']
+    ): AuditLog => ({
+      id: `audit-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      campaignId,
+      campaignName,
+      actionType,
+      previousValue,
+      newValue,
+      reason,
+      source: 'USER',
+      userOrSystem: 'Authorized User via AI Marketing Agent',
+      status: 'EXECUTED',
+      canRevert: true,
+    });
+
     switch (proposal.actionType) {
       case 'CREATE_CAMPAIGN': {
         const draft = proposal.payload || {};
@@ -140,7 +162,18 @@ export async function POST(req: NextRequest) {
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { budgetDaily: Number(newDailyBudget) });
         result = {
           success: true,
-          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          data: {
+            updatedCampaign: verifiedCampaign,
+            verifiedCampaign,
+            auditLog: createAuditLog(
+              proposal.campaignId,
+              verifiedCampaign.name,
+              proposal.currentSettings,
+              proposal.proposedChanges,
+              proposal.reason,
+              'BUDGET_CHANGE'
+            ),
+          },
           message: `Daily budget updated and verified in Google Ads for "${verifiedCampaign.name}".`,
         };
         break;
@@ -159,7 +192,18 @@ export async function POST(req: NextRequest) {
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'PAUSED' });
         result = {
           success: true,
-          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          data: {
+            updatedCampaign: verifiedCampaign,
+            verifiedCampaign,
+            auditLog: createAuditLog(
+              proposal.campaignId,
+              verifiedCampaign.name,
+              proposal.currentSettings,
+              proposal.proposedChanges,
+              proposal.reason,
+              'CAMPAIGN_STATUS_CHANGE'
+            ),
+          },
           message: `Campaign "${verifiedCampaign.name}" was paused and verified in Google Ads.`,
         };
         break;
@@ -178,7 +222,18 @@ export async function POST(req: NextRequest) {
         const verifiedCampaign = await verifyCampaign(proposal.campaignId, { status: 'ENABLED' });
         result = {
           success: true,
-          data: { updatedCampaign: verifiedCampaign, verifiedCampaign },
+          data: {
+            updatedCampaign: verifiedCampaign,
+            verifiedCampaign,
+            auditLog: createAuditLog(
+              proposal.campaignId,
+              verifiedCampaign.name,
+              proposal.currentSettings,
+              proposal.proposedChanges,
+              proposal.reason,
+              'CAMPAIGN_STATUS_CHANGE'
+            ),
+          },
           message: `Campaign "${verifiedCampaign.name}" was enabled and verified in Google Ads.`,
         };
         break;
