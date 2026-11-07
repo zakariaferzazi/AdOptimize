@@ -77,6 +77,16 @@ export function resolveCampaignReference(query: string | undefined, campaigns: C
     const name = campaign.name.toLowerCase();
     if (name.includes(rawQuery) || rawQuery.includes(name)) return campaign;
     const campaignTokens = new Set(normalize(campaign.name));
+    const campaignNameFullyMentioned = [...campaignTokens].every((candidate) =>
+      [...queryTokens].some((token) =>
+        candidate === token ||
+        candidate.includes(token) ||
+        token.includes(candidate) ||
+        (Math.min(candidate.length, token.length) >= 5 &&
+          tokenDistance(candidate, token) <= Math.max(1, Math.floor(Math.min(candidate.length, token.length) * 0.2)))
+      )
+    );
+    if (campaignTokens.size > 0 && campaignNameFullyMentioned) return campaign;
     const matchedTokens = [...queryTokens].filter((token) =>
       [...campaignTokens].some((candidate) =>
         candidate === token ||

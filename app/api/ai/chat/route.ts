@@ -314,10 +314,19 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    const requestedCampaign = resolveCampaignReference(message, toolContext.campaigns);
+    const requestedCampaign =
+      resolveCampaignReference(message, toolContext.campaigns) ||
+      [...conversationHistory]
+        .reverse()
+        .filter((turn: any) => turn.role === 'user' || turn.role === 'assistant')
+        .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
+        .find(Boolean);
     const lowerMessage = message.toLowerCase();
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
-    const isExplicitMutation = /\b(pause|paused|enable|enabled|resume|resuming|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage) || isCreateCampaign;
+    const isExplicitMutation =
+      /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
+      /\b(make|set|turn)\s+(it|this|that)\s+(enable|enabled|pause|paused|active|off)\b/.test(lowerMessage) ||
+      isCreateCampaign;
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
     if (isCreateCampaign) {
       const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
@@ -336,8 +345,8 @@ RESPONSE FORMATTING GUIDELINES:
       const requestedBudget = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:per\s*day|\/\s*day|daily)?\b/i.exec(message)?.[1];
       evidenceTools.push({
         name: isExplicitMutation
-          ? (/\b(pause|paused|enable|enabled|resume|resuming)\b/.test(lowerMessage)
-            ? (/\b(enable|enabled|resume|resuming)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
+          ? (/\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage)
+            ? (/\b(enable|enabled|resume|resuming|start)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
             : requestedBudget ? 'update_campaign_budget' : 'get_campaign_performance')
           : 'analyze_campaign',
         args: {
