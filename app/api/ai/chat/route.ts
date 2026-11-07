@@ -239,6 +239,13 @@ export async function POST(req: NextRequest) {
     const recentActionProposals = Array.isArray(context.recentActionProposals)
       ? context.recentActionProposals
       : [];
+    const activeCampaignReference =
+      context.activeCampaign && typeof context.activeCampaign === 'object'
+        ? {
+            id: String(context.activeCampaign.id || ''),
+            name: String(context.activeCampaign.name || ''),
+          }
+        : undefined;
     const recentCreatedProposal = [...recentActionProposals]
       .reverse()
       .find((proposal: ProposedAccountChange) =>
@@ -350,8 +357,8 @@ RESPONSE FORMATTING GUIDELINES:
       { role: 'system', content: systemPrompt },
     ];
 
-    // Append up to 8 recent conversation turns
-    const recentHistory = conversationHistory.slice(-8);
+    // Keep enough recent context for natural follow-ups without sending an unbounded transcript.
+    const recentHistory = conversationHistory.slice(-24);
     for (const h of recentHistory) {
       if (h.role === 'user' || h.role === 'assistant') {
         formattedMessages.push({
@@ -362,25 +369,39 @@ RESPONSE FORMATTING GUIDELINES:
     }
 
     const lowerMessage = message.toLowerCase();
-    const requestedBudget = /\b(?:budget|spend)\b[\s\S]{0,24}?(?:\bto\b|\bat\b|\bof\b|:)?\s*\$?(\d+(?:\.\d{1,2})?)\s*(?:\$|dollars?|usd|per\s*day|\/\s*day|daily)?/i.exec(message)?.[1];
-    const isBudgetMutation =
-      requestedBudget !== undefined &&
-      /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust)\b/.test(lowerMessage);
+    const amountMatch =
+      /(?:\b(?:budget|spend|daily|amount|cost|value)\b[\s\S]{0,32}?(?:\bto\b|\bat\b|\bof\b|:|=)?|\b(?:to|at|of|by)\b|\bmake\s+(?:it|this|that)\s+)\s*[^\d]{0,3}(\d+(?:[.,]\d{1,2})?)/i.exec(message);
+    const requestedBudget = amountMatch?.[1]?.replace(',', '.');
+    const isMutationLanguage =
+      /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|switch|turn|pause|enable|disable|resume|stop|start|create|add|remove|delete|launch|draft)\b/.test(lowerMessage);
+    const hasBudgetContext =
+      /\b(budget|spend|daily|per\s*day|\/\s*day|amount)\b/.test(lowerMessage) ||
+      /\b(make|set|change|update|adjust)\s+(it|this|that)\b/.test(lowerMessage);
+    const isBudgetMutation = requestedBudget !== undefined && isMutationLanguage && hasBudgetContext;
+    const isStatusMutation =
+      /\b(pause|paused|enable|enabled|disable|disabled|resume|resuming)\b/.test(lowerMessage) ||
+      (/\b(stop|off)\b/.test(lowerMessage) && /\b(campaign|ads?|advertising|it|this|that)\b/.test(lowerMessage)) ||
+      (/\b(start|turn)\b/.test(lowerMessage) && /\b(on|active|enabled|serving)\b/.test(lowerMessage));
     const resolvedCampaign = resolveCampaignReference(message, toolContext.campaigns);
     const explicitCampaignMention = toolContext.campaigns.some((campaign) => {
-      const campaignWords = campaign.name
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((word) => word.length >= 4);
-      return (
-        lowerMessage.includes(campaign.id.toLowerCase()) ||
-        campaignWords.some((word) => new RegExp(`\\b${word}\\b`).test(lowerMessage))
-      );
+      if (lowerMessage.includes(campaign.id.toLowerCase()) || lowerMessage.includes(campaign.name.toLowerCase())) {
+        return true;
+      }
+      const campaignWords = campaign.name.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length >= 4);
+      const messageWords = new Set(lowerMessage.split(/[^a-z0-9]+/).filter((word) => word.length >= 4));
+      return campaignWords.some((word) => messageWords.has(word));
     });
     const directCampaign =
-      resolvedCampaign && (explicitCampaignMention || !isBudgetMutation)
+      resolvedCampaign && (explicitCampaignMention || !isMutationLanguage)
         ? resolvedCampaign
         : undefined;
+    const isAccountWideRequest = /\b(account|all campaigns|every campaign|overall|across campaigns|each campaign)\b/.test(lowerMessage);
+    const isScopedFollowUp =
+      !isAccountWideRequest &&
+      (
+        isMutationLanguage ||
+        /\b(it|its|this|that|the campaign|for it|for this|for that|the same)\b/.test(lowerMessage)
+      );
     const rememberedCampaign = [...recentActionProposals]
       .reverse()
       .map((proposal: ProposedAccountChange) =>
@@ -394,6 +415,13 @@ RESPONSE FORMATTING GUIDELINES:
       toolContext.campaigns.find(
         (campaign) => String(campaign.id) === String(recentCreatedProposal.campaignId)
       );
+    const contextCampaign =
+      activeCampaignReference &&
+      toolContext.campaigns.find(
+        (campaign) =>
+          String(campaign.id) === activeCampaignReference.id ||
+          campaign.name.toLowerCase() === activeCampaignReference.name.toLowerCase()
+      );
     const previousUserCampaign = [...conversationHistory]
       .reverse()
       .filter((turn: any) => turn.role === 'user')
@@ -401,14 +429,10 @@ RESPONSE FORMATTING GUIDELINES:
       .find(Boolean);
     let requestedCampaign =
       directCampaign ||
-      (isBudgetMutation ? conversationCampaign || rememberedCampaign : undefined) ||
-      previousUserCampaign;
+      (isScopedFollowUp ? contextCampaign || conversationCampaign || rememberedCampaign : undefined) ||
+      (!isMutationLanguage ? previousUserCampaign : undefined);
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
-    const isExplicitMutation =
-      /\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage) ||
-      /\b(make|set|turn)\s+(it|this|that)\s+(enable|enabled|pause|paused|active|off)\b/.test(lowerMessage) ||
-      isBudgetMutation ||
-      isCreateCampaign;
+    const isExplicitMutation = isCreateCampaign || isBudgetMutation || isStatusMutation;
     const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
     const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
     if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
@@ -528,6 +552,9 @@ RESPONSE FORMATTING GUIDELINES:
           reply: `Review the exact change below, then click "${actionLabel}". Nothing has been changed in Google Ads yet.`,
           toolCalls: executedToolCalls,
           actionProposal: capturedProposal,
+          activeCampaign: requestedCampaign
+            ? { id: requestedCampaign.id, name: requestedCampaign.name }
+            : undefined,
           openRouterRequestCount: 0,
         },
         { headers: { 'X-OpenRouter-Requests': '0' } }
@@ -551,16 +578,38 @@ RESPONSE FORMATTING GUIDELINES:
       });
     } catch (error) {
       console.error('[AI Chat] OpenRouter request failed:', error);
-      return NextResponse.json(
-        { success: false, error: 'OpenRouter could not process this request. No account changes were made.' },
-        { status: 502 }
-      );
+      const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
+      return NextResponse.json({
+        success: true,
+        reply: fallback.reply,
+        toolCalls: fallback.executedToolCalls.length > 0 ? fallback.executedToolCalls : undefined,
+        actionProposal: fallback.capturedProposal,
+        recommendations: fallback.interactiveRecommendations.length > 0 ? fallback.interactiveRecommendations : undefined,
+        analysisDetails: fallback.analysisDetails,
+        tableData: fallback.capturedTableData,
+        activeCampaign: requestedCampaign
+          ? { id: requestedCampaign.id, name: requestedCampaign.name }
+          : undefined,
+        modelUsed: 'grounded-account-analyst',
+        openRouterRequestCount: 0,
+      }, { headers: { 'X-OpenRouter-Requests': '0' } });
     }
     if (!response.reply) {
-      return NextResponse.json(
-        { success: false, error: 'OpenRouter returned no usable response. No account changes were made.' },
-        { status: 502 }
-      );
+      const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
+      return NextResponse.json({
+        success: true,
+        reply: fallback.reply,
+        toolCalls: fallback.executedToolCalls.length > 0 ? fallback.executedToolCalls : undefined,
+        actionProposal: fallback.capturedProposal,
+        recommendations: fallback.interactiveRecommendations.length > 0 ? fallback.interactiveRecommendations : undefined,
+        analysisDetails: fallback.analysisDetails,
+        tableData: fallback.capturedTableData,
+        activeCampaign: requestedCampaign
+          ? { id: requestedCampaign.id, name: requestedCampaign.name }
+          : undefined,
+        modelUsed: 'grounded-account-analyst',
+        openRouterRequestCount: 0,
+      }, { headers: { 'X-OpenRouter-Requests': '0' } });
     }
 
     // Build user-friendly analysis details
@@ -595,6 +644,9 @@ RESPONSE FORMATTING GUIDELINES:
       recommendations: interactiveRecommendations.length > 0 ? interactiveRecommendations : undefined,
       analysisDetails,
       tableData: capturedTableData,
+      activeCampaign: requestedCampaign
+        ? { id: requestedCampaign.id, name: requestedCampaign.name }
+        : undefined,
       modelUsed: response.modelUsed || displayName,
       openRouterRequestCount: 1,
     }, { headers: { 'X-OpenRouter-Requests': '1' } });

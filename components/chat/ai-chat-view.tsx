@@ -230,6 +230,24 @@ export function AiChatView({
     return currentSession?.messages || [];
   }, [currentSession]);
 
+  const activeCampaign = useMemo(() => {
+    const latestMessageTarget = [...messages]
+      .reverse()
+      .find((message) => message.activeCampaign);
+    if (latestMessageTarget?.activeCampaign) {
+      return latestMessageTarget.activeCampaign;
+    }
+    const latestProposal = [...messages]
+      .reverse()
+      .map((message) => message.actionProposal)
+      .find((proposal): proposal is ProposedAccountChange =>
+        Boolean(proposal && proposal.status !== 'DECLINED' && proposal.status !== 'FAILED')
+      );
+    return latestProposal
+      ? { id: latestProposal.campaignId, name: latestProposal.campaignName }
+      : undefined;
+  }, [messages]);
+
   // Track if user is scrolled near bottom
   const handleScroll = () => {
     if (!chatScrollContainerRef.current) return;
@@ -327,7 +345,12 @@ export function AiChatView({
     const pendingProposalMessage = [...messages]
       .reverse()
       .find((message) => message.role === 'assistant' && message.actionProposal?.status === 'PENDING_APPROVAL');
-    const isApprovalReply = /^(yes|yes please|approve|approved|confirm|confirmed|confirm it|approve it|do it|go ahead|enable it|pause it|create it)$/i.test(query);
+    const approvalReply = query
+      .toLowerCase()
+      .replace(/[.!?,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const isApprovalReply = /^(yes|y|ok|okay|sure|approve|approved|confirm|confirmed|do it|go ahead|apply it|apply this|proceed|proceed with it|enable it|pause it|create it)( please| it| this| now| please do it| please apply)?$/i.test(approvalReply);
     if (pendingProposalMessage && isApprovalReply) {
       setInputValue('');
       await handleApproveProposal(pendingProposalMessage.actionProposal!, pendingProposalMessage.id);
@@ -406,6 +429,7 @@ export function AiChatView({
             recentActionProposals: messages
               .map((message) => message.actionProposal)
               .filter(Boolean),
+            activeCampaign,
           },
         }),
       });
@@ -426,6 +450,7 @@ export function AiChatView({
         recommendations: data.recommendations,
         analysisDetails: data.analysisDetails,
         tableData: data.tableData,
+        activeCampaign: data.activeCampaign,
         modelUsed: data.modelUsed,
       };
 

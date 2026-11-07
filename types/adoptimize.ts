@@ -376,6 +376,10 @@ export interface ChatMessage {
     caption?: string;
   };
   modelUsed?: string;
+  activeCampaign?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ChatConversation {
