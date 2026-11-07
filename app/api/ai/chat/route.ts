@@ -317,7 +317,7 @@ RESPONSE FORMATTING GUIDELINES:
     const requestedCampaign = resolveCampaignReference(message, toolContext.campaigns);
     const lowerMessage = message.toLowerCase();
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
-    const isExplicitMutation = /\b(pause|enable|resume|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage) || isCreateCampaign;
+    const isExplicitMutation = /\b(pause|paused|enable|enabled|resume|resuming|set|increase|decrease|reduce|raise|lower)\b/.test(lowerMessage) || isCreateCampaign;
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
     if (isCreateCampaign) {
       const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
@@ -336,8 +336,8 @@ RESPONSE FORMATTING GUIDELINES:
       const requestedBudget = /\b(?:to|at|of)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:per\s*day|\/\s*day|daily)?\b/i.exec(message)?.[1];
       evidenceTools.push({
         name: isExplicitMutation
-          ? (/\b(pause|enable|resume)\b/.test(lowerMessage)
-            ? (/\b(enable|resume)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
+          ? (/\b(pause|paused|enable|enabled|resume|resuming)\b/.test(lowerMessage)
+            ? (/\b(enable|enabled|resume|resuming)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
             : requestedBudget ? 'update_campaign_budget' : 'get_campaign_performance')
           : 'analyze_campaign',
         args: {

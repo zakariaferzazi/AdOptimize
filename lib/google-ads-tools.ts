@@ -56,15 +56,43 @@ export function resolveCampaignReference(query: string | undefined, campaigns: C
   if (exactId) return exactId;
   const queryTokens = new Set(normalize(query));
   if (queryTokens.size === 0) return undefined;
+  const tokenDistance = (left: string, right: string): number => {
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= left.length; i += 1) {
+      const current = [i];
+      for (let j = 1; j <= right.length; j += 1) {
+        current[j] = Math.min(
+          current[j - 1] + 1,
+          previous[j] + 1,
+          previous[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1)
+        );
+      }
+      for (let j = 0; j <= right.length; j += 1) previous[j] = current[j];
+    }
+    return previous[right.length];
+  };
   let best: Campaign | undefined;
   let bestScore = 0;
   for (const campaign of campaigns) {
     const name = campaign.name.toLowerCase();
     if (name.includes(rawQuery) || rawQuery.includes(name)) return campaign;
     const campaignTokens = new Set(normalize(campaign.name));
-    const overlap = [...queryTokens].filter((token) => campaignTokens.has(token)).length;
+    const matchedTokens = [...queryTokens].filter((token) =>
+      [...campaignTokens].some((candidate) =>
+        candidate === token ||
+        candidate.includes(token) ||
+        token.includes(candidate) ||
+        (Math.min(token.length, candidate.length) >= 5 &&
+          tokenDistance(token, candidate) <= Math.max(1, Math.floor(Math.min(token.length, candidate.length) * 0.2)))
+      )
+    );
+    const overlap = matchedTokens.length;
     const score = (overlap / queryTokens.size) * 0.7 + (overlap / campaignTokens.size) * 0.3;
-    if (overlap >= 2 && overlap / queryTokens.size >= 0.5 && score > bestScore) {
+    if (
+      overlap >= Math.min(2, queryTokens.size) &&
+      overlap / queryTokens.size >= 0.5 &&
+      score > bestScore
+    ) {
       best = campaign;
       bestScore = score;
     }
