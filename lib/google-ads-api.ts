@@ -1711,6 +1711,16 @@ export async function createGoogleAdsCampaign(
             advertisingChannelType: validChannel,
             campaignBudget: `customers/${cleanCid}/campaignBudgets/-1`,
             manualCpc: {},
+            ...(validChannel === 'SEARCH'
+              ? {
+                  networkSettings: {
+                    targetGoogleSearch: true,
+                    targetSearchNetwork: true,
+                    targetContentNetwork: false,
+                    targetPartnerSearchNetwork: false,
+                  },
+                }
+              : {}),
           },
         },
       },
