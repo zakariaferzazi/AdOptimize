@@ -383,6 +383,48 @@ RESPONSE FORMATTING GUIDELINES:
       if (result.recommendationCards) interactiveRecommendations.push(...result.recommendationCards);
     }
 
+    // Mutations must not depend on a second-party model response. The local
+    // action resolver has already identified the exact campaign and payload.
+    if (isExplicitMutation) {
+      if (!capturedProposal) {
+        const actionFailure = evidence.find((item) => {
+          const value = item.result as { error?: string } | undefined;
+          return Boolean(value?.error);
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: actionFailure
+              ? `The requested Google Ads action was not prepared: ${(actionFailure.result as { error: string }).error}`
+              : 'The requested Google Ads action could not be prepared. No account changes were made.',
+            openRouterRequestCount: 0,
+          },
+          { status: 422 }
+        );
+      }
+
+      const actionLabel =
+        capturedProposal.actionType === 'ENABLE_CAMPAIGN'
+          ? 'Enable campaign'
+          : capturedProposal.actionType === 'PAUSE_CAMPAIGN'
+          ? 'Pause campaign'
+          : capturedProposal.actionType === 'CREATE_CAMPAIGN'
+          ? 'Create paused campaign'
+          : 'Apply change';
+
+      console.info(`[AI Chat] Mutation prepared locally: ${capturedProposal.actionType}; OpenRouter requests: 0`);
+      return NextResponse.json(
+        {
+          success: true,
+          reply: `Review the exact change below, then click "${actionLabel}". Nothing has been changed in Google Ads yet.`,
+          toolCalls: executedToolCalls,
+          actionProposal: capturedProposal,
+          openRouterRequestCount: 0,
+        },
+        { headers: { 'X-OpenRouter-Requests': '0' } }
+      );
+    }
+
     // Append the new user query and the already-fetched evidence. OpenRouter only
     // writes the response; it does not need a second call to execute or summarize tools.
     formattedMessages.push({
