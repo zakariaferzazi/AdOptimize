@@ -27,8 +27,8 @@ export function resolveModelId(modelOrTier: string = 'gemini'): string {
 
 export function getModelDisplayName(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'Pro Model';
-  if (normalized === 'chatgpt' || normalized === 'balanced') return 'Balanced Model';
+  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'DeepSeek';
+  if (normalized === 'chatgpt' || normalized === 'balanced') return 'ChatGPT';
   return 'Fast Model';
 }
 

@@ -278,7 +278,7 @@ export const GOOGLE_ADS_TOOL_DEFINITIONS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'create_campaign',
-      description: 'Prepare a confirmation proposal to create a paused Google Ads campaign draft with the user-specified name, daily budget, and channel.',
+      description: 'Prepare a confirmation action to create a paused Google Ads campaign draft with the user-specified name, daily budget, and channel.',
       parameters: {
         type: 'object',
         properties: {
@@ -1021,7 +1021,7 @@ export async function executeGoogleAdsTool(
         return { success: false, error: 'Daily budget must be a positive number.' };
       }
 
-      // If user has NOT explicitly confirmed yet, return a ProposedAccountChange confirmation card
+      // Return a confirmation card before any live campaign mutation.
       if (!args.isConfirmed) {
         const proposal: ProposedAccountChange = {
           id: `prop-budget-${Date.now()}`,

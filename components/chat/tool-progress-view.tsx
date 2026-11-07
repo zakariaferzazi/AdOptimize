@@ -96,23 +96,23 @@ const TOOL_FRIENDLY_MAP: Record<
     icon: Sliders,
   },
   propose_campaign_status_change: {
-    label: 'Prepared transparent campaign status change proposal',
-    activeText: 'Preparing campaign change proposal...',
+    label: 'Prepared campaign status change for confirmation',
+    activeText: 'Preparing campaign status change...',
     icon: ShieldCheck,
   },
   propose_campaign_budget_change: {
-    label: 'Prepared transparent daily budget modification proposal',
-    activeText: 'Preparing budget modification proposal...',
+    label: 'Prepared daily budget change for confirmation',
+    activeText: 'Preparing budget change...',
     icon: ShieldCheck,
   },
   update_campaign_budget: {
-    label: 'Prepared campaign budget update proposal',
+    label: 'Prepared campaign budget change for confirmation',
     activeText: 'Preparing budget update...',
     icon: Sliders,
   },
   pause_campaign: {
-    label: 'Prepared campaign pause proposal',
-    activeText: 'Preparing campaign pause proposal...',
+    label: 'Prepared campaign pause for confirmation',
+    activeText: 'Preparing campaign pause...',
     icon: ShieldCheck,
   },
 };

@@ -45,7 +45,7 @@ export function ActionProposalCard({
           </div>
           <div>
             <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider">
-              Proposed Google Ads Change
+              Confirm Google Ads Action
             </h4>
             <p className="text-[11px] text-slate-500">
               Explicit user approval required before any changes are applied
@@ -97,7 +97,7 @@ export function ActionProposalCard({
           </div>
           <div>
             <span className="text-[10px] font-bold text-[#00a85e] uppercase tracking-wider block mb-0.5">
-              Proposed Change
+              Change to Apply
             </span>
             <span className="font-mono text-slate-950 font-bold text-xs">
               {proposal.proposedChanges}

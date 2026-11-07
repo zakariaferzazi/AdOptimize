@@ -152,16 +152,16 @@ I analyzed your daily pacing across **${campaigns.length} campaigns** to evaluat
 ## Recommended Next Steps
 Ask me to prepare the budget update for any campaign when you are ready to review and apply the change in Google Ads.`;
   } else if (capturedProposal) {
-    reply = `## Change Prepared for ${capturedProposal.campaignName}
-I have prepared the requested Google Ads modification. Because this will affect live auctions and ad delivery, it requires your explicit approval before being applied.
+    reply = `## Confirm Change for ${capturedProposal.campaignName}
+The requested Google Ads change is ready. It will not be sent until you click the confirmation button.
 
 Please review the details in the confirmation card below:
 - **Campaign**: **${capturedProposal.campaignName}**
-- **Proposed Modification**: ${capturedProposal.proposedChanges}
+- **Change to Apply**: ${capturedProposal.proposedChanges}
 - **Reason**: ${capturedProposal.reason}
 - **Potential Risks**: ${capturedProposal.potentialRisks}
 
-Click **Approve & Execute Change** below to execute this in Google Ads.`;
+Click the action button below to apply this exact change in Google Ads.`;
   } else {
     reply = `## Account Performance Audit
 Here is the current performance summary for **${account.accountName}**:
@@ -272,7 +272,7 @@ OPERATING RULES:
 1. Determine the user's exact objective and scope before acting. If the request is ambiguous, ask one short clarification question and do not call a tool.
 2. Use the live-data status below and tools as the source of truth. Never invent metrics, causes, recommendations, campaign names, or completed actions.
 3. Analysis requests are read-only. Action requests must affect only the named campaign or setting.
-4. Action tools create approval proposals. Never claim a change was executed until the user approves it and the execution endpoint reports success.
+4. Action requests must return a clear confirmation action. Never claim a change was executed until the user confirms it and the execution endpoint reports success.
 5. After a confirmed mutation, verify the changed campaign through fresh Google Ads data before reporting success.
 6. Respect the account currency and the available reporting window. If a requested date range is unavailable, say so instead of silently substituting another range.
 7. Campaign references may be informal or shortened. Match the user's meaningful campaign words to the closest actual campaign name returned by the account; for example, "dress better ai app" refers to "Dress Better AI promotion-App". Only ask for clarification when multiple campaigns are genuinely plausible.
@@ -293,7 +293,7 @@ RESPONSE FORMATTING GUIDELINES:
    - Format ROAS as X.Xx (e.g. 3.40x).
    - Format CPA as $XX.XX.
    - Bold important metric names and values.
-4. The server has already retrieved the relevant evidence before this request. Do not request tools or claim to have performed a new action. For explicit changes, describe the prepared confirmation proposal supplied in the evidence; for recommendations, remain read-only.
+4. The server has already retrieved the relevant evidence before this request. Do not request tools or claim to have performed a new action. For explicit changes, describe the confirmation action supplied in the evidence; for recommendations, remain read-only.
 5. NEVER mention internal function names (e.g. "get_account_performance", "find_wasted_spend").
 6. NEVER mention API keys, JSON payloads, or developer terms. Speak strictly in business and PPC advertising terms.
 8. Support natural conversational follow-ups (e.g. "Explain the first one", "Pause it", "Show me search terms for it") by referencing the campaigns and data discussed earlier in the conversation history.
@@ -432,7 +432,7 @@ RESPONSE FORMATTING GUIDELINES:
     }
 
     const actionReply = capturedProposal
-      ? `The ${capturedProposal.actionType === 'ENABLE_CAMPAIGN' ? 'campaign enable' : capturedProposal.actionType === 'PAUSE_CAMPAIGN' ? 'campaign pause' : 'requested'} action is ready. Review the change below, then click the action button to apply it in Google Ads. Nothing has been changed yet.`
+      ? `I found the requested campaign action. Review the details below, then click the confirmation button to apply it in Google Ads. Nothing has been changed yet.`
       : response.reply;
 
     console.info(`[AI Chat] OpenRouter requests for user message: 1; precomputed tools: ${executedToolCalls.map((tool) => tool.name).join(', ') || 'none'}`);

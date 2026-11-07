@@ -634,28 +634,28 @@ export function AiChatView({
   // User-facing tiers keep the configured provider and model names private.
   const aiModelDetails: Record<string, { label: string; icon: any }> = {
     deepseek: {
-      label: 'Pro Model',
+      label: 'DeepSeek',
       icon: DeepSeekIcon,
     },
     chatgpt: {
-      label: 'Balanced Model',
+      label: 'ChatGPT',
       icon: ChatGPTIcon,
     },
     gemini: {
-      label: 'Fast Model',
+      label: 'Gemini',
       icon: GeminiIcon,
     },
     // Backwards-compatible aliases for previously cached sessions in localStorage
     fast: {
-      label: 'Fast Model',
+      label: 'Gemini',
       icon: GeminiIcon,
     },
     balanced: {
-      label: 'Balanced Model',
+      label: 'ChatGPT',
       icon: ChatGPTIcon,
     },
     advanced: {
-      label: 'Pro Model',
+      label: 'DeepSeek',
       icon: DeepSeekIcon,
     },
   };
@@ -1016,10 +1016,10 @@ export function AiChatView({
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider">
-                            Google Ads Action · Confirmation Required
+                            Confirm Google Ads Action
                           </h4>
                           <p className="text-[11px] text-slate-500">
-                            Review the change and click the action button to apply it
+                            Review the details, then click the button below to apply this exact change
                           </p>
                         </div>
                       </div>
@@ -1062,7 +1062,7 @@ export function AiChatView({
                         </div>
                         <div>
                           <span className="text-[11px] font-bold text-[#00a85e] uppercase tracking-wider block">
-                            Proposed Modifications
+                            Change to Apply
                           </span>
                           <span className="font-mono text-slate-950 font-bold">
                             {message.actionProposal.proposedChanges}
