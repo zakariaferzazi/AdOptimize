@@ -4,6 +4,7 @@ import { executeGoogleAdsTool, resolveCampaignReference, ToolContext } from '@/l
 import { Campaign, ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 import { queryLiveCampaigns } from '@/lib/google-ads-api';
+import { registerChatProposal, supersedeChatProposal } from '@/lib/chat-proposal-store';
 
 /**
  * Intelligent deterministic optimization engine.
@@ -373,7 +374,7 @@ RESPONSE FORMATTING GUIDELINES:
       /(?:\b(?:budget|spend|daily|amount|cost|value)\b[\s\S]{0,32}?(?:\bto\b|\bat\b|\bof\b|:|=)?|\b(?:to|at|of|by)\b|\bmake\s+(?:it|this|that)\s+)\s*[^\d]{0,3}(\d+(?:[.,]\d{1,2})?)/i.exec(message);
     const requestedBudget = amountMatch?.[1]?.replace(',', '.');
     const isMutationLanguage =
-      /\b(change|set|update|make|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|switch|turn|pause|enable|disable|resume|stop|start|create|add|remove|delete|launch|draft)\b/.test(lowerMessage);
+      /\b(change|set|update|make|want|need|would like|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|switch|turn|pause|enable|disable|resume|stop|start|create|add|remove|delete|launch|draft)\b/.test(lowerMessage);
     const hasBudgetContext =
       /\b(budget|spend|daily|per\s*day|\/\s*day|amount)\b/.test(lowerMessage) ||
       /\b(make|set|change|update|adjust)\s+(it|this|that)\b/.test(lowerMessage);
@@ -433,6 +434,14 @@ RESPONSE FORMATTING GUIDELINES:
       (!isMutationLanguage ? previousUserCampaign : undefined);
     const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
     const isExplicitMutation = isCreateCampaign || isBudgetMutation || isStatusMutation;
+    const pendingProposalToRevise = [...recentActionProposals]
+      .reverse()
+      .find((proposal: ProposedAccountChange) => proposal.status === 'PENDING_APPROVAL');
+    const supersededProposalId =
+      pendingProposalToRevise &&
+      (isBudgetMutation || /\b(revise|edit|change|update|modify)\b/.test(lowerMessage))
+        ? pendingProposalToRevise.id
+        : undefined;
     const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
     const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
     if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
@@ -453,17 +462,27 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
-    if (isCreateCampaign) {
+    const pendingCreateProposal =
+      pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' ? pendingProposalToRevise : undefined;
+    if (isCreateCampaign || (pendingCreateProposal && isBudgetMutation)) {
       const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
       const namedCampaign = /(?:called|named)\s+([^,.;]+?)(?=\s+(?:with|at|on)\b|$)/i.exec(message)?.[1];
-      const budget = /(?:budget|spend)\s*(?:of|at|to)?\s*\$?\s*(\d+(?:\.\d{1,2})?)/i.exec(message)?.[1] || '10';
+      const pendingPayload = pendingCreateProposal?.payload || {};
+      const budget = requestedBudget ||
+        String(pendingPayload.budgetDaily || '10');
       evidenceTools.push({
         name: 'create_campaign',
         args: {
-          name: (quotedName || namedCampaign || 'New Google Ads Campaign').trim(),
+          name: (quotedName || namedCampaign || pendingCreateProposal?.campaignName || 'New Google Ads Campaign').trim(),
           budgetDaily: Number(budget),
-          channelType: /\b(performance max|pmax)\b/i.test(message) ? 'PERFORMANCE_MAX' : /\b(display)\b/i.test(message) ? 'DISPLAY' : 'SEARCH',
-          reason: 'User requested a campaign draft through the AI Marketing Agent.',
+          channelType: /\b(performance max|pmax)\b/i.test(message)
+            ? 'PERFORMANCE_MAX'
+            : /\b(display)\b/i.test(message)
+            ? 'DISPLAY'
+            : String(pendingPayload.channelType || 'SEARCH'),
+          reason: pendingCreateProposal
+            ? 'User revised the pending campaign proposal through the AI Marketing Agent.'
+            : 'User requested a campaign draft through the AI Marketing Agent.',
         },
       });
     } else if (requestedCampaign) {
@@ -545,6 +564,12 @@ RESPONSE FORMATTING GUIDELINES:
           ? 'Create paused campaign'
           : 'Apply change';
 
+      if (supersededProposalId) supersedeChatProposal(supersededProposalId);
+      capturedProposal = registerChatProposal({
+        ...capturedProposal,
+        supersedesProposalId: supersededProposalId,
+        revision: (pendingProposalToRevise?.revision || 0) + 1,
+      });
       console.info(`[AI Chat] Mutation prepared locally: ${capturedProposal.actionType}; OpenRouter requests: 0`);
       return NextResponse.json(
         {
@@ -552,6 +577,7 @@ RESPONSE FORMATTING GUIDELINES:
           reply: `Review the exact change below, then click "${actionLabel}". Nothing has been changed in Google Ads yet.`,
           toolCalls: executedToolCalls,
           actionProposal: capturedProposal,
+          supersededProposalId,
           activeCampaign: requestedCampaign
             ? { id: requestedCampaign.id, name: requestedCampaign.name }
             : undefined,
@@ -579,11 +605,20 @@ RESPONSE FORMATTING GUIDELINES:
     } catch (error) {
       console.error('[AI Chat] OpenRouter request failed:', error);
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
+      const fallbackProposal = fallback.capturedProposal
+        ? registerChatProposal({
+            ...fallback.capturedProposal,
+            supersedesProposalId: supersededProposalId,
+            revision: (pendingProposalToRevise?.revision || 0) + 1,
+          })
+        : undefined;
+      if (supersededProposalId && fallbackProposal) supersedeChatProposal(supersededProposalId);
       return NextResponse.json({
         success: true,
         reply: fallback.reply,
         toolCalls: fallback.executedToolCalls.length > 0 ? fallback.executedToolCalls : undefined,
-        actionProposal: fallback.capturedProposal,
+        actionProposal: fallbackProposal,
+        supersededProposalId: fallbackProposal ? supersededProposalId : undefined,
         recommendations: fallback.interactiveRecommendations.length > 0 ? fallback.interactiveRecommendations : undefined,
         analysisDetails: fallback.analysisDetails,
         tableData: fallback.capturedTableData,
@@ -596,11 +631,20 @@ RESPONSE FORMATTING GUIDELINES:
     }
     if (!response.reply) {
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
+      const fallbackProposal = fallback.capturedProposal
+        ? registerChatProposal({
+            ...fallback.capturedProposal,
+            supersedesProposalId: supersededProposalId,
+            revision: (pendingProposalToRevise?.revision || 0) + 1,
+          })
+        : undefined;
+      if (supersededProposalId && fallbackProposal) supersedeChatProposal(supersededProposalId);
       return NextResponse.json({
         success: true,
         reply: fallback.reply,
         toolCalls: fallback.executedToolCalls.length > 0 ? fallback.executedToolCalls : undefined,
-        actionProposal: fallback.capturedProposal,
+        actionProposal: fallbackProposal,
+        supersededProposalId: fallbackProposal ? supersededProposalId : undefined,
         recommendations: fallback.interactiveRecommendations.length > 0 ? fallback.interactiveRecommendations : undefined,
         analysisDetails: fallback.analysisDetails,
         tableData: fallback.capturedTableData,
@@ -635,12 +679,21 @@ RESPONSE FORMATTING GUIDELINES:
       ? `I found the requested campaign action. Review the details below, then click the confirmation button to apply it in Google Ads. Nothing has been changed yet.`
       : response.reply;
 
+    const registeredProposal = capturedProposal
+      ? registerChatProposal({
+          ...capturedProposal,
+          supersedesProposalId: supersededProposalId,
+          revision: (pendingProposalToRevise?.revision || 0) + 1,
+        })
+      : undefined;
+    if (supersededProposalId && registeredProposal) supersedeChatProposal(supersededProposalId);
     console.info(`[AI Chat] OpenRouter requests for user message: 1; precomputed tools: ${executedToolCalls.map((tool) => tool.name).join(', ') || 'none'}`);
     return NextResponse.json({
       success: true,
       reply: actionReply,
       toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
-      actionProposal: capturedProposal,
+      actionProposal: registeredProposal,
+      supersededProposalId: registeredProposal ? supersededProposalId : undefined,
       recommendations: interactiveRecommendations.length > 0 ? interactiveRecommendations : undefined,
       analysisDetails,
       tableData: capturedTableData,

@@ -306,7 +306,10 @@ export interface ProposedAccountChange {
   reason: string;
   evidence: string;
   potentialRisks: string;
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED';
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED' | 'SUPERSEDED';
+  revision?: number;
+  approvalToken?: string;
+  supersedesProposalId?: string;
   executionResult?: string;
   appliedAt?: string;
   payload?: Record<string, any>;

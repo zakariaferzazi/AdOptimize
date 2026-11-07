@@ -8,8 +8,10 @@ import {
   queryLiveCampaigns,
 } from '@/lib/google-ads-api';
 import { AuditLog, ProposedAccountChange } from '@/types/adoptimize';
+import { consumeChatProposalAuthorization, restoreChatProposalAfterFailure } from '@/lib/chat-proposal-store';
 
 export async function POST(req: NextRequest) {
+  let consumedProposalId: string | undefined;
   try {
     const body = await req.json();
     const { proposal: rawProposal, context = {} } = body as {
@@ -45,8 +47,13 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+    const authorization = consumeChatProposalAuthorization(rawProposal, rawProposal.approvalToken);
+    if (!authorization.valid) {
+      return NextResponse.json({ error: authorization.error }, { status: 409 });
+    }
+    consumedProposalId = authorization.proposal.id;
     const proposal: ProposedAccountChange = {
-      ...rawProposal,
+      ...authorization.proposal,
       reason: rawProposal.reason || 'User confirmed this Google Ads action.',
       evidence: rawProposal.evidence || 'Confirmed by the user from the action card.',
       potentialRisks: rawProposal.potentialRisks || 'This change may affect campaign delivery or spend.',
@@ -67,6 +74,7 @@ export async function POST(req: NextRequest) {
       rules: context.rules || [],
       accessToken: context.accessToken,
     };
+
 
     let result: {
       success: boolean;
@@ -292,6 +300,7 @@ export async function POST(req: NextRequest) {
       }
 
       default: {
+        restoreChatProposalAfterFailure(consumedProposalId);
         return NextResponse.json(
           { error: `Unsupported proposal action: ${proposal.actionType}` },
           { status: 400 }
@@ -300,6 +309,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!result.success) {
+      restoreChatProposalAfterFailure(consumedProposalId);
       return NextResponse.json(
         { error: result.error || 'Failed to execute proposed change in Google Ads.' },
         { status: 400 }
@@ -314,6 +324,7 @@ export async function POST(req: NextRequest) {
       executedAt: new Date().toISOString(),
     });
   } catch (err: any) {
+    if (consumedProposalId) restoreChatProposalAfterFailure(consumedProposalId);
     console.error('Error in /api/ai/chat/execute:', err);
     return NextResponse.json(
       { error: err.message || 'Execution failed due to an unexpected error.' },

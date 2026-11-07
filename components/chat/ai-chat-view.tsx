@@ -342,20 +342,6 @@ export function AiChatView({
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
     if (!query || isLoading) return;
-    const pendingProposalMessage = [...messages]
-      .reverse()
-      .find((message) => message.role === 'assistant' && message.actionProposal?.status === 'PENDING_APPROVAL');
-    const approvalReply = query
-      .toLowerCase()
-      .replace(/[.!?,]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const isApprovalReply = /^(yes|y|ok|okay|sure|approve|approved|confirm|confirmed|do it|go ahead|apply it|apply this|proceed|proceed with it|enable it|pause it|create it)( please| it| this| now| please do it| please apply)?$/i.test(approvalReply);
-    if (pendingProposalMessage && isApprovalReply) {
-      setInputValue('');
-      await handleApproveProposal(pendingProposalMessage.actionProposal!, pendingProposalMessage.id);
-      return;
-    }
     const requestSessionId = currentSessionId;
 
     setErrorMessage(null);
@@ -454,7 +440,22 @@ export function AiChatView({
         modelUsed: data.modelUsed,
       };
 
-      const finalMessages = [...updatedMessages, assistantMessage];
+      const supersededProposalId = data.supersededProposalId as string | undefined;
+      const messagesWithSupersession = supersededProposalId
+        ? updatedMessages.map((message) =>
+            message.actionProposal?.id === supersededProposalId
+              ? {
+                  ...message,
+                  actionProposal: {
+                    ...message.actionProposal,
+                    status: 'SUPERSEDED' as const,
+                    executionResult: 'This proposal was replaced by a newer version. Only the latest proposal can be approved.',
+                  },
+                }
+              : message
+          )
+        : updatedMessages;
+      const finalMessages = [...messagesWithSupersession, assistantMessage];
       updateSessions((current) =>
         current.map((s) =>
           s.id === requestSessionId
@@ -561,7 +562,7 @@ export function AiChatView({
 
   // Safe Account Change Execution
   const handleApproveProposal = async (proposal: ProposedAccountChange, messageId: string) => {
-    if (!proposal || !proposal.actionType || !proposal.campaignId) {
+    if (!proposal || !proposal.actionType || !proposal.campaignId || !proposal.approvalToken) {
       updateSessions((current) =>
         current.map((s) =>
           s.id === currentSessionId
@@ -574,7 +575,7 @@ export function AiChatView({
                         actionProposal: {
                           ...msg.actionProposal,
                           status: 'FAILED',
-                          executionResult: 'This action card is incomplete. Please send the request again.',
+                          executionResult: 'This approval is no longer valid. Request the action again and approve the latest card.',
                         },
                       }
                     : msg
@@ -666,8 +667,8 @@ export function AiChatView({
                     ...msg,
                     actionProposal: {
                       ...msg.actionProposal,
-                      status: 'PENDING_APPROVAL',
-                      executionResult: `${err.message || 'Execution failed.'} No changes were confirmed. You can retry the approval.`,
+                      status: 'FAILED',
+                      executionResult: err.message || 'Execution failed. No changes were confirmed.',
                     },
                   };
                 }
@@ -1126,6 +1127,8 @@ export function AiChatView({
                             : message.actionProposal.status === 'EXECUTED'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : message.actionProposal.status === 'DECLINED'
+                            ? 'bg-slate-100 text-slate-600'
+                            : message.actionProposal.status === 'SUPERSEDED'
                             ? 'bg-slate-100 text-slate-600'
                             : 'bg-rose-100 text-rose-800'
                         }`}
