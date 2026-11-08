@@ -1,0 +1,26 @@
+# Project Notes
+
+- Added a single Google Ads operation registry in `lib/google-ads-tools.ts`; the chat tool list and shared tool dispatcher now derive from it.
+- Registered only operations with working local handlers, marked write operations as approval-required, and added startup validation for handlers and verifiers.
+- Updated `app/api/ai/chat/route.ts` to send the registry-derived tool list to the LLM.
+- Next: keep proposal execution capability checks aligned with this registry when the approval lifecycle is changed.
+- Added the Firestore-backed `chat_conversations/{conversation_id}/proposals` record and transactional approval/revision flow in `lib/chat-proposal-store.ts`, plus the chat approval endpoint and executor integration.
+- Proposal records now carry revision, status, payload hash, supersession, and expiry state; the UI sends proposal identity metadata rather than an in-memory approval token.
+- Next: add authenticated server-side ownership checks and integration tests against the configured Firestore emulator or production rules.
+- Refactored proposal execution so the approved Firestore record is atomically claimed, checked against its stored before snapshot, executed through the operation registry with its exact payload, and verified by a live Google Ads read-back.
+- Execution results now persist real IDs, before/after snapshots, typed failures, and truthful user messages; lifecycle events are appended to the top-level `audit_log` collection with proposal, user, and account identifiers.
+- Changed files: `lib/proposal-executor.ts`, `lib/chat-proposal-store.ts`, `lib/google-ads-tools.ts`, `app/api/ai/chat/execute/route.ts`, and proposal registration in `app/api/ai/chat/route.ts`.
+- Next: run Firestore emulator/integration scenarios for drift, duplicate execution, typed Google Ads failures, and audit-log rules.
+- Added one server-maintained `conversation_state` record per conversation with focus entity, recent entities, active proposal, action summary, and a timestamped account campaign cache.
+- Entity resolution now uses exact ID/name, recent proposed/created entities, focus state, and conservative fuzzy matching that returns clarification candidates instead of guessing.
+- Chat turns include compact conversation state JSON; stale account cache entries refresh after 10 minutes, and successful or uncertain writes invalidate the cache.
+- Changed files: `lib/conversation-state.ts`, `app/api/ai/chat/route.ts`, `lib/chat-proposal-store.ts`, and `lib/proposal-executor.ts`.
+- Next: test state transitions and ambiguous campaign selection with the Firestore emulator and live-account fixtures.
+- Added a structured OpenRouter classification step in `lib/chat-classifier.ts` with strict JSON validation and one retry for invalid output.
+- Chat routing now uses the classification intent, registry operation, target reference, normalized parameters, confidence, and missing fields instead of phrase-based intent detection.
+- Added safe chat approval display, proposal revision routing, and backend proposal cancellation without executing from chat text.
+- Changed files: `lib/chat-classifier.ts`, `app/api/ai/chat/route.ts`, and `lib/chat-proposal-store.ts`.
+- Next: test classifier JSON fixtures and end-to-end proposal revision/cancellation scenarios with the Firestore emulator.
+- Added `vitest.config.ts` and `tests/chat-agent.test.ts` with mocked OpenRouter, proposal storage, and Google Ads scenarios covering the 13 requested safety cases; added the `npm test` script and Vitest dev dependency.
+- Test result: 12 of 16 assertions pass (the four typed-error cases expose lost error metadata); TypeScript passes. No production code was changed in this phase.
+- Next: address the reported execution failures in a separate implementation phase.

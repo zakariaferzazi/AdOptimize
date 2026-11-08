@@ -13,6 +13,11 @@ import {
   InteractiveRecommendation,
 } from '@/types/adoptimize';
 import { ToolDefinition } from './openrouter-service';
+import {
+  createGoogleAdsCampaign,
+  mutateGoogleAdsCampaignBudget,
+  mutateGoogleAdsCampaignStatus,
+} from './google-ads-api';
 
 export interface ToolContext {
   userId?: string;
@@ -114,7 +119,7 @@ export function resolveCampaignReference(query: string | undefined, campaigns: C
 // 1. TOOL SCHEMAS FOR OPENROUTER / FUNCTION CALLING
 // ==========================================
 
-export const GOOGLE_ADS_TOOL_DEFINITIONS: ToolDefinition[] = [
+const OPERATION_SCHEMAS: ToolDefinition[] = [
   // --- ACCOUNT DATA ---
   {
     type: 'function',
@@ -489,10 +494,268 @@ export const GOOGLE_ADS_TOOL_DEFINITIONS: ToolDefinition[] = [
 ];
 
 // ==========================================
-// 2. SHARED BACKEND IMPLEMENTATION
+// 2. AUTHORITATIVE OPERATION REGISTRY
+// ==========================================
+
+type OperationRisk = 'read' | 'write';
+type OperationParameterSchema = {
+  type: 'object';
+  properties: Record<string, {
+    type: 'string' | 'number' | 'boolean';
+    description?: string;
+    enum?: string[];
+  }>;
+  required?: string[];
+  additionalProperties?: boolean;
+};
+type OperationHandler = (
+  args: Record<string, any>,
+  context: ToolContext
+) => Promise<ToolExecutionResult>;
+type OperationVerifier = (
+  result: ToolExecutionResult,
+  args: Record<string, any>,
+  context: ToolContext
+) => boolean | Promise<boolean>;
+export interface ProposalExecutionContext {
+  customerId: string;
+  accessToken: string;
+  developerToken?: string;
+  loginCustomerId?: string;
+}
+
+export interface ProposalExecutionResult {
+  success: boolean;
+  data?: Record<string, any>;
+  error?: string;
+  details?: string;
+  statusCode?: number;
+  isQuotaExhausted?: boolean;
+  isAuthExpired?: boolean;
+}
+
+type ProposalExecutor = (
+  payload: Record<string, any>,
+  context: ProposalExecutionContext
+) => Promise<ProposalExecutionResult>;
+type ProposalReadBackVerifier = (
+  payload: Record<string, any>,
+  before: Record<string, any>,
+  after: Record<string, any>
+) => boolean;
+
+export interface GoogleAdsOperation {
+  name: string;
+  description: string;
+  parameterSchema: OperationParameterSchema;
+  risk: OperationRisk;
+  requiresApproval: boolean;
+  handler: OperationHandler;
+  verify: OperationVerifier;
+  execute: ProposalExecutor;
+  verifyExecution: ProposalReadBackVerifier;
+  summaryTemplate: string;
+}
+
+const AVAILABLE_OPERATION_NAMES = new Set([
+  'get_account_overview',
+  'get_account_performance',
+  'get_campaigns',
+  'get_campaign_performance',
+  'get_search_terms',
+  'get_keywords',
+  'get_ads_performance',
+  'get_conversion_metrics',
+  'get_performance_changes',
+  'get_change_history',
+  'analyze_account',
+  'analyze_campaign',
+  'find_wasted_spend',
+  'identify_underperforming_campaigns',
+  'identify_search_term_opportunities',
+  'diagnose_performance_changes',
+  'analyze_budget_allocation',
+  'generate_optimization_recommendations',
+  'create_campaign',
+  'update_campaign_budget',
+  'pause_campaign',
+  'enable_campaign',
+]);
+
+const WRITE_OPERATION_NAMES = new Set([
+  'create_campaign',
+  'update_campaign_budget',
+  'pause_campaign',
+  'enable_campaign',
+]);
+
+const OPERATION_SUMMARIES: Record<string, string> = {
+  create_campaign: 'Create paused campaign "{name}" with daily budget {budgetDaily}.',
+  update_campaign_budget: 'Change {campaignNameOrId} daily budget to {newDailyBudget}.',
+  pause_campaign: 'Pause campaign {campaignNameOrId}.',
+  enable_campaign: 'Enable campaign {campaignNameOrId}.',
+};
+
+function verifyPreparedResult(result: ToolExecutionResult): boolean {
+  return result.success;
+}
+
+const unavailableProposalExecutor: ProposalExecutor = async () => ({
+  success: false,
+  error: 'This operation does not support proposal execution.',
+});
+
+const alwaysVerified: ProposalReadBackVerifier = () => true;
+
+const proposalExecutors: Record<string, ProposalExecutor> = {
+  create_campaign: async (payload, context) => {
+    const result = await createGoogleAdsCampaign(
+      context.customerId,
+      {
+        name: String(payload.name),
+        budgetDaily: Number(payload.budgetDaily),
+        channelType: String(payload.channelType || 'SEARCH'),
+        status: 'PAUSED',
+      },
+      context.accessToken,
+      context.developerToken,
+      context.loginCustomerId
+    );
+    return {
+      ...result,
+      data: {
+        campaignId: result.campaignId,
+        campaignResourceName: result.campaignResourceName,
+      },
+    };
+  },
+  update_campaign_budget: async (payload, context) => {
+    const result = await mutateGoogleAdsCampaignBudget(
+      context.customerId,
+      String(payload.campaignId),
+      Number(payload.newDailyBudget),
+      context.accessToken,
+      context.developerToken,
+      context.loginCustomerId
+    );
+    return { ...result, data: { campaignId: payload.campaignId, budgetDaily: payload.newDailyBudget } };
+  },
+  pause_campaign: async (payload, context) => {
+    const result = await mutateGoogleAdsCampaignStatus(
+      context.customerId,
+      String(payload.campaignId),
+      'PAUSED',
+      context.accessToken,
+      context.developerToken,
+      context.loginCustomerId
+    );
+    return { ...result, data: { campaignId: payload.campaignId, status: 'PAUSED' } };
+  },
+  enable_campaign: async (payload, context) => {
+    const result = await mutateGoogleAdsCampaignStatus(
+      context.customerId,
+      String(payload.campaignId),
+      'ENABLED',
+      context.accessToken,
+      context.developerToken,
+      context.loginCustomerId
+    );
+    return { ...result, data: { campaignId: payload.campaignId, status: 'ENABLED' } };
+  },
+};
+
+const proposalReadBackVerifiers: Record<string, ProposalReadBackVerifier> = {
+  create_campaign: (payload, _before, after) =>
+    after.name === payload.name &&
+    after.status === 'PAUSED' &&
+    Math.abs(Number(after.budgetDaily) - Number(payload.budgetDaily)) <= 0.01,
+  update_campaign_budget: (payload, _before, after) =>
+    Math.abs(Number(after.budgetDaily) - Number(payload.newDailyBudget)) <= 0.01,
+  pause_campaign: (_payload, _before, after) => after.status === 'PAUSED',
+  enable_campaign: (_payload, _before, after) => after.status === 'ENABLED',
+};
+
+export function validateGoogleAdsOperationRegistry(
+  registry: readonly GoogleAdsOperation[] = GOOGLE_ADS_OPERATION_REGISTRY
+): void {
+  for (const operation of registry) {
+    if (typeof operation.handler !== 'function') {
+      throw new Error(`Google Ads operation "${operation.name}" has no handler.`);
+    }
+    if (typeof operation.verify !== 'function') {
+      throw new Error(`Google Ads operation "${operation.name}" has no verify function.`);
+    }
+    if (typeof operation.execute !== 'function') {
+      throw new Error(`Google Ads operation "${operation.name}" has no execution handler.`);
+    }
+    if (typeof operation.verifyExecution !== 'function') {
+      throw new Error(`Google Ads operation "${operation.name}" has no read-back verifier.`);
+    }
+  }
+}
+
+export const GOOGLE_ADS_OPERATION_REGISTRY: GoogleAdsOperation[] = OPERATION_SCHEMAS
+  .filter((schema) => AVAILABLE_OPERATION_NAMES.has(schema.function.name))
+  .map((schema) => ({
+    name: schema.function.name,
+    description: schema.function.description,
+    parameterSchema: {
+      ...schema.function.parameters,
+      additionalProperties: false,
+    } as OperationParameterSchema,
+    risk: WRITE_OPERATION_NAMES.has(schema.function.name) ? 'write' : 'read',
+    requiresApproval: WRITE_OPERATION_NAMES.has(schema.function.name),
+    handler: (args, context) => executeGoogleAdsToolInternal(schema.function.name, args, context),
+    verify: verifyPreparedResult,
+    execute: proposalExecutors[schema.function.name] || unavailableProposalExecutor,
+    verifyExecution: proposalReadBackVerifiers[schema.function.name] || alwaysVerified,
+    summaryTemplate: OPERATION_SUMMARIES[schema.function.name] || schema.function.description,
+  }));
+
+validateGoogleAdsOperationRegistry(GOOGLE_ADS_OPERATION_REGISTRY);
+
+export const GOOGLE_ADS_TOOL_DEFINITIONS: ToolDefinition[] = GOOGLE_ADS_OPERATION_REGISTRY.map((operation) => ({
+  type: 'function',
+  function: {
+    name: operation.name,
+    description: operation.description,
+    parameters: operation.parameterSchema,
+  },
+}));
+
+export function getGoogleAdsOperation(name: string): GoogleAdsOperation | undefined {
+  return GOOGLE_ADS_OPERATION_REGISTRY.find((operation) => operation.name === name);
+}
+
+// ==========================================
+// 3. SHARED BACKEND IMPLEMENTATION
 // ==========================================
 
 export async function executeGoogleAdsTool(
+  toolName: string,
+  args: Record<string, any>,
+  context: ToolContext
+): Promise<ToolExecutionResult> {
+  const operation = getGoogleAdsOperation(toolName);
+  if (!operation) {
+    return {
+      success: false,
+      error: `Tool "${toolName}" is not currently recognized or supported by the Google Ads engine.`,
+    };
+  }
+
+  const result = await operation.handler(args, context);
+  if (!result.success || !(await operation.verify(result, args, context))) {
+    return {
+      ...result,
+      success: false,
+      error: result.error || `Google Ads operation "${toolName}" failed verification.`,
+    };
+  }
+  return result;
+}
+
+async function executeGoogleAdsToolInternal(
   toolName: string,
   args: Record<string, any>,
   context: ToolContext

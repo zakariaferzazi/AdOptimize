@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOpenRouterChat, ChatCompletionMessage, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
-import { executeGoogleAdsTool, resolveCampaignReference, ToolContext } from '@/lib/google-ads-tools';
+import {
+  executeGoogleAdsTool,
+  GOOGLE_ADS_TOOL_DEFINITIONS,
+  getGoogleAdsOperation,
+  ToolContext,
+} from '@/lib/google-ads-tools';
 import { Campaign, ProposedAccountChange, ToolCallExecution, InteractiveRecommendationCard, AnalysisSummaryDetail } from '@/types/adoptimize';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 import { queryLiveCampaigns } from '@/lib/google-ads-api';
-import { registerChatProposal, supersedeChatProposal } from '@/lib/chat-proposal-store';
+import {
+  getLatestProposal,
+  proposalRecordToClientProposal,
+  registerChatProposal,
+  cancelProposal,
+} from '@/lib/chat-proposal-store';
+import {
+  cacheAccountCampaigns,
+  compactConversationState,
+  getConversationState,
+  isAccountCacheFresh,
+  recordMentionedEntity,
+  resolveEntity,
+} from '@/lib/conversation-state';
+import { classifyChatMessage } from '@/lib/chat-classifier';
 
 /**
  * Intelligent deterministic optimization engine.
@@ -242,6 +261,30 @@ export async function POST(req: NextRequest) {
       rules: context.rules || [],
       accessToken: context.accessToken,
     };
+    const conversationId = String(context.conversationId || 'default');
+    const accountId = String(toolContext.account.clientCustomerId || 'unknown');
+    let conversationState = await getConversationState(conversationId, accountId);
+    const proposalMetadata = (proposal: ProposedAccountChange) => {
+      const campaign = (toolContext.campaigns || []).find(
+        (item) => String(item.id) === String(proposal.campaignId)
+      );
+      return {
+        userId: context.userId ? String(context.userId) : undefined,
+        accountId: toolContext.account.clientCustomerId
+          ? String(toolContext.account.clientCustomerId)
+          : undefined,
+        beforeSnapshot: proposal.actionType === 'CREATE_CAMPAIGN'
+          ? { exists: false, name: proposal.payload?.name || proposal.campaignName }
+          : campaign
+          ? {
+              id: campaign.id,
+              name: campaign.name,
+              status: campaign.status,
+              budgetDaily: campaign.budgetDaily,
+            }
+          : undefined,
+      };
+    };
 
     const recentActionProposals = Array.isArray(context.recentActionProposals)
       ? context.recentActionProposals
@@ -262,7 +305,11 @@ export async function POST(req: NextRequest) {
         !String(proposal.campaignId).startsWith('draft-')
       );
     let liveDataStatus = 'Using the latest synchronized account snapshot supplied by the dashboard.';
-    if (
+    const cacheIsFresh = isAccountCacheFresh(conversationState);
+    if (cacheIsFresh && conversationState.account_cache) {
+      toolContext.campaigns = conversationState.account_cache.campaigns || [];
+      liveDataStatus = `Using account data cached at ${conversationState.account_cache.fetched_at}.`;
+    } else if (
       toolContext.accessToken &&
       toolContext.account.clientCustomerId &&
       toolContext.account.clientCustomerId !== 'Not Connected'
@@ -279,6 +326,12 @@ export async function POST(req: NextRequest) {
           toolContext.campaigns = (liveResult.campaigns || []) as ToolContext['campaigns'];
           toolContext.keywords = (liveResult.keywords || []) as ToolContext['keywords'];
           toolContext.searchTerms = (liveResult.searchTerms || []) as ToolContext['searchTerms'];
+          conversationState = await cacheAccountCampaigns(
+            conversationId,
+            accountId,
+            toolContext.campaigns,
+            liveResult.fetchedAt || new Date().toISOString()
+          );
           liveDataStatus = `Live Google Ads data was fetched at ${liveResult.fetchedAt || new Date().toISOString()}.`;
         } else {
           liveDataStatus = `Live refresh failed: ${liveResult.error || 'Google Ads did not return data'}. Use the supplied synchronized snapshot and clearly label it as the latest available data, not a live refresh.`;
@@ -341,6 +394,9 @@ OPERATING RULES:
 LIVE-DATA STATUS:
 ${liveDataStatus}
 
+CONVERSATION STATE (server-maintained; do not infer or overwrite it):
+${JSON.stringify(compactConversationState(conversationState))}
+
 RESPONSE FORMATTING GUIDELINES:
 1. Always ground your analysis strictly in the account's real data retrieved via tools.
 2. Structure your responses so they are easy to scan:
@@ -375,92 +431,127 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    const lowerMessage = message.toLowerCase();
-    const amountMatch =
-      /(?:\b(?:budget|spend|daily|amount|cost|value)\b[\s\S]{0,32}?(?:\bto\b|\bat\b|\bof\b|:|=)?|\b(?:to|at|of|by)\b|\bmake\s+(?:it|this|that)\s+)\s*[^\d]{0,3}(\d+(?:[.,]\d{1,2})?)/i.exec(message);
-    const requestedBudget = amountMatch?.[1]?.replace(',', '.');
-    const pendingProposalToRevise = [...recentActionProposals]
-      .reverse()
-      .find((proposal: ProposedAccountChange) => proposal.status === 'PENDING_APPROVAL');
+    const latestProposalRecord = await getLatestProposal(conversationId);
+    const pendingProposalToRevise = latestProposalRecord
+      ? proposalRecordToClientProposal(latestProposalRecord)
+      : undefined;
     const pendingCreateProposal =
       pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' ? pendingProposalToRevise : undefined;
-    const isPendingProposalModification =
-      Boolean(pendingCreateProposal) && requestedBudget !== undefined;
-    const isMutationLanguage =
-      /\b(change|set|update|make|want|need|would like|increase|decrease|reduce|lower|raise|cut|edit|adjust|modify|switch|turn|pause|enable|disable|resume|stop|start|create|add|remove|delete|launch|draft)\b/.test(lowerMessage);
-    const hasBudgetContext =
-      /\b(budget|spend|daily|per\s*day|\/\s*day|amount)\b/.test(lowerMessage) ||
-      /\b(make|set|change|update|adjust)\s+(it|this|that)\b/.test(lowerMessage);
-    const isBudgetMutation =
-      requestedBudget !== undefined &&
-      hasBudgetContext &&
-      (isMutationLanguage || isPendingProposalModification);
-    const isStatusMutation =
-      /\b(pause|paused|enable|enabled|disable|disabled|resume|resuming)\b/.test(lowerMessage) ||
-      (/\b(stop|off)\b/.test(lowerMessage) && /\b(campaign|ads?|advertising|it|this|that)\b/.test(lowerMessage)) ||
-      (/\b(start|turn)\b/.test(lowerMessage) && /\b(on|active|enabled|serving)\b/.test(lowerMessage));
-    const resolvedCampaign = resolveCampaignReference(message, toolContext.campaigns);
-    const explicitCampaignMention = toolContext.campaigns.some((campaign) => {
-      if (lowerMessage.includes(campaign.id.toLowerCase()) || lowerMessage.includes(campaign.name.toLowerCase())) {
-        return true;
-      }
-      const campaignWords = campaign.name.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length >= 4);
-      const messageWords = new Set(lowerMessage.split(/[^a-z0-9]+/).filter((word) => word.length >= 4));
-      return campaignWords.some((word) => messageWords.has(word));
-    });
-    const directCampaign =
-      resolvedCampaign && (explicitCampaignMention || !isMutationLanguage)
-        ? resolvedCampaign
+    const classification = await classifyChatMessage(
+      message,
+      requestedModel,
+      conversationState,
+      pendingProposalToRevise
+    );
+    if (!classification) {
+      return NextResponse.json({
+        success: true,
+        reply: 'I could not reliably classify that request. Please rephrase it with the campaign and action you want.',
+        openRouterRequestCount: 1,
+      });
+    }
+    if (classification.confidence < 0.65 || classification.missing_fields.length > 0) {
+      return NextResponse.json({
+        success: true,
+        reply: classification.clarification_question || 'Please clarify the campaign and action you want.',
+        openRouterRequestCount: 1,
+      });
+    }
+    const classifiedParams = classification.params;
+    const classifiedOperation = classification.operation;
+    const classifiedIntent = classification.intent;
+    const classifiedRegistryOperation = classifiedOperation
+      ? getGoogleAdsOperation(classifiedOperation)
+      : undefined;
+    if (
+      classifiedOperation &&
+      !classifiedRegistryOperation
+    ) {
+      return NextResponse.json({
+        success: true,
+        reply: 'That operation is not available for this connected Google Ads account. Please rephrase your request.',
+        openRouterRequestCount: 1,
+      });
+    }
+    if (
+      classifiedRegistryOperation?.risk === 'write' &&
+      classifiedIntent !== 'propose_change' &&
+      classifiedIntent !== 'modify_proposal'
+    ) {
+      return NextResponse.json({
+        success: true,
+        reply: 'I can prepare that change, but it must be submitted as a new proposal before it can be approved.',
+        openRouterRequestCount: 1,
+      });
+    }
+    const requestedBudgetValue =
+      typeof classifiedParams.newDailyBudget === 'number'
+        ? classifiedParams.newDailyBudget
+        : typeof classifiedParams.budgetDaily === 'number'
+        ? classifiedParams.budgetDaily
         : undefined;
-    const isAccountWideRequest = /\b(account|all campaigns|every campaign|overall|across campaigns|each campaign)\b/.test(lowerMessage);
-    const isScopedFollowUp =
-      !isAccountWideRequest &&
-      (
-        isMutationLanguage ||
-        /\b(it|its|this|that|the campaign|for it|for this|for that|the same)\b/.test(lowerMessage)
+    const requestedBudget = requestedBudgetValue === undefined ? undefined : String(requestedBudgetValue);
+    const isPendingProposalModification =
+      classifiedIntent === 'modify_proposal' && Boolean(pendingProposalToRevise);
+    const isBudgetMutation = classifiedOperation === 'update_campaign_budget' ||
+      (classifiedOperation === 'create_campaign' && classifiedIntent !== 'question');
+    const isStatusMutation = classifiedOperation === 'pause_campaign' || classifiedOperation === 'enable_campaign';
+    const isExplicitMutation =
+      classifiedIntent === 'propose_change' || classifiedIntent === 'modify_proposal';
+    const targetRef = classification.target_ref;
+    const entityResolution = resolveEntity(targetRef, conversationState, toolContext.campaigns);
+    if (entityResolution.status === 'needs_clarification' && (isExplicitMutation || isStatusMutation)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: entityResolution.candidates.length > 0
+            ? `Please choose one campaign: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
+            : 'Please specify the campaign name or ID so I do not guess.',
+          candidates: entityResolution.candidates.map((candidate) => ({
+            id: candidate.id,
+            name: candidate.name,
+          })),
+          openRouterRequestCount: 0,
+        },
+        { status: 422 }
       );
-    const rememberedCampaign = [...recentActionProposals]
-      .reverse()
-      .map((proposal: ProposedAccountChange) =>
-        proposal.campaignId && proposal.status !== 'DECLINED' && proposal.status !== 'FAILED'
-          ? toolContext.campaigns.find((campaign) => String(campaign.id) === String(proposal.campaignId))
-          : undefined
-      )
-      .find(Boolean);
-    const conversationCampaign =
-      recentCreatedProposal &&
-      toolContext.campaigns.find(
-        (campaign) => String(campaign.id) === String(recentCreatedProposal.campaignId)
-      );
-    const contextCampaign =
-      activeCampaignReference &&
-      toolContext.campaigns.find(
-        (campaign) =>
-          String(campaign.id) === activeCampaignReference.id ||
-          campaign.name.toLowerCase() === activeCampaignReference.name.toLowerCase()
-      );
-    const previousUserCampaign = [...conversationHistory]
-      .reverse()
-      .filter((turn: any) => turn.role === 'user')
-      .map((turn: any) => resolveCampaignReference(String(turn.content || ''), toolContext.campaigns))
-      .find(Boolean);
-    let requestedCampaign =
-      directCampaign ||
-      (isScopedFollowUp ? contextCampaign || conversationCampaign || rememberedCampaign : undefined) ||
-      (!isMutationLanguage ? previousUserCampaign : undefined);
-    const isCreateCampaign = /\b(create|new|draft|launch)\b/.test(lowerMessage) && /\b(campaign|compaign)\b/.test(lowerMessage);
-    const isExplicitMutation = isCreateCampaign || isBudgetMutation || isStatusMutation;
+    }
+    const resolvedCampaign = entityResolution.status === 'resolved' ? entityResolution.entity : undefined;
+    const directCampaign = resolvedCampaign;
+    let requestedCampaign = directCampaign;
+    if (resolvedCampaign) {
+      requestedCampaign = resolvedCampaign;
+      conversationState = await recordMentionedEntity(conversationId, accountId, resolvedCampaign);
+    }
+    const isCreateCampaign = classifiedOperation === 'create_campaign';
     const supersededProposalId =
-      pendingProposalToRevise &&
-      (isBudgetMutation || /\b(revise|edit|change|update|modify)\b/.test(lowerMessage))
+      classifiedIntent === 'modify_proposal' && pendingProposalToRevise
         ? pendingProposalToRevise.id
         : undefined;
-    if (
-      pendingProposalToRevise &&
-      /\b(confirm|approve|approved|do it|go ahead|yes|apply)\b/.test(lowerMessage) &&
-      !isBudgetMutation &&
-      !isStatusMutation
-    ) {
+    if (classifiedIntent === 'cancel' && pendingProposalToRevise) {
+      await cancelProposal(conversationId, pendingProposalToRevise.proposalId || pendingProposalToRevise.id);
+      return NextResponse.json({
+        success: true,
+        reply: 'The pending Google Ads proposal was cancelled. No account changes were made.',
+        openRouterRequestCount: 1,
+      });
+    }
+    if (classifiedIntent === 'cancel') {
+      return NextResponse.json({
+        success: true,
+        reply: 'There is no pending Google Ads proposal to cancel.',
+        openRouterRequestCount: 1,
+      });
+    }
+    if (classifiedIntent === 'clarification_answer' && pendingProposalToRevise) {
+      return NextResponse.json({
+        success: true,
+        reply: 'Your clarification does not approve the pending action. Please review the latest proposal card and click its approval button.',
+        actionProposal: pendingProposalToRevise,
+        openRouterRequestCount: 1,
+      });
+    }
+    if (classifiedIntent === 'approve') {
       return NextResponse.json({
         success: true,
         reply: 'The pending Google Ads action was not approved through chat. Please click the approval button on the exact proposal card to authorize this change.',
@@ -469,73 +560,50 @@ RESPONSE FORMATTING GUIDELINES:
         openRouterRequestCount: 0,
       });
     }
-    const wantsEnable = /\b(enable|enabled|resume|resuming|start|active)\b/.test(lowerMessage);
-    const wantsPause = /\b(pause|paused|stop|off)\b/.test(lowerMessage);
-    if (isExplicitMutation && !isCreateCampaign && !requestedCampaign) {
-      const candidates = toolContext.campaigns.filter((campaign) =>
-        wantsEnable ? campaign.status === 'PAUSED' : wantsPause ? campaign.status === 'ENABLED' : true
-      );
-      if (candidates.length === 1) {
-        requestedCampaign = candidates[0];
-      } else if (candidates.length > 1) {
+    if (isExplicitMutation && !isCreateCampaign && !requestedCampaign && entityResolution.status === 'needs_clarification') {
         return NextResponse.json(
           {
             success: false,
-            error: `I found ${candidates.length} possible campaigns for this action. Please include the campaign name so I only change the intended one.`,
+            error: entityResolution.candidates.length > 0
+              ? `Please choose one campaign: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
+              : 'Please specify the campaign name or ID so I do not guess.',
+            candidates: entityResolution.candidates.map((candidate) => ({ id: candidate.id, name: candidate.name })),
             openRouterRequestCount: 0,
           },
           { status: 422 }
         );
-      }
     }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
     if (isCreateCampaign || (pendingCreateProposal && isBudgetMutation)) {
-      const quotedName = /["“”']([^"“”']+)["“”']/.exec(message)?.[1];
-      const namedCampaign = /(?:called|named)\s+([^,.;]+?)(?=\s+(?:with|at|on)\b|$)/i.exec(message)?.[1];
       const pendingPayload = pendingCreateProposal?.payload || {};
       const budget = requestedBudget ||
         String(pendingPayload.budgetDaily || '10');
       evidenceTools.push({
         name: 'create_campaign',
         args: {
-          name: (quotedName || namedCampaign || pendingCreateProposal?.campaignName || 'New Google Ads Campaign').trim(),
+          name: String(classifiedParams.name || pendingPayload.name || pendingCreateProposal?.campaignName || 'New Google Ads Campaign'),
           budgetDaily: Number(budget),
-          channelType: /\b(performance max|pmax)\b/i.test(message)
-            ? 'PERFORMANCE_MAX'
-            : /\b(display)\b/i.test(message)
-            ? 'DISPLAY'
-            : String(pendingPayload.channelType || 'SEARCH'),
+          channelType: String(classifiedParams.channelType || pendingPayload.channelType || 'SEARCH'),
           reason: pendingCreateProposal
             ? 'User revised the pending campaign proposal through the AI Marketing Agent.'
             : 'User requested a campaign draft through the AI Marketing Agent.',
         },
       });
-    } else if (requestedCampaign) {
-      evidenceTools.push({
-        name: isExplicitMutation
-          ? (/\b(pause|paused|enable|enabled|resume|resuming|start|stop)\b/.test(lowerMessage)
-            ? (/\b(enable|enabled|resume|resuming|start)\b/.test(lowerMessage) ? 'enable_campaign' : 'pause_campaign')
-            : requestedBudget ? 'update_campaign_budget' : 'get_campaign_performance')
-          : 'analyze_campaign',
-        args: {
-          campaignNameOrId: requestedCampaign.name,
-          ...(requestedBudget ? { newDailyBudget: Number(requestedBudget), reason: 'User requested this budget change through the AI Marketing Agent.' } : {}),
-        },
-      });
-      if (/\b(search|query|keyword|term)\b/.test(lowerMessage)) {
-        evidenceTools.push({ name: 'get_search_terms', args: { campaignNameOrId: requestedCampaign.name, filter: 'ALL' } });
-      }
-    } else if (/\b(waste|leak|bleed|inefficient|zero conversions?)\b/.test(lowerMessage)) {
-      evidenceTools.push({ name: 'find_wasted_spend', args: {} });
-    } else if (/\b(change|history|compare|previous|why)\b/.test(lowerMessage)) {
-      evidenceTools.push({ name: 'get_performance_changes', args: {} }, { name: 'get_change_history', args: { limit: 10 } });
-    } else if (/\b(budget|roas|cpa|conversion|performance|campaigns?)\b/.test(lowerMessage)) {
-      evidenceTools.push({ name: 'get_account_overview', args: {} }, { name: 'get_campaigns', args: { status: 'ALL' } });
     } else {
-      evidenceTools.push({ name: 'get_account_overview', args: {} });
-    }
-    if (!requestedCampaign && !evidenceTools.some((tool) => tool.name === 'get_campaigns')) {
-      evidenceTools.push({ name: 'get_campaigns', args: { status: 'ALL' } });
+      const selectedOperation = classifiedOperation ||
+        (requestedCampaign ? 'analyze_campaign' : 'get_account_overview');
+      const args: Record<string, any> = { ...classifiedParams };
+      if (requestedCampaign && ['analyze_campaign', 'get_campaign_performance', 'get_search_terms', 'get_keywords', 'get_ads_performance', 'update_campaign_budget', 'pause_campaign', 'enable_campaign'].includes(selectedOperation)) {
+        args.campaignNameOrId = requestedCampaign.name;
+      }
+      if (requestedBudget && selectedOperation === 'update_campaign_budget') {
+        args.newDailyBudget = Number(requestedBudget);
+        args.reason = 'User requested this budget change through the AI Marketing Agent.';
+      }
+      evidenceTools.push({
+        name: selectedOperation,
+        args,
+      });
     }
 
     const executedToolCalls: ToolCallExecution[] = [];
@@ -589,12 +657,11 @@ RESPONSE FORMATTING GUIDELINES:
           ? 'Create paused campaign'
           : 'Apply change';
 
-      if (supersededProposalId) supersedeChatProposal(supersededProposalId);
-      capturedProposal = registerChatProposal({
+      capturedProposal = await registerChatProposal({
         ...capturedProposal,
         supersedesProposalId: supersededProposalId,
         revision: (pendingProposalToRevise?.revision || 0) + 1,
-      });
+      }, conversationId, supersededProposalId, proposalMetadata(capturedProposal));
       console.info(`[AI Chat] Mutation prepared locally: ${capturedProposal.actionType}; OpenRouter requests: 0`);
       return NextResponse.json(
         {
@@ -625,19 +692,19 @@ RESPONSE FORMATTING GUIDELINES:
         model: requestedModel as any,
         tier: requestedModel as any,
         messages: formattedMessages,
+        tools: GOOGLE_ADS_TOOL_DEFINITIONS,
         temperature: 0.2,
       });
     } catch (error) {
       console.error('[AI Chat] OpenRouter request failed:', error);
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
       const fallbackProposal = fallback.capturedProposal
-        ? registerChatProposal({
+        ? await registerChatProposal({
             ...fallback.capturedProposal,
             supersedesProposalId: supersededProposalId,
             revision: (pendingProposalToRevise?.revision || 0) + 1,
-          })
+          }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal))
         : undefined;
-      if (supersededProposalId && fallbackProposal) supersedeChatProposal(supersededProposalId);
       return NextResponse.json({
         success: true,
         reply: fallback.reply,
@@ -657,13 +724,12 @@ RESPONSE FORMATTING GUIDELINES:
     if (!response.reply) {
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
       const fallbackProposal = fallback.capturedProposal
-        ? registerChatProposal({
+        ? await registerChatProposal({
             ...fallback.capturedProposal,
             supersedesProposalId: supersededProposalId,
             revision: (pendingProposalToRevise?.revision || 0) + 1,
-          })
+          }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal))
         : undefined;
-      if (supersededProposalId && fallbackProposal) supersedeChatProposal(supersededProposalId);
       return NextResponse.json({
         success: true,
         reply: fallback.reply,
@@ -705,13 +771,12 @@ RESPONSE FORMATTING GUIDELINES:
       : response.reply;
 
     const registeredProposal = capturedProposal
-      ? registerChatProposal({
+      ? await registerChatProposal({
           ...capturedProposal,
           supersedesProposalId: supersededProposalId,
           revision: (pendingProposalToRevise?.revision || 0) + 1,
-        })
+        }, conversationId, supersededProposalId, proposalMetadata(capturedProposal))
       : undefined;
-    if (supersededProposalId && registeredProposal) supersedeChatProposal(supersededProposalId);
     console.info(`[AI Chat] OpenRouter requests for user message: 1; precomputed tools: ${executedToolCalls.map((tool) => tool.name).join(', ') || 'none'}`);
     return NextResponse.json({
       success: true,

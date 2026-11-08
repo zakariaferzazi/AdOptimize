@@ -308,7 +308,9 @@ export interface ProposedAccountChange {
   potentialRisks: string;
   status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED' | 'SUPERSEDED';
   revision?: number;
-  approvalToken?: string;
+  proposalId?: string;
+  payloadHash?: string;
+  conversationId?: string;
   supersedesProposalId?: string;
   executionResult?: string;
   appliedAt?: string;

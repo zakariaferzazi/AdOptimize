@@ -402,6 +402,7 @@ export function AiChatView({
           })),
           context: {
             userId,
+            conversationId: requestSessionId,
             account,
             campaigns,
             keywords,
@@ -529,6 +530,8 @@ export function AiChatView({
 
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setErrorMessage(null);
+    setPreservedDraft('');
     const remaining = sessions.filter((s) => s.id !== id);
     const nextCurrentId = currentSessionId === id ? remaining[0]?.id : currentSessionId;
     if (remaining.length > 0) {
@@ -562,7 +565,7 @@ export function AiChatView({
 
   // Safe Account Change Execution
   const handleApproveProposal = async (proposal: ProposedAccountChange, messageId: string) => {
-    if (!proposal || !proposal.actionType || !proposal.campaignId || !proposal.approvalToken) {
+    if (!proposal || !proposal.actionType || !proposal.proposalId || !proposal.revision || !proposal.payloadHash) {
       updateSessions((current) =>
         current.map((s) =>
           s.id === currentSessionId
@@ -598,6 +601,23 @@ export function AiChatView({
     setExecutingProposalId(proposal.id);
 
     try {
+      const approvalResponse = await fetch('/api/ai/chat/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: proposal.conversationId || currentSessionId,
+          proposal_id: proposal.proposalId || proposal.id,
+          revision: proposal.revision,
+          payload_hash: proposal.payloadHash,
+        }),
+      });
+      const approvalData = await approvalResponse.json();
+      if (!approvalResponse.ok || approvalData.alreadyApproved) {
+        throw new Error(
+          approvalData.error || 'This proposal was already approved or is no longer pending.'
+        );
+      }
+
       const response = await fetch('/api/ai/chat/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -605,6 +625,7 @@ export function AiChatView({
           proposal: executableProposal,
           context: {
             userId,
+            conversationId: proposal.conversationId || currentSessionId,
             account,
             campaigns,
             keywords,
@@ -899,6 +920,8 @@ export function AiChatView({
                     if (!isEditing) {
                       setCurrentSessionId(sess.id);
                       setShowSessionsDrawer(false);
+                      setErrorMessage(null);
+                      setPreservedDraft('');
                     }
                   }}
                   className={`group p-2.5 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
