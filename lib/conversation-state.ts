@@ -1,9 +1,3 @@
-import {
-  doc,
-  getDoc,
-  runTransaction,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Campaign } from '@/types/adoptimize';
 
 export type ConversationEntityType = 'campaign';
@@ -46,8 +40,35 @@ export type EntityResolution =
 
 const CACHE_MAX_AGE_MS = 10 * 60 * 1000;
 
-function stateRef(conversationId: string) {
-  return doc(db, 'chat_conversations', conversationId, 'conversation_state', 'current');
+// Server-side conversation state must not use the Firebase client SDK. That SDK
+// depends on protobufjs, which generates code at runtime with `new Function`.
+// Cloudflare Workers disallow dynamic code generation, so importing the client
+// Firestore SDK in a route handler crashes the worker at module load. This
+// process-local store keeps the same API without pulling Firestore into the
+// worker. Durable persistence can be layered on later through a Worker binding.
+type ConversationStateStore = Map<string, ConversationState>;
+
+const globalForState = globalThis as typeof globalThis & {
+  __adoptimizeConversationStateStore?: ConversationStateStore;
+};
+
+const conversationStates: ConversationStateStore =
+  globalForState.__adoptimizeConversationStateStore ?? new Map();
+
+if (!globalForState.__adoptimizeConversationStateStore) {
+  globalForState.__adoptimizeConversationStateStore = conversationStates;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function defaultState(accountId: string): ConversationState {
+  return {
+    account_id: accountId,
+    recent_entities: [],
+    updated_at: new Date().toISOString(),
+  };
 }
 
 function normalize(value: string): string {
@@ -68,15 +89,11 @@ export async function getConversationState(
   conversationId: string,
   accountId: string
 ): Promise<ConversationState> {
-  const snapshot = await getDoc(stateRef(conversationId));
-  if (snapshot.exists()) {
-    return snapshot.data() as ConversationState;
+  const existing = conversationStates.get(conversationId);
+  if (existing) {
+    return clone({ ...existing, account_id: existing.account_id || accountId });
   }
-  return {
-    account_id: accountId,
-    recent_entities: [],
-    updated_at: new Date().toISOString(),
-  };
+  return defaultState(accountId);
 }
 
 async function updateState(
@@ -84,18 +101,11 @@ async function updateState(
   accountId: string,
   mutate: (state: ConversationState) => ConversationState
 ): Promise<ConversationState> {
-  const ref = stateRef(conversationId);
-  const result = await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    const current: ConversationState = snapshot.exists()
-      ? snapshot.data() as ConversationState
-      : { account_id: accountId, recent_entities: [], updated_at: new Date().toISOString() };
-    const next = mutate({ ...current, account_id: accountId });
-    const stored = { ...next, updated_at: new Date().toISOString() };
-    transaction.set(ref, stored);
-    return stored;
-  });
-  return result;
+  const current = conversationStates.get(conversationId) ?? defaultState(accountId);
+  const next = mutate(clone({ ...current, account_id: accountId }));
+  const stored = { ...next, updated_at: new Date().toISOString() };
+  conversationStates.set(conversationId, clone(stored));
+  return clone(stored);
 }
 
 function addRecentEntity(state: ConversationState, entity: ConversationEntity): ConversationState {

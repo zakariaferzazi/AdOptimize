@@ -1,14 +1,4 @@
-import { createHash } from 'crypto';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  runTransaction,
-  where,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { createHash, randomUUID } from 'crypto';
 import { GOOGLE_ADS_OPERATION_REGISTRY } from '@/lib/google-ads-tools';
 import { ProposedAccountChange } from '@/types/adoptimize';
 import { recordProposalState } from '@/lib/conversation-state';
@@ -79,6 +69,41 @@ interface ProposalAuditEvent {
   details?: Record<string, any>;
 }
 
+// Server-side proposal storage must not import the Firebase client SDK. That SDK
+// depends on protobufjs, which uses `new Function` for runtime code generation,
+// and Cloudflare Workers reject dynamic code generation with an EvalError at
+// module load. This process-local store keeps the same proposal lifecycle API.
+type ConversationProposals = Map<string, ProposalRecord>;
+type ProposalStore = Map<string, ConversationProposals>;
+
+const globalForProposals = globalThis as typeof globalThis & {
+  __adoptimizeProposalStore?: ProposalStore;
+};
+
+const proposalStore: ProposalStore =
+  globalForProposals.__adoptimizeProposalStore ?? new Map();
+
+if (!globalForProposals.__adoptimizeProposalStore) {
+  globalForProposals.__adoptimizeProposalStore = proposalStore;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function conversationProposals(conversationId: string): ConversationProposals {
+  let bucket = proposalStore.get(conversationId);
+  if (!bucket) {
+    bucket = new Map();
+    proposalStore.set(conversationId, bucket);
+  }
+  return bucket;
+}
+
+function addAuditEvent(event: ProposalAuditEvent) {
+  console.info('[AI Chat Audit]', JSON.stringify(event));
+}
+
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -92,25 +117,6 @@ function stableSerialize(value: unknown): string {
 
 export function hashProposalPayload(payload: Record<string, any>): string {
   return createHash('sha256').update(stableSerialize(payload)).digest('hex');
-}
-
-function proposalsCollection(conversationId: string) {
-  return collection(db, 'chat_conversations', conversationId, 'proposals');
-}
-
-function auditLogCollection() {
-  return collection(db, 'audit_log');
-}
-
-function auditLogRef() {
-  return doc(auditLogCollection());
-}
-
-function addAuditEvent(
-  transaction: Parameters<Parameters<typeof runTransaction>[1]>[0],
-  event: ProposalAuditEvent
-) {
-  transaction.set(auditLogRef(), event);
 }
 
 function toClientProposal(record: ProposalRecord): ProposedAccountChange {
@@ -156,9 +162,9 @@ export async function registerChatProposal(
       ? { campaignId: proposal.campaignId, campaignNameOrId: proposal.campaignId }
       : {}),
   };
-  const proposalId = crypto.randomUUID();
+  const proposalId = randomUUID();
   const now = new Date().toISOString();
-  const storedProposal = JSON.parse(JSON.stringify({ ...proposal, id: proposalId }));
+  const storedProposal = clone({ ...proposal, id: proposalId });
   const record: ProposalRecord = {
     id: proposalId,
     conversation_id: conversationId,
@@ -180,38 +186,33 @@ export async function registerChatProposal(
     ...(supersedesId ? { supersedes_id: supersedesId } : {}),
   };
 
-  await runTransaction(db, async (transaction) => {
-    const auditTimestamp = new Date().toISOString();
-    if (supersedesId) {
-      const oldRef = doc(proposalsCollection(conversationId), supersedesId);
-      const oldSnapshot = await transaction.get(oldRef);
-      if (oldSnapshot.exists()) {
-        const old = oldSnapshot.data() as ProposalRecord;
-        if (old.status === 'pending_approval') {
-          transaction.update(oldRef, { status: 'superseded', updated_at: now });
-          addAuditEvent(transaction, {
-            event: 'proposal_revised',
-            proposal_id: proposalId,
-            conversation_id: conversationId,
-            user_id: metadata.userId,
-            account_id: metadata.accountId,
-            timestamp: auditTimestamp,
-            details: { supersedes_id: supersedesId, previous_revision: old.revision },
-          });
-        }
-      }
+  const bucket = conversationProposals(conversationId);
+  if (supersedesId) {
+    const old = bucket.get(supersedesId);
+    if (old && old.status === 'pending_approval') {
+      bucket.set(supersedesId, { ...old, status: 'superseded', updated_at: now });
+      addAuditEvent({
+        event: 'proposal_revised',
+        proposal_id: proposalId,
+        conversation_id: conversationId,
+        user_id: metadata.userId,
+        account_id: metadata.accountId,
+        timestamp: now,
+        details: { supersedes_id: supersedesId, previous_revision: old.revision },
+      });
     }
-    transaction.set(doc(proposalsCollection(conversationId), proposalId), record);
-    addAuditEvent(transaction, {
-      event: 'proposal_created',
-      proposal_id: proposalId,
-      conversation_id: conversationId,
-      user_id: metadata.userId,
-      account_id: metadata.accountId,
-      timestamp: auditTimestamp,
-      details: { revision: record.revision, operation: record.operation },
-    });
+  }
+  bucket.set(proposalId, clone(record));
+  addAuditEvent({
+    event: 'proposal_created',
+    proposal_id: proposalId,
+    conversation_id: conversationId,
+    user_id: metadata.userId,
+    account_id: metadata.accountId,
+    timestamp: now,
+    details: { revision: record.revision, operation: record.operation },
   });
+
   await recordProposalState(
     conversationId,
     metadata.accountId || 'unknown',
@@ -231,21 +232,15 @@ export async function getProposalRecord(
   conversationId: string,
   proposalId: string
 ): Promise<ProposalRecord | undefined> {
-  const snapshot = await getDoc(doc(proposalsCollection(conversationId), proposalId));
-  return snapshot.exists() ? (snapshot.data() as ProposalRecord) : undefined;
+  const record = conversationProposals(conversationId).get(proposalId);
+  return record ? clone(record) : undefined;
 }
 
 export async function getLatestProposal(conversationId: string): Promise<ProposalRecord | undefined> {
-  const snapshot = await getDocs(
-    query(
-      proposalsCollection(conversationId),
-      where('status', '==', 'pending_approval'),
-    )
-  );
-  const latest = snapshot.docs
-    .map((item) => item.data() as ProposalRecord)
+  const latest = [...conversationProposals(conversationId).values()]
+    .filter((record) => record.status === 'pending_approval')
     .sort((left, right) => right.revision - left.revision)[0];
-  return latest;
+  return latest ? clone(latest) : undefined;
 }
 
 export function proposalRecordToClientProposal(record: ProposalRecord): ProposedAccountChange {
@@ -259,38 +254,35 @@ export async function approveProposal(
   payloadHash: string,
   expirationMinutes = 60
 ): Promise<{ status: 'approved' | 'already_approved'; proposal: ProposedAccountChange }> {
-  const ref = doc(proposalsCollection(conversationId), proposalId);
+  const bucket = conversationProposals(conversationId);
+  const record = bucket.get(proposalId);
+  if (!record) throw new Error('Proposal was not found.');
+  if (record.revision !== revision || record.payload_hash !== payloadHash) {
+    throw new Error('This proposal revision is stale.');
+  }
   const now = new Date().toISOString();
-  const result = await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (!snapshot.exists()) throw new Error('Proposal was not found.');
-    const record = snapshot.data() as ProposalRecord;
-    if (record.revision !== revision || record.payload_hash !== payloadHash) {
-      throw new Error('This proposal revision is stale.');
-    }
-    if (Date.now() >= proposalExpiresAt(record, expirationMinutes)) {
-      transaction.update(ref, { status: 'expired', updated_at: now });
-      throw new Error('This proposal has expired and cannot be approved.');
-    }
-    if (record.status === 'approved') {
-      return { status: 'already_approved' as const, record };
-    }
-    if (record.status !== 'pending_approval') {
-      throw new Error(`Proposal cannot be approved while it is ${record.status}.`);
-    }
-    transaction.update(ref, { status: 'approved', updated_at: now });
-    addAuditEvent(transaction, {
-      event: 'proposal_approved',
-      proposal_id: record.id,
-      conversation_id: record.conversation_id,
-      user_id: record.user_id,
-      account_id: record.account_id,
-      timestamp: now,
-      details: { revision: record.revision, operation: record.operation },
-    });
-    return { status: 'approved' as const, record: { ...record, status: 'approved' as const, updated_at: now } };
+  if (Date.now() >= proposalExpiresAt(record, expirationMinutes)) {
+    bucket.set(proposalId, { ...record, status: 'expired', updated_at: now });
+    throw new Error('This proposal has expired and cannot be approved.');
+  }
+  if (record.status === 'approved') {
+    return { status: 'already_approved', proposal: toClientProposal(record) };
+  }
+  if (record.status !== 'pending_approval') {
+    throw new Error(`Proposal cannot be approved while it is ${record.status}.`);
+  }
+  const approved: ProposalRecord = { ...record, status: 'approved', updated_at: now };
+  bucket.set(proposalId, approved);
+  addAuditEvent({
+    event: 'proposal_approved',
+    proposal_id: record.id,
+    conversation_id: record.conversation_id,
+    user_id: record.user_id,
+    account_id: record.account_id,
+    timestamp: now,
+    details: { revision: record.revision, operation: record.operation },
   });
-  return { status: result.status, proposal: toClientProposal(result.record) };
+  return { status: 'approved', proposal: toClientProposal(approved) };
 }
 
 export async function claimProposalForExecution(
@@ -299,31 +291,28 @@ export async function claimProposalForExecution(
   revision: number,
   payloadHash: string
 ): Promise<ProposalRecord> {
-  const ref = doc(proposalsCollection(conversationId), proposalId);
+  const bucket = conversationProposals(conversationId);
+  const record = bucket.get(proposalId);
+  if (!record) throw new Error('Proposal was not found.');
+  if (record.revision !== revision || record.payload_hash !== payloadHash) {
+    throw new Error('This proposal revision is stale.');
+  }
+  if (record.status !== 'approved') {
+    throw new Error(`Proposal is not ready for execution; current status is ${record.status}.`);
+  }
   const now = new Date().toISOString();
-  const result = await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (!snapshot.exists()) throw new Error('Proposal was not found.');
-    const record = snapshot.data() as ProposalRecord;
-    if (record.revision !== revision || record.payload_hash !== payloadHash) {
-      throw new Error('This proposal revision is stale.');
-    }
-    if (record.status !== 'approved') {
-      throw new Error(`Proposal is not ready for execution; current status is ${record.status}.`);
-    }
-    transaction.update(ref, { status: 'executing', updated_at: now });
-    addAuditEvent(transaction, {
-      event: 'execution_started',
-      proposal_id: record.id,
-      conversation_id: record.conversation_id,
-      user_id: record.user_id,
-      account_id: record.account_id,
-      timestamp: now,
-      details: { revision: record.revision, operation: record.operation },
-    });
-    return { ...record, status: 'executing' as const, updated_at: now };
+  const claimed: ProposalRecord = { ...record, status: 'executing', updated_at: now };
+  bucket.set(proposalId, claimed);
+  addAuditEvent({
+    event: 'execution_started',
+    proposal_id: record.id,
+    conversation_id: record.conversation_id,
+    user_id: record.user_id,
+    account_id: record.account_id,
+    timestamp: now,
+    details: { revision: record.revision, operation: record.operation },
   });
-  return result;
+  return clone(claimed);
 }
 
 export async function updateProposalStatus(
@@ -332,53 +321,46 @@ export async function updateProposalStatus(
   status: ProposalStatus,
   result?: ProposalExecutionResult
 ): Promise<void> {
-  const ref = doc(proposalsCollection(conversationId), proposalId);
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (!snapshot.exists()) throw new Error('Proposal was not found.');
-    const record = snapshot.data() as ProposalRecord;
-    const now = new Date().toISOString();
-    const update: Record<string, any> = { status, updated_at: now };
-    if (result) update.result = result;
-    transaction.update(ref, update);
-    if (status === 'succeeded' || status === 'executed_unverified' || status === 'failed') {
-      addAuditEvent(transaction, {
-        event: status === 'succeeded' ? 'verified' : 'failed',
-        proposal_id: record.id,
-        conversation_id: record.conversation_id,
-        user_id: record.user_id,
-        account_id: record.account_id,
-        timestamp: now,
-        details: result || {},
-      });
-    }
-
-  });
+  const bucket = conversationProposals(conversationId);
+  const record = bucket.get(proposalId);
+  if (!record) throw new Error('Proposal was not found.');
+  const now = new Date().toISOString();
+  const update: Record<string, any> = { ...record, status, updated_at: now };
+  if (result) update.result = result;
+  bucket.set(proposalId, update as ProposalRecord);
+  if (status === 'succeeded' || status === 'executed_unverified' || status === 'failed') {
+    addAuditEvent({
+      event: status === 'succeeded' ? 'verified' : 'failed',
+      proposal_id: record.id,
+      conversation_id: record.conversation_id,
+      user_id: record.user_id,
+      account_id: record.account_id,
+      timestamp: now,
+      details: result || {},
+    });
+  }
 }
 
 export async function cancelProposal(
   conversationId: string,
   proposalId: string
 ): Promise<void> {
-  const ref = doc(proposalsCollection(conversationId), proposalId);
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (!snapshot.exists()) throw new Error('Proposal was not found.');
-    const record = snapshot.data() as ProposalRecord;
-    if (record.status !== 'pending_approval') {
-      throw new Error(`Proposal cannot be cancelled while it is ${record.status}.`);
-    }
-    const now = new Date().toISOString();
-    transaction.update(ref, { status: 'cancelled', updated_at: now });
-    addAuditEvent(transaction, {
-      event: 'failed',
-      proposal_id: record.id,
-      conversation_id: record.conversation_id,
-      user_id: record.user_id,
-      account_id: record.account_id,
-      timestamp: now,
-      details: { reason: 'cancelled_by_user' },
-    });
+  const bucket = conversationProposals(conversationId);
+  const record = bucket.get(proposalId);
+  if (!record) throw new Error('Proposal was not found.');
+  if (record.status !== 'pending_approval') {
+    throw new Error(`Proposal cannot be cancelled while it is ${record.status}.`);
+  }
+  const now = new Date().toISOString();
+  bucket.set(proposalId, { ...record, status: 'cancelled', updated_at: now });
+  addAuditEvent({
+    event: 'failed',
+    proposal_id: record.id,
+    conversation_id: record.conversation_id,
+    user_id: record.user_id,
+    account_id: record.account_id,
+    timestamp: now,
+    details: { reason: 'cancelled_by_user' },
   });
 }
 
