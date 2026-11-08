@@ -22,8 +22,28 @@ import {
   isAccountCacheFresh,
   recordMentionedEntity,
   resolveEntity,
+  ConversationState,
 } from '@/lib/conversation-state';
 import { classifyChatMessage } from '@/lib/chat-classifier';
+
+function emptyConversationState(accountId: string): ConversationState {
+  return {
+    account_id: accountId,
+    recent_entities: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function proposalStorageFailure(error: unknown) {
+  console.error('[AI Chat] Proposal persistence failed; no approval card was issued:', error);
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'The request was understood, but approval storage is unavailable. No Google Ads changes were made. Please try again after the conversation storage is available.',
+    },
+    { status: 503 }
+  );
+}
 
 /**
  * Intelligent deterministic optimization engine.
@@ -263,7 +283,13 @@ export async function POST(req: NextRequest) {
     };
     const conversationId = String(context.conversationId || 'default');
     const accountId = String(toolContext.account.clientCustomerId || 'unknown');
-    let conversationState = await getConversationState(conversationId, accountId);
+    let conversationState: ConversationState;
+    try {
+      conversationState = await getConversationState(conversationId, accountId);
+    } catch (error) {
+      console.error('[AI Chat] Conversation state read failed; continuing with an empty state:', error);
+      conversationState = emptyConversationState(accountId);
+    }
     const proposalMetadata = (proposal: ProposedAccountChange) => {
       const campaign = (toolContext.campaigns || []).find(
         (item) => String(item.id) === String(proposal.campaignId)
@@ -326,12 +352,16 @@ export async function POST(req: NextRequest) {
           toolContext.campaigns = (liveResult.campaigns || []) as ToolContext['campaigns'];
           toolContext.keywords = (liveResult.keywords || []) as ToolContext['keywords'];
           toolContext.searchTerms = (liveResult.searchTerms || []) as ToolContext['searchTerms'];
-          conversationState = await cacheAccountCampaigns(
-            conversationId,
-            accountId,
-            toolContext.campaigns,
-            liveResult.fetchedAt || new Date().toISOString()
-          );
+          try {
+            conversationState = await cacheAccountCampaigns(
+              conversationId,
+              accountId,
+              toolContext.campaigns,
+              liveResult.fetchedAt || new Date().toISOString()
+            );
+          } catch (error) {
+            console.error('[AI Chat] Account cache write failed; continuing with live data:', error);
+          }
           liveDataStatus = `Live Google Ads data was fetched at ${liveResult.fetchedAt || new Date().toISOString()}.`;
         } else {
           liveDataStatus = `Live refresh failed: ${liveResult.error || 'Google Ads did not return data'}. Use the supplied synchronized snapshot and clearly label it as the latest available data, not a live refresh.`;
@@ -431,7 +461,13 @@ RESPONSE FORMATTING GUIDELINES:
       }
     }
 
-    const latestProposalRecord = await getLatestProposal(conversationId);
+    let latestProposalRecord;
+    try {
+      latestProposalRecord = await getLatestProposal(conversationId);
+    } catch (error) {
+      console.error('[AI Chat] Pending proposal read failed; continuing without proposal context:', error);
+      latestProposalRecord = undefined;
+    }
     const pendingProposalToRevise = latestProposalRecord
       ? proposalRecordToClientProposal(latestProposalRecord)
       : undefined;
@@ -521,7 +557,11 @@ RESPONSE FORMATTING GUIDELINES:
     let requestedCampaign = directCampaign;
     if (resolvedCampaign) {
       requestedCampaign = resolvedCampaign;
-      conversationState = await recordMentionedEntity(conversationId, accountId, resolvedCampaign);
+      try {
+        conversationState = await recordMentionedEntity(conversationId, accountId, resolvedCampaign);
+      } catch (error) {
+        console.error('[AI Chat] Mentioned-entity state write failed; continuing with resolved campaign:', error);
+      }
     }
     const isCreateCampaign = classifiedOperation === 'create_campaign';
     const supersededProposalId =
@@ -657,11 +697,15 @@ RESPONSE FORMATTING GUIDELINES:
           ? 'Create paused campaign'
           : 'Apply change';
 
-      capturedProposal = await registerChatProposal({
-        ...capturedProposal,
-        supersedesProposalId: supersededProposalId,
-        revision: (pendingProposalToRevise?.revision || 0) + 1,
-      }, conversationId, supersededProposalId, proposalMetadata(capturedProposal));
+      try {
+        capturedProposal = await registerChatProposal({
+          ...capturedProposal,
+          supersedesProposalId: supersededProposalId,
+          revision: (pendingProposalToRevise?.revision || 0) + 1,
+        }, conversationId, supersededProposalId, proposalMetadata(capturedProposal));
+      } catch (error) {
+        return proposalStorageFailure(error);
+      }
       console.info(`[AI Chat] Mutation prepared locally: ${capturedProposal.actionType}; OpenRouter requests: 0`);
       return NextResponse.json(
         {
@@ -698,13 +742,18 @@ RESPONSE FORMATTING GUIDELINES:
     } catch (error) {
       console.error('[AI Chat] OpenRouter request failed:', error);
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
-      const fallbackProposal = fallback.capturedProposal
-        ? await registerChatProposal({
-            ...fallback.capturedProposal,
-            supersedesProposalId: supersededProposalId,
-            revision: (pendingProposalToRevise?.revision || 0) + 1,
-          }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal))
-        : undefined;
+      let fallbackProposal: ProposedAccountChange | undefined;
+      if (fallback.capturedProposal) {
+        try {
+          fallbackProposal = await registerChatProposal({
+              ...fallback.capturedProposal,
+              supersedesProposalId: supersededProposalId,
+              revision: (pendingProposalToRevise?.revision || 0) + 1,
+            }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal));
+        } catch (error) {
+          return proposalStorageFailure(error);
+        }
+      }
       return NextResponse.json({
         success: true,
         reply: fallback.reply,
@@ -723,13 +772,18 @@ RESPONSE FORMATTING GUIDELINES:
     }
     if (!response.reply) {
       const fallback = await synthesizeDeterministicGoogleAdsResponse(message, toolContext, displayName);
-      const fallbackProposal = fallback.capturedProposal
-        ? await registerChatProposal({
-            ...fallback.capturedProposal,
-            supersedesProposalId: supersededProposalId,
-            revision: (pendingProposalToRevise?.revision || 0) + 1,
-          }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal))
-        : undefined;
+      let fallbackProposal: ProposedAccountChange | undefined;
+      if (fallback.capturedProposal) {
+        try {
+          fallbackProposal = await registerChatProposal({
+              ...fallback.capturedProposal,
+              supersedesProposalId: supersededProposalId,
+              revision: (pendingProposalToRevise?.revision || 0) + 1,
+            }, conversationId, supersededProposalId, proposalMetadata(fallback.capturedProposal));
+        } catch (error) {
+          return proposalStorageFailure(error);
+        }
+      }
       return NextResponse.json({
         success: true,
         reply: fallback.reply,

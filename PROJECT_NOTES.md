@@ -24,3 +24,7 @@
 - Added `vitest.config.ts` and `tests/chat-agent.test.ts` with mocked OpenRouter, proposal storage, and Google Ads scenarios covering the 13 requested safety cases; added the `npm test` script and Vitest dev dependency.
 - Test result: 12 of 16 assertions pass (the four typed-error cases expose lost error metadata); TypeScript passes. No production code was changed in this phase.
 - Next: address the reported execution failures in a separate implementation phase.
+- Hardened the chat route against first-turn Firestore read failures by falling back to an empty conversation state and treating cache/entity-state writes as non-blocking for the current turn.
+- Approval persistence failures now return an explicit HTTP 503 without issuing an approval card or claiming an account change; Firestore rules were not weakened.
+- Changed file: `app/api/ai/chat/route.ts`.
+- Next: move proposal and conversation-state persistence under authenticated user-scoped Firestore paths before enabling approval-required mutations in deployments where top-level chat paths remain denied.
