@@ -28,3 +28,10 @@
 - Approval persistence failures now return an explicit HTTP 503 without issuing an approval card or claiming an account change; Firestore rules were not weakened.
 - Changed file: `app/api/ai/chat/route.ts`.
 - Next: move proposal and conversation-state persistence under authenticated user-scoped Firestore paths before enabling approval-required mutations in deployments where top-level chat paths remain denied.
+- Fixed campaign creation being routed into the existing-campaign selection flow. Creation is a multi-turn task, so the route now resolves it before any existing-campaign entity resolution.
+- Added `pending_campaign_creation` to `ConversationState` with `recordPendingCampaignCreation` / `clearPendingCampaignCreation`; the draft carries name, budget, currency, channel, objective, and app URL across turns.
+- Added `lib/campaign-creation.ts` with deterministic parameter extraction (name, budget, currency, app URL, objective), objective-to-channel mapping, and missing-field reporting. The classifier prompt now states that creation is multi-turn and must never ask the user to choose an existing campaign.
+- `create_campaign` now accepts `objective`, `appUrl`, and `finalUrl`, and defaults app-install objectives to the `MULTI_CHANNEL` app campaign type. `createGoogleAdsCampaign` emits `advertisingChannelSubType: APP_CAMPAIGN` with `appCampaignSetting` instead of `manualCpc` for that channel.
+- The creation draft is cleared after a verified successful creation in `lib/proposal-executor.ts`.
+- Added `tests/campaign-creation.test.ts` covering the reported two-turn reproduction, leads/sales/traffic variants, explicit existing-campaign actions, and the `create_campaign` tool contract.
+- Next: the four typed-error assertions in `tests/chat-agent.test.ts` still fail on a clean tree (pre-existing, documented above); they are unrelated to campaign creation.

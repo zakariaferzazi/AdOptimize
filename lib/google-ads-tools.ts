@@ -13,6 +13,7 @@ import {
   InteractiveRecommendation,
 } from '@/types/adoptimize';
 import { ToolDefinition } from './openrouter-service';
+import { channelForObjective, CreationObjective } from './campaign-creation';
 import {
   createGoogleAdsCampaign,
   mutateGoogleAdsCampaignBudget,
@@ -321,13 +322,23 @@ const OPERATION_SCHEMAS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'create_campaign',
-      description: 'Prepare a confirmation action to create a paused Google Ads campaign draft with the user-specified name, daily budget, and channel.',
+      description: 'Prepare a confirmation action to create a paused Google Ads campaign draft with the user-specified name, daily budget, and channel. Use this for any request to create a NEW campaign; it never targets an existing campaign.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Campaign name' },
           budgetDaily: { type: 'number', description: 'Daily budget in account currency' },
-          channelType: { type: 'string', enum: ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO'] },
+          channelType: {
+            type: 'string',
+            enum: ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO', 'MULTI_CHANNEL'],
+            description: 'Advertising channel. Use MULTI_CHANNEL for app installs and app promotion.',
+          },
+          objective: {
+            type: 'string',
+            description: 'Business objective such as app installs, leads, sales, traffic, or awareness.',
+          },
+          appUrl: { type: 'string', description: 'App store listing URL when promoting an app' },
+          finalUrl: { type: 'string', description: 'Landing page URL for the campaign' },
           reason: { type: 'string', description: 'Reason for creating the draft' },
         },
         required: ['name', 'budgetDaily'],
@@ -616,6 +627,8 @@ const proposalExecutors: Record<string, ProposalExecutor> = {
         budgetDaily: Number(payload.budgetDaily),
         channelType: String(payload.channelType || 'SEARCH'),
         status: 'PAUSED',
+        ...(payload.appId ? { appId: String(payload.appId) } : {}),
+        ...(payload.appStore ? { appStore: payload.appStore } : {}),
       },
       context.accessToken,
       context.developerToken,
@@ -1290,7 +1303,11 @@ async function executeGoogleAdsToolInternal(
       if (!Number.isFinite(budgetDaily) || budgetDaily <= 0) {
         return { success: false, error: 'Daily budget must be a positive number.' };
       }
-      const channelType = String(args.channelType || 'SEARCH').toUpperCase();
+      const objective = args.objective ? String(args.objective).toUpperCase() : undefined;
+      const requestedChannel = args.channelType ? String(args.channelType).toUpperCase() : undefined;
+      const channelType = requestedChannel || channelForObjective(objective as CreationObjective | undefined);
+      const appUrl = args.appUrl ? String(args.appUrl) : undefined;
+      const finalUrl = args.finalUrl ? String(args.finalUrl) : appUrl;
       const proposal: ProposedAccountChange = {
         id: `prop-create-campaign-${Date.now()}`,
         actionType: 'CREATE_CAMPAIGN',
@@ -1299,10 +1316,25 @@ async function executeGoogleAdsToolInternal(
         currentSettings: 'Campaign does not exist yet',
         proposedChanges: `Create a PAUSED ${channelType} campaign draft with a daily budget of ${account.currency} ${budgetDaily.toFixed(2)}`,
         reason: args.reason || 'User requested a new campaign draft.',
-        evidence: `Requested campaign name: ${name} · Requested daily budget: ${account.currency} ${budgetDaily.toFixed(2)}`,
+        evidence: [
+          `Requested campaign name: ${name}`,
+          `Requested daily budget: ${account.currency} ${budgetDaily.toFixed(2)}`,
+          objective ? `Objective: ${objective}` : undefined,
+          finalUrl ? `Landing page: ${finalUrl}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(' · '),
         potentialRisks: 'The campaign will be created paused and will not serve ads until separately enabled.',
         status: 'PENDING_APPROVAL',
-        payload: { name, budgetDaily, channelType, status: 'PAUSED' },
+        payload: {
+          name,
+          budgetDaily,
+          channelType,
+          status: 'PAUSED',
+          ...(objective ? { objective } : {}),
+          ...(appUrl ? { appUrl } : {}),
+          ...(finalUrl ? { finalUrl } : {}),
+        },
       };
       return {
         success: true,

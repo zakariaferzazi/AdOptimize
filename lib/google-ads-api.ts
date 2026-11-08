@@ -1656,6 +1656,8 @@ export async function createGoogleAdsCampaign(
     budgetDaily: number;
     channelType?: string;
     status?: 'ENABLED' | 'PAUSED';
+    appId?: string;
+    appStore?: 'GOOGLE_APP_STORE' | 'APPLE_APP_STORE';
   },
   accessToken: string,
   developerToken?: string,
@@ -1685,9 +1687,13 @@ export async function createGoogleAdsCampaign(
   }
 
   const rawChannel = (campaignData.channelType || 'SEARCH').toUpperCase();
-  const validChannel = ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO'].includes(rawChannel)
+  const validChannel = ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO', 'MULTI_CHANNEL'].includes(rawChannel)
     ? rawChannel
     : 'SEARCH';
+
+  // App promotion campaigns are created as MULTI_CHANNEL with the APP_CAMPAIGN
+  // advertising channel sub type. They cannot use manual CPC bidding.
+  const isAppCampaign = validChannel === 'MULTI_CHANNEL';
 
   // Atomic batch mutate operation: creates budget + campaign simultaneously
   const payload = {
@@ -1711,7 +1717,17 @@ export async function createGoogleAdsCampaign(
             advertisingChannelType: validChannel,
             containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
             campaignBudget: `customers/${cleanCid}/campaignBudgets/-1`,
-            manualCpc: {},
+            ...(isAppCampaign
+              ? {
+                  advertisingChannelSubType: 'APP_CAMPAIGN',
+                  appCampaignSetting: {
+                    appId: campaignData.appId || '',
+                    appStore: campaignData.appStore || 'GOOGLE_APP_STORE',
+                    biddingStrategyGoalType: 'TARGET_CPA',
+                  },
+                  maximizeConversions: {},
+                }
+              : { manualCpc: {} }),
             ...(validChannel === 'SEARCH'
               ? {
                   networkSettings: {

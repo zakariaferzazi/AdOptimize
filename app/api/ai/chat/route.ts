@@ -21,10 +21,22 @@ import {
   getConversationState,
   isAccountCacheFresh,
   recordMentionedEntity,
+  recordPendingCampaignCreation,
+  clearPendingCampaignCreation,
   resolveEntity,
   ConversationState,
+  PendingCampaignCreation,
 } from '@/lib/conversation-state';
 import { classifyChatMessage } from '@/lib/chat-classifier';
+import {
+  channelForObjective,
+  creationClarificationQuestion,
+  CreationObjective,
+  extractCreationParams,
+  isCreationRequest,
+  looksLikeCreationContinuation,
+  missingCreationFields,
+} from '@/lib/campaign-creation';
 
 function emptyConversationState(accountId: string): ConversationState {
   return {
@@ -471,8 +483,6 @@ RESPONSE FORMATTING GUIDELINES:
     const pendingProposalToRevise = latestProposalRecord
       ? proposalRecordToClientProposal(latestProposalRecord)
       : undefined;
-    const pendingCreateProposal =
-      pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' ? pendingProposalToRevise : undefined;
     const classification = await classifyChatMessage(
       message,
       requestedModel,
@@ -486,6 +496,167 @@ RESPONSE FORMATTING GUIDELINES:
         openRouterRequestCount: 1,
       });
     }
+    const classifiedParams = classification.params;
+    const classifiedOperation = classification.operation;
+    const classifiedIntent = classification.intent;
+
+    // ---------------------------------------------------------------------
+    // Campaign creation is a multi-turn task, not an operation on an existing
+    // campaign. Resolve it before any existing-campaign entity resolution so a
+    // follow-up turn that supplies the name and budget can never be routed into
+    // the "choose one campaign" selection flow.
+    // ---------------------------------------------------------------------
+    const pendingCreation = conversationState.pending_campaign_creation;
+    const extractedCreation = extractCreationParams(message, pendingCreation);
+    const creationContinuation = looksLikeCreationContinuation(message, pendingCreation);
+    const creationRequested = isCreationRequest(message);
+    const creationBlocked = classifiedIntent === 'cancel' || classifiedIntent === 'approve';
+
+    // A message that explicitly names an existing campaign is an operation on
+    // that campaign, never a creation continuation.
+    const earlyTargetRef = classification.target_ref;
+    const earlyEntityResolution = resolveEntity(earlyTargetRef, conversationState, toolContext.campaigns);
+    const referencesExistingCampaign =
+      earlyEntityResolution.status === 'resolved' &&
+      (earlyTargetRef.kind === 'id' || earlyTargetRef.kind === 'name');
+
+    const isCreateCampaign =
+      !creationBlocked &&
+      !referencesExistingCampaign &&
+      (classifiedOperation === 'create_campaign' ||
+        creationContinuation ||
+        creationRequested) &&
+      // A purely interrogative message with no creation parameters and no draft
+      // in progress is a question about creating campaigns, not a request to
+      // create one. Imperative requests always proceed.
+      !(
+        !pendingCreation &&
+        extractedCreation.name === undefined &&
+        extractedCreation.budgetDaily === undefined &&
+        extractedCreation.appUrl === undefined &&
+        /^\s*(how|what|where|when|why|which|who|can|could|should|would|do|does|is|are|will)\b/i.test(message)
+      );
+
+    if (isCreateCampaign) {
+      const merged: Partial<PendingCampaignCreation> = {
+        ...(pendingCreation || {}),
+        ...Object.fromEntries(
+          Object.entries(extractedCreation).filter(
+            ([, value]) => value !== undefined && value !== null && value !== ''
+          )
+        ),
+      };
+
+      // Model-supplied values only fill gaps the deterministic extractor missed.
+      if (merged.name === undefined && typeof classifiedParams.name === 'string') {
+        merged.name = classifiedParams.name;
+      }
+      if (merged.budgetDaily === undefined) {
+        const modelBudget = classifiedParams.budgetDaily ?? classifiedParams.newDailyBudget;
+        if (typeof modelBudget === 'number' && modelBudget > 0) merged.budgetDaily = modelBudget;
+      }
+      if (merged.currency === undefined && typeof classifiedParams.currency === 'string') {
+        merged.currency = classifiedParams.currency;
+      }
+      if (merged.objective === undefined && typeof classifiedParams.objective === 'string') {
+        merged.objective = classifiedParams.objective;
+      }
+      if (merged.appUrl === undefined && typeof classifiedParams.appUrl === 'string') {
+        merged.appUrl = classifiedParams.appUrl;
+      }
+      if (merged.finalUrl === undefined) merged.finalUrl = merged.appUrl;
+      if (merged.channelType === undefined && typeof classifiedParams.channelType === 'string') {
+        merged.channelType = classifiedParams.channelType;
+      }
+
+      const creationObjective = (merged.objective
+        ? String(merged.objective).toUpperCase()
+        : undefined) as CreationObjective | undefined;
+      if (!merged.channelType) merged.channelType = channelForObjective(creationObjective);
+
+      try {
+        conversationState = await recordPendingCampaignCreation(conversationId, accountId, merged);
+      } catch (error) {
+        console.error('[AI Chat] Campaign creation draft write failed; continuing with in-memory draft:', error);
+      }
+
+      const missing = missingCreationFields(merged);
+      if (missing.length > 0) {
+        return NextResponse.json({
+          success: true,
+          reply: creationClarificationQuestion(missing),
+          openRouterRequestCount: 1,
+        });
+      }
+
+      const createArgs: Record<string, any> = {
+        name: String(merged.name),
+        budgetDaily: Number(merged.budgetDaily),
+        channelType: String(merged.channelType),
+        reason: pendingCreation
+          ? 'User continued the in-progress campaign creation request through the AI Marketing Agent.'
+          : 'User requested a campaign draft through the AI Marketing Agent.',
+        ...(merged.objective ? { objective: String(merged.objective) } : {}),
+        ...(merged.appUrl ? { appUrl: String(merged.appUrl) } : {}),
+        ...(merged.finalUrl ? { finalUrl: String(merged.finalUrl) } : {}),
+      };
+
+      const createResult = await executeGoogleAdsTool('create_campaign', createArgs, toolContext);
+      if (!createResult.success || !createResult.actionProposal) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              createResult.error ||
+              'The campaign draft could not be prepared. No account changes were made.',
+            openRouterRequestCount: 0,
+          },
+          { status: 422 }
+        );
+      }
+
+      const supersedesCreationId =
+        pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN'
+          ? pendingProposalToRevise.id
+          : undefined;
+      let creationProposal: ProposedAccountChange;
+      try {
+        creationProposal = await registerChatProposal(
+          {
+            ...createResult.actionProposal,
+            supersedesProposalId: supersedesCreationId,
+            revision: (pendingProposalToRevise?.revision || 0) + 1,
+          },
+          conversationId,
+          supersedesCreationId,
+          proposalMetadata(createResult.actionProposal)
+        );
+      } catch (error) {
+        return proposalStorageFailure(error);
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          reply:
+            'Review the new campaign below, then click "Create paused campaign". Nothing has been created in Google Ads yet.',
+          toolCalls: [
+            {
+              id: `pre-${Date.now()}-create_campaign`,
+              name: 'create_campaign',
+              args: createArgs,
+              result: createResult.message,
+              status: 'success' as const,
+              executionTimeMs: 0,
+            },
+          ],
+          actionProposal: creationProposal,
+          openRouterRequestCount: 0,
+        },
+        { headers: { 'X-OpenRouter-Requests': '0' } }
+      );
+    }
+
     if (classification.confidence < 0.65 || classification.missing_fields.length > 0) {
       return NextResponse.json({
         success: true,
@@ -493,9 +664,6 @@ RESPONSE FORMATTING GUIDELINES:
         openRouterRequestCount: 1,
       });
     }
-    const classifiedParams = classification.params;
-    const classifiedOperation = classification.operation;
-    const classifiedIntent = classification.intent;
     const classifiedRegistryOperation = classifiedOperation
       ? getGoogleAdsOperation(classifiedOperation)
       : undefined;
@@ -529,13 +697,11 @@ RESPONSE FORMATTING GUIDELINES:
     const requestedBudget = requestedBudgetValue === undefined ? undefined : String(requestedBudgetValue);
     const isPendingProposalModification =
       classifiedIntent === 'modify_proposal' && Boolean(pendingProposalToRevise);
-    const isBudgetMutation = classifiedOperation === 'update_campaign_budget' ||
-      (classifiedOperation === 'create_campaign' && classifiedIntent !== 'question');
     const isStatusMutation = classifiedOperation === 'pause_campaign' || classifiedOperation === 'enable_campaign';
     const isExplicitMutation =
       classifiedIntent === 'propose_change' || classifiedIntent === 'modify_proposal';
     const targetRef = classification.target_ref;
-    const entityResolution = resolveEntity(targetRef, conversationState, toolContext.campaigns);
+    const entityResolution = earlyEntityResolution;
     if (entityResolution.status === 'needs_clarification' && (isExplicitMutation || isStatusMutation)) {
       return NextResponse.json(
         {
@@ -563,7 +729,6 @@ RESPONSE FORMATTING GUIDELINES:
         console.error('[AI Chat] Mentioned-entity state write failed; continuing with resolved campaign:', error);
       }
     }
-    const isCreateCampaign = classifiedOperation === 'create_campaign';
     const supersededProposalId =
       classifiedIntent === 'modify_proposal' && pendingProposalToRevise
         ? pendingProposalToRevise.id
@@ -600,7 +765,7 @@ RESPONSE FORMATTING GUIDELINES:
         openRouterRequestCount: 0,
       });
     }
-    if (isExplicitMutation && !isCreateCampaign && !requestedCampaign && entityResolution.status === 'needs_clarification') {
+    if (isExplicitMutation && !requestedCampaign && entityResolution.status === 'needs_clarification') {
         return NextResponse.json(
           {
             success: false,
@@ -614,22 +779,7 @@ RESPONSE FORMATTING GUIDELINES:
         );
     }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
-    if (isCreateCampaign || (pendingCreateProposal && isBudgetMutation)) {
-      const pendingPayload = pendingCreateProposal?.payload || {};
-      const budget = requestedBudget ||
-        String(pendingPayload.budgetDaily || '10');
-      evidenceTools.push({
-        name: 'create_campaign',
-        args: {
-          name: String(classifiedParams.name || pendingPayload.name || pendingCreateProposal?.campaignName || 'New Google Ads Campaign'),
-          budgetDaily: Number(budget),
-          channelType: String(classifiedParams.channelType || pendingPayload.channelType || 'SEARCH'),
-          reason: pendingCreateProposal
-            ? 'User revised the pending campaign proposal through the AI Marketing Agent.'
-            : 'User requested a campaign draft through the AI Marketing Agent.',
-        },
-      });
-    } else {
+    {
       const selectedOperation = classifiedOperation ||
         (requestedCampaign ? 'analyze_campaign' : 'get_account_overview');
       const args: Record<string, any> = { ...classifiedParams };

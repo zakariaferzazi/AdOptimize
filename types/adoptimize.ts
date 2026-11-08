@@ -1,4 +1,4 @@
-export type CampaignType = 'SEARCH' | 'PERFORMANCE_MAX' | 'DISPLAY' | 'SHOPPING';
+export type CampaignType = 'SEARCH' | 'PERFORMANCE_MAX' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'MULTI_CHANNEL';
 export type CampaignStatus = 'ENABLED' | 'PAUSED';
 export type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'OPPORTUNITY';
 export type CampaignGoal = 'MAXIMIZE_CONVERSIONS' | 'TARGET_CPA' | 'TARGET_ROAS' | 'MAXIMIZE_VALUE';

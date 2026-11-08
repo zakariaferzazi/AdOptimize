@@ -11,6 +11,27 @@ export interface ConversationEntity {
   at: string;
 }
 
+/**
+ * A campaign-creation request that is still collecting required parameters.
+ * Creation is a multi-turn task: the first message usually supplies only the
+ * objective, and later messages supply the name and budget. Without this draft
+ * the follow-up turn has no campaign to resolve and falls into the
+ * existing-campaign selection flow.
+ */
+export interface PendingCampaignCreation {
+  name?: string;
+  budgetDaily?: number;
+  currency?: string;
+  channelType?: string;
+  objective?: string;
+  appUrl?: string;
+  finalUrl?: string;
+  targetCpa?: number;
+  targetRoas?: number;
+  requested_at: string;
+  updated_at: string;
+}
+
 export interface ConversationState {
   account_id: string;
   focus_entity?: {
@@ -22,6 +43,7 @@ export interface ConversationState {
   active_proposal_id?: string;
   last_action?: string;
   short_summary?: string;
+  pending_campaign_creation?: PendingCampaignCreation;
   account_cache?: {
     fetched_at: string;
     campaigns: Campaign[];
@@ -187,6 +209,48 @@ export async function recordSuccessfulCampaignWrite(
   });
 }
 
+/**
+ * Merge newly supplied creation parameters into the in-progress creation draft.
+ * Only defined values overwrite existing ones so a follow-up turn that supplies
+ * just the budget keeps the name and objective captured earlier.
+ */
+export async function recordPendingCampaignCreation(
+  conversationId: string,
+  accountId: string,
+  patch: Partial<Omit<PendingCampaignCreation, 'requested_at' | 'updated_at'>>
+): Promise<ConversationState> {
+  return updateState(conversationId, accountId, (state) => {
+    const now = new Date().toISOString();
+    const existing = state.pending_campaign_creation;
+    const merged: PendingCampaignCreation = {
+      ...(existing || { requested_at: now }),
+      ...Object.fromEntries(
+        Object.entries(patch).filter(([, value]) => value !== undefined && value !== null && value !== '')
+      ),
+      requested_at: existing?.requested_at || now,
+      updated_at: now,
+    };
+    return {
+      ...state,
+      pending_campaign_creation: merged,
+      last_action: 'campaign_creation_in_progress',
+      short_summary: `Creating campaign${merged.name ? ` "${merged.name}"` : ''}${
+        merged.budgetDaily ? ` with ${merged.currency || ''} ${merged.budgetDaily} daily budget` : ''
+      }`,
+    };
+  });
+}
+
+export async function clearPendingCampaignCreation(
+  conversationId: string,
+  accountId: string
+): Promise<ConversationState> {
+  return updateState(conversationId, accountId, (state) => {
+    const { pending_campaign_creation: _pending, ...withoutPending } = state;
+    return withoutPending;
+  });
+}
+
 export async function cacheAccountCampaigns(
   conversationId: string,
   accountId: string,
@@ -262,6 +326,7 @@ export function compactConversationState(state: ConversationState) {
     active_proposal_id: state.active_proposal_id || null,
     last_action: state.last_action || null,
     short_summary: state.short_summary || null,
+    pending_campaign_creation: state.pending_campaign_creation || null,
     account_cache_fetched_at: state.account_cache?.fetched_at || null,
   };
 }

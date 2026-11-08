@@ -14,7 +14,7 @@ import {
   updateProposalStatus,
 } from '@/lib/chat-proposal-store';
 import { GoogleAdsAccount } from '@/types/adoptimize';
-import { invalidateAccountCache, recordSuccessfulCampaignWrite } from '@/lib/conversation-state';
+import { invalidateAccountCache, recordSuccessfulCampaignWrite, clearPendingCampaignCreation } from '@/lib/conversation-state';
 
 type TypedErrorType =
   | 'permission'
@@ -304,6 +304,12 @@ export async function executeProposal(
           { id: realIds.campaignId, name: String(after.name || proposal.proposal.campaignName) },
           proposal.operation
         );
+        if (proposal.operation === 'create_campaign') {
+          await clearPendingCampaignCreation(
+            options.conversationId,
+            String(options.account.clientCustomerId || 'unknown')
+          );
+        }
       } catch (stateError) {
         console.error('[AI Chat] Google Ads succeeded but conversation state update failed:', stateError);
       }
