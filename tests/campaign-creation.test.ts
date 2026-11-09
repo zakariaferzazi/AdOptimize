@@ -261,6 +261,79 @@ describe('campaign creation routing', () => {
     }
   });
 
+  it('revises the pending app-install proposal instead of selecting an existing campaign', async () => {
+    const conversationId = 'pending-revision-conversation';
+    openRouterMock.send.mockImplementation(async ({ messages }: { messages: Array<{ role: string; content: string }> }) => {
+      const message = messages[messages.length - 1]?.content || '';
+      if (/add 7/i.test(message)) {
+        return classification({
+          intent: 'modify_proposal',
+          operation: 'update_campaign_budget',
+          target_ref: { kind: 'current_focus', value: '' },
+          params: { newDailyBudget: 7, currency: 'USD' },
+        });
+      }
+      if (/one we are talking about/i.test(message)) {
+        return classification({
+          intent: 'modify_proposal',
+          operation: 'update_campaign_budget',
+          target_ref: { kind: 'current_focus', value: '' },
+          params: {},
+        });
+      }
+      if (/^7\$/i.test(message.trim())) {
+        return classification({
+          intent: 'modify_proposal',
+          operation: 'update_campaign_budget',
+          target_ref: { kind: 'current_focus', value: '' },
+          params: { newDailyBudget: 7, currency: 'USD' },
+        });
+      }
+      if (/speaker app campaign/i.test(message)) {
+        return classification({
+          params: {
+            name: 'Speaker App Campaign',
+            budgetDaily: 6,
+            currency: 'USD',
+            objective: 'APP_INSTALLS',
+            appUrl: APP_URL,
+          },
+        });
+      }
+      return classification({
+        params: { objective: 'APP_INSTALLS', appUrl: APP_URL },
+      });
+    });
+
+    const first = await POST(
+      chatRequest(`Create me a campaign for my app ${APP_URL}, I want installs.`, conversationId) as any
+    );
+    const firstBody = await first.json();
+    const second = await POST(
+      chatRequest('speaker app campaign, 6$, yes', conversationId, [
+        { role: 'user', content: `Create me a campaign for my app ${APP_URL}, I want installs.` },
+        { role: 'assistant', content: firstBody.reply },
+      ]) as any
+    );
+    const secondBody = await second.json();
+    expect(secondBody.actionProposal?.payload?.budgetDaily).toBe(6);
+    const proposalId = secondBody.actionProposal?.proposalId;
+
+    const revised = await POST(chatRequest('add 7$ budget', conversationId) as any);
+    const revisedBody = await revised.json();
+    expect(revisedBody.actionProposal?.proposalId).toBe(proposalId);
+    expect(revisedBody.actionProposal?.revision).toBe(2);
+    expect(revisedBody.actionProposal?.payload?.budgetDaily).toBe(7);
+    expect(revisedBody.actionProposal?.payload?.objective).toBe('APP_INSTALLS');
+    expect(revisedBody.actionProposal?.payload?.appUrl).toBe(APP_URL);
+    expect(JSON.stringify(revisedBody)).not.toContain('Please choose one campaign');
+
+    const clarification = await POST(chatRequest('the one we are talking about', conversationId) as any);
+    const clarificationBody = await clarification.json();
+    expect(clarificationBody.actionProposal?.proposalId).toBe(proposalId);
+    expect(JSON.stringify(clarificationBody)).not.toContain('Please choose one campaign');
+  });
+
   it('still routes explicit existing-campaign actions to that campaign', async () => {
     openRouterMock.send.mockResolvedValueOnce(
       classification({
@@ -383,6 +456,7 @@ describe('create_campaign tool', () => {
     expect(result.actionProposal?.actionType).toBe('CREATE_CAMPAIGN');
     expect(result.actionProposal?.payload?.channelType).toBe('MULTI_CHANNEL');
     expect(result.actionProposal?.payload?.appUrl).toBe(APP_URL);
+    expect(result.actionProposal?.payload?.appId).toBe('com.speaker.watereject');
     expect(result.actionProposal?.evidence).toContain('APP_INSTALLS');
   });
 });

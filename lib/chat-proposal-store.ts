@@ -188,6 +188,53 @@ export async function registerChatProposal(
 
   const bucket = conversationProposals(conversationId);
   if (supersedesId) {
+    const previous = bucket.get(supersedesId);
+    if (previous && previous.status === 'pending_approval') {
+      const revisedRevision = Math.max(
+        previous.revision + 1,
+        proposal.revision || previous.revision + 1
+      );
+      const revisedProposal = clone({
+        ...proposal,
+        id: previous.id,
+        proposalId: previous.id,
+        revision: revisedRevision,
+      });
+      const revisedRecord: ProposalRecord = {
+        ...previous,
+        revision: revisedRevision,
+        status: 'pending_approval',
+        payload,
+        before_snapshot: metadata.beforeSnapshot || previous.before_snapshot,
+        payload_hash: hashProposalPayload(payload),
+        updated_at: now,
+        proposal: revisedProposal,
+      };
+      bucket.set(previous.id, revisedRecord);
+      addAuditEvent({
+        event: 'proposal_revised',
+        proposal_id: previous.id,
+        conversation_id: conversationId,
+        user_id: metadata.userId,
+        account_id: metadata.accountId,
+        timestamp: now,
+        details: { previous_revision: previous.revision, revision: revisedRevision },
+      });
+      await recordProposalState(
+        conversationId,
+        metadata.accountId || 'unknown',
+        previous.id,
+        proposal.campaignId && !proposal.campaignId.startsWith('draft-')
+          ? { id: proposal.campaignId, name: proposal.campaignName }
+          : proposal.actionType === 'CREATE_CAMPAIGN'
+          ? { id: previous.id, name: proposal.campaignName }
+          : undefined,
+        proposal.proposedChanges
+      );
+      return toClientProposal(revisedRecord);
+    }
+  }
+  if (supersedesId) {
     const old = bucket.get(supersedesId);
     if (old && old.status === 'pending_approval') {
       bucket.set(supersedesId, { ...old, status: 'superseded', updated_at: now });

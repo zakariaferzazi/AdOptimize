@@ -43,13 +43,18 @@ export async function POST(req: NextRequest) {
         ? 200
         : execution.result.status === 'executed_unverified'
         ? 502
-        : 409;
+        : execution.result.error?.type === 'conflict'
+        ? 409
+        : execution.result.error?.type === 'invalid_argument'
+        ? 422
+        : 502;
 
     return NextResponse.json(
       {
         success: execution.result.status === 'succeeded',
         status: execution.result.status,
         message: execution.message,
+        error: execution.result.status === 'succeeded' ? undefined : execution.message,
         result: execution.result,
         proposalId,
       },

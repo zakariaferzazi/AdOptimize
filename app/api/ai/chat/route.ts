@@ -507,9 +507,10 @@ RESPONSE FORMATTING GUIDELINES:
     // the "choose one campaign" selection flow.
     // ---------------------------------------------------------------------
     const pendingCreation = conversationState.pending_campaign_creation;
-    const extractedCreation = extractCreationParams(message, pendingCreation);
-    const creationContinuation = looksLikeCreationContinuation(message, pendingCreation);
-    const creationRequested = isCreationRequest(message);
+      const suppliedCreation = extractCreationParams(message);
+      const extractedCreation = extractCreationParams(message, pendingCreation);
+      const creationContinuation = looksLikeCreationContinuation(message, pendingCreation);
+      const creationRequested = isCreationRequest(message);
     const creationBlocked = classifiedIntent === 'cancel' || classifiedIntent === 'approve';
 
     // A message that explicitly names an existing campaign is an operation on
@@ -525,7 +526,11 @@ RESPONSE FORMATTING GUIDELINES:
       !referencesExistingCampaign &&
       (classifiedOperation === 'create_campaign' ||
         creationContinuation ||
-        creationRequested) &&
+        creationRequested ||
+        (
+          pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' &&
+          (classifiedIntent === 'modify_proposal' || classifiedOperation === 'update_campaign_budget')
+        )) &&
       // A purely interrogative message with no creation parameters and no draft
       // in progress is a question about creating campaigns, not a request to
       // create one. Imperative requests always proceed.
@@ -538,6 +543,18 @@ RESPONSE FORMATTING GUIDELINES:
       );
 
     if (isCreateCampaign) {
+      if (
+        pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' &&
+        classifiedOperation !== 'create_campaign' &&
+        Object.keys(suppliedCreation).length === 0
+      ) {
+        return NextResponse.json({
+          success: true,
+          reply: 'I found the pending campaign creation proposal we are discussing. What daily budget should I use for its revision?',
+          actionProposal: pendingProposalToRevise,
+          openRouterRequestCount: 1,
+        });
+      }
       const merged: Partial<PendingCampaignCreation> = {
         ...(pendingCreation || {}),
         ...Object.fromEntries(

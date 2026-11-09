@@ -641,7 +641,7 @@ export function AiChatView({
       const resData = await response.json();
 
       if (!response.ok || !resData.success) {
-        throw new Error(resData.error || 'Failed to execute Google Ads change.');
+        throw new Error(resData.error || resData.message || 'Failed to execute Google Ads change.');
       }
 
       if (resData.data?.updatedCampaign && onMutateCampaign) {

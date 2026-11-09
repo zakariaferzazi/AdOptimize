@@ -333,6 +333,12 @@ const OPERATION_SCHEMAS: ToolDefinition[] = [
             enum: ['SEARCH', 'PERFORMANCE_MAX', 'DISPLAY', 'SHOPPING', 'VIDEO', 'MULTI_CHANNEL'],
             description: 'Advertising channel. Use MULTI_CHANNEL for app installs and app promotion.',
           },
+          appId: { type: 'string', description: 'Mobile app package ID or App Store ID' },
+          appStore: {
+            type: 'string',
+            enum: ['GOOGLE_APP_STORE', 'APPLE_APP_STORE'],
+            description: 'App store containing the promoted app',
+          },
           objective: {
             type: 'string',
             description: 'Business objective such as app installs, leads, sales, traffic, or awareness.',
@@ -1308,6 +1314,25 @@ async function executeGoogleAdsToolInternal(
       const channelType = requestedChannel || channelForObjective(objective as CreationObjective | undefined);
       const appUrl = args.appUrl ? String(args.appUrl) : undefined;
       const finalUrl = args.finalUrl ? String(args.finalUrl) : appUrl;
+      let appId: string | undefined;
+      let appStore: 'GOOGLE_APP_STORE' | 'APPLE_APP_STORE' | undefined;
+      if (appUrl) {
+        try {
+          const parsedUrl = new URL(appUrl);
+          if (parsedUrl.hostname === 'play.google.com') {
+            appId = parsedUrl.searchParams.get('id') || undefined;
+            appStore = 'GOOGLE_APP_STORE';
+          } else if (parsedUrl.hostname === 'apps.apple.com') {
+            appId = parsedUrl.pathname.match(/\/id(\d+)/i)?.[1];
+            appStore = 'APPLE_APP_STORE';
+          }
+        } catch {
+          return { success: false, error: 'The app URL is not valid.' };
+        }
+      }
+      if (objective === 'APP_INSTALLS' && (!appUrl || !appId)) {
+        return { success: false, error: 'An app store URL with a valid app identifier is required for app-install campaigns.' };
+      }
       const proposal: ProposedAccountChange = {
         id: `prop-create-campaign-${Date.now()}`,
         actionType: 'CREATE_CAMPAIGN',
@@ -1332,6 +1357,8 @@ async function executeGoogleAdsToolInternal(
           channelType,
           status: 'PAUSED',
           ...(objective ? { objective } : {}),
+          ...(appId ? { appId } : {}),
+          ...(appStore ? { appStore } : {}),
           ...(appUrl ? { appUrl } : {}),
           ...(finalUrl ? { finalUrl } : {}),
         },

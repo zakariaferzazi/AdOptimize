@@ -88,6 +88,7 @@ function extractCurrency(text: string): string | undefined {
 function extractBudget(text: string): number | undefined {
   const patterns = [
     /(?:[$£€¥₹₩]|R\$)\s*(\d+(?:[.,]\d{1,2})?)/,
+    /(\d+(?:[.,]\d{1,2})?)\s*(?:[$£€¥₹₩]|R\$)/,
     /(\d+(?:[.,]\d{1,2})?)\s*(?:usd|gbp|eur|cad|aud|dollars?|bucks|pounds?|euros?)\b/i,
     /\b(?:daily\s+)?budget(?:\s+of|\s+is|\s+at)?\s*[:=]?\s*(\d+(?:[.,]\d{1,2})?)/i,
     /\b(\d+(?:[.,]\d{1,2})?)\s*(?:\/\s*day|per\s+day|a\s+day|daily)\b/i,
@@ -194,6 +195,9 @@ export function missingCreationFields(
   if (draft.budgetDaily === undefined || !Number.isFinite(draft.budgetDaily) || draft.budgetDaily <= 0) {
     missing.push('budgetDaily');
   }
+  if (draft.objective === 'APP_INSTALLS' && !draft.appUrl) {
+    missing.push('appUrl');
+  }
   return missing;
 }
 
@@ -201,6 +205,7 @@ export function creationClarificationQuestion(missing: string[]): string {
   const parts: string[] = [];
   if (missing.includes('name')) parts.push('campaign name');
   if (missing.includes('budgetDaily')) parts.push('daily budget (including currency)');
+  if (missing.includes('appUrl')) parts.push('the Google Play or App Store app URL');
   if (parts.length === 0) return 'Please confirm the campaign name and daily budget.';
   if (parts.length === 1) return `What ${parts[0]} should I use for the new campaign?`;
   return `What ${parts[0]} and ${parts[1]} should I use for the new campaign?`;

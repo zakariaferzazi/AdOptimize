@@ -17,6 +17,7 @@ import { GoogleAdsAccount } from '@/types/adoptimize';
 import { invalidateAccountCache, recordSuccessfulCampaignWrite, clearPendingCampaignCreation } from '@/lib/conversation-state';
 
 type TypedErrorType =
+  | 'conflict'
   | 'permission'
   | 'invalid_argument'
   | 'quota'
@@ -48,7 +49,13 @@ function typedError(result: RegistryExecutionResult | Error): TypedExecutionErro
   const lower = message.toLowerCase();
   let type: TypedErrorType = 'unknown';
 
-  if ('isQuotaExhausted' in result && result.isQuotaExhausted || statusCode === 429) type = 'quota';
+  if (
+    lower.includes('stale') ||
+    lower.includes('already approved') ||
+    lower.includes('not ready for execution') ||
+    lower.includes('currently executing')
+  ) type = 'conflict';
+  else if ('isQuotaExhausted' in result && result.isQuotaExhausted || statusCode === 429) type = 'quota';
   else if (statusCode === 401 || statusCode === 403 || ('isAuthExpired' in result && result.isAuthExpired)) type = 'permission';
   else if (statusCode === 404 || lower.includes('not found') || lower.includes('could not locate')) type = 'not_found';
   else if (statusCode === 400 || lower.includes('invalid') || lower.includes('required')) type = 'invalid_argument';
@@ -56,6 +63,7 @@ function typedError(result: RegistryExecutionResult | Error): TypedExecutionErro
   else if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('network')) type = 'timeout';
 
   const nextSteps: Record<TypedErrorType, string> = {
+    conflict: 'Refresh the conversation and approve the latest proposal revision only.',
     permission: 'Reconnect the Google Ads account or grant the required account permission, then try again.',
     invalid_argument: 'Review the proposal values and submit a corrected request.',
     quota: 'Wait for the Google Ads quota window to recover, then try again.',
@@ -245,9 +253,11 @@ export async function executeProposal(
     writeResult = await operation.execute(payload, executionContext);
     if (!writeResult.success) throw writeResult;
   } catch (error) {
-    const typed = typedError(error instanceof Error ? error : {
-      message: String((error as RegistryExecutionResult)?.error || 'Google Ads execution failed.'),
-    } as Error);
+    const typed = typedError(
+      error instanceof Error
+        ? error
+        : (error as RegistryExecutionResult)
+    );
     const result = failedResult(proposal, typed, before);
     await updateProposalStatus(options.conversationId, proposalId, 'failed', result);
     return { result, message: resultMessage(result) };

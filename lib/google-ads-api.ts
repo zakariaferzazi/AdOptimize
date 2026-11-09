@@ -1694,6 +1694,13 @@ export async function createGoogleAdsCampaign(
   // App promotion campaigns are created as MULTI_CHANNEL with the APP_CAMPAIGN
   // advertising channel sub type. They cannot use manual CPC bidding.
   const isAppCampaign = validChannel === 'MULTI_CHANNEL';
+  if (isAppCampaign && !campaignData.appId) {
+    return {
+      success: false,
+      error: 'An app identifier is required for a MULTI_CHANNEL app campaign.',
+      statusCode: 400,
+    };
+  }
 
   // Atomic batch mutate operation: creates budget + campaign simultaneously
   const payload = {
