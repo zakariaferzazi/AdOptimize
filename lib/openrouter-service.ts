@@ -62,6 +62,23 @@ export interface OpenRouterResponse {
   finishReason?: string;
 }
 
+const MODEL_CONTEXT_LIMITS: Record<SupportedModel, number> = {
+  deepseek: 32768,
+  chatgpt: 128000,
+  gemini: 1000000,
+};
+
+export function getModelContextLimit(modelOrTier: string = 'gemini'): number {
+  const normalized = modelOrTier.toLowerCase();
+  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') {
+    return MODEL_CONTEXT_LIMITS.deepseek;
+  }
+  if (normalized === 'chatgpt' || normalized === 'balanced') {
+    return MODEL_CONTEXT_LIMITS.chatgpt;
+  }
+  return MODEL_CONTEXT_LIMITS.gemini;
+}
+
 export function getOpenRouterApiKey(): string | undefined {
   const key = process.env.OPENROUTER_API_KEY;
   return key?.trim() || undefined;

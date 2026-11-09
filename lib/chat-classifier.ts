@@ -109,8 +109,8 @@ ${JSON.stringify(compactConversationState(state))}
 ACTIVE PROPOSAL:
 ${JSON.stringify(pendingProposal || null)}
 
-RECENT CONVERSATION HISTORY:
-${JSON.stringify(history.slice(-24))}
+COMPLETE CONVERSATION HISTORY (chronological; never ignore earlier turns):
+${JSON.stringify(history)}
 
 REGISTRY OPERATIONS:
 ${operations}`;

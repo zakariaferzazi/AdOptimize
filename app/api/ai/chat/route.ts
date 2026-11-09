@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOpenRouterChat, ChatCompletionMessage, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
+import { sendOpenRouterChat, ChatCompletionMessage, getModelContextLimit, getModelDisplayName, OpenRouterResponse } from '@/lib/openrouter-service';
 import {
   executeGoogleAdsTool,
   GOOGLE_ADS_TOOL_DEFINITIONS,
@@ -61,6 +61,10 @@ function proposalStorageFailure(error: unknown) {
 
 function extractUrls(text: string): string[] {
   return [...text.matchAll(/https?:\/\/[^\s,)"']+/gi)].map(([url]) => url);
+}
+
+function estimateTokens(messages: Array<{ role: string; content?: string | null }>): number {
+  return Math.ceil(messages.reduce((total, item) => total + (item.content || '').length, 0) / 4);
 }
 
 /**
@@ -308,9 +312,27 @@ export async function POST(req: NextRequest) {
       console.error('[AI Chat] Conversation state read failed; continuing with an empty state:', error);
       conversationState = emptyConversationState(accountId);
     }
-    const messageUrls = extractUrls(
-      [message, ...conversationHistory.map((item: { content?: string }) => item.content || '')].join('\n')
+    const transcript = (Array.isArray(conversationHistory) ? conversationHistory : [])
+      .filter((item: { role?: string; content?: string }) =>
+        (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string'
+      )
+      .map((item: { role: string; content: string }) => ({ role: item.role, content: item.content }));
+    const hasLatestMessage = transcript.some(
+      (item, index) => index === transcript.length - 1 && item.role === 'user' && item.content === message
     );
+    if (!hasLatestMessage) transcript.push({ role: 'user', content: message });
+
+    const contextLimit = getModelContextLimit(requestedModel);
+    if (estimateTokens(transcript) > contextLimit) {
+      return NextResponse.json({
+        success: true,
+        contextLimitReached: true,
+        reply: `This conversation has reached the context limit for ${displayName}. I have not removed any earlier messages. Please start a new chat to continue.`,
+        openRouterRequestCount: 0,
+      });
+    }
+
+    const messageUrls = extractUrls(transcript.map((item) => item.content).join('\n'));
     if (messageUrls.length > 0) {
       try {
         conversationState = await recordConversationFacts(conversationId, accountId, {
@@ -480,15 +502,8 @@ RESPONSE FORMATTING GUIDELINES:
       { role: 'system', content: systemPrompt },
     ];
 
-    // Keep enough recent context for natural follow-ups without sending an unbounded transcript.
-    const recentHistory = conversationHistory.slice(-24);
-    for (const h of recentHistory) {
-      if (h.role === 'user' || h.role === 'assistant') {
-        formattedMessages.push({
-          role: h.role,
-          content: h.content,
-        });
-      }
+    for (const h of transcript) {
+      formattedMessages.push({ role: h.role as 'user' | 'assistant', content: h.content });
     }
 
     let latestProposalRecord;
@@ -542,18 +557,20 @@ RESPONSE FORMATTING GUIDELINES:
       requestedModel,
       conversationState,
       proposalForClassification,
-      conversationHistory
+      transcript.slice(0, -1)
     );
-    if (!classification) {
-      return NextResponse.json({
-        success: true,
-        reply: 'I could not reliably classify that request. Please rephrase it with the campaign and action you want.',
-        openRouterRequestCount: 1,
-      });
-    }
-    const classifiedParams = classification.params;
-    const classifiedOperation = classification.operation;
-    const classifiedIntent = classification.intent;
+    const resolvedClassification = classification || {
+      intent: 'question' as const,
+      operation: null,
+      target_ref: { kind: 'none' as const, value: '' },
+      params: {},
+      missing_fields: [],
+      confidence: 0,
+      clarification_question: null,
+    };
+    const classifiedParams = resolvedClassification.params;
+    const classifiedOperation = resolvedClassification.operation;
+    const classifiedIntent = resolvedClassification.intent;
 
     // ---------------------------------------------------------------------
     // Campaign creation is a multi-turn task, not an operation on an existing
@@ -570,7 +587,7 @@ RESPONSE FORMATTING GUIDELINES:
 
     // A message that explicitly names an existing campaign is an operation on
     // that campaign, never a creation continuation.
-    const earlyTargetRef = classification.target_ref;
+    const earlyTargetRef = resolvedClassification.target_ref;
     const earlyEntityResolution = resolveEntity(earlyTargetRef, conversationState, toolContext.campaigns);
     const referencesExistingCampaign =
       earlyEntityResolution.status === 'resolved' &&
@@ -683,15 +700,13 @@ RESPONSE FORMATTING GUIDELINES:
 
       const createResult = await executeGoogleAdsTool('create_campaign', createArgs, toolContext);
       if (!createResult.success || !createResult.actionProposal) {
+        console.error('[AI Chat] Campaign creation could not be prepared:', createResult.error || createResult.message);
         return NextResponse.json(
           {
-            success: false,
-            error:
-              createResult.error ||
-              'The campaign draft could not be prepared. No account changes were made.',
+            success: true,
+            reply: 'I could not prepare that campaign change yet. Please check the campaign details and try again. No Google Ads changes were made.',
             openRouterRequestCount: 0,
-          },
-          { status: 422 }
+          }
         );
       }
 
@@ -738,10 +753,14 @@ RESPONSE FORMATTING GUIDELINES:
       );
     }
 
-    if (classification.confidence < 0.65 || classification.missing_fields.length > 0) {
+    if (
+      (resolvedClassification.confidence < 0.65 || resolvedClassification.missing_fields.length > 0) &&
+      Boolean(classifiedOperation) &&
+      (classifiedIntent === 'propose_change' || classifiedIntent === 'modify_proposal')
+    ) {
       return NextResponse.json({
         success: true,
-        reply: classification.clarification_question || 'Please clarify the campaign and action you want.',
+        reply: resolvedClassification.clarification_question || 'What would you like me to clarify before preparing that action?',
         openRouterRequestCount: 1,
       });
     }
@@ -781,15 +800,15 @@ RESPONSE FORMATTING GUIDELINES:
     const isStatusMutation = classifiedOperation === 'pause_campaign' || classifiedOperation === 'enable_campaign';
     const isExplicitMutation =
       classifiedIntent === 'propose_change' || classifiedIntent === 'modify_proposal';
-    const targetRef = classification.target_ref;
+    const targetRef = resolvedClassification.target_ref;
     const entityResolution = earlyEntityResolution;
     if (entityResolution.status === 'needs_clarification' && (isExplicitMutation || isStatusMutation)) {
       return NextResponse.json(
         {
-          success: false,
-          error: entityResolution.candidates.length > 0
-            ? `Please choose one campaign: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
-            : 'Please specify the campaign name or ID so I do not guess.',
+          success: true,
+          reply: entityResolution.candidates.length > 0
+            ? `Which campaign did you mean? I found: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
+            : 'Which campaign should I use? Please share its name or ID so I do not guess.',
           candidates: entityResolution.candidates.map((candidate) => ({
             id: candidate.id,
             name: candidate.name,
@@ -849,18 +868,17 @@ RESPONSE FORMATTING GUIDELINES:
     if (isExplicitMutation && !requestedCampaign && entityResolution.status === 'needs_clarification') {
         return NextResponse.json(
           {
-            success: false,
-            error: entityResolution.candidates.length > 0
-              ? `Please choose one campaign: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
-              : 'Please specify the campaign name or ID so I do not guess.',
+            success: true,
+            reply: entityResolution.candidates.length > 0
+              ? `Which campaign did you mean? I found: ${entityResolution.candidates.map((candidate) => candidate.name).join(', ')}.`
+              : 'Which campaign should I use? Please share its name or ID so I do not guess.',
             candidates: entityResolution.candidates.map((candidate) => ({ id: candidate.id, name: candidate.name })),
             openRouterRequestCount: 0,
           },
-          { status: 422 }
         );
     }
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
-    {
+    if (classifiedOperation || (classifiedIntent !== 'question' && classifiedIntent !== 'unrelated')) {
       const selectedOperation = classifiedOperation ||
         (requestedCampaign ? 'analyze_campaign' : 'get_account_overview');
       const args: Record<string, any> = { ...classifiedParams };
@@ -909,13 +927,12 @@ RESPONSE FORMATTING GUIDELINES:
         });
         return NextResponse.json(
           {
-            success: false,
-            error: actionFailure
-              ? `The requested Google Ads action was not prepared: ${(actionFailure.result as { error: string }).error}`
+            success: true,
+            reply: actionFailure
+              ? 'I could not prepare that Google Ads change. Please review the request and try again. No account changes were made.'
               : 'I could not identify the campaign for this action. Include its name, or refer to the campaign in your previous message. No account changes were made.',
             openRouterRequestCount: 0,
-          },
-          { status: 422 }
+          }
         );
       }
 
@@ -954,12 +971,16 @@ RESPONSE FORMATTING GUIDELINES:
       );
     }
 
-    // Append the new user query and the already-fetched evidence. OpenRouter only
-    // writes the response; it does not need a second call to execute or summarize tools.
-    formattedMessages.push({
-      role: 'user',
-      content: `${message}\n\nREAL ACCOUNT EVIDENCE (already retrieved; do not invent beyond it):\n${JSON.stringify(evidence)}`,
-    });
+    // Keep the complete transcript intact and enrich only the latest user turn
+    // with tool evidence for the response-writing call.
+    const latestUserIndex = formattedMessages.map((item) => item.role).lastIndexOf('user');
+    if (latestUserIndex >= 0) {
+      const latestUser = formattedMessages[latestUserIndex];
+      formattedMessages[latestUserIndex] = {
+        ...latestUser,
+        content: `${latestUser.content || message}\n\nREAL ACCOUNT EVIDENCE (already retrieved; do not invent beyond it):\n${JSON.stringify(evidence)}`,
+      };
+    }
 
     let response: OpenRouterResponse;
     try {

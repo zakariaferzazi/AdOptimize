@@ -164,6 +164,51 @@ describe('campaign creation parameter extraction', () => {
 });
 
 describe('campaign creation routing', () => {
+  it('sends the complete chronological transcript to the response model', async () => {
+    openRouterMock.send
+      .mockResolvedValueOnce({
+        reply: JSON.stringify({
+          intent: 'question',
+          operation: null,
+          target_ref: { kind: 'none', value: '' },
+          params: {},
+          missing_fields: [],
+          confidence: 0.99,
+          clarification_question: null,
+        }),
+        modelUsed: 'test',
+      })
+      .mockResolvedValueOnce({ reply: 'It depends on the campaign objective.', modelUsed: 'test' });
+
+    await POST(chatRequest('What about yesterday?', 'history-conversation', [
+      { role: 'user', content: 'How did my campaigns perform?' },
+      { role: 'assistant', content: 'The account was stable.' },
+      { role: 'user', content: 'Can you explain that?' },
+      { role: 'assistant', content: 'The strongest campaign drove most conversions.' },
+    ]) as any);
+
+    const responseRequest = openRouterMock.send.mock.calls[1][0];
+    expect(responseRequest.messages.map((item: { role: string; content: string }) => item.content)).toEqual([
+      expect.stringContaining('Google Ads Optimization Specialist'),
+      'How did my campaigns perform?',
+      'The account was stable.',
+      'Can you explain that?',
+      'The strongest campaign drove most conversions.',
+      expect.stringContaining('What about yesterday?'),
+    ]);
+  });
+
+  it('stops before calling a model when the selected model context is full', async () => {
+    const history = [{ role: 'user', content: 'x'.repeat(131072) }];
+    const response = await POST(chatRequest('Continue', 'full-context-conversation', history) as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.contextLimitReached).toBe(true);
+    expect(body.reply).toContain('start a new chat');
+    expect(openRouterMock.send).not.toHaveBeenCalled();
+  });
+
   it('continues the original creation task instead of asking to choose an existing campaign', async () => {
     const conversationId = 'repro-conversation';
 

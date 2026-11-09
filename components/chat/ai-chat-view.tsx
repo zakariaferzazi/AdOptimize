@@ -396,7 +396,7 @@ export function AiChatView({
           message: query,
           model: selectedModel,
           modelTier: selectedModel,
-          conversationHistory: updatedMessages.map((m) => ({
+          conversationHistory: messages.map((m) => ({
             role: m.role,
             content: m.content,
           })),
