@@ -21,6 +21,8 @@ import {
   getConversationState,
   isAccountCacheFresh,
   recordMentionedEntity,
+  recordConversationFacts,
+  resetTaskContext,
   recordPendingCampaignCreation,
   clearPendingCampaignCreation,
   resolveEntity,
@@ -55,6 +57,10 @@ function proposalStorageFailure(error: unknown) {
     },
     { status: 503 }
   );
+}
+
+function extractUrls(text: string): string[] {
+  return [...text.matchAll(/https?:\/\/[^\s,)"']+/gi)].map(([url]) => url);
 }
 
 /**
@@ -302,6 +308,18 @@ export async function POST(req: NextRequest) {
       console.error('[AI Chat] Conversation state read failed; continuing with an empty state:', error);
       conversationState = emptyConversationState(accountId);
     }
+    const messageUrls = extractUrls(
+      [message, ...conversationHistory.map((item: { content?: string }) => item.content || '')].join('\n')
+    );
+    if (messageUrls.length > 0) {
+      try {
+        conversationState = await recordConversationFacts(conversationId, accountId, {
+          known_urls: messageUrls,
+        });
+      } catch (error) {
+        console.error('[AI Chat] Conversation facts write failed; continuing with current state:', error);
+      }
+    }
     const proposalMetadata = (proposal: ProposedAccountChange) => {
       const campaign = (toolContext.campaigns || []).find(
         (item) => String(item.id) === String(proposal.campaignId)
@@ -483,11 +501,48 @@ RESPONSE FORMATTING GUIDELINES:
     const pendingProposalToRevise = latestProposalRecord
       ? proposalRecordToClientProposal(latestProposalRecord)
       : undefined;
+    const newCreationTask = isCreationRequest(message);
+    const proposalForClassification = newCreationTask ? undefined : pendingProposalToRevise;
+    if (newCreationTask && pendingProposalToRevise) {
+      try {
+        await cancelProposal(conversationId, pendingProposalToRevise.proposalId || pendingProposalToRevise.id);
+      } catch (error) {
+        console.error('[AI Chat] Previous proposal could not be retired for a new task:', error);
+      }
+    }
+    if (pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN') {
+      const proposalPayload = pendingProposalToRevise.payload || {};
+      const recoveredAppUrl = String(
+        proposalPayload.appUrl ||
+        conversationState.task_context?.known_urls?.[0] ||
+        ''
+      );
+      if (
+        recoveredAppUrl &&
+        (!conversationState.pending_campaign_creation ||
+          conversationState.pending_campaign_creation.appUrl !== recoveredAppUrl)
+      ) {
+        try {
+          conversationState = await recordPendingCampaignCreation(conversationId, accountId, {
+            name: pendingProposalToRevise.campaignName,
+            budgetDaily: Number(proposalPayload.budgetDaily),
+            currency: toolContext.account.currency,
+            objective: proposalPayload.objective,
+            appUrl: recoveredAppUrl,
+            finalUrl: String(proposalPayload.finalUrl || recoveredAppUrl),
+            channelType: String(proposalPayload.channelType || ''),
+          });
+        } catch (error) {
+          console.error('[AI Chat] Pending proposal context recovery failed:', error);
+        }
+      }
+    }
     const classification = await classifyChatMessage(
       message,
       requestedModel,
       conversationState,
-      pendingProposalToRevise
+      proposalForClassification,
+      conversationHistory
     );
     if (!classification) {
       return NextResponse.json({
@@ -506,7 +561,7 @@ RESPONSE FORMATTING GUIDELINES:
     // follow-up turn that supplies the name and budget can never be routed into
     // the "choose one campaign" selection flow.
     // ---------------------------------------------------------------------
-    const pendingCreation = conversationState.pending_campaign_creation;
+    const pendingCreation = newCreationTask ? undefined : conversationState.pending_campaign_creation;
       const suppliedCreation = extractCreationParams(message);
       const extractedCreation = extractCreationParams(message, pendingCreation);
       const creationContinuation = looksLikeCreationContinuation(message, pendingCreation);
@@ -543,6 +598,14 @@ RESPONSE FORMATTING GUIDELINES:
       );
 
     if (isCreateCampaign) {
+      if (newCreationTask && conversationState.pending_campaign_creation) {
+        try {
+          conversationState = await clearPendingCampaignCreation(conversationId, accountId);
+          conversationState = await resetTaskContext(conversationId, accountId, 'create_campaign');
+        } catch (error) {
+          console.error('[AI Chat] New task context reset failed; continuing with isolated draft:', error);
+        }
+      }
       if (
         pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN' &&
         classifiedOperation !== 'create_campaign' &&
@@ -633,6 +696,7 @@ RESPONSE FORMATTING GUIDELINES:
       }
 
       const supersedesCreationId =
+        !newCreationTask &&
         pendingProposalToRevise?.actionType === 'CREATE_CAMPAIGN'
           ? pendingProposalToRevise.id
           : undefined;
@@ -642,7 +706,7 @@ RESPONSE FORMATTING GUIDELINES:
           {
             ...createResult.actionProposal,
             supersedesProposalId: supersedesCreationId,
-            revision: (pendingProposalToRevise?.revision || 0) + 1,
+            revision: newCreationTask ? 1 : (pendingProposalToRevise?.revision || 0) + 1,
           },
           conversationId,
           supersedesCreationId,

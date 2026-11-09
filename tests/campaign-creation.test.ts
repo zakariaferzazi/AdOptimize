@@ -272,6 +272,7 @@ describe('campaign creation routing', () => {
           target_ref: { kind: 'current_focus', value: '' },
           params: { newDailyBudget: 7, currency: 'USD' },
         });
+
       }
       if (/one we are talking about/i.test(message)) {
         return classification({
@@ -280,6 +281,7 @@ describe('campaign creation routing', () => {
           target_ref: { kind: 'current_focus', value: '' },
           params: {},
         });
+
       }
       if (/^7\$/i.test(message.trim())) {
         return classification({
@@ -332,6 +334,74 @@ describe('campaign creation routing', () => {
     const clarificationBody = await clarification.json();
     expect(clarificationBody.actionProposal?.proposalId).toBe(proposalId);
     expect(JSON.stringify(clarificationBody)).not.toContain('Please choose one campaign');
+  });
+
+  it('keeps the original app URL when the objective is revised later', async () => {
+    const conversationId = 'objective-revision-context-conversation';
+    const classifierSystems: string[] = [];
+    openRouterMock.send.mockImplementation(async ({ messages }: { messages: Array<{ role: string; content: string }> }) => {
+      classifierSystems.push(messages[0]?.content || '');
+      const latest = messages[messages.length - 1]?.content || '';
+      if (/make it optimized/i.test(latest)) {
+        return classification({
+          intent: 'modify_proposal',
+          operation: 'create_campaign',
+          target_ref: { kind: 'none', value: '' },
+          params: { objective: 'APP_INSTALLS' },
+        });
+
+      }
+      if (/test speaker app campaign/i.test(latest)) {
+        return classification({
+          params: { name: 'test speaker app campaign', budgetDaily: 5, currency: 'USD' },
+        });
+      }
+      return classification({
+        params: { objective: 'APP_INSTALLS', appUrl: APP_URL },
+      });
+    });
+
+    const first = await POST(
+      chatRequest(`Create me a campaign for my app ${APP_URL}, I want installs.`, conversationId) as any
+    );
+    const firstBody = await first.json();
+    const second = await POST(
+      chatRequest('test speaker app campaign, 5$', conversationId, [
+        { role: 'user', content: `Create me a campaign for my app ${APP_URL}, I want installs.` },
+        { role: 'assistant', content: firstBody.reply },
+      ]) as any
+    );
+    const secondBody = await second.json();
+    expect(secondBody.actionProposal?.payload?.appUrl).toBe(APP_URL);
+
+    const revised = await POST(
+      chatRequest('make it optimized for installs', conversationId, [
+        { role: 'user', content: `Create me a campaign for my app ${APP_URL}, I want installs.` },
+        { role: 'assistant', content: firstBody.reply },
+        { role: 'user', content: 'test speaker app campaign, 5$' },
+        { role: 'assistant', content: secondBody.reply },
+      ]) as any
+    );
+    const revisedBody = await revised.json();
+    expect(revisedBody.actionProposal?.payload?.objective).toBe('APP_INSTALLS');
+    expect(revisedBody.actionProposal?.payload?.appUrl).toBe(APP_URL);
+    expect(revisedBody.reply).not.toContain('What Google Play or App Store URL');
+    expect(classifierSystems.at(-1)).toContain(APP_URL);
+    expect(classifierSystems.at(-1)).toContain('test speaker app campaign');
+
+    const referenced = await POST(
+      chatRequest('the link I provided in first message', conversationId, [
+        { role: 'user', content: `Create me a campaign for my app ${APP_URL}, I want installs.` },
+        { role: 'assistant', content: firstBody.reply },
+        { role: 'user', content: 'test speaker app campaign, 5$' },
+        { role: 'assistant', content: secondBody.reply },
+        { role: 'user', content: 'make it optimized for installs' },
+        { role: 'assistant', content: revisedBody.reply },
+      ]) as any
+    );
+    const referencedBody = await referenced.json();
+    expect(referencedBody.reply).not.toContain('What Google Play or App Store URL');
+    expect(referencedBody.actionProposal?.payload?.appUrl).toBe(APP_URL);
   });
 
   it('still routes explicit existing-campaign actions to that campaign', async () => {
@@ -414,6 +484,28 @@ describe('campaign creation routing', () => {
 
     await clearPendingCampaignCreation(conversationId, '1234567890');
     expect((await getConversationState(conversationId, '1234567890')).pending_campaign_creation).toBeUndefined();
+  });
+  it('starts a new creation task instead of inheriting the previous draft', async () => {
+    const conversationId = 'task-switch-context-conversation';
+    openRouterMock.send.mockImplementation(async ({ messages }: { messages: Array<{ role: string; content: string }> }) => {
+      const latest = messages[messages.length - 1]?.content || '';
+      return classification({
+        params: /First App|speaker\.watereject/i.test(latest)
+          ? { name: 'First App Campaign', budgetDaily: 5, objective: 'APP_INSTALLS', appUrl: APP_URL }
+          : { name: 'Second App Campaign', budgetDaily: 8, objective: 'APP_INSTALLS', appUrl: 'https://play.google.com/store/apps/details?id=com.second.app' },
+      });
+    });
+
+    await POST(chatRequest(`Create me a campaign for my app ${APP_URL}, I want installs.`, conversationId) as any);
+    const firstProposal = await POST(chatRequest('First App Campaign, 5$', conversationId) as any);
+    expect((await firstProposal.json()).actionProposal?.payload?.name).toBe('First App Campaign');
+
+    const second = await POST(
+      chatRequest('Create a new campaign for https://play.google.com/store/apps/details?id=com.second.app, I want installs.', conversationId) as any
+    );
+    const secondBody = await second.json();
+    expect(secondBody.actionProposal?.payload?.name).toBe('Second App Campaign');
+    expect(secondBody.actionProposal?.payload?.appUrl).toContain('com.second.app');
   });
 });
 

@@ -73,7 +73,12 @@ function parseClassification(reply: string): ChatClassification | undefined {
   }
 }
 
-function classifierPrompt(state: ConversationState, pendingProposal: unknown, operations: string): string {
+function classifierPrompt(
+  state: ConversationState,
+  pendingProposal: unknown,
+  operations: string,
+  history: Array<{ role: string; content: string }> = []
+): string {
   return `Classify the user's latest message for a Google Ads chat system.
 Return ONLY one JSON object. No markdown, no explanation, no code fences.
 Schema:
@@ -104,6 +109,9 @@ ${JSON.stringify(compactConversationState(state))}
 ACTIVE PROPOSAL:
 ${JSON.stringify(pendingProposal || null)}
 
+RECENT CONVERSATION HISTORY:
+${JSON.stringify(history.slice(-24))}
+
 REGISTRY OPERATIONS:
 ${operations}`;
 }
@@ -112,13 +120,14 @@ export async function classifyChatMessage(
   message: string,
   model: string,
   state: ConversationState,
-  pendingProposal: unknown
+  pendingProposal: unknown,
+  history: Array<{ role: string; content: string }> = []
 ): Promise<ChatClassification | undefined> {
   const operations = GOOGLE_ADS_OPERATION_REGISTRY
     .map((operation) => `${operation.name}: ${operation.description} [${operation.risk}]`)
     .join('\n');
   const baseMessages = [
-    { role: 'system' as const, content: classifierPrompt(state, pendingProposal, operations) },
+    { role: 'system' as const, content: classifierPrompt(state, pendingProposal, operations, history) },
     { role: 'user' as const, content: message },
   ];
 

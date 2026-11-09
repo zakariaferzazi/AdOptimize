@@ -44,6 +44,17 @@ export interface ConversationState {
   last_action?: string;
   short_summary?: string;
   pending_campaign_creation?: PendingCampaignCreation;
+  task_context?: {
+    active_task?: string;
+    status?: 'collecting' | 'proposal_pending' | 'revising' | 'completed';
+    objective?: string;
+    app_url?: string;
+    app_identity?: string;
+    known_urls: string[];
+    known_campaign_names: string[];
+    decisions: string[];
+    missing_information: string[];
+  };
   account_cache?: {
     fetched_at: string;
     campaigns: Campaign[];
@@ -150,6 +161,15 @@ export async function recordProposalState(
       ...state,
       active_proposal_id: proposalId,
       last_action: 'proposal_created',
+      task_context: {
+        ...(state.task_context || {
+          known_urls: [],
+          known_campaign_names: [],
+          decisions: [],
+          missing_information: [],
+        }),
+        status: 'proposal_pending',
+      },
     };
     if (summary) next.short_summary = summary;
     return entity
@@ -233,12 +253,92 @@ export async function recordPendingCampaignCreation(
     return {
       ...state,
       pending_campaign_creation: merged,
+      task_context: {
+        ...(state.task_context || {
+          known_urls: [],
+          known_campaign_names: [],
+          decisions: [],
+          missing_information: [],
+        }),
+        active_task: 'create_campaign',
+        status: 'collecting',
+        ...(merged.objective ? { objective: merged.objective } : {}),
+        ...(merged.appUrl ? { app_url: merged.appUrl } : {}),
+        ...(merged.name
+          ? {
+              known_campaign_names: [
+                merged.name,
+                ...(state.task_context?.known_campaign_names || []).filter((name) => name !== merged.name),
+              ].slice(0, 20),
+            }
+          : {}),
+        ...(merged.appUrl
+          ? {
+              known_urls: [
+                merged.appUrl,
+                ...(state.task_context?.known_urls || []).filter((url) => url !== merged.appUrl),
+              ].slice(0, 20),
+            }
+          : {}),
+        decisions: [
+          ...(state.task_context?.decisions || []),
+          ...(merged.name ? [`Campaign name: ${merged.name}`] : []),
+          ...(merged.budgetDaily !== undefined ? [`Daily budget: ${merged.currency || ''} ${merged.budgetDaily}`] : []),
+          ...(merged.objective ? [`Objective: ${merged.objective}`] : []),
+        ].slice(-20),
+      },
       last_action: 'campaign_creation_in_progress',
       short_summary: `Creating campaign${merged.name ? ` "${merged.name}"` : ''}${
         merged.budgetDaily ? ` with ${merged.currency || ''} ${merged.budgetDaily} daily budget` : ''
       }`,
     };
   });
+}
+
+export async function recordConversationFacts(
+  conversationId: string,
+  accountId: string,
+  facts: Partial<NonNullable<ConversationState['task_context']>>
+): Promise<ConversationState> {
+  return updateState(conversationId, accountId, (state) => {
+    const current = state.task_context || {
+      known_urls: [],
+      known_campaign_names: [],
+      decisions: [],
+      missing_information: [],
+    };
+    const mergeUnique = (left: string[], right: string[]) =>
+      [...right, ...left].filter((value, index, values) => value && values.indexOf(value) === index).slice(0, 20);
+    return {
+      ...state,
+      task_context: {
+        ...current,
+        ...facts,
+        known_urls: mergeUnique(current.known_urls, facts.known_urls || []),
+        known_campaign_names: mergeUnique(current.known_campaign_names, facts.known_campaign_names || []),
+        decisions: mergeUnique(current.decisions, facts.decisions || []).slice(0, 20),
+        missing_information: facts.missing_information || current.missing_information,
+      },
+    };
+  });
+}
+
+export async function resetTaskContext(
+  conversationId: string,
+  accountId: string,
+  task: string
+): Promise<ConversationState> {
+  return updateState(conversationId, accountId, (state) => ({
+    ...state,
+    task_context: {
+      active_task: task,
+      status: 'collecting',
+      known_urls: [],
+      known_campaign_names: [],
+      decisions: [],
+      missing_information: [],
+    },
+  }));
 }
 
 export async function clearPendingCampaignCreation(
@@ -327,6 +427,7 @@ export function compactConversationState(state: ConversationState) {
     last_action: state.last_action || null,
     short_summary: state.short_summary || null,
     pending_campaign_creation: state.pending_campaign_creation || null,
+    task_context: state.task_context || null,
     account_cache_fetched_at: state.account_cache?.fetched_at || null,
   };
 }
