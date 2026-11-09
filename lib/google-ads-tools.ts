@@ -345,6 +345,11 @@ const OPERATION_SCHEMAS: ToolDefinition[] = [
           },
           appUrl: { type: 'string', description: 'App store listing URL when promoting an app' },
           finalUrl: { type: 'string', description: 'Landing page URL for the campaign' },
+          status: {
+            type: 'string',
+            enum: ['PAUSED'],
+            description: 'Creation status. Campaign creation proposals are always paused.',
+          },
           reason: { type: 'string', description: 'Reason for creating the draft' },
         },
         required: ['name', 'budgetDaily'],

@@ -5,7 +5,7 @@ import {
   getProposalRecord,
   registerChatProposal,
 } from '@/lib/chat-proposal-store';
-import { executeGoogleAdsTool } from '@/lib/google-ads-tools';
+import { executeGoogleAdsTool, getGoogleAdsOperation } from '@/lib/google-ads-tools';
 import type { ProposedAccountChange } from '@/types/adoptimize';
 
 const appUrl = 'https://play.google.com/store/apps/details?id=com.speaker.watereject';
@@ -99,6 +99,15 @@ describe('proposal lifecycle', () => {
     expect(result.success).toBe(true);
     expect(result.actionProposal?.payload?.appId).toBe('com.speaker.watereject');
     expect(result.actionProposal?.payload?.appStore).toBe('GOOGLE_APP_STORE');
+  });
+
+  it('accepts the paused status stored in campaign creation proposals', () => {
+    const operation = getGoogleAdsOperation('create_campaign');
+    expect(operation?.parameterSchema.properties.status).toEqual({
+      type: 'string',
+      enum: ['PAUSED'],
+      description: 'Creation status. Campaign creation proposals are always paused.',
+    });
   });
 
   it('can recover the canonical conversation for an approval card with stale conversation metadata', async () => {
