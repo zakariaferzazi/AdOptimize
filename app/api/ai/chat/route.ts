@@ -880,10 +880,16 @@ RESPONSE FORMATTING GUIDELINES:
     const evidenceTools: Array<{ name: string; args: Record<string, any> }> = [];
     if (classifiedOperation || (classifiedIntent !== 'question' && classifiedIntent !== 'unrelated')) {
       const selectedOperation = classifiedOperation ||
-        (requestedCampaign ? 'analyze_campaign' : 'get_account_overview');
+        (requestedCampaign && requestedBudget && isExplicitMutation
+          ? 'update_campaign_budget'
+          : requestedCampaign
+          ? 'analyze_campaign'
+          : 'get_account_overview');
       const args: Record<string, any> = { ...classifiedParams };
       if (requestedCampaign && ['analyze_campaign', 'get_campaign_performance', 'get_search_terms', 'get_keywords', 'get_ads_performance', 'update_campaign_budget', 'pause_campaign', 'enable_campaign'].includes(selectedOperation)) {
-        args.campaignNameOrId = requestedCampaign.name;
+        // Use the canonical ID resolved from account data so follow-up turns
+        // cannot re-resolve to a different campaign by name.
+        args.campaignNameOrId = requestedCampaign.id;
       }
       if (requestedBudget && selectedOperation === 'update_campaign_budget') {
         args.newDailyBudget = Number(requestedBudget);
@@ -921,19 +927,35 @@ RESPONSE FORMATTING GUIDELINES:
     // action resolver has already identified the exact campaign and payload.
     if (isExplicitMutation) {
       if (!capturedProposal) {
-        const actionFailure = evidence.find((item) => {
-          const value = item.result as { error?: string } | undefined;
-          return Boolean(value?.error);
-        });
-        return NextResponse.json(
-          {
+        if (!requestedCampaign) {
+          return NextResponse.json({
             success: true,
-            reply: actionFailure
-              ? 'I could not prepare that Google Ads change. Please review the request and try again. No account changes were made.'
-              : 'I could not identify the campaign for this action. Include its name, or refer to the campaign in your previous message. No account changes were made.',
+            reply: 'Which campaign should I change? Please share its name or ID so I do not guess. No account changes were made.',
             openRouterRequestCount: 0,
-          }
-        );
+          });
+        }
+        if (!classifiedOperation) {
+          return NextResponse.json({
+            success: true,
+            reply: `I found "${requestedCampaign.name}". I can't apply that change through the connected Google Ads integration yet — I can change its daily budget, pause it, or enable it. If you meant a different outcome, tell me what you want to achieve. No account changes were made.`,
+            activeCampaign: { id: requestedCampaign.id, name: requestedCampaign.name },
+            openRouterRequestCount: 0,
+          });
+        }
+        const successfulEvidence = evidence.find((item) => {
+          const value = item.result as { error?: string } | undefined;
+          return !value?.error;
+        });
+        const evidenceMessage =
+          typeof successfulEvidence?.result === 'string' ? successfulEvidence.result : undefined;
+        return NextResponse.json({
+          success: true,
+          reply:
+            evidenceMessage ||
+            `I could not prepare that change for "${requestedCampaign.name}". Please review the request and try again. No account changes were made.`,
+          activeCampaign: { id: requestedCampaign.id, name: requestedCampaign.name },
+          openRouterRequestCount: 0,
+        });
       }
 
       const actionLabel =

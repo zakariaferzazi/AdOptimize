@@ -191,7 +191,13 @@ export async function recordMentionedEntity(
 ): Promise<ConversationState> {
   return updateState(conversationId, accountId, (state) =>
     addRecentEntity(
-      { ...state, last_action: 'entity_selected' },
+      {
+        ...state,
+        // A campaign identified from live account data becomes the canonical
+        // target for later "it" / "that campaign" follow-ups.
+        focus_entity: { type: 'campaign', id: entity.id, name: entity.name },
+        last_action: 'entity_selected',
+      },
       {
         type: 'campaign',
         id: entity.id,
@@ -392,16 +398,24 @@ export function resolveEntity(
   if (exact.length > 1) return { status: 'needs_clarification', candidates: exact.slice(0, 5) };
 
   const recentPreferred = state.recent_entities
-    .filter((entity) => entity.source === 'proposed' || entity.source === 'created')
+    .filter(
+      (entity) =>
+        entity.source === 'proposed' || entity.source === 'created' || entity.source === 'mentioned'
+    )
     .map((entity) => candidates.find((candidate) => candidate.id === entity.id))
     .filter((entity): entity is Campaign => Boolean(entity));
-  if (recentPreferred.length === 1 && (targetRef.kind === 'none' || targetRef.kind === 'current_focus')) {
-    return { status: 'resolved', entity: recentPreferred[0] };
-  }
 
   if (targetRef.kind === 'current_focus' && state.focus_entity) {
     const focused = candidates.find((entity) => entity.id === state.focus_entity?.id);
     if (focused) return { status: 'resolved', entity: focused };
+  }
+
+  if (recentPreferred.length === 1 && (targetRef.kind === 'none' || targetRef.kind === 'current_focus')) {
+    return { status: 'resolved', entity: recentPreferred[0] };
+  }
+
+  if (recentPreferred.length > 1 && (targetRef.kind === 'none' || targetRef.kind === 'current_focus')) {
+    return { status: 'needs_clarification', candidates: recentPreferred.slice(0, 5) };
   }
 
   if (targetRef.kind !== 'none' && value) {

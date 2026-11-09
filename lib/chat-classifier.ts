@@ -94,6 +94,7 @@ Schema:
 Use only operation names from the supplied registry. Normalize numeric amounts into numbers and preserve the supplied currency in params.currency when present.
 An approval is only a request to show the latest approval card again; it never authorizes execution.
 Do not infer missing campaign identity when more than one candidate could match.
+When the user refers to a campaign already discussed in the conversation ("it", "that campaign", "the one you mentioned"), use target_ref {"kind": "current_focus", "value": ""} instead of repeating its name.
 
 CAMPAIGN CREATION IS A MULTI-TURN TASK:
 - Creating a campaign is not an operation on an existing campaign. When the user asks for a new campaign, use operation "create_campaign" and intent "propose_change".

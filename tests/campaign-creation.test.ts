@@ -1,10 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openRouterMock = vi.hoisted(() => ({ send: vi.fn() }));
+const toolMock = vi.hoisted(() => ({ calls: [] as Array<{ name: string; args: Record<string, any> }> }));
 
 vi.mock('@/lib/openrouter-service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/openrouter-service')>('@/lib/openrouter-service');
   return { ...actual, sendOpenRouterChat: openRouterMock.send };
+});
+
+vi.mock('@/lib/google-ads-tools', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/google-ads-tools')>('@/lib/google-ads-tools');
+  return {
+    ...actual,
+    executeGoogleAdsTool: vi.fn(async (name: string, args: Record<string, any>, context: any) => {
+      toolMock.calls.push({ name, args });
+      return actual.executeGoogleAdsTool(name, args, context);
+    }),
+  };
 });
 
 import { POST } from '@/app/api/ai/chat/route';
@@ -75,7 +87,12 @@ function classification(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function chatRequest(message: string, conversationId: string, history: Array<{ role: string; content: string }> = []) {
+function chatRequest(
+  message: string,
+  conversationId: string,
+  history: Array<{ role: string; content: string }> = [],
+  campaigns: Campaign[] = ACCOUNT_CAMPAIGNS
+) {
   return new Request('http://localhost/api/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -92,7 +109,7 @@ function chatRequest(message: string, conversationId: string, history: Array<{ r
           currency: 'USD',
           isConnected: true,
         },
-        campaigns: ACCOUNT_CAMPAIGNS,
+        campaigns,
         keywords: [],
         searchTerms: [],
         auditLogs: [],
@@ -107,6 +124,8 @@ function chatRequest(message: string, conversationId: string, history: Array<{ r
 
 beforeEach(() => {
   vi.clearAllMocks();
+  openRouterMock.send.mockReset();
+  toolMock.calls.length = 0;
   openRouterMock.send.mockResolvedValue(classification());
 });
 
@@ -160,6 +179,179 @@ describe('campaign creation parameter extraction', () => {
     expect(missingCreationFields(undefined)).toEqual(['name', 'budgetDaily']);
     expect(missingCreationFields({ name: 'Speaker App Campaign' })).toEqual(['budgetDaily']);
     expect(missingCreationFields({ name: 'Speaker App Campaign', budgetDaily: 4 })).toEqual([]);
+  });
+});
+
+describe('conversation campaign focus', () => {
+  const classifierReply = (overrides: Record<string, unknown>) => ({
+    reply: JSON.stringify({
+      intent: 'question',
+      operation: null,
+      target_ref: { kind: 'none', value: '' },
+      params: {},
+      missing_fields: [],
+      confidence: 0.95,
+      clarification_question: null,
+      ...overrides,
+    }),
+    modelUsed: 'test',
+  });
+
+  const testAppCampaigns = [
+    { ...existingCampaign('camp-test-app', 'test app'), budgetDaily: 4 },
+    existingCampaign('camp-other', 'Other Campaign'),
+  ];
+
+  it('keeps the campaign identified in a previous reply as the target of follow-up actions', async () => {
+    const conversationId = 'focus-follow-up-conversation';
+    const history: Array<{ role: string; content: string }> = [];
+
+    openRouterMock.send
+      .mockResolvedValueOnce(classifierReply({ intent: 'cancel' }))
+      .mockResolvedValueOnce({ reply: 'There is no pending Google Ads proposal to cancel.', modelUsed: 'test' });
+    const first = await POST(
+      chatRequest(
+        'Forget about this campaign, you know our paused campaign named test app.',
+        conversationId,
+        history,
+        testAppCampaigns
+      ) as any
+    );
+    const firstBody = await first.json();
+    history.push(
+      { role: 'user', content: 'Forget about this campaign, you know our paused campaign named test app.' },
+      { role: 'assistant', content: firstBody.reply }
+    );
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'analysis_request',
+          operation: 'get_campaign_performance',
+          target_ref: { kind: 'name', value: 'test app' },
+        })
+      )
+      .mockResolvedValueOnce({
+        reply: 'test app is a paused Search campaign with a $4 daily budget.',
+        modelUsed: 'test',
+      });
+    const second = await POST(
+      chatRequest(
+        'I mean there is a paused campaign named test app in my Google Ads account, right?',
+        conversationId,
+        history,
+        testAppCampaigns
+      ) as any
+    );
+    const secondBody = await second.json();
+    history.push(
+      { role: 'user', content: 'I mean there is a paused campaign named test app in my Google Ads account, right?' },
+      { role: 'assistant', content: secondBody.reply }
+    );
+
+    const stateAfterLookup = await getConversationState(conversationId, '1234567890');
+    expect(stateAfterLookup.focus_entity).toEqual({
+      type: 'campaign',
+      id: 'camp-test-app',
+      name: 'test app',
+    });
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'propose_change',
+          operation: null,
+          target_ref: { kind: 'current_focus', value: '' },
+        })
+      )
+      .mockResolvedValueOnce({ reply: 'unused', modelUsed: 'test' });
+    const third = await POST(
+      chatRequest(
+        'Okay now change Conversion goal in that campaign to only install goal.',
+        conversationId,
+        history,
+        testAppCampaigns
+      ) as any
+    );
+    const thirdBody = await third.json();
+    expect(thirdBody.reply).toContain('test app');
+    expect(thirdBody.reply).not.toContain('could not identify');
+    expect(thirdBody.actionProposal).toBeUndefined();
+    const thirdToolCall = toolMock.calls.find((call) => call.name === 'analyze_campaign');
+    expect(thirdToolCall?.args.campaignNameOrId).toBe('camp-test-app');
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'propose_change',
+          operation: 'update_campaign_budget',
+          target_ref: { kind: 'current_focus', value: '' },
+          params: { newDailyBudget: 7 },
+        })
+      )
+      .mockResolvedValueOnce({ reply: 'unused', modelUsed: 'test' });
+    const fourth = await POST(
+      chatRequest('Increase its budget to $7.', conversationId, history, testAppCampaigns) as any
+    );
+    const fourthBody = await fourth.json();
+    expect(fourthBody.actionProposal?.campaignId).toBe('camp-test-app');
+    expect(fourthBody.actionProposal?.actionType).toBe('UPDATE_BUDGET');
+  });
+
+  it('resolves "it" for pause and explains unsupported bidding-strategy changes', async () => {
+    const conversationId = 'focus-pause-conversation';
+    const enabledCampaigns = [
+      { ...existingCampaign('camp-test-app', 'test app'), budgetDaily: 4, status: 'ENABLED' as const },
+      existingCampaign('camp-other', 'Other Campaign'),
+    ];
+    const history: Array<{ role: string; content: string }> = [];
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'analysis_request',
+          operation: 'get_campaign_performance',
+          target_ref: { kind: 'name', value: 'test app' },
+        })
+      )
+      .mockResolvedValueOnce({ reply: 'test app is enabled.', modelUsed: 'test' });
+    const first = await POST(chatRequest('Is test app running?', conversationId, history, enabledCampaigns) as any);
+    const firstBody = await first.json();
+    history.push(
+      { role: 'user', content: 'Is test app running?' },
+      { role: 'assistant', content: firstBody.reply }
+    );
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'propose_change',
+          operation: 'pause_campaign',
+          target_ref: { kind: 'current_focus', value: '' },
+        })
+      )
+      .mockResolvedValueOnce({ reply: 'unused', modelUsed: 'test' });
+    const second = await POST(chatRequest('Pause it.', conversationId, history, enabledCampaigns) as any);
+    const secondBody = await second.json();
+    expect(secondBody.actionProposal?.campaignId).toBe('camp-test-app');
+    expect(secondBody.actionProposal?.actionType).toBe('PAUSE_CAMPAIGN');
+
+    openRouterMock.send
+      .mockResolvedValueOnce(
+        classifierReply({
+          intent: 'propose_change',
+          operation: null,
+          target_ref: { kind: 'current_focus', value: '' },
+        })
+      )
+      .mockResolvedValueOnce({ reply: 'unused', modelUsed: 'test' });
+    const third = await POST(
+      chatRequest('Change its bidding strategy to target CPA.', conversationId, history, enabledCampaigns) as any
+    );
+    const thirdBody = await third.json();
+    expect(thirdBody.reply).toContain('test app');
+    expect(thirdBody.reply).not.toContain('could not identify');
+    expect(thirdBody.actionProposal).toBeUndefined();
   });
 });
 
