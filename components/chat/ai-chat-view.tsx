@@ -617,12 +617,14 @@ export function AiChatView({
           approvalData.error || 'This proposal was already approved or is no longer pending.'
         );
       }
+      const approvedProposal =
+        (approvalData.proposal as ProposedAccountChange | undefined) || executableProposal;
 
       const response = await fetch('/api/ai/chat/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          proposal: executableProposal,
+          proposal: approvedProposal,
           context: {
             userId,
             conversationId: proposal.conversationId || currentSessionId,

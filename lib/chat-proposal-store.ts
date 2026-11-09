@@ -283,6 +283,14 @@ export async function getProposalRecord(
   return record ? clone(record) : undefined;
 }
 
+export async function findProposalRecord(proposalId: string): Promise<ProposalRecord | undefined> {
+  for (const bucket of proposalStore.values()) {
+    const record = bucket.get(proposalId);
+    if (record) return clone(record);
+  }
+  return undefined;
+}
+
 export async function getLatestProposal(conversationId: string): Promise<ProposalRecord | undefined> {
   const latest = [...conversationProposals(conversationId).values()]
     .filter((record) => record.status === 'pending_approval')

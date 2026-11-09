@@ -3,6 +3,7 @@ import {
   approveProposal,
   proposalExpiresAt,
   getProposalRecord,
+  findProposalRecord,
   getLatestProposal,
   updateProposalStatus,
 } from '@/lib/chat-proposal-store';
@@ -21,19 +22,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'conversation_id, proposal_id, revision, and payload_hash are required.' }, { status: 400 });
     }
 
-    const record = await getProposalRecord(conversationId, proposalId);
+    const record =
+      (await getProposalRecord(conversationId, proposalId)) ||
+      (await findProposalRecord(proposalId));
     if (!record) return NextResponse.json({ error: 'Proposal was not found.' }, { status: 404 });
-    const latest = await getLatestProposal(conversationId);
+    const canonicalConversationId = record.conversation_id;
+    const latest = await getLatestProposal(canonicalConversationId);
     if (!latest || latest.id !== record.id || latest.revision !== record.revision) {
       return NextResponse.json({ error: 'This proposal is not the latest revision.' }, { status: 409 });
     }
     if (Date.now() >= proposalExpiresAt(record, EXPIRATION_MINUTES)) {
-      await updateProposalStatus(conversationId, proposalId, 'expired');
+      await updateProposalStatus(canonicalConversationId, proposalId, 'expired');
       return NextResponse.json({ error: 'This proposal has expired and cannot be approved.' }, { status: 409 });
     }
 
     const result = await approveProposal(
-      conversationId,
+      canonicalConversationId,
       proposalId,
       revision,
       payloadHash,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   approveProposal,
+  findProposalRecord,
   getProposalRecord,
   registerChatProposal,
 } from '@/lib/chat-proposal-store';
@@ -98,5 +99,36 @@ describe('proposal lifecycle', () => {
     expect(result.success).toBe(true);
     expect(result.actionProposal?.payload?.appId).toBe('com.speaker.watereject');
     expect(result.actionProposal?.payload?.appStore).toBe('GOOGLE_APP_STORE');
+  });
+
+  it('can recover the canonical conversation for an approval card with stale conversation metadata', async () => {
+    const conversationId = `proposal-canonical-${Date.now()}`;
+    const proposal = await registerChatProposal(
+      {
+        id: 'draft-canonical',
+        actionType: 'CREATE_CAMPAIGN',
+        campaignId: 'draft-canonical',
+        campaignName: 'Canonical proposal',
+        payload: { name: 'Canonical proposal', budgetDaily: 5, currency: 'USD' },
+        status: 'PENDING_APPROVAL',
+        revision: 1,
+        proposedChanges: 'Create campaign',
+      } as any,
+      conversationId
+    );
+
+    const record = await findProposalRecord(proposal.proposalId!);
+
+    expect(record?.conversation_id).toBe(conversationId);
+    expect(record?.id).toBe(proposal.proposalId);
+
+    const approved = await approveProposal(
+      record!.conversation_id,
+      record!.id,
+      record!.revision,
+      record!.payload_hash
+    );
+    expect(approved.proposal.proposalId).toBe(record!.id);
+    expect(approved.proposal.conversationId).toBe(conversationId);
   });
 });
