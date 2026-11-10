@@ -9,8 +9,11 @@
     "build:cf": "opennextjs-cloudflare build",
     "build:worker": "opennextjs-cloudflare build",
     "start": "next start",
-    "deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "deploy": "node scripts/predeploy-check.js && opennextjs-cloudflare build && wrangler deploy",
     "preview": "opennextjs-cloudflare preview",
+    "db:create": "wrangler d1 create adoptimize-ai",
+    "db:migrate": "wrangler d1 execute adoptimize-ai --remote --file=migrations/0001_ai_agent.sql",
+    "db:migrate:local": "wrangler d1 execute adoptimize-ai --local --file=migrations/0001_ai_agent.sql",
     "test": "vitest run",
     "lint": "eslint .",
     "clean": "next clean"

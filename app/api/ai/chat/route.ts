@@ -14,7 +14,7 @@ import {
   toAgentHistory,
 } from '@/lib/ai/conversations';
 import { createProposal, expireStaleProposals, toProposalView } from '@/lib/ai/proposals';
-import { getStore } from '@/lib/store';
+import { getStore, isDurableStore } from '@/lib/store';
 import { queryLiveCampaigns } from '@/lib/google-ads-api';
 import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
 import type { McpServerContext } from '@/lib/mcp/google-ads-server';
@@ -183,6 +183,14 @@ export async function POST(req: NextRequest) {
       mcpContext,
       mcpHooks: {
         prepareProposal: async (prepared) => {
+          // In production a proposal must survive to the approval request. The
+          // in-memory store does not cross Worker isolates, so a card created
+          // there could never be approved. Fail closed with a clear reason.
+          if (process.env.NODE_ENV === 'production' && !isDurableStore()) {
+            throw new Error(
+              'Durable proposal storage is not configured, so no change can be prepared safely.'
+            );
+          }
           const record = await createProposal({
             userId: identity.uid,
             conversationId: conversation.id,

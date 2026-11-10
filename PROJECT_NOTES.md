@@ -39,6 +39,25 @@ are not exposed because no GAQL query backs them.
 - `AI_ALLOW_ANONYMOUS=1` is development-only and ignored in production.
 - D1 binding `DB` is declared in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`.
 
+### Deploying
+
+Wrangler validates the D1 `database_id` at deploy time and rejects a placeholder with
+error 10021. The database must be created once before the first deploy:
+
+```bash
+npm run db:create     # prints the database_id
+# paste it into the d1_databases binding in wrangler.jsonc
+npm run db:migrate    # creates the tables remotely
+npm run deploy
+```
+
+`npm run deploy` runs `scripts/predeploy-check.js` first, which stops with the exact
+fix when the binding is missing or still a placeholder.
+
+Without a D1 binding the agent falls back to an in-memory store. Conversations and
+proposals then do not survive across requests, and `prepareProposal` fails closed in
+production rather than issuing an approval card that could never execute.
+
 ### Verification
 
 - `npm test` — 83 tests across 5 files.

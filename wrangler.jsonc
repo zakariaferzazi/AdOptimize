@@ -10,14 +10,24 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "adoptimize-ai",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
-      "migrations_dir": "migrations"
-    }
-  ],
+  // D1 binding for durable AI conversation, proposal and execution storage.
+  //
+  // A D1 database must exist before it can be bound. Create it once:
+  //   npx wrangler d1 create adoptimize-ai
+  // then paste the returned database_id below and redeploy.
+  //
+  // Until the binding is present the AI agent falls back to an in-memory store,
+  // which is NOT durable across requests. The server logs a loud warning when
+  // that happens in production.
+  //
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "adoptimize-ai",
+  //     "database_id": "<paste the id from `wrangler d1 create`>",
+  //     "migrations_dir": "migrations"
+  //   }
+  // ],
   "observability": {
     "enabled": true
   }
