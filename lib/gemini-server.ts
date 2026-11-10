@@ -14,7 +14,7 @@ export function getGeminiApiKey(): string | undefined {
   return undefined;
 }
 
-// Initialize Gemini client server-side only
+// Initialize Gemini client server-side only.
 export function getGeminiClient(): GoogleGenAI | null {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
