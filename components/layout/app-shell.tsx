@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectModal } from '@/components/connect-modal';
-import { CopilotDrawer } from '@/components/copilot/copilot-drawer';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import {
   AlertTriangle,
@@ -55,8 +54,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
     setShowConnectModal,
     isSyncModalOpen,
     setIsSyncModalOpen,
-    showCopilot,
-    setShowCopilot,
     selectedCampaign,
     setSelectedCampaign,
     isSyncing,
@@ -170,7 +167,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
           user={user}
           authLoading={authLoading}
           onRefreshSync={() => handleSync(true)}
-          onOpenCopilot={() => setShowCopilot(true)}
           onSelectAnomaly={(anomaly) => {
             const camp = campaigns.find((c) => c.id === anomaly.campaignId);
             if (camp) setSelectedCampaign(camp);
@@ -204,30 +200,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
           setApiIssue(issue);
         }}
         userEmail={user?.email}
-      />
-
-      {/* Copilot Chat Drawer */}
-      <CopilotDrawer
-        isOpen={showCopilot}
-        onClose={() => setShowCopilot(false)}
-        account={account}
-        campaigns={campaigns}
-        anomalies={anomalies}
-        totalSpend={campaigns.reduce((s, c) => s + (c.spend || 0), 0)}
-        totalConversions={campaigns.reduce((s, c) => s + (c.conversions || 0), 0)}
-        overallCpa={
-          campaigns.reduce((s, c) => s + (c.conversions || 0), 0) > 0
-            ? campaigns.reduce((s, c) => s + (c.spend || 0), 0) /
-              campaigns.reduce((s, c) => s + (c.conversions || 0), 0)
-            : 0
-        }
-        overallRoas={
-          campaigns.reduce((s, c) => s + (c.spend || 0), 0) > 0
-            ? campaigns.reduce((s, c) => s + (c.conversionValue || 0), 0) /
-              campaigns.reduce((s, c) => s + (c.spend || 0), 0)
-            : 0
-        }
-        userName={user?.displayName || user?.email || undefined}
       />
 
       {/* Toast Notification */}

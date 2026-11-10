@@ -60,6 +60,9 @@ export interface OpenRouterResponse {
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, any> }>;
   modelUsed: string;
   finishReason?: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+  /** Raw assistant message so tool calls can be echoed back verbatim. */
+  assistantMessage?: ChatCompletionMessage;
 }
 
 const MODEL_CONTEXT_LIMITS: Record<SupportedModel, number> = {
@@ -128,10 +131,38 @@ export async function sendOpenRouterChat(options: OpenRouterChatOptions): Promis
       }))
     : undefined;
 
+  const assistantMessage: ChatCompletionMessage = {
+    role: 'assistant',
+    content: typeof message?.content === 'string' ? message.content : null,
+    ...(Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
+      ? {
+          tool_calls: message.tool_calls.map((call: any, index: number) => ({
+            id: call.id || `tool-${Date.now()}-${index}`,
+            type: 'function' as const,
+            function: {
+              name: call.function?.name,
+              arguments:
+                typeof call.function?.arguments === 'string'
+                  ? call.function.arguments
+                  : JSON.stringify(call.function?.arguments || {}),
+            },
+          })),
+        }
+      : {}),
+  };
+
   return {
     reply: typeof message?.content === 'string' ? message.content : '',
     toolCalls,
     modelUsed,
     finishReason: choice?.finish_reason,
+    usage: data.usage
+      ? {
+          promptTokens: data.usage.prompt_tokens,
+          completionTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        }
+      : undefined,
+    assistantMessage,
   };
 }

@@ -29,6 +29,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { ChatMarkdown } from './markdown-renderer';
+import { auth } from '@/lib/firebase';
 import { DeepSeekIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
@@ -161,8 +162,52 @@ export function AiChatView({
     };
   }, [showSessionsDrawer]);
 
-  // Initialize or load sessions from localStorage
+  // Initialize or load sessions from localStorage, then hydrate from the server.
   useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async (sessionId: string) => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+        if (!idToken) return;
+        const response = await fetch(
+          `/api/ai/conversations?conversationId=${encodeURIComponent(sessionId)}`,
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const stored = Array.isArray(data?.messages) ? data.messages : [];
+        if (cancelled || stored.length === 0) return;
+
+        const hydrated: ChatMessage[] = stored
+          .filter((item: { role: string }) => item.role === 'user' || item.role === 'assistant')
+          .map((item: { id: string; role: string; content: string | null; createdAt: string }) => ({
+            id: item.id,
+            role: item.role as 'user' | 'assistant',
+            content: item.content || '',
+            timestamp: new Date(item.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }));
+
+        if (hydrated.length === 0) return;
+        setSessions((current) => {
+          const next = current.map((session) =>
+            session.id === sessionId ? { ...session, messages: hydrated } : session
+          );
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(next));
+          } catch {
+            // storage unavailable
+          }
+          return next;
+        });
+      } catch {
+        // The local cache remains usable when the server is unreachable.
+      }
+    };
+
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
@@ -171,7 +216,10 @@ export function AiChatView({
           setSessions(parsed);
           setCurrentSessionId(parsed[0].id);
           setSelectedModel(normalizeModel(parsed[0].model));
-          return;
+          void hydrate(parsed[0].id);
+          return () => {
+            cancelled = true;
+          };
         }
       }
     } catch {
@@ -198,6 +246,9 @@ export function AiChatView({
 
     setSessions([initialSession]);
     setCurrentSessionId(initialSession.id);
+    return () => {
+      cancelled = true;
+    };
   }, [storageKey]);
 
   // Persist sessions
@@ -388,36 +439,19 @@ export function AiChatView({
     setAbortController(controller);
 
     try {
+      const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         signal: controller.signal,
         body: JSON.stringify({
           message: query,
           model: selectedModel,
           modelTier: selectedModel,
-          conversationHistory: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          context: {
-            userId,
-            conversationId: requestSessionId,
-            account,
-            campaigns,
-            keywords,
-            searchTerms,
-            auditLogs,
-            anomalies,
-            insights,
-            recommendations,
-            rules,
-            accessToken,
-            recentActionProposals: messages
-              .map((message) => message.actionProposal)
-              .filter(Boolean),
-            activeCampaign,
-          },
+          conversationId: requestSessionId,
         }),
       });
 
@@ -438,19 +472,24 @@ export function AiChatView({
         analysisDetails: data.analysisDetails,
         tableData: data.tableData,
         activeCampaign: data.activeCampaign,
+        toolCalls: data.toolCalls,
         modelUsed: data.modelUsed,
       };
 
-      const supersededProposalId = data.supersededProposalId as string | undefined;
-      const messagesWithSupersession = supersededProposalId
+      // A new proposal supersedes any earlier pending proposal in this session.
+      const newProposalId = data.actionProposal?.proposalId as string | undefined;
+      const messagesWithSupersession = newProposalId
         ? updatedMessages.map((message) =>
-            message.actionProposal?.id === supersededProposalId
+            message.actionProposal &&
+            message.actionProposal.status === 'PENDING_APPROVAL' &&
+            message.actionProposal.proposalId !== newProposalId
               ? {
                   ...message,
                   actionProposal: {
                     ...message.actionProposal,
                     status: 'SUPERSEDED' as const,
-                    executionResult: 'This proposal was replaced by a newer version. Only the latest proposal can be approved.',
+                    executionResult:
+                      'This proposal was replaced by a newer version. Only the latest proposal can be approved.',
                   },
                 }
               : message
@@ -464,8 +503,7 @@ export function AiChatView({
             : s
         )
       );
-      setPreservedDraft('');
-    } catch (err: any) {
+      setPreservedDraft('');    } catch (err: any) {
       if (err.name === 'AbortError') {
         const cancelledMessage: ChatMessage = {
           id: `cancelled-${Date.now()}`,
@@ -590,53 +628,38 @@ export function AiChatView({
       return;
     }
 
-    const executableProposal: ProposedAccountChange = {
-      ...proposal,
-      reason: proposal.reason || 'User confirmed this Google Ads action.',
-      evidence: proposal.evidence || 'Confirmed by the user from the Google Ads action card.',
-      potentialRisks: proposal.potentialRisks || 'This change may affect campaign delivery or spend.',
-      currentSettings: proposal.currentSettings || 'Current campaign settings',
-      proposedChanges: proposal.proposedChanges || 'Apply the requested campaign change',
-    };
     setExecutingProposalId(proposal.id);
 
     try {
+      const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      };
+
       const approvalResponse = await fetch('/api/ai/chat/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
-          conversation_id: proposal.conversationId || currentSessionId,
           proposal_id: proposal.proposalId || proposal.id,
           revision: proposal.revision,
           payload_hash: proposal.payloadHash,
         }),
       });
       const approvalData = await approvalResponse.json();
-      if (!approvalResponse.ok || approvalData.alreadyApproved) {
+      if (!approvalResponse.ok) {
         throw new Error(
-          approvalData.error || 'This proposal was already approved or is no longer pending.'
+          approvalData.error || 'This proposal is no longer pending approval.'
         );
       }
-      const approvedProposal =
-        (approvalData.proposal as ProposedAccountChange | undefined) || executableProposal;
 
       const response = await fetch('/api/ai/chat/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
-          proposal: approvedProposal,
-          context: {
-            userId,
-            conversationId: proposal.conversationId || currentSessionId,
-            account,
-            campaigns,
-            keywords,
-            searchTerms,
-            auditLogs,
-            recommendations,
-            rules,
-            accessToken,
-          },
+          proposal_id: proposal.proposalId || proposal.id,
+          revision: proposal.revision,
+          payload_hash: proposal.payloadHash,
         }),
       });
 

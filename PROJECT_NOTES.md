@@ -1,37 +1,55 @@
 # Project Notes
 
-- Added a single Google Ads operation registry in `lib/google-ads-tools.ts`; the chat tool list and shared tool dispatcher now derive from it.
-- Registered only operations with working local handlers, marked write operations as approval-required, and added startup validation for handlers and verifiers.
-- Updated `app/api/ai/chat/route.ts` to send the registry-derived tool list to the LLM.
-- Next: keep proposal execution capability checks aligned with this registry when the approval lifecycle is changed.
-- Added the Firestore-backed `chat_conversations/{conversation_id}/proposals` record and transactional approval/revision flow in `lib/chat-proposal-store.ts`, plus the chat approval endpoint and executor integration.
-- Proposal records now carry revision, status, payload hash, supersession, and expiry state; the UI sends proposal identity metadata rather than an in-memory approval token.
-- Next: add authenticated server-side ownership checks and integration tests against the configured Firestore emulator or production rules.
-- Refactored proposal execution so the approved Firestore record is atomically claimed, checked against its stored before snapshot, executed through the operation registry with its exact payload, and verified by a live Google Ads read-back.
-- Execution results now persist real IDs, before/after snapshots, typed failures, and truthful user messages; lifecycle events are appended to the top-level `audit_log` collection with proposal, user, and account identifiers.
-- Changed files: `lib/proposal-executor.ts`, `lib/chat-proposal-store.ts`, `lib/google-ads-tools.ts`, `app/api/ai/chat/execute/route.ts`, and proposal registration in `app/api/ai/chat/route.ts`.
-- Next: run Firestore emulator/integration scenarios for drift, duplicate execution, typed Google Ads failures, and audit-log rules.
-- Added one server-maintained `conversation_state` record per conversation with focus entity, recent entities, active proposal, action summary, and a timestamped account campaign cache.
-- Entity resolution now uses exact ID/name, recent proposed/created entities, focus state, and conservative fuzzy matching that returns clarification candidates instead of guessing.
-- Chat turns include compact conversation state JSON; stale account cache entries refresh after 10 minutes, and successful or uncertain writes invalidate the cache.
-- Changed files: `lib/conversation-state.ts`, `app/api/ai/chat/route.ts`, `lib/chat-proposal-store.ts`, and `lib/proposal-executor.ts`.
-- Next: test state transitions and ambiguous campaign selection with the Firestore emulator and live-account fixtures.
-- Added a structured OpenRouter classification step in `lib/chat-classifier.ts` with strict JSON validation and one retry for invalid output.
-- Chat routing now uses the classification intent, registry operation, target reference, normalized parameters, confidence, and missing fields instead of phrase-based intent detection.
-- Added safe chat approval display, proposal revision routing, and backend proposal cancellation without executing from chat text.
-- Changed files: `lib/chat-classifier.ts`, `app/api/ai/chat/route.ts`, and `lib/chat-proposal-store.ts`.
-- Next: test classifier JSON fixtures and end-to-end proposal revision/cancellation scenarios with the Firestore emulator.
-- Added `vitest.config.ts` and `tests/chat-agent.test.ts` with mocked OpenRouter, proposal storage, and Google Ads scenarios covering the 13 requested safety cases; added the `npm test` script and Vitest dev dependency.
-- Test result: 12 of 16 assertions pass (the four typed-error cases expose lost error metadata); TypeScript passes. No production code was changed in this phase.
-- Next: address the reported execution failures in a separate implementation phase.
-- Hardened the chat route against first-turn Firestore read failures by falling back to an empty conversation state and treating cache/entity-state writes as non-blocking for the current turn.
-- Approval persistence failures now return an explicit HTTP 503 without issuing an approval card or claiming an account change; Firestore rules were not weakened.
-- Changed file: `app/api/ai/chat/route.ts`.
-- Next: move proposal and conversation-state persistence under authenticated user-scoped Firestore paths before enabling approval-required mutations in deployments where top-level chat paths remain denied.
-- Fixed campaign creation being routed into the existing-campaign selection flow. Creation is a multi-turn task, so the route now resolves it before any existing-campaign entity resolution.
-- Added `pending_campaign_creation` to `ConversationState` with `recordPendingCampaignCreation` / `clearPendingCampaignCreation`; the draft carries name, budget, currency, channel, objective, and app URL across turns.
-- Added `lib/campaign-creation.ts` with deterministic parameter extraction (name, budget, currency, app URL, objective), objective-to-channel mapping, and missing-field reporting. The classifier prompt now states that creation is multi-turn and must never ask the user to choose an existing campaign.
-- `create_campaign` now accepts `objective`, `appUrl`, and `finalUrl`, and defaults app-install objectives to the `MULTI_CHANNEL` app campaign type. `createGoogleAdsCampaign` emits `advertisingChannelSubType: APP_CAMPAIGN` with `appCampaignSetting` instead of `manualCpc` for that channel.
-- The creation draft is cleared after a verified successful creation in `lib/proposal-executor.ts`.
-- Added `tests/campaign-creation.test.ts` covering the reported two-turn reproduction, leads/sales/traffic variants, explicit existing-campaign actions, and the `create_campaign` tool contract.
-- Next: the four typed-error assertions in `tests/chat-agent.test.ts` still fail on a clean tree (pre-existing, documented above); they are unrelated to campaign creation.
+## AI architecture migration (current)
+
+The chat system is now a model-driven MCP agent. The classifier-first router, phrase-based
+fallback responses, regex campaign-creation extractor and the in-memory proposal/conversation
+stores have been retired.
+
+### Layers
+
+- `lib/ai/agent.ts` — one model call per step, up to 4 tool steps, full chronological history.
+- `lib/mcp/google-ads-server.ts` — MCP JSON-RPC server (`initialize`, `tools/list`, `tools/call`).
+  Read tools query live Google Ads; write tools only prepare proposals.
+- `lib/google-ads/catalog.ts` — declarative operation catalog. Adding an edit is a data entry.
+- `lib/google-ads/mutate.ts` — single mutate gateway with `validateOnly` pre-flight.
+- `lib/ai/execution.ts` — deterministic execution: binding, re-validation, drift, idempotency,
+  mutate, read-back verification, audit.
+- `lib/store/*` — D1-backed durable storage with compare-and-swap claim/approve.
+- `lib/ai/identity.ts` — Firebase ID token verification (RS256 via JWKS).
+- `lib/ai/account-binding.ts` — server-side account ownership and credential resolution.
+
+### Supported write operations
+
+`update_campaign_status` (pause/enable), `update_campaign_budget`, `update_campaign_name`,
+`update_campaign_dates`, `update_campaign_network_settings`, `update_campaign_tracking`,
+`update_campaign_bidding_strategy`, `update_campaign_conversion_goals`, `create_campaign`
+(SEARCH and MULTI_CHANNEL app-install).
+
+### Not supported yet
+
+Campaign removal, ad group / keyword / ad creation and editing, assets, audiences, shared
+negative keyword lists, PMax asset groups. `get_ads_performance` and `get_conversion_metrics`
+are not exposed because no GAQL query backs them.
+
+### Environment
+
+- `AI_STORE=memory` forces the in-memory store (tests, local dev without D1).
+- `AI_PROPOSAL_EXPIRATION_MINUTES` defaults to 60.
+- `AI_ALLOW_ANONYMOUS=1` is development-only and ignored in production.
+- D1 binding `DB` is declared in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`.
+
+### Verification
+
+- `npm test` — 83 tests across 5 files.
+- `npx tsc --noEmit` — clean.
+- `npx next build` and `npx opennextjs-cloudflare build` — both succeed.
+- Worker runtime smoke test: all four AI endpoints return 401 without a token.
+- D1 compare-and-swap verified: first claim returns the row, second returns zero rows.
+
+### Known environment issue
+
+`next build` fails on the `F:` drive with `EISDIR ... readlink` because that filesystem
+returns EISDIR for `readlink` on regular files. The same build succeeds on `C:`. This is
+pre-existing and unrelated to the AI migration.
+

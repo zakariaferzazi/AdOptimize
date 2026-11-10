@@ -1730,7 +1730,10 @@ export async function createGoogleAdsCampaign(
                   appCampaignSetting: {
                     appId: campaignData.appId || '',
                     appStore: campaignData.appStore || 'GOOGLE_APP_STORE',
-                    biddingStrategyGoalType: 'TARGET_CPA',
+                    // AppCampaignBiddingStrategyGoalType only accepts
+                    // OPTIMIZE_FOR_* values; TARGET_CPA is not a member of that
+                    // enum and is rejected by the API.
+                    biddingStrategyGoalType: 'OPTIMIZE_FOR_INSTALLS',
                   },
                   maximizeConversions: {},
                 }
@@ -2049,4 +2052,237 @@ export async function fetchStructuralEntities(
       error: err.message || 'Failed to fetch structural Google Ads entities',
     };
   }
+}
+
+/**
+ * Reads the mutable settings of a single campaign so proposals can capture a
+ * before-snapshot and execution can verify the result with a fresh read.
+ *
+ * Only fields that the AI agent can actually change are returned.
+ */
+export interface CampaignSettingsSnapshot {
+  campaignId: string;
+  resourceName: string;
+  name: string;
+  status: string;
+  advertisingChannelType: string;
+  budgetResourceName?: string;
+  budgetDaily?: number;
+  biddingStrategyType?: string;
+  targetCpaMicros?: number;
+  targetRoas?: number;
+  startDate?: string;
+  endDate?: string;
+  trackingUrlTemplate?: string;
+  finalUrlSuffix?: string;
+  targetGoogleSearch?: boolean;
+  targetSearchNetwork?: boolean;
+  targetContentNetwork?: boolean;
+  targetPartnerSearchNetwork?: boolean;
+}
+
+export async function fetchCampaignSettings(
+  cleanCustomerId: string,
+  campaignId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; settings?: CampaignSettingsSnapshot; error?: string; statusCode?: number }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = String(campaignId).replace(/\D/g, '');
+  if (cleanCid.length !== 10 || !cleanCampId) {
+    return { success: false, error: 'A valid customer ID and campaign ID are required.', statusCode: 400 };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  if (devToken) headers['developer-token'] = devToken;
+  if (loginCustomerId) headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+
+  const query = `
+    SELECT
+      campaign.id,
+      campaign.resource_name,
+      campaign.name,
+      campaign.status,
+      campaign.advertising_channel_type,
+      campaign.campaign_budget,
+      campaign.bidding_strategy_type,
+      campaign.start_date,
+      campaign.end_date,
+      campaign.tracking_url_template,
+      campaign.final_url_suffix,
+      campaign.network_settings.target_google_search,
+      campaign.network_settings.target_search_network,
+      campaign.network_settings.target_content_network,
+      campaign.network_settings.target_partner_search_network,
+      campaign_budget.amount_micros,
+      campaign.target_cpa.target_cpa_micros,
+      campaign.target_roas.target_roas
+    FROM campaign
+    WHERE campaign.id = ${cleanCampId}
+    LIMIT 1
+  `;
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const response = await fetchWithBackoff(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        { method: 'POST', headers, body: JSON.stringify({ query }) }
+      );
+      const parsed = await safeParseResponse(response);
+      if (!response.ok || !parsed.isJson) {
+        if (response.status === 404) continue;
+        const errInfo = extractGoogleAdsError(parsed.data, response.status, parsed.rawText);
+        return { success: false, error: errInfo.error, statusCode: response.status };
+      }
+
+      const batches = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+      for (const batch of batches) {
+        const row = (batch.results || [])[0];
+        if (!row) continue;
+        const campaign = row.campaign || {};
+        const budget = row.campaignBudget || row.campaign_budget || {};
+        const network = campaign.networkSettings || campaign.network_settings || {};
+        const targetCpa = campaign.targetCpa || campaign.target_cpa || {};
+        const targetRoas = campaign.targetRoas || campaign.target_roas || {};
+
+        return {
+          success: true,
+          settings: {
+            campaignId: String(campaign.id || cleanCampId),
+            resourceName: String(campaign.resourceName || campaign.resource_name || ''),
+            name: String(campaign.name || ''),
+            status: String(campaign.status || ''),
+            advertisingChannelType: String(
+              campaign.advertisingChannelType || campaign.advertising_channel_type || ''
+            ),
+            budgetResourceName: campaign.campaignBudget || campaign.campaign_budget || undefined,
+            budgetDaily:
+              budget.amountMicros !== undefined || budget.amount_micros !== undefined
+                ? Number(budget.amountMicros ?? budget.amount_micros) / 1_000_000
+                : undefined,
+            biddingStrategyType: campaign.biddingStrategyType || campaign.bidding_strategy_type || undefined,
+            targetCpaMicros:
+              targetCpa.targetCpaMicros !== undefined || targetCpa.target_cpa_micros !== undefined
+                ? Number(targetCpa.targetCpaMicros ?? targetCpa.target_cpa_micros)
+                : undefined,
+            targetRoas:
+              targetRoas.targetRoas !== undefined || targetRoas.target_roas !== undefined
+                ? Number(targetRoas.targetRoas ?? targetRoas.target_roas)
+                : undefined,
+            startDate: campaign.startDate || campaign.start_date || undefined,
+            endDate: campaign.endDate || campaign.end_date || undefined,
+            trackingUrlTemplate:
+              campaign.trackingUrlTemplate || campaign.tracking_url_template || undefined,
+            finalUrlSuffix: campaign.finalUrlSuffix || campaign.final_url_suffix || undefined,
+            targetGoogleSearch: network.targetGoogleSearch ?? network.target_google_search,
+            targetSearchNetwork: network.targetSearchNetwork ?? network.target_search_network,
+            targetContentNetwork: network.targetContentNetwork ?? network.target_content_network,
+            targetPartnerSearchNetwork:
+              network.targetPartnerSearchNetwork ?? network.target_partner_search_network,
+          },
+        };
+      }
+
+      return { success: false, error: `Campaign ${cleanCampId} was not found in this account.`, statusCode: 404 };
+    } catch (error) {
+      if (version === GOOGLE_ADS_API_VERSIONS[GOOGLE_ADS_API_VERSIONS.length - 1]) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Campaign settings read failed.',
+        };
+      }
+    }
+  }
+
+  return { success: false, error: 'Campaign settings read failed.' };
+}
+
+/**
+ * Reads the conversion goals attached to a campaign.
+ *
+ * Google Ads exposes campaign-level conversion goals through
+ * `campaign_conversion_goal`. Each row carries the goal category, origin and
+ * whether the campaign opts in or out of it.
+ */
+export interface CampaignConversionGoal {
+  category: string;
+  origin: string;
+  biddable: boolean;
+  resourceName: string;
+}
+
+export async function fetchCampaignConversionGoals(
+  cleanCustomerId: string,
+  campaignId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; goals?: CampaignConversionGoal[]; error?: string; statusCode?: number }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  const cleanCampId = String(campaignId).replace(/\D/g, '');
+  if (cleanCid.length !== 10 || !cleanCampId) {
+    return { success: false, error: 'A valid customer ID and campaign ID are required.', statusCode: 400 };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  if (devToken) headers['developer-token'] = devToken;
+  if (loginCustomerId) headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+
+  const query = `
+    SELECT
+      campaign_conversion_goal.resource_name,
+      campaign_conversion_goal.category,
+      campaign_conversion_goal.origin,
+      campaign_conversion_goal.biddable
+    FROM campaign_conversion_goal
+    WHERE campaign.id = ${cleanCampId}
+  `;
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const response = await fetchWithBackoff(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        { method: 'POST', headers, body: JSON.stringify({ query }) }
+      );
+      const parsed = await safeParseResponse(response);
+      if (!response.ok || !parsed.isJson) {
+        if (response.status === 404) continue;
+        const errInfo = extractGoogleAdsError(parsed.data, response.status, parsed.rawText);
+        return { success: false, error: errInfo.error, statusCode: response.status };
+      }
+
+      const goals: CampaignConversionGoal[] = [];
+      const batches = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+      for (const batch of batches) {
+        for (const row of batch.results || []) {
+          const goal = row.campaignConversionGoal || row.campaign_conversion_goal || {};
+          goals.push({
+            resourceName: String(goal.resourceName || goal.resource_name || ''),
+            category: String(goal.category || ''),
+            origin: String(goal.origin || ''),
+            biddable: Boolean(goal.biddable),
+          });
+        }
+      }
+      return { success: true, goals };
+    } catch (error) {
+      if (version === GOOGLE_ADS_API_VERSIONS[GOOGLE_ADS_API_VERSIONS.length - 1]) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Conversion goal read failed.',
+        };
+      }
+    }
+  }
+
+  return { success: false, error: 'Conversion goal read failed.' };
 }

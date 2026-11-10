@@ -93,8 +93,6 @@ interface AdOptimizeContextType {
   setShowConnectModal: (val: boolean) => void;
   isSyncModalOpen: boolean;
   setIsSyncModalOpen: (val: boolean) => void;
-  showCopilot: boolean;
-  setShowCopilot: (val: boolean) => void;
   selectedCampaign: Campaign | null;
   setSelectedCampaign: (c: Campaign | null) => void;
   isSyncing: boolean;
@@ -176,7 +174,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
-  const [showCopilot, setShowCopilot] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [oauthToken, setOauthToken] = useState<string | null>(() => {
@@ -2058,8 +2055,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         setShowConnectModal,
         isSyncModalOpen,
         setIsSyncModalOpen,
-        showCopilot,
-        setShowCopilot,
         selectedCampaign,
         setSelectedCampaign,
         isSyncing,

@@ -29,7 +29,6 @@ interface HeaderProps {
   user: User | null;
   authLoading: boolean;
   onRefreshSync: () => void;
-  onOpenCopilot?: () => void;
   onSelectAnomaly: (anomaly: AnomalyAlert) => void;
   onSearchQuery?: (q: string) => void;
   onSignInWithGoogle: () => void;
@@ -60,7 +59,6 @@ export function Header({
   user,
   authLoading,
   onRefreshSync,
-  onOpenCopilot,
   onSelectAnomaly,
   onSearchQuery,
   onSignInWithGoogle,
