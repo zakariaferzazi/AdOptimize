@@ -14,6 +14,7 @@ export type MutateService =
   | 'campaigns'
   | 'campaignBudgets'
   | 'campaignCriteria'
+  | 'campaignConversionGoals'
   | 'adGroups'
   | 'adGroupCriteria'
   | 'adGroupAds'
@@ -49,6 +50,8 @@ export interface MutateResult {
   isAuthExpired?: boolean;
   isQuotaExhausted?: boolean;
   retryDelaySeconds?: number;
+  /** Structured Google Ads error so the model can correct the request. */
+  googleAdsError?: GoogleAdsErrorDetail;
 }
 
 function buildHeaders(context: MutateContext): Record<string, string> {
@@ -64,15 +67,99 @@ function buildHeaders(context: MutateContext): Record<string, string> {
   return headers;
 }
 
+export interface GoogleAdsErrorDetail {
+  /** Top-level message from Google Ads. */
+  message: string;
+  /** Google Ads error code, for example "FIELD_MASK_NOT_ALLOWED". */
+  code?: string;
+  /** Dotted field path that caused the failure, when Google reports one. */
+  fieldPath?: string;
+  /** Trigger value Google echoes back for the offending field. */
+  trigger?: string;
+  /** Every error code found in the response, in order. */
+  codes: string[];
+}
+
+/**
+ * Pull the actionable parts out of a Google Ads error response.
+ *
+ * Google returns errors as `error.details[].errors[]`, each with an `errorCode`
+ * object whose single key is the code, plus `location.fieldPathElements` and
+ * `trigger`. Surfacing those lets the model correct a request instead of
+ * guessing why it failed.
+ */
+export function extractGoogleAdsErrorDetail(body: unknown): GoogleAdsErrorDetail | undefined {
+  const payload = body as
+    | {
+        error?: {
+          message?: string;
+          details?: Array<{
+            errors?: Array<{
+              message?: string;
+              errorCode?: Record<string, string>;
+              location?: { fieldPathElements?: Array<{ fieldName?: string }> };
+              trigger?: { stringValue?: string };
+            }>;
+          }>;
+        };
+      }
+    | undefined;
+
+  const details = payload?.error?.details;
+  if (!Array.isArray(details)) return undefined;
+
+  const codes: string[] = [];
+  let first:
+    | {
+        message?: string;
+        errorCode?: Record<string, string>;
+        location?: { fieldPathElements?: Array<{ fieldName?: string }> };
+        trigger?: { stringValue?: string };
+      }
+    | undefined;
+
+  for (const detail of details) {
+    for (const error of detail?.errors || []) {
+      const code = error?.errorCode ? Object.keys(error.errorCode)[0] : undefined;
+      if (code) codes.push(code);
+      if (!first && (code || error?.message)) first = error;
+    }
+  }
+
+  if (!first) return undefined;
+
+  const fieldPath = (first.location?.fieldPathElements || [])
+    .map((element) => element?.fieldName)
+    .filter(Boolean)
+    .join('.');
+
+  return {
+    message: first.message || payload?.error?.message || 'Google Ads rejected the request.',
+    code: first.errorCode ? Object.keys(first.errorCode)[0] : undefined,
+    fieldPath: fieldPath || undefined,
+    trigger: first.trigger?.stringValue || undefined,
+    codes,
+  };
+}
+
 function extractError(
   body: unknown,
   status: number,
   rawText: string
-): { error: string; details?: string; isAuthExpired?: boolean; isQuotaExhausted?: boolean; retryDelaySeconds?: number } {
+): {
+  error: string;
+  details?: string;
+  isAuthExpired?: boolean;
+  isQuotaExhausted?: boolean;
+  retryDelaySeconds?: number;
+  googleAdsError?: GoogleAdsErrorDetail;
+} {
   const payload = body as
     | { error?: { message?: string; status?: string; details?: unknown[] } }
     | undefined;
+  const detail = extractGoogleAdsErrorDetail(body);
   const message =
+    detail?.message ||
     payload?.error?.message ||
     (rawText ? rawText.slice(0, 400) : `Google Ads mutate failed with HTTP ${status}.`);
   const isAuthExpired = status === 401 || status === 403;
@@ -82,10 +169,15 @@ function extractError(
     payload?.error?.status === 'RESOURCE_EXHAUSTED';
   return {
     error: message,
-    details: payload?.error?.details ? JSON.stringify(payload.error.details).slice(0, 800) : undefined,
+    details: detail
+      ? [detail.code, detail.fieldPath, detail.trigger].filter(Boolean).join(' | ')
+      : payload?.error?.details
+      ? JSON.stringify(payload.error.details).slice(0, 800)
+      : undefined,
     isAuthExpired,
     isQuotaExhausted,
     retryDelaySeconds: isQuotaExhausted ? 60 : undefined,
+    googleAdsError: detail,
   };
 }
 

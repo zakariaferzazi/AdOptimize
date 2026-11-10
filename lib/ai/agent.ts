@@ -8,6 +8,7 @@ import {
 import { handleMcpRequest, listMcpTools, type McpServerContext, type McpServerHooks } from '@/lib/mcp/google-ads-server';
 import { computeBudget, CONTEXT_FULL_MESSAGE } from './context-budget';
 import { buildSystemPrompt, RESERVE_OUTPUT_TOKENS, TOOL_LOOP_LIMIT } from './prompts';
+import type { TaskPatch, TaskState } from './task-state';
 
 /**
  * Model-driven tool orchestration.
@@ -40,6 +41,10 @@ export interface AgentRunOptions {
   mcpContext: McpServerContext;
   mcpHooks?: McpServerHooks;
   onToolCall?: (record: AgentToolCallRecord) => void;
+  /** Durable task state for this conversation, injected into the system prompt. */
+  taskState?: TaskState;
+  /** Persist a task-state patch. Called when the model uses update_task_state. */
+  onTaskUpdate?: (patch: TaskPatch) => Promise<TaskState>;
 }
 
 export interface AgentRunResult {
@@ -54,14 +59,113 @@ export interface AgentRunResult {
 }
 
 function toToolDefinitions(): ToolDefinition[] {
-  return listMcpTools().map((tool) => ({
-    type: 'function',
+  const mcpTools = listMcpTools().map((tool) => ({
+    type: 'function' as const,
     function: {
       name: tool.name,
       description: tool.description,
       parameters: tool.inputSchema,
     },
   }));
+
+  // Task memory is an agent capability, not a Google Ads operation, so it lives
+  // here rather than in the MCP server.
+  const taskTool: ToolDefinition = {
+    type: 'function',
+    function: {
+      name: 'update_task_state',
+      description:
+        'Record what you have learned about the user\'s current task so it survives to the next message. ' +
+        'Call this whenever you learn a campaign, a parameter value, a decision, or a new requirement. ' +
+        'Send only what changed; everything else is preserved. ' +
+        'Set "missing" to the requirements that are still unresolved (empty array when nothing is missing). ' +
+        'Set "unsupported" for constraints the user asked for that Google Ads cannot express.',
+      parameters: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['create_campaign', 'update_campaign', 'conversion_goals', 'analysis', 'question'],
+            description: 'The kind of task in progress.',
+          },
+          objective: {
+            type: 'string',
+            description: 'One sentence describing what the user is trying to achieve.',
+          },
+          campaignId: {
+            type: 'string',
+            description: 'Canonical Google Ads campaign ID once the target campaign is known.',
+          },
+          campaignName: { type: 'string', description: 'Name of the target campaign.' },
+          parameters: {
+            type: 'object',
+            description:
+              'Values collected for this task, for example {"name":"Q3 search","budgetDaily":5,"currency":"GBP","channelType":"SEARCH","status":"PAUSED"}.',
+          },
+          decisions: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Decisions the user has explicitly confirmed.',
+          },
+          missing: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Requirements still unresolved. Empty when the task is ready.',
+          },
+          unsupported: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Constraints the user asked for that the API cannot express.',
+          },
+          clearProposal: {
+            type: 'boolean',
+            description: 'True when the pending proposal is no longer relevant.',
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  };
+
+  return [...mcpTools, taskTool];
+}
+
+function taskPatchFromArgs(
+  args: Record<string, unknown>,
+  current: TaskState | undefined
+): TaskPatch {
+  const patch: TaskPatch = {};
+
+  if (typeof args.kind === 'string') patch.kind = args.kind as TaskPatch['kind'];
+  if (typeof args.objective === 'string') patch.objective = args.objective;
+
+  const campaignId = typeof args.campaignId === 'string' ? args.campaignId.replace(/\D/g, '') : '';
+  const campaignName = typeof args.campaignName === 'string' ? args.campaignName : '';
+  if (campaignId) {
+    patch.campaign = {
+      campaignId,
+      name: campaignName || current?.campaign?.name || '',
+      customerId: current?.campaign?.customerId || '',
+    };
+  } else if (campaignName && current?.campaign) {
+    patch.campaign = { ...current.campaign, name: campaignName };
+  }
+
+  if (args.parameters && typeof args.parameters === 'object' && !Array.isArray(args.parameters)) {
+    patch.parameters = args.parameters as Record<string, unknown>;
+  }
+  if (Array.isArray(args.decisions)) {
+    patch.decisions = args.decisions.filter((item): item is string => typeof item === 'string');
+  }
+  if (Array.isArray(args.missing)) {
+    patch.missing = args.missing.filter((item): item is string => typeof item === 'string');
+  }
+  if (Array.isArray(args.unsupported)) {
+    patch.unsupported = args.unsupported.filter((item): item is string => typeof item === 'string');
+  }
+  if (args.clearProposal === true) patch.clearProposal = true;
+
+  return patch;
 }
 
 function parseToolResult(result: unknown): { payload: unknown; isError: boolean } {
@@ -100,6 +204,7 @@ export async function runAgent(options: AgentRunOptions): Promise<AgentRunResult
       budgetDaily: campaign.budgetDaily,
     })),
     dataFetchedAt: options.mcpContext.snapshot?.fetchedAt,
+    taskState: options.taskState,
   });
 
   const messages: AgentMessage[] = [
@@ -173,6 +278,61 @@ export async function runAgent(options: AgentRunOptions): Promise<AgentRunResult
 
     for (const call of requestedCalls) {
       const startedAt = Date.now();
+
+      // Task memory is handled by the agent, not the MCP server.
+      if (call.name === 'update_task_state') {
+        let payload: unknown;
+        let isError = false;
+        try {
+          if (!options.onTaskUpdate) {
+            throw new Error('Task state storage is not available.');
+          }
+          const next = await options.onTaskUpdate(
+            taskPatchFromArgs(call.arguments, options.taskState)
+          );
+          payload = {
+            ok: true,
+            task: {
+              kind: next.kind,
+              objective: next.objective,
+              campaign: next.campaign || null,
+              parameters: next.parameters,
+              decisions: next.decisions,
+              missing: next.missing,
+              unsupported: next.unsupported,
+            },
+          };
+        } catch (error) {
+          isError = true;
+          payload = {
+            code: 'internal',
+            message: error instanceof Error ? error.message : 'Task state could not be saved.',
+            next_step: 'Continue the conversation without relying on saved task state.',
+          };
+        }
+
+        const record: AgentToolCallRecord = {
+          id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          result: payload,
+          isError,
+          durationMs: Date.now() - startedAt,
+        };
+        toolCalls.push(record);
+        options.onToolCall?.(record);
+
+        const toolMessage: AgentMessage = {
+          role: 'tool',
+          tool_call_id: call.id,
+          name: call.name,
+          content: JSON.stringify(payload),
+        };
+        messages.push(toolMessage);
+        producedMessages.push(toolMessage);
+        continue;
+      }
+
       const rpc = await handleMcpRequest(
         {
           jsonrpc: '2.0',

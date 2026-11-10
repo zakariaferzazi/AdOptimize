@@ -10,8 +10,10 @@ import {
   appendMessages,
   ensureConversation,
   loadMessages,
+  loadTaskState,
   renameConversation,
   toAgentHistory,
+  updateTaskState,
 } from '@/lib/ai/conversations';
 import { createProposal, expireStaleProposals, toProposalView } from '@/lib/ai/proposals';
 import { getStore, isDurableStore } from '@/lib/store';
@@ -121,6 +123,7 @@ export async function POST(req: NextRequest) {
 
     const stored = await loadMessages(identity.uid, conversation.id);
     const history = toAgentHistory(stored);
+    const taskState = await loadTaskState(identity.uid, conversation.id);
 
     const { accessToken, error: tokenError } = await resolveAccessToken(identity.uid, idToken);
     if (!accessToken) {
@@ -181,6 +184,15 @@ export async function POST(req: NextRequest) {
       model,
       history: [...history, userMessage],
       mcpContext,
+      taskState,
+      onTaskUpdate: async (patch) => {
+        // Bind the campaign to this account so identity survives later turns.
+        const withAccount =
+          patch.campaign && !patch.campaign.customerId
+            ? { ...patch, campaign: { ...patch.campaign, customerId: binding.customerId } }
+            : patch;
+        return updateTaskState(identity.uid, conversation.id, withAccount);
+      },
       mcpHooks: {
         prepareProposal: async (prepared) => {
           // In production a proposal must survive to the approval request. The
@@ -196,6 +208,15 @@ export async function POST(req: NextRequest) {
             conversationId: conversation.id,
             accountId: binding.customerId,
             prepared,
+          });
+          // Remember the pending proposal so the next turn knows about it.
+          await updateTaskState(identity.uid, conversation.id, {
+            proposal: {
+              proposalId: record.id,
+              revision: record.revision,
+              operation: record.operation,
+              summary: prepared.summary,
+            },
           });
           return { proposalId: record.id, revision: record.revision };
         },

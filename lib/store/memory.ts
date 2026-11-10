@@ -49,8 +49,7 @@ const conversationRepository: ConversationRepository = {
   },
   async upsert(record) {
     conversations.set(record.id, clone(record));
-  },
-  async delete(id, userId) {
+  },  async delete(id, userId) {
     const record = conversations.get(id);
     if (record && record.user_id === userId) conversations.delete(id);
   },

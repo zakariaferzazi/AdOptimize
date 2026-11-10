@@ -22,6 +22,14 @@ export interface ToolErrorPayload {
   message: string;
   next_step: string;
   candidates?: Array<{ id: string; name: string }>;
+  /** Google Ads error code, for example FIELD_MASK_NOT_ALLOWED. */
+  google_ads_code?: string;
+  /** Dotted field path that caused the failure. */
+  field_path?: string;
+  /** Value Google Ads echoed back for the offending field. */
+  trigger?: string;
+  /** Every Google Ads error code in the response. */
+  google_ads_codes?: string[];
 }
 
 export class ToolError extends Error {
@@ -104,13 +112,34 @@ export function fromGoogleAdsFailure(result: {
   statusCode?: number;
   isAuthExpired?: boolean;
   isQuotaExhausted?: boolean;
+  googleAdsError?: {
+    message: string;
+    code?: string;
+    fieldPath?: string;
+    trigger?: string;
+    codes: string[];
+  };
 }): ToolError {
   const message = result.error || 'Google Ads rejected the request.';
-  if (result.isQuotaExhausted || result.statusCode === 429) return quotaExhausted(message);
-  if (result.isAuthExpired || result.statusCode === 401 || result.statusCode === 403) {
-    return permissionDenied(message);
-  }
-  if (result.statusCode === 404) return notFound('The requested Google Ads resource');
-  if (result.statusCode === 400) return invalidArgument(message);
-  return toolError('internal', message, 'Explain the failure and suggest retrying.');
+  const detail = result.googleAdsError;
+
+  let base: ToolError;
+  if (result.isQuotaExhausted || result.statusCode === 429) base = quotaExhausted(message);
+  else if (result.isAuthExpired || result.statusCode === 401 || result.statusCode === 403) {
+    base = permissionDenied(message);
+  } else if (result.statusCode === 404) base = notFound('The requested Google Ads resource');
+  else if (result.statusCode === 400) base = invalidArgument(message);
+  else base = toolError('internal', message, 'Explain the failure and suggest retrying.');
+
+  if (!detail) return base;
+
+  // Attach the machine-readable parts so the model can correct the request
+  // instead of guessing why Google Ads rejected it.
+  return new ToolError({
+    ...base.payload,
+    google_ads_code: detail.code,
+    field_path: detail.fieldPath,
+    trigger: detail.trigger,
+    google_ads_codes: detail.codes.length ? detail.codes : undefined,
+  });
 }

@@ -2,6 +2,13 @@ import { randomUUID } from 'crypto';
 import { getStore } from '@/lib/store';
 import type { ConversationRecord, MessageRecord } from '@/lib/store/types';
 import type { AgentMessage } from './agent';
+import {
+  mergeTaskState,
+  parseTaskState,
+  serializeTaskState,
+  type TaskPatch,
+  type TaskState,
+} from './task-state';
 
 /**
  * Server-authoritative conversation storage.
@@ -51,11 +58,47 @@ export async function ensureConversation(input: {
     account_id: input.accountId,
     title: input.title || 'New conversation',
     model: input.model,
+    task_state: null,
     created_at: now,
     updated_at: now,
   };
   await store.conversations.upsert(record);
   return record;
+}
+
+/** Read the durable task state for a conversation. */
+export async function loadTaskState(
+  userId: string,
+  conversationId: string
+): Promise<TaskState | undefined> {
+  const store = await getStore();
+  const conversation = await store.conversations.get(conversationId, userId);
+  return parseTaskState(conversation?.task_state);
+}
+
+/**
+ * Merge a patch into the conversation's task state and persist it.
+ *
+ * This is the mechanism that makes follow-ups work: the model sends only what
+ * changed, and everything captured earlier survives.
+ */
+export async function updateTaskState(
+  userId: string,
+  conversationId: string,
+  patch: TaskPatch
+): Promise<TaskState> {
+  const store = await getStore();
+  const conversation = await store.conversations.get(conversationId, userId);
+  if (!conversation) {
+    return mergeTaskState(undefined, patch);
+  }
+  const next = mergeTaskState(parseTaskState(conversation.task_state), patch);
+  await store.conversations.upsert({
+    ...conversation,
+    task_state: serializeTaskState(next),
+    updated_at: new Date().toISOString(),
+  });
+  return next;
 }
 
 export async function listConversations(userId: string): Promise<ConversationSummary[]> {

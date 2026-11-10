@@ -1,5 +1,10 @@
 import type { Campaign, Keyword, SearchTerm } from '@/types/adoptimize';
-import { fetchCampaignConversionGoals, fetchCampaignSettings, queryLiveCampaigns } from '@/lib/google-ads-api';
+import {
+  fetchCampaignConversionGoals,
+  fetchCampaignSettings,
+  fetchConversionActions,
+  queryLiveCampaigns,
+} from '@/lib/google-ads-api';
 import { OPERATION_CATALOG, getOperation, validateOperationArgs } from '@/lib/google-ads/catalog';
 import type { CampaignSnapshot } from '@/lib/google-ads/catalog';
 import {
@@ -144,6 +149,13 @@ const READ_TOOLS: McpToolDefinition[] = [
       required: ['campaignId'],
       additionalProperties: false,
     },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: 'get_conversion_actions',
+    description:
+      'List the account-level conversion actions: what actually counts as a conversion, with category, type, origin and status. Use this to distinguish account defaults from campaign-level goal categories.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
   },
   {
@@ -415,6 +427,20 @@ async function callReadTool(
       return textResult(
         { campaignId: normalizeId(campaign.id), goals: goals.goals || [] },
         `Read ${goals.goals?.length || 0} conversion goals for ${campaign.name}.`
+      );
+    }
+
+    case 'get_conversion_actions': {
+      const actions = await fetchConversionActions(
+        context.customerId,
+        context.accessToken,
+        context.developerToken,
+        context.loginCustomerId
+      );
+      if (!actions.success) throw fromGoogleAdsFailure(actions);
+      return textResult(
+        { actions: actions.actions || [] },
+        `Read ${actions.actions?.length || 0} account conversion actions.`
       );
     }
 

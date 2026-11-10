@@ -2286,3 +2286,95 @@ export async function fetchCampaignConversionGoals(
 
   return { success: false, error: 'Conversion goal read failed.' };
 }
+
+/**
+ * Reads the account's conversion actions.
+ *
+ * This is the third layer the agent must distinguish: account-level conversion
+ * actions (what actually counts as a conversion), campaign-level goal categories
+ * (which categories the campaign bids for), and individual action selection.
+ */
+export interface ConversionAction {
+  id: string;
+  name: string;
+  category: string;
+  type: string;
+  status: string;
+  origin: string;
+  primaryForGoal: boolean;
+}
+
+export async function fetchConversionActions(
+  cleanCustomerId: string,
+  accessToken: string,
+  developerToken?: string,
+  loginCustomerId?: string
+): Promise<{ success: boolean; actions?: ConversionAction[]; error?: string; statusCode?: number }> {
+  const cleanCid = cleanCustomerId.replace(/\D/g, '');
+  if (cleanCid.length !== 10) {
+    return { success: false, error: 'A valid customer ID is required.', statusCode: 400 };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+  const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  if (devToken) headers['developer-token'] = devToken;
+  if (loginCustomerId) headers['login-customer-id'] = loginCustomerId.replace(/\D/g, '');
+
+  const query = `
+    SELECT
+      conversion_action.id,
+      conversion_action.name,
+      conversion_action.category,
+      conversion_action.type,
+      conversion_action.status,
+      conversion_action.origin,
+      conversion_action.primary_for_goal
+    FROM conversion_action
+    WHERE conversion_action.status != 'REMOVED'
+  `;
+
+  for (const version of GOOGLE_ADS_API_VERSIONS) {
+    try {
+      const response = await fetchWithBackoff(
+        `https://googleads.googleapis.com/${version}/customers/${cleanCid}/googleAds:searchStream`,
+        { method: 'POST', headers, body: JSON.stringify({ query }) }
+      );
+      const parsed = await safeParseResponse(response);
+      if (!response.ok || !parsed.isJson) {
+        if (response.status === 404) continue;
+        const errInfo = extractGoogleAdsError(parsed.data, response.status, parsed.rawText);
+        return { success: false, error: errInfo.error, statusCode: response.status };
+      }
+
+      const actions: ConversionAction[] = [];
+      const batches = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
+      for (const batch of batches) {
+        for (const row of batch.results || []) {
+          const action = row.conversionAction || row.conversion_action || {};
+          actions.push({
+            id: String(action.id || ''),
+            name: String(action.name || ''),
+            category: String(action.category || ''),
+            type: String(action.type || ''),
+            status: String(action.status || ''),
+            origin: String(action.origin || ''),
+            primaryForGoal: Boolean(action.primaryForGoal ?? action.primary_for_goal),
+          });
+        }
+      }
+      return { success: true, actions };
+    } catch (error) {
+      if (version === GOOGLE_ADS_API_VERSIONS[GOOGLE_ADS_API_VERSIONS.length - 1]) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Conversion action read failed.',
+        };
+      }
+    }
+  }
+
+  return { success: false, error: 'Conversion action read failed.' };
+}

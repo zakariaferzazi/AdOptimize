@@ -21,6 +21,8 @@ export interface ConversationRecord {
   account_id: string;
   title: string;
   model: string;
+  /** Serialized TaskState: objective, campaign, parameters, decisions, proposal. */
+  task_state: string | null;
   created_at: string;
   updated_at: string;
 }

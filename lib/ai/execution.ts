@@ -562,9 +562,13 @@ export async function executeProposal(input: ExecuteProposalInput): Promise<Exec
       input.loginCustomerId
     );
     const category = String(payload.category || '');
+    const origin = String(payload.origin || '');
     const expected = Boolean(payload.biddable);
+    // A category can exist under several origins, so match both.
     const observed = goals.success
-      ? (goals.goals || []).find((goal) => goal.category === category)
+      ? (goals.goals || []).find(
+          (goal) => goal.category === category && (!origin || goal.origin === origin)
+        )
       : undefined;
     if (!goals.success || !observed || observed.biddable !== expected) {
       return finish({

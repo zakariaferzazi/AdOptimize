@@ -459,3 +459,56 @@ describe('proposal approval', () => {
     expect(second.revision).toBe(2);
   });
 });
+
+describe('conversion goal execution', () => {
+  it('mutates the campaignConversionGoals service with the exact resource name', async () => {
+    const record = await seedProposal(
+      'update_campaign_conversion_goals',
+      { campaignId: '111', category: 'DOWNLOAD', biddable: true, origin: 'APP' },
+      { campaignId: '111' }
+    );
+    adsMock.goals.mockResolvedValue({
+      success: true,
+      goals: [{ category: 'DOWNLOAD', origin: 'APP', biddable: true, resourceName: 'g1' }],
+    });
+
+    const outcome = await executeProposal(executeInput(record));
+    expect(outcome.status).toBe('succeeded');
+
+    const [service, operations] = mutateMock.resources.mock.calls[0];
+    expect(service).toBe('campaignConversionGoals');
+    expect(operations[0].updateMask).toBe('biddable');
+    expect(operations[0].update.resourceName).toBe(
+      `customers/${CUSTOMER}/campaignConversionGoals/111~DOWNLOAD~APP`
+    );
+    expect(operations[0].update.biddable).toBe(true);
+  });
+
+  it('reports executed_unverified when the goal read-back disagrees', async () => {
+    const record = await seedProposal(
+      'update_campaign_conversion_goals',
+      { campaignId: '111', category: 'DOWNLOAD', biddable: true, origin: 'APP' },
+      { campaignId: '111' }
+    );
+    adsMock.goals.mockResolvedValue({
+      success: true,
+      goals: [{ category: 'DOWNLOAD', origin: 'APP', biddable: false, resourceName: 'g1' }],
+    });
+
+    const outcome = await executeProposal(executeInput(record));
+    expect(outcome.status).toBe('executed_unverified');
+  });
+
+  it('rejects a conversion goal change without an origin', async () => {
+    const record = await seedProposal(
+      'update_campaign_conversion_goals',
+      { campaignId: '111', category: 'DOWNLOAD', biddable: true },
+      { campaignId: '111' }
+    );
+
+    const outcome = await executeProposal(executeInput(record));
+    expect(outcome.status).toBe('failed');
+    expect(outcome.error?.type).toBe('invalid_argument');
+    expect(mutateMock.resources).not.toHaveBeenCalled();
+  });
+});

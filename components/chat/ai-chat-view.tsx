@@ -462,6 +462,18 @@ export function AiChatView({
 
       const data = await response.json();
 
+      // The server is authoritative for the conversation ID. Adopt it so the
+      // next turn continues the same durable conversation and task state.
+      const serverConversationId = data.conversationId as string | undefined;
+      if (serverConversationId && serverConversationId !== requestSessionId) {
+        setCurrentSessionId(serverConversationId);
+        updateSessions((current) =>
+          current.map((session) =>
+            session.id === requestSessionId ? { ...session, id: serverConversationId } : session
+          )
+        );
+      }
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',

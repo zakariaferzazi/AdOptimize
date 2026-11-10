@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   account_id TEXT NOT NULL,
   title TEXT NOT NULL,
   model TEXT NOT NULL,
+  task_state TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -114,6 +115,18 @@ export async function ensureD1Schema(db: D1Database): Promise<void> {
   for (const statement of statements) {
     await db.prepare(statement).run();
   }
+
+  // Older databases were created before task_state existed. CREATE TABLE IF NOT
+  // EXISTS will not add the column, so apply it explicitly and ignore the
+  // "duplicate column" error when it is already present.
+  try {
+    await db.prepare('ALTER TABLE conversations ADD COLUMN task_state TEXT').run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/duplicate column|already exists/i.test(message)) {
+      console.warn('[AI Store] task_state column check:', message);
+    }
+  }
 }
 
 function conversationRepository(db: D1Database): ConversationRepository {
@@ -136,12 +149,13 @@ function conversationRepository(db: D1Database): ConversationRepository {
     async upsert(record) {
       await db
         .prepare(
-          `INSERT INTO conversations (id, user_id, account_id, title, model, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO conversations (id, user_id, account_id, title, model, task_state, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              account_id = excluded.account_id,
              title = excluded.title,
              model = excluded.model,
+             task_state = excluded.task_state,
              updated_at = excluded.updated_at`
         )
         .bind(
@@ -150,6 +164,7 @@ function conversationRepository(db: D1Database): ConversationRepository {
           record.account_id,
           record.title,
           record.model,
+          record.task_state,
           record.created_at,
           record.updated_at
         )

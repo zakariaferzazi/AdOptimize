@@ -587,6 +587,12 @@ export const OPERATION_CATALOG: OperationDescriptor[] = [
           enum: ['GOOGLE_APP_STORE', 'APPLE_APP_STORE'],
           description: 'Store hosting the promoted app.',
         },
+        maxCpc: {
+          type: 'number',
+          description:
+            'Maximum cost per click the user asked for. Recorded for transparency; a campaign-level CPC cap is not supported by this integration.',
+          minimum: 0,
+        },
         reason: { type: 'string', description: 'Business reason for creating the campaign.' },
       },
       required: ['name', 'budgetDaily', 'channelType'],
@@ -595,9 +601,13 @@ export const OPERATION_CATALOG: OperationDescriptor[] = [
     summarize(args) {
       const channel = String(args.channelType);
       const budget = requireNumber(args, 'budgetDaily').toFixed(2);
-      return channel === 'MULTI_CHANNEL'
-        ? `Create a paused app-install campaign "${requireString(args, 'name')}" with a ${budget} daily budget.`
-        : `Create a paused search campaign "${requireString(args, 'name')}" with a ${budget} daily budget.`;
+      const base =
+        channel === 'MULTI_CHANNEL'
+          ? `Create a paused app-install campaign "${requireString(args, 'name')}" with a ${budget} daily budget.`
+          : `Create a paused search campaign "${requireString(args, 'name')}" with a ${budget} daily budget.`;
+      return args.maxCpc !== undefined
+        ? `${base} The requested ${Number(args.maxCpc).toFixed(2)} CPC cap is not applied because a campaign-level CPC cap is not supported.`
+        : base;
     },
     beforeSnapshot(args) {
       return { exists: false, name: String(args.name) };
@@ -719,9 +729,15 @@ export const OPERATION_CATALOG: OperationDescriptor[] = [
           type: 'boolean',
           description: 'True to include this goal in bidding, false to exclude it.',
         },
+        origin: {
+          type: 'string',
+          enum: ['WEBSITE', 'APP', 'CALL_FROM_ADS', 'STORE', 'YOUTUBE_HOSTED', 'GOOGLE_HOSTED', 'UNSPECIFIED'],
+          description:
+            'Origin of the conversion goal, as returned by get_campaign_conversion_goals. Required to address the exact goal.',
+        },
         reason: { type: 'string', description: 'Business reason for the change.' },
       },
-      required: ['campaignId', 'category', 'biddable'],
+      required: ['campaignId', 'category', 'biddable', 'origin'],
       additionalProperties: false,
     },
     summarize(args) {
@@ -738,14 +754,21 @@ export const OPERATION_CATALOG: OperationDescriptor[] = [
       const category = requireString(args, 'category');
       if (typeof args.biddable !== 'boolean') throw new Error('"biddable" must be true or false.');
       const cleanCid = context.customerId.replace(/\D/g, '');
+
+      // Campaign conversion goals live in their own service. The resource name
+      // is `customers/{cid}/campaignConversionGoals/{campaignId}~{category}~{origin}`.
+      // The origin must match the existing goal, so it is supplied by the caller
+      // after reading the current goals; UNKNOWN is rejected by the API.
+      const origin = requireString(args, 'origin');
+
       return [
         {
-          service: 'campaignCriteria',
+          service: 'campaignConversionGoals',
           operations: [
             {
               updateMask: 'biddable',
               update: {
-                resourceName: `customers/${cleanCid}/campaignConversionGoals/${campaign.campaignId}~${category}~UNKNOWN`,
+                resourceName: `customers/${cleanCid}/campaignConversionGoals/${campaign.campaignId}~${category}~${origin}`,
                 biddable: args.biddable,
               },
             },
