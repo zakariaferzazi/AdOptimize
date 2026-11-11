@@ -90,8 +90,20 @@ const proposalRepository: ProposalRepository = {
           record.status !== 'superseded' &&
           record.status !== 'cancelled'
       )
-      .sort((left, right) => right.revision - left.revision)[0];
+      .sort(
+        (left, right) =>
+          right.created_at.localeCompare(left.created_at) || right.revision - left.revision
+      )[0];
     return latest ? clone(latest) : undefined;
+  },
+  async listByConversation(conversationId, userId) {
+    return [...proposals.values()]
+      .filter((record) => record.conversation_id === conversationId && record.user_id === userId)
+      .sort(
+        (left, right) =>
+          right.created_at.localeCompare(left.created_at) || right.revision - left.revision
+      )
+      .map(clone);
   },
   async update(record) {
     proposals.set(record.id, clone(record));

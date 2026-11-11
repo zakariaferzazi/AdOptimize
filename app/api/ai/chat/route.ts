@@ -1,89 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAgent, type AgentMessage } from '@/lib/ai/agent';
 import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
-import {
-  AccountBindingError,
-  resolveAccountBinding,
-  resolveGoogleAdsCredentials,
-} from '@/lib/ai/account-binding';
+import { AccountBindingError, resolveAccountBinding, resolveFreshAccessToken } from '@/lib/ai/account-binding';
 import {
   appendMessages,
   ensureConversation,
+  loadAgentState,
   loadMessages,
-  loadTaskState,
   renameConversation,
+  saveAgentState,
   toAgentHistory,
-  updateTaskState,
 } from '@/lib/ai/conversations';
 import { createProposal, expireStaleProposals, toProposalView } from '@/lib/ai/proposals';
+import { toClientProposal } from '@/lib/ai/proposal-client';
+import { recordProposalOutcome } from '@/lib/ai/agent-state';
 import { getStore, isDurableStore } from '@/lib/store';
-import { queryLiveCampaigns } from '@/lib/google-ads-api';
-import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
-import type { McpServerContext } from '@/lib/mcp/google-ads-server';
-import type { Campaign, Keyword, SearchTerm, ProposedAccountChange } from '@/types/adoptimize';
+import { newRequestStats, type GoogleAdsContext } from '@/lib/google-ads/gaql';
+import { OpenRouterError } from '@/lib/openrouter-service';
+import type { ProposedAccountChange } from '@/types/adoptimize';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const ACTION_TYPE_BY_OPERATION: Record<string, ProposedAccountChange['actionType']> = {
-  update_campaign_budget: 'UPDATE_BUDGET',
-  update_campaign_name: 'UPDATE_SETTINGS',
-  update_campaign_dates: 'UPDATE_SETTINGS',
-  update_campaign_network_settings: 'UPDATE_SETTINGS',
-  update_campaign_tracking: 'UPDATE_SETTINGS',
-  update_campaign_bidding_strategy: 'UPDATE_SETTINGS',
-};
-
-function toClientProposal(
-  view: ReturnType<typeof toProposalView>,
-  conversationId: string
-): ProposedAccountChange {
-  const payload = view.payload;
-  const isPause =
-    view.operation === 'update_campaign_status' && String(payload.status) === 'PAUSED';
-  const actionType = isPause
-    ? 'PAUSE_CAMPAIGN'
-    : view.operation === 'update_campaign_status'
-    ? 'ENABLE_CAMPAIGN'
-    : ACTION_TYPE_BY_OPERATION[view.operation] || 'UPDATE_SETTINGS';
-
-  return {
-    id: view.proposalId,
-    proposalId: view.proposalId,
-    revision: view.revision,
-    payloadHash: view.payloadHash,
-    conversationId,
-    actionType,
-    campaignId: view.campaignId || '',
-    campaignName: view.campaignName || 'Campaign',
-    currentSettings: JSON.stringify(view.beforeSnapshot),
-    proposedChanges: view.summary,
-    reason: String(payload.reason || view.summary),
-    evidence: `Prepared from live Google Ads data for campaign ${view.campaignId || ''}.`,
-    potentialRisks:
-      'This change affects live campaign delivery. It is applied only after you approve this exact revision.',
-    status: 'PENDING_APPROVAL',
-    payload,
-  };
-}
-
-async function resolveAccessToken(
-  userId: string,
-  idToken: string
-): Promise<{ accessToken?: string; error?: string }> {
-  const credentials = await resolveGoogleAdsCredentials(userId, idToken);
-  if (!credentials) return { error: 'No Google Ads credentials are stored for this account.' };
-
-  const expiresSoon =
-    typeof credentials.expiresAt === 'number' && credentials.expiresAt - Date.now() < 5 * 60 * 1000;
-  if (!expiresSoon) return { accessToken: credentials.accessToken };
-  if (!credentials.refreshToken) return { accessToken: credentials.accessToken };
-
-  const refreshed = await executeGoogleAdsTokenRefresh({ refreshToken: credentials.refreshToken });
-  if (refreshed.success && refreshed.accessToken) return { accessToken: refreshed.accessToken };
-  return { accessToken: credentials.accessToken };
-}
-
+/**
+ * One conversational turn with the marketing agent.
+ *
+ * Nothing is pre-fetched from Google Ads: the model decides whether live data
+ * is needed and the tools fetch only that. The full transcript and the durable
+ * conversation state are loaded, the agent runs, and the turn (user message,
+ * tool calls, tool results, reply) plus the updated state are persisted.
+ */
 export async function POST(req: NextRequest) {
   try {
     const identity = await requireIdentity(req);
@@ -92,8 +38,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const message = typeof body?.message === 'string' ? body.message.trim() : '';
     const model = String(body?.model || body?.modelTier || 'deepseek');
-    const requestedConversationId =
-      typeof body?.conversationId === 'string' ? body.conversationId : undefined;
+    const requestedConversationId = typeof body?.conversationId === 'string' ? body.conversationId : undefined;
 
     if (!message) {
       return NextResponse.json({ success: false, error: 'A message is required.' }, { status: 400 });
@@ -102,12 +47,16 @@ export async function POST(req: NextRequest) {
     const binding = await resolveAccountBinding(identity.uid, idToken);
     if (!binding) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Connect a Google Ads account before asking the agent about performance or changes.',
-        },
+        { success: false, error: 'Connect a Google Ads account before asking the agent about performance or changes.' },
         { status: 409 }
+      );
+    }
+
+    const { accessToken, error: tokenError } = await resolveFreshAccessToken(identity.uid, idToken);
+    if (!accessToken) {
+      return NextResponse.json(
+        { success: false, error: tokenError || 'Google Ads access has expired. Reconnect the account to continue.' },
+        { status: 401 }
       );
     }
 
@@ -119,152 +68,123 @@ export async function POST(req: NextRequest) {
       title: message.slice(0, 80),
     });
 
-    await expireStaleProposals(identity.uid, conversation.id);
+    const [stored, initialState, expired] = await Promise.all([
+      loadMessages(identity.uid, conversation.id),
+      loadAgentState(identity.uid, conversation.id),
+      expireStaleProposals(identity.uid, conversation.id),
+    ]);
 
-    const stored = await loadMessages(identity.uid, conversation.id);
-    const history = toAgentHistory(stored);
-    const taskState = await loadTaskState(identity.uid, conversation.id);
-
-    const { accessToken, error: tokenError } = await resolveAccessToken(identity.uid, idToken);
-    if (!accessToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            tokenError || 'Google Ads access has expired. Reconnect the account to continue.',
-        },
-        { status: 401 }
-      );
+    let state = initialState;
+    for (const record of expired) {
+      state = recordProposalOutcome(state, {
+        proposalId: record.id,
+        revision: record.revision,
+        operation: record.operation,
+        summary: toProposalView(record).summary,
+        status: 'expired',
+      });
     }
 
-    // One live snapshot per turn, shared by every tool call.
-    let snapshot: McpServerContext['snapshot'];
-    let liveError: string | undefined;
-    try {
-      const live = await queryLiveCampaigns(
-        binding.customerId,
-        accessToken,
-        process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-        binding.loginCustomerId,
-        { forceRefresh: true }
-      );
-      if (live.success) {
-        snapshot = {
-          campaigns: (live.campaigns || []) as Campaign[],
-          keywords: (live.keywords || []) as Keyword[],
-          searchTerms: (live.searchTerms || []) as SearchTerm[],
-          fetchedAt: live.fetchedAt || new Date().toISOString(),
-        };
-      } else {
-        liveError = live.error || 'Google Ads did not return account data.';
-      }
-    } catch (error) {
-      liveError = error instanceof Error ? error.message : 'The live account read failed.';
-    }
-
-    const mcpContext: McpServerContext = {
+    const ads: GoogleAdsContext = {
       customerId: binding.customerId,
       accessToken,
       developerToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
       loginCustomerId: binding.loginCustomerId,
       currency: binding.currency,
       accountName: binding.accountName,
-      snapshot,
+      stats: newRequestStats(),
     };
 
     const userMessage: AgentMessage = { role: 'user', content: message };
-    await appendMessages({
-      userId: identity.uid,
-      conversationId: conversation.id,
-      messages: [userMessage],
-      model,
-    });
+    const supersededThisTurn: string[] = [];
 
     const result = await runAgent({
       model,
-      history: [...history, userMessage],
-      mcpContext,
-      taskState,
-      onTaskUpdate: async (patch) => {
-        // Bind the campaign to this account so identity survives later turns.
-        const withAccount =
-          patch.campaign && !patch.campaign.customerId
-            ? { ...patch, campaign: { ...patch.campaign, customerId: binding.customerId } }
-            : patch;
-        return updateTaskState(identity.uid, conversation.id, withAccount);
-      },
-      mcpHooks: {
-        prepareProposal: async (prepared) => {
-          // In production a proposal must survive to the approval request. The
-          // in-memory store does not cross Worker isolates, so a card created
-          // there could never be approved. Fail closed with a clear reason.
-          if (process.env.NODE_ENV === 'production' && !isDurableStore()) {
-            throw new Error(
-              'Durable proposal storage is not configured, so no change can be prepared safely.'
-            );
-          }
-          const record = await createProposal({
-            userId: identity.uid,
-            conversationId: conversation.id,
-            accountId: binding.customerId,
-            prepared,
-          });
-          // Remember the pending proposal so the next turn knows about it.
-          await updateTaskState(identity.uid, conversation.id, {
-            proposal: {
-              proposalId: record.id,
-              revision: record.revision,
-              operation: record.operation,
-              summary: prepared.summary,
-            },
-          });
-          return { proposalId: record.id, revision: record.revision };
-        },
+      history: [...toAgentHistory(stored), userMessage],
+      ads,
+      state,
+      saveProposal: async (draft) => {
+        // A proposal must survive until the approval request. The in-memory
+        // store does not cross Worker isolates, so fail closed in production.
+        if (process.env.NODE_ENV === 'production' && !isDurableStore()) {
+          throw new Error('Durable proposal storage is not configured, so no change can be prepared safely.');
+        }
+        const { record, supersededIds } = await createProposal({
+          userId: identity.uid,
+          conversationId: conversation.id,
+          accountId: binding.customerId,
+          operation: draft.operation,
+          payload: draft.args,
+          before: draft.before,
+          meta: {
+            taskId: draft.taskId,
+            targetKey: draft.targetKey,
+            title: draft.title,
+            summary: draft.summary,
+            changes: draft.changes,
+            warnings: draft.warnings,
+            destructive: draft.destructive,
+            actionType: draft.actionType,
+            target: draft.target,
+            reason: typeof draft.args.reason === 'string' ? draft.args.reason : undefined,
+          },
+        });
+        supersededThisTurn.push(...supersededIds);
+        return { proposalId: record.id, revision: record.revision, supersededIds };
       },
     });
 
-    const assistantMessages = result.producedMessages.filter(
-      (item) => item.role === 'assistant' || item.role === 'tool'
-    );
     await appendMessages({
       userId: identity.uid,
       conversationId: conversation.id,
-      messages: assistantMessages,
+      messages: [userMessage, ...result.producedMessages],
       model: result.modelUsed,
       usage: result.usage,
     });
+    await saveAgentState(identity.uid, conversation.id, result.state);
+    if (stored.length === 0) await renameConversation(identity.uid, conversation.id, message.slice(0, 80));
 
-    if (stored.length === 0) {
-      await renameConversation(identity.uid, conversation.id, message.slice(0, 80));
-    }
-
-    // Surface the newest proposal created during this turn.
+    // Cards for every proposal prepared during this turn, in order.
     const store = await getStore();
-    const latest = await store.proposals.getLatest(conversation.id, identity.uid);
-    const proposal =
-      latest && latest.status === 'pending_approval'
-        ? toClientProposal(toProposalView(latest), conversation.id)
-        : undefined;
+    const proposals: ProposedAccountChange[] = [];
+    const seen = new Set<string>();
+    for (const call of result.toolCalls) {
+      const payload = call.result as { status?: string; proposalId?: string } | undefined;
+      if (call.kind !== 'write' || payload?.status !== 'proposal_prepared' || !payload.proposalId || seen.has(payload.proposalId)) continue;
+      seen.add(payload.proposalId);
+      const record = await store.proposals.get(payload.proposalId, identity.uid);
+      if (record) proposals.push(toClientProposal(toProposalView(record), conversation.id));
+    }
+    const pending = proposals.filter((proposal) => proposal.status === 'PENDING_APPROVAL');
 
-    const toolCalls = result.toolCalls.map((call) => ({
-      id: call.id,
-      name: call.name,
-      args: call.arguments,
-      result: call.result,
-      status: call.isError ? ('error' as const) : ('success' as const),
-      executionTimeMs: call.durationMs,
-    }));
+    const toolCalls = result.toolCalls
+      .filter((call) => call.kind !== 'memory')
+      .map((call) => ({
+        id: call.id,
+        name: call.name,
+        args: call.arguments,
+        result: call.result,
+        status: call.isError ? ('error' as const) : ('success' as const),
+        executionTimeMs: call.durationMs,
+      }));
 
     return NextResponse.json({
       success: true,
       conversationId: conversation.id,
       reply: result.reply,
-      actionProposal: proposal,
+      actionProposal: pending[pending.length - 1],
+      actionProposals: pending.length ? pending : undefined,
+      supersededProposalIds: supersededThisTurn.length ? supersededThisTurn : undefined,
       toolCalls: toolCalls.length ? toolCalls : undefined,
       modelUsed: result.modelUsed,
       contextLimitReached: result.contextFull || undefined,
-      liveDataError: liveError,
-      openRouterRequestCount: result.steps,
+      stopReason: result.stopReason,
+      openRouterRequestCount: result.usage.modelCalls,
+      usage: {
+        ...result.usage,
+        contextTokens: result.budget.totalTokens,
+        contextLimit: result.budget.contextLimit,
+      },
     });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
@@ -274,13 +194,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 403 });
     }
     console.error('[AI Chat] Request failed:', error);
+    const modelFailure =
+      error instanceof OpenRouterError || /OpenRouter|No model is configured/i.test(error instanceof Error ? error.message : '');
     return NextResponse.json(
       {
         success: false,
-        error:
-          'The marketing agent could not complete this request. No Google Ads changes were made.',
+        error: modelFailure
+          ? 'The AI model did not respond, so this message was not processed. No Google Ads changes were made. Please try again or switch model.'
+          : 'The marketing agent could not complete this request. No Google Ads changes were made. Please try again.',
       },
-      { status: 500 }
+      { status: modelFailure ? 502 : 500 }
     );
   }
 }

@@ -176,11 +176,20 @@ export function AiChatView({
         );
         if (!response.ok) return;
         const data = await response.json();
-        const stored = Array.isArray(data?.messages) ? data.messages : [];
+        const transcript = Array.isArray(data?.transcript) ? data.transcript : undefined;
+        const stored = transcript || (Array.isArray(data?.messages) ? data.messages : []);
         if (cancelled || stored.length === 0) return;
 
+        const proposalsByMessage = new Map<string, ProposedAccountChange>();
+        for (const proposal of (Array.isArray(data?.proposals) ? data.proposals : []) as ProposedAccountChange[]) {
+          if (proposal.messageId) proposalsByMessage.set(proposal.messageId, proposal);
+        }
+
         const hydrated: ChatMessage[] = stored
-          .filter((item: { role: string }) => item.role === 'user' || item.role === 'assistant')
+          .filter(
+            (item: { role: string; content: string | null }) =>
+              item.role === 'user' || (item.role === 'assistant' && Boolean(item.content))
+          )
           .map((item: { id: string; role: string; content: string | null; createdAt: string }) => ({
             id: item.id,
             role: item.role as 'user' | 'assistant',
@@ -189,6 +198,7 @@ export function AiChatView({
               hour: '2-digit',
               minute: '2-digit',
             }),
+            ...(proposalsByMessage.has(item.id) ? { actionProposal: proposalsByMessage.get(item.id) } : {}),
           }));
 
         if (hydrated.length === 0) return;
@@ -474,12 +484,18 @@ export function AiChatView({
         );
       }
 
+      const proposals: ProposedAccountChange[] = Array.isArray(data.actionProposals)
+        ? data.actionProposals
+        : data.actionProposal
+        ? [data.actionProposal]
+        : [];
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: data.reply || 'Analysis completed.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionProposal: data.actionProposal,
+        actionProposal: proposals[0],
         recommendations: data.recommendations,
         analysisDetails: data.analysisDetails,
         tableData: data.tableData,
@@ -487,27 +503,37 @@ export function AiChatView({
         toolCalls: data.toolCalls,
         modelUsed: data.modelUsed,
       };
+      // Each additional proposal from the same turn gets its own card.
+      const extraCards: ChatMessage[] = proposals.slice(1).map((proposal, index) => ({
+        id: `assistant-${Date.now()}-card-${index + 1}`,
+        role: 'assistant',
+        content: proposal.title ? `Also prepared: ${proposal.title}.` : 'Another change is ready for review.',
+        timestamp: assistantMessage.timestamp,
+        actionProposal: proposal,
+      }));
 
-      // A new proposal supersedes any earlier pending proposal in this session.
-      const newProposalId = data.actionProposal?.proposalId as string | undefined;
-      const messagesWithSupersession = newProposalId
-        ? updatedMessages.map((message) =>
-            message.actionProposal &&
-            message.actionProposal.status === 'PENDING_APPROVAL' &&
-            message.actionProposal.proposalId !== newProposalId
-              ? {
-                  ...message,
-                  actionProposal: {
-                    ...message.actionProposal,
-                    status: 'SUPERSEDED' as const,
-                    executionResult:
-                      'This proposal was replaced by a newer version. Only the latest proposal can be approved.',
-                  },
-                }
-              : message
-          )
-        : updatedMessages;
-      const finalMessages = [...messagesWithSupersession, assistantMessage];
+      // Proposals replaced on the server by a newer revision are no longer approvable.
+      const newIds = new Set(proposals.map((proposal) => proposal.proposalId));
+      const replacedIds = new Set<string>(
+        Array.isArray(data.supersededProposalIds) ? data.supersededProposalIds : []
+      );
+      const messagesWithSupersession = updatedMessages.map((message) =>
+        message.actionProposal &&
+        message.actionProposal.status === 'PENDING_APPROVAL' &&
+        message.actionProposal.proposalId &&
+        !newIds.has(message.actionProposal.proposalId) &&
+        replacedIds.has(message.actionProposal.proposalId)
+          ? {
+              ...message,
+              actionProposal: {
+                ...message.actionProposal,
+                status: 'SUPERSEDED' as const,
+                executionResult: 'Replaced by a newer version of this proposal.',
+              },
+            }
+          : message
+      );
+      const finalMessages = [...messagesWithSupersession, assistantMessage, ...extraCards];
       updateSessions((current) =>
         current.map((s) =>
           s.id === requestSessionId
@@ -640,6 +666,16 @@ export function AiChatView({
       return;
     }
 
+    if (
+      proposal.destructive &&
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        `This change stops delivery or removes something in your live account:\n\n${proposal.proposedChanges}\n\nDo you want to approve it?`
+      )
+    ) {
+      return;
+    }
+
     setExecutingProposalId(proposal.id);
 
     try {
@@ -656,6 +692,7 @@ export function AiChatView({
           proposal_id: proposal.proposalId || proposal.id,
           revision: proposal.revision,
           payload_hash: proposal.payloadHash,
+          acknowledge_risk: Boolean(proposal.destructive),
         }),
       });
       const approvalData = await approvalResponse.json();
@@ -677,7 +714,8 @@ export function AiChatView({
 
       const resData = await response.json();
 
-      if (!response.ok || !resData.success) {
+      const unverified = resData.status === 'executed_unverified';
+      if (!unverified && (!response.ok || !resData.success)) {
         throw new Error(resData.error || resData.message || 'Failed to execute Google Ads change.');
       }
 
@@ -697,7 +735,7 @@ export function AiChatView({
                     ...msg,
                     actionProposal: {
                       ...msg.actionProposal,
-                      status: 'EXECUTED',
+                      status: unverified ? 'EXECUTED_UNVERIFIED' : 'EXECUTED',
                       ...(createdCampaignId
                         ? { campaignId: String(createdCampaignId) }
                         : {}),
@@ -742,7 +780,29 @@ export function AiChatView({
     }
   };
 
-  const handleDeclineProposal = (proposalId: string, messageId: string) => {
+  const handleDeclineProposal = async (proposalId: string, messageId: string) => {
+    let declineError: string | undefined;
+    try {
+      const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+      const response = await fetch('/api/ai/chat/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: 'Bearer ' + idToken } : {}),
+        },
+        body: JSON.stringify({ proposal_id: proposalId }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        declineError = data.error || 'The proposal could not be declined.';
+      }
+    } catch {
+      declineError = 'The proposal could not be declined. Check your connection and try again.';
+    }
+    if (declineError) {
+      setErrorMessage(declineError);
+      return;
+    }
     updateSessions((current) =>
       current.map((s) => {
         if (s.id === currentSessionId) {
@@ -1186,14 +1246,20 @@ export function AiChatView({
                             ? 'bg-amber-100 text-amber-800 border border-amber-300'
                             : message.actionProposal.status === 'EXECUTED'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : message.actionProposal.status === 'DECLINED'
-                            ? 'bg-slate-100 text-slate-600'
-                            : message.actionProposal.status === 'SUPERSEDED'
+                            : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-400'
+                            : message.actionProposal.status === 'APPROVED'
+                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                            : message.actionProposal.status === 'DECLINED' ||
+                              message.actionProposal.status === 'SUPERSEDED' ||
+                              message.actionProposal.status === 'EXPIRED'
                             ? 'bg-slate-100 text-slate-600'
                             : 'bg-rose-100 text-rose-800'
                         }`}
                       >
-                        {message.actionProposal.status.replace('_', ' ')}
+                        {message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                          ? 'Applied, not yet verified'
+                          : message.actionProposal.status.replace(/_/g, ' ')}
                       </span>
                     </div>
 
@@ -1214,7 +1280,7 @@ export function AiChatView({
                           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                             Current Settings
                           </span>
-                          <span className="font-mono text-slate-800 font-semibold">
+                          <span className="font-mono text-slate-800 font-semibold whitespace-pre-line">
                             {message.actionProposal.currentSettings}
                           </span>
                         </div>
@@ -1222,7 +1288,7 @@ export function AiChatView({
                           <span className="text-[11px] font-bold text-[#00a85e] uppercase tracking-wider block">
                             Change to Apply
                           </span>
-                          <span className="font-mono text-slate-950 font-bold">
+                          <span className="font-mono text-slate-950 font-bold whitespace-pre-line">
                             {message.actionProposal.proposedChanges}
                           </span>
                         </div>
@@ -1254,14 +1320,20 @@ export function AiChatView({
                         className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
                           message.actionProposal.status === 'EXECUTED'
                             ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
-                            : message.actionProposal.status === 'DECLINED'
+                            : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                            ? 'bg-amber-50 text-amber-950 border border-amber-300'
+                            : message.actionProposal.status === 'DECLINED' ||
+                              message.actionProposal.status === 'SUPERSEDED' ||
+                              message.actionProposal.status === 'EXPIRED'
                             ? 'bg-slate-100 text-slate-700 border border-slate-200'
                             : 'bg-rose-50 text-rose-950 border border-rose-300'
                         }`}
                       >
                         {message.actionProposal.status === 'EXECUTED' ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        ) : message.actionProposal.status === 'DECLINED' ? (
+                        ) : message.actionProposal.status === 'DECLINED' ||
+                          message.actionProposal.status === 'SUPERSEDED' ||
+                          message.actionProposal.status === 'EXPIRED' ? (
                           <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
                         ) : (
                           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -1291,7 +1363,9 @@ export function AiChatView({
                               : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
                               ? 'Pause campaign'
                               : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
-                              ? 'Create paused campaign'
+                              ? 'Approve & create campaign'
+                              : message.actionProposal.destructive
+                              ? 'Review impact & approve'
                               : 'Approve & Execute Change'}
                           </span>
                         </button>

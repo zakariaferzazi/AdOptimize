@@ -306,7 +306,7 @@ export interface ProposedAccountChange {
   reason: string;
   evidence: string;
   potentialRisks: string;
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'DECLINED' | 'FAILED' | 'SUPERSEDED';
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'EXECUTED' | 'EXECUTED_UNVERIFIED' | 'DECLINED' | 'FAILED' | 'SUPERSEDED' | 'EXPIRED';
   revision?: number;
   proposalId?: string;
   payloadHash?: string;
@@ -315,6 +315,12 @@ export interface ProposedAccountChange {
   executionResult?: string;
   appliedAt?: string;
   payload?: Record<string, any>;
+  /** Stops delivery or removes something; approval needs an explicit confirmation. */
+  destructive?: boolean;
+  warnings?: string[];
+  title?: string;
+  /** Message this proposal belongs to when a conversation is reloaded. */
+  messageId?: string;
 }
 
 export interface ToolCallExecution {

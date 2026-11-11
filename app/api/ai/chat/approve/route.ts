@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
  *
  * Approval is an explicit server-side action tied to the revision and payload
  * hash the user is looking at. Chat text can never reach this endpoint.
+ * Destructive changes also require `acknowledge_risk: true`, which the UI only
+ * sends after the user confirms the impact.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -18,12 +20,10 @@ export async function POST(req: NextRequest) {
     const proposalId = String(body?.proposal_id || body?.proposalId || '');
     const revision = Number(body?.revision);
     const payloadHash = String(body?.payload_hash || body?.payloadHash || '');
+    const acknowledgeRisk = body?.acknowledge_risk === true || body?.acknowledgeRisk === true;
 
     if (!proposalId || !Number.isInteger(revision) || !payloadHash) {
-      return NextResponse.json(
-        { error: 'proposal_id, revision and payload_hash are required.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'proposal_id, revision and payload_hash are required.' }, { status: 400 });
     }
 
     const approved = await approveProposalRevision({
@@ -31,18 +31,16 @@ export async function POST(req: NextRequest) {
       proposalId,
       revision,
       payloadHash,
+      acknowledgeRisk,
     });
 
-    return NextResponse.json({
-      success: true,
-      proposal: toProposalView(approved),
-    });
+    return NextResponse.json({ success: true, proposal: toProposalView(approved) });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
     if (error instanceof ProposalError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
     console.error('[AI Chat] Approval failed:', error);
     return NextResponse.json(

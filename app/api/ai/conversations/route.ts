@@ -4,10 +4,40 @@ import {
   deleteConversation,
   listConversations,
   loadMessages,
+  mapProposalsToMessages,
   renameConversation,
+  type StoredMessage,
 } from '@/lib/ai/conversations';
+import { toProposalView } from '@/lib/ai/proposals';
+import { toClientProposal } from '@/lib/ai/proposal-client';
+import { getStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * What the user saw: each user message and the final assistant reply of its
+ * turn. Intermediate tool steps stay in `messages` for the model transcript.
+ */
+function visibleTranscript(messages: StoredMessage[]) {
+  const visible: Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: string }> = [];
+  let lastReply: StoredMessage | undefined;
+  const flush = () => {
+    if (lastReply?.content) {
+      visible.push({ id: lastReply.id, role: 'assistant', content: lastReply.content, createdAt: lastReply.createdAt });
+    }
+    lastReply = undefined;
+  };
+  for (const message of messages) {
+    if (message.role === 'user') {
+      flush();
+      visible.push({ id: message.id, role: 'user', content: message.content || '', createdAt: message.createdAt });
+    } else if (message.role === 'assistant' && message.content && message.content.trim()) {
+      lastReply = message;
+    }
+  }
+  flush();
+  return visible;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +46,20 @@ export async function GET(req: NextRequest) {
 
     if (conversationId) {
       const messages = await loadMessages(identity.uid, conversationId);
-      return NextResponse.json({ success: true, conversationId, messages });
+      const store = await getStore();
+      const records = await store.proposals.listByConversation(conversationId, identity.uid);
+      const messageFor = mapProposalsToMessages(messages);
+      const proposals = records
+        .filter((record) => record.status !== 'superseded')
+        .map((record) => toClientProposal(toProposalView(record), conversationId, messageFor.get(record.id)))
+        .reverse();
+      return NextResponse.json({
+        success: true,
+        conversationId,
+        messages,
+        transcript: visibleTranscript(messages),
+        proposals,
+      });
     }
 
     const conversations = await listConversations(identity.uid);

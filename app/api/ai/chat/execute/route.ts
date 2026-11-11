@@ -4,11 +4,10 @@ import {
   AccountBindingError,
   assertProposalAccount,
   resolveAccountBinding,
-  resolveGoogleAdsCredentials,
+  resolveFreshAccessToken,
 } from '@/lib/ai/account-binding';
 import { executeProposal } from '@/lib/ai/execution';
 import { getStore } from '@/lib/store';
-import { executeGoogleAdsTokenRefresh } from '@/lib/google-token-refresh';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,10 +30,7 @@ export async function POST(req: NextRequest) {
     const payloadHash = String(body?.payload_hash || body?.payloadHash || '');
 
     if (!proposalId || !Number.isInteger(revision) || !payloadHash) {
-      return NextResponse.json(
-        { error: 'proposal_id, revision and payload_hash are required.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'proposal_id, revision and payload_hash are required.' }, { status: 400 });
     }
 
     const store = await getStore();
@@ -45,32 +41,15 @@ export async function POST(req: NextRequest) {
 
     const binding = await resolveAccountBinding(identity.uid, idToken);
     if (!binding) {
-      return NextResponse.json(
-        { error: 'Connect a Google Ads account before executing a change.' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Connect a Google Ads account before executing a change.' }, { status: 409 });
     }
 
     // The proposal must belong to the account this login is bound to.
     assertProposalAccount(record.account_id, binding);
 
-    const credentials = await resolveGoogleAdsCredentials(identity.uid, idToken);
-    if (!credentials) {
-      return NextResponse.json(
-        { error: 'Google Ads access has expired. Reconnect the account and try again.' },
-        { status: 401 }
-      );
-    }
-
-    let accessToken = credentials.accessToken;
-    const expiresSoon =
-      typeof credentials.expiresAt === 'number' &&
-      credentials.expiresAt - Date.now() < 5 * 60 * 1000;
-    if (expiresSoon && credentials.refreshToken) {
-      const refreshed = await executeGoogleAdsTokenRefresh({
-        refreshToken: credentials.refreshToken,
-      });
-      if (refreshed.success && refreshed.accessToken) accessToken = refreshed.accessToken;
+    const { accessToken } = await resolveFreshAccessToken(identity.uid, idToken);
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Google Ads access has expired. Reconnect the account and try again.' }, { status: 401 });
     }
 
     const outcome = await executeProposal({
@@ -82,19 +61,21 @@ export async function POST(req: NextRequest) {
       accessToken,
       developerToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
       loginCustomerId: binding.loginCustomerId,
+      currency: binding.currency,
+      accountName: binding.accountName,
     });
 
     const status =
-      outcome.status === 'succeeded'
+      outcome.status === 'succeeded' || outcome.status === 'executed_unverified'
         ? 200
-        : outcome.status === 'executed_unverified'
-        ? 502
-        : outcome.error?.type === 'conflict'
+        : outcome.error?.type === 'conflict' || outcome.error?.type === 'drift'
         ? 409
         : outcome.error?.type === 'permission'
         ? 403
-        : outcome.error?.type === 'invalid_argument'
+        : outcome.error?.type === 'invalid_argument' || outcome.error?.type === 'policy'
         ? 422
+        : outcome.error?.type === 'not_found'
+        ? 404
         : 502;
 
     return NextResponse.json(
@@ -102,8 +83,12 @@ export async function POST(req: NextRequest) {
         success: outcome.status === 'succeeded',
         status: outcome.status,
         message: outcome.user_message,
-        error: outcome.status === 'succeeded' ? undefined : outcome.user_message,
+        error:
+          outcome.status === 'failed'
+            ? [outcome.user_message, outcome.error?.message].filter(Boolean).join(' ')
+            : undefined,
         result: outcome,
+        data: outcome.realIds?.campaignId ? { campaignId: outcome.realIds.campaignId } : undefined,
         proposalId,
       },
       { status }
@@ -117,10 +102,7 @@ export async function POST(req: NextRequest) {
     }
     console.error('[AI Chat] Execution failed:', error);
     return NextResponse.json(
-      {
-        error:
-          'The change could not be executed safely. No Google Ads changes were confirmed.',
-      },
+      { error: 'The change could not be executed safely. No Google Ads changes were confirmed.' },
       { status: 500 }
     );
   }

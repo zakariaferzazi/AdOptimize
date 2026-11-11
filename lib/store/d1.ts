@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS proposals (
   supersedes_id TEXT,
   expires_at TEXT,
   result TEXT,
+  meta TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -116,15 +117,20 @@ export async function ensureD1Schema(db: D1Database): Promise<void> {
     await db.prepare(statement).run();
   }
 
-  // Older databases were created before task_state existed. CREATE TABLE IF NOT
-  // EXISTS will not add the column, so apply it explicitly and ignore the
-  // "duplicate column" error when it is already present.
-  try {
-    await db.prepare('ALTER TABLE conversations ADD COLUMN task_state TEXT').run();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!/duplicate column|already exists/i.test(message)) {
-      console.warn('[AI Store] task_state column check:', message);
+  // Older databases were created before task_state and meta existed. CREATE
+  // TABLE IF NOT EXISTS will not add columns, so apply them explicitly and
+  // ignore the "duplicate column" error when they are already present.
+  for (const statement of [
+    'ALTER TABLE conversations ADD COLUMN task_state TEXT',
+    'ALTER TABLE proposals ADD COLUMN meta TEXT',
+  ]) {
+    try {
+      await db.prepare(statement).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/duplicate column|already exists/i.test(message)) {
+        console.warn('[AI Store] column check:', message);
+      }
     }
   }
 }
@@ -225,8 +231,8 @@ function proposalRepository(db: D1Database): ProposalRepository {
         .prepare(
           `INSERT INTO proposals
              (id, user_id, conversation_id, account_id, revision, status, operation, payload,
-              payload_hash, before_snapshot, supersedes_id, expires_at, result, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              payload_hash, before_snapshot, supersedes_id, expires_at, result, meta, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           record.id,
@@ -242,6 +248,7 @@ function proposalRepository(db: D1Database): ProposalRepository {
           record.supersedes_id,
           record.expires_at,
           record.result,
+          record.meta ?? null,
           record.created_at,
           record.updated_at
         )
@@ -262,11 +269,21 @@ function proposalRepository(db: D1Database): ProposalRepository {
             `SELECT * FROM proposals
              WHERE conversation_id = ? AND user_id = ?
                AND status NOT IN ('superseded', 'cancelled')
-             ORDER BY revision DESC LIMIT 1`
+             ORDER BY created_at DESC, revision DESC LIMIT 1`
           )
           .bind(conversationId, userId)
           .first<ProposalRecord>()) || undefined
       );
+    },
+    async listByConversation(conversationId, userId) {
+      const result = await db
+        .prepare(
+          `SELECT * FROM proposals WHERE conversation_id = ? AND user_id = ?
+           ORDER BY created_at DESC, revision DESC LIMIT 200`
+        )
+        .bind(conversationId, userId)
+        .all<ProposalRecord>();
+      return result.results || [];
     },
     async update(record) {
       await db

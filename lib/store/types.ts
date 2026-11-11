@@ -21,7 +21,7 @@ export interface ConversationRecord {
   account_id: string;
   title: string;
   model: string;
-  /** Serialized TaskState: objective, campaign, parameters, decisions, proposal. */
+  /** Serialized AgentState: tasks, known resources, action log. */
   task_state: string | null;
   created_at: string;
   updated_at: string;
@@ -56,6 +56,11 @@ export interface ProposalRecord {
   supersedes_id: string | null;
   expires_at: string | null;
   result: string | null;
+  /**
+   * Serialized ProposalMeta: owning task, target key, human-readable card
+   * content and the destructive flag. Immutable after creation.
+   */
+  meta?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +105,8 @@ export interface ProposalRepository {
   create(record: ProposalRecord): Promise<void>;
   get(id: string, userId: string): Promise<ProposalRecord | undefined>;
   getLatest(conversationId: string, userId: string): Promise<ProposalRecord | undefined>;
+  /** All proposals of a conversation, newest first. */
+  listByConversation(conversationId: string, userId: string): Promise<ProposalRecord[]>;
   update(record: ProposalRecord): Promise<void>;
   /**
    * Atomically transition a proposal from `approved` to `executing`.

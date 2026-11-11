@@ -161,3 +161,25 @@ export function assertProposalAccount(
     );
   }
 }
+
+/**
+ * Resolve a usable Google Ads access token, refreshing it when it is about to
+ * expire. Returns an error message instead of throwing so routes can respond
+ * with a clear reconnect instruction.
+ */
+export async function resolveFreshAccessToken(
+  userId: string,
+  idToken: string
+): Promise<{ accessToken?: string; error?: string }> {
+  const credentials = await resolveGoogleAdsCredentials(userId, idToken);
+  if (!credentials) return { error: 'No Google Ads credentials are stored for this account. Reconnect Google Ads.' };
+
+  const expiresSoon =
+    typeof credentials.expiresAt === 'number' && credentials.expiresAt - Date.now() < 5 * 60 * 1000;
+  if (!expiresSoon || !credentials.refreshToken) return { accessToken: credentials.accessToken };
+
+  const { executeGoogleAdsTokenRefresh } = await import('@/lib/google-token-refresh');
+  const refreshed = await executeGoogleAdsTokenRefresh({ refreshToken: credentials.refreshToken });
+  if (refreshed.success && refreshed.accessToken) return { accessToken: refreshed.accessToken };
+  return { accessToken: credentials.accessToken };
+}
