@@ -23,10 +23,11 @@ const STATUS_MAP: Record<ProposalStatus, ProposedAccountChange['status']> = {
 const HIDDEN_KEYS = new Set(['campaignId', 'resourceName', 'budgetResourceName', 'customGoalResource', 'adGroupId', 'criterionId', 'exists']);
 
 function label(key: string): string {
-  return key
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/_/g, ' ')
-    .replace(/^./, (char) => char.toUpperCase());
+    .toLowerCase();
+  return words.replace(/^./, (char) => char.toUpperCase());
 }
 
 function display(value: unknown): string | undefined {

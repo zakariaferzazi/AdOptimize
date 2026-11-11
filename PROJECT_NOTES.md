@@ -1,109 +1,104 @@
 # Project Notes
 
-## AI architecture migration (current)
+## AI architecture (current)
 
-The chat system is now a model-driven MCP agent. The classifier-first router, phrase-based
-fallback responses, regex campaign-creation extractor and the in-memory proposal/conversation
-stores have been retired.
+The chat system is a single model-driven agent. There is no intent classifier, no keyword
+routing, no phrase lists and no special-case handlers: the selected OpenRouter model decides
+whether to answer, ask, investigate, recommend or prepare a change, using native tool calling.
+The backend executes tools and returns structured results.
 
 ### Layers
 
-- `lib/ai/agent.ts` — one model call per step, up to 4 tool steps, full chronological history.
-- `lib/ai/task-state.ts` — durable per-conversation task memory: objective, campaign,
-  collected parameters, decisions, unresolved requirements, pending proposal.
-- `lib/mcp/google-ads-server.ts` — MCP JSON-RPC server (`initialize`, `tools/list`, `tools/call`).
-  Read tools query live Google Ads; write tools only prepare proposals.
-- `lib/google-ads/catalog.ts` — declarative operation catalog. Adding an edit is a data entry.
-- `lib/google-ads/mutate.ts` — single mutate gateway with `validateOnly` pre-flight and
-  structured Google Ads error extraction (code, field path, trigger).
-- `lib/ai/execution.ts` — deterministic execution: binding, re-validation, drift, idempotency,
-  mutate, read-back verification, audit.
-- `lib/store/*` — D1-backed durable storage with compare-and-swap claim/approve.
-- `lib/ai/identity.ts` — Firebase ID token verification (RS256 via JWKS).
-- `lib/ai/account-binding.ts` — server-side account ownership and credential resolution.
+| Layer | File | Responsibility |
+|---|---|---|
+| Orchestration | `lib/ai/agent.ts` | One model call per step; parallel independent reads; bounded steps/tools/deadline; duplicate-call suppression; context budget; tool-free closing summary. |
+| Prompt | `lib/ai/prompts.ts` | Behaviour and Google Ads facts. No scripting; the persisted state is injected. |
+| Conversation state | `lib/ai/agent-state.ts` | Multiple tasks per conversation, parameters, decisions, open questions, constraints, findings, resource registry, action log. Migrates the old single-task format. |
+| Capabilities | `lib/ai/tools.ts` | Read tools, write operations (proposal-only) and `update_task`. |
+| Query gateway | `lib/google-ads/gaql.ts` | GAQL runner: version fallback, timeouts, structured errors, request stats, 60s read cache, date ranges. |
+| Reporting | `lib/google-ads/reporting.ts` | Business-level reads: campaigns, performance, campaign details, conversion setup, ad groups, keywords, search terms, diagnostics. |
+| Operations | `lib/google-ads/operations/*` | Validated writes: prepare → Google `validateOnly` → proposal → drift check → mutate → read-back verify. |
+| Mutate gateway | `lib/google-ads/mutate.ts` | Single write path with structured Google Ads error extraction. |
+| Proposals | `lib/ai/proposals.ts` | Durable, revisioned, task-scoped superseding, destructive acknowledgement, expiry. |
+| Execution | `lib/ai/execution.ts` | Deterministic: binding, re-validation, idempotency, CAS claim, drift, plan, verify, audit, outcome recorded into the conversation. |
+| MCP | `lib/mcp/google-ads-server.ts` | JSON-RPC adapter over the same registry (no duplicated tool logic). |
+| Storage | `lib/store/*` | D1 (durable) or in-memory (tests/dev), same compare-and-swap semantics. |
 
 ### Conversation continuity
 
-The model owns reasoning; the server owns memory. Each turn the agent receives the full
-chronological transcript (including prior tool calls and results) plus the persisted
-`TaskState` in the system prompt. The model calls `update_task_state` to record what it
-learned, sending only the delta. Parameters merge key-by-key, so a follow-up that supplies
-only the budget keeps the name and channel captured earlier.
+Each turn sends the full chronological transcript (including prior tool calls and results) plus
+a compact rendering of the persisted state. The model calls `update_task` to record what it
+learned, sending only the delta; parameters merge key by key, so a correction changes one value
+and keeps the rest. Proposals, resources and execution outcomes are recorded by the backend
+without extra model calls, so the next turn knows what really happened.
 
-This is what stops the agent re-asking for information it already has, and what makes
-"create it" continue an in-progress campaign creation instead of starting over.
+### Google Ads facts encoded in the operations
 
-### Conversion goals
+- Money is always in the account currency; a different user-stated currency is rejected with an
+  explanation instead of being silently applied.
+- v26 campaign schedules use `start_date_time` / `end_date_time` (`YYYY-MM-DD HH:MM:SS`).
+- Bidding: `MANUAL_CPC` → `manualCpc`; Maximize clicks → `targetSpend` (optional
+  `cpcBidCeilingMicros`); Maximize conversions / Target CPA → `maximizeConversions`
+  (optional `targetCpaMicros`); Maximize conversion value / Target ROAS →
+  `maximizeConversionValue` (optional `targetRoas`). Smart bidding has no CPC cap; Manual CPC
+  bids live on ad groups and keywords.
+- App campaigns: `MULTI_CHANNEL` + `APP_CAMPAIGN`, bidding driven by
+  `app_campaign_setting.bidding_strategy_goal_type` with `targetCpa` or `maximizeConversions`;
+  specific actions use `selective_optimization.conversion_actions`.
+- Conversion goals have three layers: account conversion actions; campaign goal categories
+  (`campaign_conversion_goal`, category + origin, `biddable`); and specific actions for one
+  campaign — a `CustomConversionGoal` applied through `ConversionGoalCampaignConfig` for
+  non-App campaigns, selective optimization for App campaigns.
+- Shared budgets and portfolio strategies affect other campaigns and are surfaced as warnings.
 
-Three distinct layers, which the agent must not conflate:
+### Supported changes
 
-1. Account-level conversion actions (`get_conversion_actions`).
-2. Campaign-level goal categories (`get_campaign_conversion_goals`).
-3. Individual action selection.
+Campaign: status, daily budget, name, schedule, networks, tracking, bidding strategy.
+Creation: Search campaign (optionally with ad group, keywords and a responsive search ad) and
+App campaign (with app goal and optional selective optimization), created atomically.
+Conversion goals: toggle categories, optimise for specific actions, revert to account goals.
+Structure: ad group status/bid/name, keyword status/bid, add keywords, add negative keywords
+(campaign or ad group), create ad group.
 
-`update_campaign_conversion_goals` writes to the `campaignConversionGoals` service using
-the real resource name `customers/{cid}/campaignConversionGoals/{campaignId}~{category}~{origin}`.
-The `origin` is required because a category can exist under several origins and the API
-rejects `UNKNOWN`. Read-back verification matches on both category and origin.
+Not supported: campaign removal, ad creation/editing outside campaign creation, assets,
+audiences, shared negative lists, PMax asset groups, portfolio strategy editing.
 
-### Supported write operations
+### Safety
 
-`update_campaign_status` (pause/enable), `update_campaign_budget`, `update_campaign_name`,
-`update_campaign_dates`, `update_campaign_network_settings`, `update_campaign_tracking`,
-`update_campaign_bidding_strategy`, `update_campaign_conversion_goals`, `create_campaign`
-(SEARCH and MULTI_CHANNEL app-install).
+The model cannot mutate. A write tool validates against live data and Google Ads
+(`validateOnly`), then stores a proposal bound to user, conversation, account, task and target.
+Approval is tied to the exact revision and payload hash; destructive changes also require an
+explicit acknowledgement. Execution re-validates, checks drift, claims the proposal with a
+compare-and-swap, applies the plan, reads back and verifies, and records
+`succeeded` / `executed_unverified` / `failed` in the audit log and the conversation.
 
-A campaign-level max CPC cap is **not** supported. `create_campaign` accepts `maxCpc` so the
-constraint is recorded and surfaced on the approval card, but it is not applied.
+### Efficiency
 
-### Not supported yet
-
-Campaign removal, ad group / keyword / ad creation and editing, assets, audiences, shared
-negative keyword lists, PMax asset groups, per-campaign conversion action selection (only
-goal categories can be toggled). `get_ads_performance` and `get_conversion_metrics` are not
-exposed because no GAQL query backs them.
+- No Google Ads call unless the model asks for data; nothing is pre-fetched per turn.
+- Independent reads in one step run concurrently; identical calls in a turn are served from the
+  turn cache; reads are cached for 60s and invalidated by any mutation.
+- Limits: 6 model calls, 14 tool calls, 6 proposals, 52s deadline per turn.
+- The context budget counts system prompt, tool schemas, full history and the output reserve
+  against the model's real context window (from OpenRouter, with a conservative fallback).
+  History is never truncated or summarised; when it no longer fits the user is asked to start a
+  new chat.
 
 ### Environment
 
 - `AI_STORE=memory` forces the in-memory store (tests, local dev without D1).
 - `AI_PROPOSAL_EXPIRATION_MINUTES` defaults to 60.
-- `AI_ALLOW_ANONYMOUS=1` is development-only and ignored in production.
-- D1 binding `DB` is declared in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`.
+- D1 binding `DB` in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`,
+  `0002_task_state.sql`, `0003_proposal_meta.sql` (also applied automatically at runtime).
 
+### Tests
+
+`npm test` runs the deterministic suite (fake Google Ads backend + scripted model):
+reporting, every operation end-to-end, agent loop limits, multi-turn scenarios, execution
+safety, MCP protocol, state model and storage.
+
+`npm run test:eval` runs the live-model evaluation (real OpenRouter model, fake account) and is
+skipped unless `OPENROUTER_API_KEY` and `MODEL_CHATGPT`/`MODEL_DEEPSEEK` are set.
 ### Deploying
 
-Wrangler validates the D1 `database_id` at deploy time and rejects a placeholder with
-error 10021. The database must be created once before the first deploy:
-
-```bash
-npm run db:create     # prints the database_id
-# paste it into the d1_databases binding in wrangler.jsonc
-npm run db:migrate    # creates the tables remotely
-npm run deploy
-```
-
-`npm run deploy` runs `scripts/predeploy-check.js` first, which stops with the exact
-fix when the binding is missing or still a placeholder.
-
-Without a D1 binding the agent falls back to an in-memory store. Conversations and
-proposals then do not survive across requests, and `prepareProposal` fails closed in
-production rather than issuing an approval card that could never execute.
-
-### Verification
-
-- `npm test` — 99 tests across 7 files.
-- `npx tsc --noEmit` — clean.
-- `npx next build` and `npx opennextjs-cloudflare build` — both succeed.
-- Worker runtime smoke test: all four AI endpoints return 401 without a token.
-- D1 compare-and-swap verified: first claim returns the row, second returns zero rows.
-
-Conversation regression coverage lives in `tests/agent-conversations.test.ts` (the two
-reported multi-message scenarios) and `tests/agent-payload.test.ts` (inspects the actual
-model request payloads to prove history, tool results and task state are preserved).
-
-### Known environment issue
-
-`next build` fails on the `F:` drive with `EISDIR ... readlink` because that filesystem
-returns EISDIR for `readlink` on regular files. The same build succeeds on `C:`. This is
-pre-existing and unrelated to the AI migration.
-
+Wrangler validates the D1 `database_id` at deploy time. Create the database once, paste the id
+into `wrangler.jsonc`, then `npm run db:migrate` and deploy.

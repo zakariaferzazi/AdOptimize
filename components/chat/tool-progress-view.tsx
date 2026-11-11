@@ -35,6 +35,96 @@ const TOOL_FRIENDLY_MAP: Record<
     activeText: 'Inspecting campaigns and budgets...',
     icon: Search,
   },
+  list_campaigns: {
+    label: 'Reviewed campaigns, budgets and impression share',
+    activeText: 'Reviewing campaigns and budgets...',
+    icon: Search,
+  },
+  get_performance: {
+    label: 'Analysed performance for the requested period',
+    activeText: 'Analysing performance...',
+    icon: BarChart3,
+  },
+  get_campaign_details: {
+    label: 'Read live campaign settings',
+    activeText: 'Reading campaign settings...',
+    icon: Sliders,
+  },
+  get_conversion_setup: {
+    label: 'Checked conversion actions and campaign goals',
+    activeText: 'Checking conversion setup...',
+    icon: ShieldCheck,
+  },
+  list_ad_groups: {
+    label: 'Reviewed ad groups and bids',
+    activeText: 'Reviewing ad groups...',
+    icon: Search,
+  },
+  list_keywords: {
+    label: 'Reviewed keywords, bids and quality scores',
+    activeText: 'Reviewing keywords...',
+    icon: Search,
+  },
+  diagnose_account: {
+    label: 'Ran a health check on the account',
+    activeText: 'Checking the account for issues...',
+    icon: ShieldCheck,
+  },
+  update_task: {
+    label: 'Saved task context',
+    activeText: 'Saving context...',
+    icon: Database,
+  },
+  create_campaign: {
+    label: 'Prepared a new campaign for approval',
+    activeText: 'Preparing the campaign...',
+    icon: ShieldCheck,
+  },
+  create_ad_group: {
+    label: 'Prepared a new ad group for approval',
+    activeText: 'Preparing the ad group...',
+    icon: ShieldCheck,
+  },
+  add_keywords: {
+    label: 'Prepared keywords for approval',
+    activeText: 'Preparing keywords...',
+    icon: ShieldCheck,
+  },
+  add_negative_keywords: {
+    label: 'Prepared negative keywords for approval',
+    activeText: 'Preparing negative keywords...',
+    icon: ShieldCheck,
+  },
+  update_keyword: {
+    label: 'Prepared a keyword change for approval',
+    activeText: 'Preparing the keyword change...',
+    icon: Sliders,
+  },
+  update_ad_group: {
+    label: 'Prepared an ad group change for approval',
+    activeText: 'Preparing the ad group change...',
+    icon: Sliders,
+  },
+  update_campaign_bidding: {
+    label: 'Prepared a bidding strategy change for approval',
+    activeText: 'Preparing the bidding change...',
+    icon: Sliders,
+  },
+  update_campaign_conversion_goals: {
+    label: 'Prepared a conversion goal change for approval',
+    activeText: 'Preparing the conversion goal change...',
+    icon: ShieldCheck,
+  },
+  set_campaign_conversion_actions: {
+    label: 'Prepared a conversion action change for approval',
+    activeText: 'Preparing the conversion action change...',
+    icon: ShieldCheck,
+  },
+  use_account_conversion_goals: {
+    label: 'Prepared a conversion goal reset for approval',
+    activeText: 'Preparing the conversion goal reset...',
+    icon: ShieldCheck,
+  },
   get_campaign_performance: {
     label: 'Inspected campaign metrics & Quality Score',
     activeText: 'Inspecting campaign metrics...',
@@ -153,7 +243,7 @@ export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiv
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
           <div className="font-bold text-slate-900 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
-            <span>Analyzing campaign performance...</span>
+            <span>Working on your request...</span>
           </div>
           {onCancel && (
             <button
@@ -166,17 +256,9 @@ export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiv
         </div>
 
         <div className="space-y-1.5 text-[11px] text-slate-600">
-          <div className="flex items-center gap-2 text-slate-800 font-medium">
-            <Check className="w-3.5 h-3.5 text-[#00c06f] stroke-[2.5]" />
-            <span>Retrieving Google Ads campaign data</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-800 font-medium">
-            <Check className="w-3.5 h-3.5 text-[#00c06f] stroke-[2.5]" />
-            <span>Inspecting conversion rates &amp; spend efficiency</span>
-          </div>
           <div className="flex items-center gap-2 text-[#00a85e] font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-ping ml-0.5 mr-1" />
-            <span>Preparing recommendations &amp; findings...</span>
+            <span>Reading your account and preparing the answer...</span>
           </div>
         </div>
 
