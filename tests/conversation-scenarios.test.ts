@@ -229,6 +229,41 @@ describe('resource resolution', () => {
     const result = await chat('What bidding does the hiking boots campaign use?');
     expect(result.body.reply).toMatch(/Do you mean/);
   });
+
+  it('remembers campaigns from get_campaign_details and resolves follow-up "it" references without re-asking', async () => {
+    // Turn 1: user asks about a campaign by name
+    scripted.script(
+      toolResponse([{ name: 'get_campaign_details', args: { campaignName: 'Generic - Hiking Boots' } }]),
+      textResponse('Generic - Hiking Boots (ID 222) is active with Maximize conversions.')
+    );
+    const first = await chat('How is Generic - Hiking Boots performing?');
+    expect(first.status).toBe(200);
+    const conversationId = first.body.conversationId;
+
+    // Verify state has recorded the resource
+    const state = await loadAgentState('user-1', conversationId);
+    expect(state.resources.some((r) => r.id === '222' && r.name === 'Generic - Hiking Boots')).toBe(true);
+
+    // Turn 2: user says "Pause it"
+    scripted.script(
+      (request) => {
+        // Verify system prompt received knownResources containing campaign:222
+        const system = String(request.messages[0].content);
+        expect(system).toMatch(/"ref": "campaign:222"/);
+        expect(system).toMatch(/Generic - Hiking Boots/);
+        return toolResponse([
+          { name: 'update_campaign_status', args: { campaignId: '222', status: 'PAUSED' } },
+        ]);
+      },
+      textResponse('I prepared the pause for Generic - Hiking Boots (ID 222). Please approve on the card.')
+    );
+    const second = await chat('Pause it', conversationId);
+    expect(second.status).toBe(200);
+    const proposal = second.body.actionProposal;
+    expect(proposal).toBeDefined();
+    expect(proposal.campaignId).toBe('222');
+    expect(proposal.proposedChanges).toMatch(/paused/i);
+  });
 });
 
 describe('conversion goals', () => {

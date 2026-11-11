@@ -311,11 +311,87 @@ function errorOutcome(kind: ToolKind, error: unknown): ToolOutcome {
 function resourcesFromRead(name: string, payload: Record<string, any>): ResourceRef[] {
   const at = new Date().toISOString();
   const refs: ResourceRef[] = [];
-  const scope = payload?.scope || payload?.campaign;
-  if (scope?.campaignId) refs.push({ type: 'campaign', id: String(scope.campaignId), name: scope.campaignName || scope.name, lastSeenAt: at });
-  if (name === 'list_campaigns' && Array.isArray(payload?.campaigns) && payload.campaigns.length <= 3) {
-    for (const campaign of payload.campaigns) refs.push({ type: 'campaign', id: campaign.id, name: campaign.name, lastSeenAt: at });
+  const seen = new Set<string>();
+
+  const add = (ref: ResourceRef) => {
+    const key = `${ref.type}:${ref.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push(ref);
+    }
+  };
+
+  // Direct campaign on payload (get_campaign_details, get_conversion_setup, etc.)
+  if (payload?.campaignId) {
+    add({ type: 'campaign', id: String(payload.campaignId), name: payload.name || payload.campaignName, lastSeenAt: at });
   }
+
+  // Nested scope or campaign
+  const scope = payload?.scope || payload?.campaign;
+  if (scope?.campaignId) {
+    add({ type: 'campaign', id: String(scope.campaignId), name: scope.campaignName || scope.name, lastSeenAt: at });
+  }
+
+  // list_campaigns - remember all discovered campaigns up to 20
+  if (Array.isArray(payload?.campaigns)) {
+    for (const campaign of payload.campaigns.slice(0, 20)) {
+      if (campaign?.id) {
+        add({ type: 'campaign', id: String(campaign.id), name: campaign.name, lastSeenAt: at });
+      }
+    }
+  }
+
+  // conversion actions from get_conversion_setup
+  if (Array.isArray(payload?.conversionActions)) {
+    for (const action of payload.conversionActions.slice(0, 20)) {
+      if (action?.id) {
+        add({ type: 'conversion_action', id: String(action.id), name: action.name, lastSeenAt: at });
+      }
+    }
+  }
+
+  // ad groups from list_ad_groups
+  if (Array.isArray(payload?.adGroups)) {
+    for (const ag of payload.adGroups.slice(0, 20)) {
+      if (ag?.id) {
+        add({
+          type: 'ad_group',
+          id: String(ag.id),
+          name: ag.name,
+          parentId: payload?.campaignId ? String(payload.campaignId) : undefined,
+          lastSeenAt: at,
+        });
+      }
+    }
+  }
+
+  // rows from get_performance or list_keywords
+  if (Array.isArray(payload?.rows)) {
+    for (const row of payload.rows.slice(0, 20)) {
+      if (row?.campaignId) {
+        add({ type: 'campaign', id: String(row.campaignId), name: row.campaignName, lastSeenAt: at });
+      }
+      if (row?.adGroupId) {
+        add({
+          type: 'ad_group',
+          id: String(row.adGroupId),
+          name: row.adGroupName,
+          parentId: row.campaignId ? String(row.campaignId) : undefined,
+          lastSeenAt: at,
+        });
+      }
+      if (row?.criterionId) {
+        add({
+          type: 'keyword',
+          id: String(row.criterionId),
+          name: row.keyword,
+          parentId: row.adGroupId ? String(row.adGroupId) : undefined,
+          lastSeenAt: at,
+        });
+      }
+    }
+  }
+
   return refs;
 }
 

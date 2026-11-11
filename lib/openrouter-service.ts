@@ -12,17 +12,17 @@ export interface ModelConfig {
 
 export function getAvailableModels(): ModelConfig[] {
   return [
-    { id: process.env.MODEL_DEEPSEEK || '', name: 'DeepSeek', model: 'deepseek', provider: 'DeepSeek', badge: 'Reasoning & Math', description: 'Reasoning and campaign diagnostics.' },
-    { id: process.env.MODEL_CHATGPT || '', name: 'ChatGPT', model: 'chatgpt', provider: 'OpenAI', badge: 'OpenAI', description: 'Campaign strategy and performance analysis.' },
-    { id: process.env.MODEL_GEMINI || '', name: 'Gemini', model: 'gemini', provider: 'Google', badge: 'Google', description: 'Fast account analysis and campaign assistance.' },
+    { id: process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat', name: 'DeepSeek', model: 'deepseek', provider: 'DeepSeek', badge: 'Reasoning & Math', description: 'Reasoning and campaign diagnostics.' },
+    { id: process.env.MODEL_CHATGPT || 'openai/gpt-4o-mini', name: 'ChatGPT', model: 'chatgpt', provider: 'OpenAI', badge: 'OpenAI', description: 'Campaign strategy and performance analysis.' },
+    { id: process.env.MODEL_GEMINI || 'google/gemini-2.5-flash', name: 'Gemini', model: 'gemini', provider: 'Google', badge: 'Google', description: 'Fast account analysis and campaign assistance.' },
   ];
 }
 
 export function resolveModelId(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return process.env.MODEL_DEEPSEEK || '';
-  if (normalized === 'chatgpt' || normalized === 'balanced') return process.env.MODEL_CHATGPT || '';
-  return process.env.MODEL_GEMINI || '';
+  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat';
+  if (normalized === 'chatgpt' || normalized === 'balanced') return process.env.MODEL_CHATGPT || 'openai/gpt-4o-mini';
+  return process.env.MODEL_GEMINI || 'google/gemini-2.5-flash';
 }
 
 export function getModelDisplayName(modelOrTier: string = 'gemini'): string {

@@ -9,7 +9,7 @@
     "build:cf": "opennextjs-cloudflare build",
     "build:worker": "opennextjs-cloudflare build",
     "start": "next start",
-    "deploy": "node scripts/predeploy-check.js && opennextjs-cloudflare build && wrangler deploy",
+    "deploy": "node scripts/predeploy-check.js && npm run build && node -e \"if(!require('fs').existsSync('.open-next/worker.js')){console.error('.open-next/worker.js missing');process.exit(1)}\" && wrangler deploy",
     "preview": "opennextjs-cloudflare preview",
     "db:create": "wrangler d1 create adoptimize-ai",
     "db:migrate": "wrangler d1 execute adoptimize-ai --remote --file=migrations/0001_ai_agent.sql && wrangler d1 execute adoptimize-ai --remote --file=migrations/0002_task_state.sql && wrangler d1 execute adoptimize-ai --remote --file=migrations/0003_proposal_meta.sql",

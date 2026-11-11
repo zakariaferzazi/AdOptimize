@@ -264,10 +264,22 @@ export async function runAgent(options: AgentRunOptions): Promise<AgentRunResult
     }
 
     const requested = response.toolCalls || [];
+    const toolCallItems =
+      response.assistantMessage?.tool_calls?.length
+        ? response.assistantMessage.tool_calls
+        : requested.map((call) => ({
+            id: call.id,
+            type: 'function' as const,
+            function: {
+              name: call.name,
+              arguments: JSON.stringify(call.arguments || {}),
+            },
+          }));
+
     const assistant: AgentMessage = {
       role: 'assistant',
       content: response.assistantMessage?.content ?? (response.reply || null),
-      ...(response.assistantMessage?.tool_calls?.length ? { tool_calls: response.assistantMessage.tool_calls } : {}),
+      ...(toolCallItems.length ? { tool_calls: toolCallItems } : {}),
     };
 
     if (requested.length === 0) {

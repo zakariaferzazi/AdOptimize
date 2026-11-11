@@ -1,10 +1,7 @@
 const { execSync } = require('child_process');
 
-const isAIStudio = Boolean(
-  process.env.APPLET_ID ||
-  process.env.K_SERVICE ||
-  process.env.AUTHORIZED_SERVICE_ACCOUNT_EMAIL
-);
+const fs = require('fs');
+const path = require('path');
 
 const isInsideOpenNext = Boolean(
   process.env.__OPEN_NEXT_CHILD__ === '1' ||
@@ -17,21 +14,34 @@ const buildEnv = {
   NODE_ENV: 'production',
 };
 
-if (isAIStudio || isInsideOpenNext) {
-  // In AI Studio sandbox or when invoked as sub-process by OpenNext:
-  console.log('[AdOptimize Build] Executing next build with production environment...');
+// Guarantee ponyfill file exists for node-fetch / fetch-blob
+const ponyfillPath = path.join(process.cwd(), 'node_modules', 'web-streams-polyfill', 'dist', 'ponyfill.es2018.js');
+const ponyfillSource = path.join(process.cwd(), 'node_modules', 'web-streams-polyfill', 'dist', 'ponyfill.js');
+if (fs.existsSync(ponyfillSource) && !fs.existsSync(ponyfillPath)) {
+  fs.writeFileSync(ponyfillPath, 'module.exports = require("./ponyfill.js");\n');
+}
+
+if (isInsideOpenNext) {
+  // When invoked as sub-process by OpenNext:
+  console.log('[AdOptimize Build] Executing next build child process...');
   execSync('next build', { stdio: 'inherit', env: buildEnv });
 } else {
-  // In Cloudflare CI / external deploy: run opennextjs-cloudflare build to generate .open-next/worker.js and .open-next/assets
-  console.log('[AdOptimize Build] Building Cloudflare OpenNext worker bundle...');
-  try {
-    execSync('npx opennextjs-cloudflare build', {
-      stdio: 'inherit',
-      env: { ...buildEnv, __OPEN_NEXT_CHILD__: '1' },
-    });
-  } catch (err) {
-    console.warn('[AdOptimize Build] opennextjs-cloudflare build failed:', err.message);
-    console.log('[AdOptimize Build] Falling back to standard next build...');
-    execSync('next build', { stdio: 'inherit', env: buildEnv });
+  // Cloudflare OpenNext deployment build
+  console.log('[AdOptimize Build] Building Cloudflare OpenNext worker bundle (opennextjs-cloudflare build)...');
+  execSync('npx opennextjs-cloudflare build', {
+    stdio: 'inherit',
+    env: { ...buildEnv, __OPEN_NEXT_CHILD__: '1' },
+  });
+
+  const workerPath = path.join(process.cwd(), '.open-next', 'worker.js');
+  const assetsPath = path.join(process.cwd(), '.open-next', 'assets');
+
+  if (!fs.existsSync(workerPath)) {
+    throw new Error(`[AdOptimize Build] OpenNext build failed: ${workerPath} was not generated.`);
   }
+  if (!fs.existsSync(assetsPath)) {
+    throw new Error(`[AdOptimize Build] OpenNext build failed: ${assetsPath} was not generated.`);
+  }
+  console.log('[AdOptimize Build] Successfully verified .open-next/worker.js and .open-next/assets.');
 }
+

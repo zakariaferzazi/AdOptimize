@@ -47,6 +47,13 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {
+    // Alias web-streams-polyfill ponyfill for fetch-blob / gaxios compatibility
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'web-streams-polyfill/dist/ponyfill.es2018.js': 'web-streams-polyfill',
+    };
+
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modify—file watching is disabled to prevent flickering during agent edits.
     if (dev && (process.env.DISABLE_HMR === 'true' || process.env.DISABLE_HMR === undefined)) {
