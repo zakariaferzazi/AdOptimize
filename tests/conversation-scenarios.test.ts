@@ -398,4 +398,40 @@ describe('persistence', () => {
     expect((await response.json()).reply).toMatch(/Continuing/);
     vi.doUnmock('@/lib/store/memory');
   });
+
+  it('remembers previously proposed campaign names and answers follow-up inquiries correctly', async () => {
+    scripted.script(
+      toolResponse([
+        {
+          name: 'create_campaign',
+          args: { name: 'Summer Gear 2026', campaignType: 'SEARCH', dailyBudget: 50, status: 'PAUSED' },
+        },
+      ]),
+      textResponse('I prepared the Search campaign "Summer Gear 2026" with a daily budget of $50.00. Please review the proposal card to approve.')
+    );
+    const turn1 = await chat('Build me a search campaign for Summer Gear 2026 with 50 daily budget');
+    expect(turn1.status).toBe(200);
+    const conversationId = turn1.body.conversationId;
+    expect(turn1.body.actionProposal).toMatchObject({
+      campaignName: 'Summer Gear 2026',
+      status: 'PENDING_APPROVAL',
+    });
+
+    // Turn 2: User asks "what name did you use in previous campaign"
+    scripted.script((request) => {
+      // System prompt has activeTask parameters
+      const systemContent = String(request.messages[0].content);
+      expect(systemContent).toMatch(/Summer Gear 2026/);
+
+      // Verify the messages history passed to the model contains earlier conversation turns
+      expect(request.messages.some((m) => m.content && m.content.includes('Summer Gear 2026'))).toBe(true);
+
+      return textResponse('In the campaign I just prepared for you, I used the name "Summer Gear 2026".');
+    });
+
+    const turn2 = await chat('what name did you use in previous campaign', conversationId);
+    expect(turn2.status).toBe(200);
+    expect(turn2.body.reply).toContain('Summer Gear 2026');
+  });
 });
+

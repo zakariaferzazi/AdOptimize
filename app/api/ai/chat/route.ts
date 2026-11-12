@@ -98,9 +98,29 @@ export async function POST(req: NextRequest) {
     const userMessage: AgentMessage = { role: 'user', content: message };
     const supersededThisTurn: string[] = [];
 
+    // Full conversation history: load server-stored messages first.
+    // If the server store has no messages yet (e.g. new isolate, cold start, or first request with existing client session),
+    // hydrate from the client's provided history transcript so the model NEVER forgets earlier turns!
+    let effectiveHistory: AgentMessage[] = toAgentHistory(stored);
+    if (effectiveHistory.length === 0 && Array.isArray(body?.history) && body.history.length > 0) {
+      const clientHistory: AgentMessage[] = (body.history as Array<{ role?: string; content?: string }>)
+        .filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string' && item.content.trim().length > 0)
+        .map((item) => ({ role: item.role as 'user' | 'assistant', content: item.content! }));
+
+      if (
+        clientHistory.length > 0 &&
+        clientHistory[clientHistory.length - 1].role === 'user' &&
+        clientHistory[clientHistory.length - 1].content === message
+      ) {
+        effectiveHistory = clientHistory.slice(0, -1);
+      } else {
+        effectiveHistory = clientHistory;
+      }
+    }
+
     const result = await runAgent({
       model,
-      history: [...toAgentHistory(stored), userMessage],
+      history: [...effectiveHistory, userMessage],
       ads,
       state,
       saveProposal: async (draft) => {

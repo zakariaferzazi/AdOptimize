@@ -462,6 +462,12 @@ export function AiChatView({
           model: selectedModel,
           modelTier: selectedModel,
           conversationId: requestSessionId,
+          history: updatedMessages
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .map((m) => ({
+              role: m.role,
+              content: m.content || '',
+            })),
         }),
       });
 
@@ -475,13 +481,9 @@ export function AiChatView({
       // The server is authoritative for the conversation ID. Adopt it so the
       // next turn continues the same durable conversation and task state.
       const serverConversationId = data.conversationId as string | undefined;
+      const targetSessionId = serverConversationId || requestSessionId;
       if (serverConversationId && serverConversationId !== requestSessionId) {
         setCurrentSessionId(serverConversationId);
-        updateSessions((current) =>
-          current.map((session) =>
-            session.id === requestSessionId ? { ...session, id: serverConversationId } : session
-          )
-        );
       }
 
       const proposals: ProposedAccountChange[] = Array.isArray(data.actionProposals)
@@ -536,8 +538,8 @@ export function AiChatView({
       const finalMessages = [...messagesWithSupersession, assistantMessage, ...extraCards];
       updateSessions((current) =>
         current.map((s) =>
-          s.id === requestSessionId
-            ? { ...s, messages: finalMessages, updatedAt: Date.now() }
+          s.id === requestSessionId || s.id === targetSessionId
+            ? { ...s, id: targetSessionId, messages: finalMessages, updatedAt: Date.now() }
             : s
         )
       );

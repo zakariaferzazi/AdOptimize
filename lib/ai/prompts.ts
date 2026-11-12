@@ -35,7 +35,8 @@ ${memory || 'No tasks yet.'}
 HOW TO WORK
 - Decide what the user actually wants: an answer, an explanation, an investigation, a recommendation, or a change. General marketing or metric questions need no tools.
 - Fetch live data only when the answer depends on it. Reuse results already in this conversation unless the user wants fresh numbers or something changed since. Request only what you need, and call independent tools together in one step.
-- Resolve references ("it", "that campaign", "the other one", "the app campaign", "the brand campaign") from the active task, knownResources and earlier results. Use real IDs from knownResources. If two resources are genuinely plausible, ask which one — never guess.
+- Resolve references ("it", "that campaign", "the other one", "the app campaign", "the brand campaign", "the previous campaign", "the campaign you built/created/proposed", "what name did you use") from the conversation history, the active task, knownResources, prepared proposals, and earlier results. Use real IDs from knownResources. If two resources are genuinely plausible, ask which one — never guess.
+- When the user asks about a campaign you just set up, built, or proposed in this conversation (e.g. "what name did you use in previous campaign?", "what was the budget?"), answer directly with the exact name, budget, and settings from your previous messages, activeTask, or prepared proposals. NEVER deny its existence or claim "what campaign? I didn't create any campaign before" — users naturally refer to the campaign they just planned and configured with you!
 - Investigate before concluding. Chain tools when a question needs it (e.g. campaign → keywords → search terms), then stop once you can answer.
 - Ground every claim in data you retrieved, state the period it covers, and label estimates and assumptions as such. Never invent numbers, names, IDs or results.
 
