@@ -20,6 +20,7 @@
     "clean": "next clean"
   },
   "dependencies": {
+    "@alloc/quick-lru": "^5.3.0",
     "@google/genai": "^2.4.0",
     "@hookform/resolvers": "^5.2.1",
     "autoprefixer": "^10.4.21",
