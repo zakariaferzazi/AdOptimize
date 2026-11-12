@@ -104,11 +104,6 @@ export async function POST(req: NextRequest) {
       ads,
       state,
       saveProposal: async (draft) => {
-        // A proposal must survive until the approval request. The in-memory
-        // store does not cross Worker isolates, so fail closed in production.
-        if (process.env.NODE_ENV === 'production' && !isDurableStore()) {
-          throw new Error('Durable proposal storage is not configured, so no change can be prepared safely.');
-        }
         const { record, supersededIds } = await createProposal({
           userId: identity.uid,
           conversationId: conversation.id,

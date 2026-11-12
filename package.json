@@ -34,7 +34,8 @@
     "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "web-streams-polyfill": "^3.3.3"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.20.15",

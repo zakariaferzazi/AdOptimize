@@ -18,11 +18,29 @@ import type {
  * implementation so behaviour does not diverge between environments.
  */
 
-const conversations = new Map<string, ConversationRecord>();
-const messages = new Map<string, MessageRecord[]>();
-const proposals = new Map<string, ProposalRecord>();
-const executions = new Map<string, ExecutionRecord>();
-const auditEvents: AuditEventRecord[] = [];
+interface GlobalMemoryState {
+  conversations: Map<string, ConversationRecord>;
+  messages: Map<string, MessageRecord[]>;
+  proposals: Map<string, ProposalRecord>;
+  executions: Map<string, ExecutionRecord>;
+  auditEvents: AuditEventRecord[];
+}
+
+const memoryState: GlobalMemoryState =
+  (globalThis as unknown as { __adoptimize_memory_store?: GlobalMemoryState }).__adoptimize_memory_store ||
+  ((globalThis as unknown as { __adoptimize_memory_store?: GlobalMemoryState }).__adoptimize_memory_store = {
+    conversations: new Map<string, ConversationRecord>(),
+    messages: new Map<string, MessageRecord[]>(),
+    proposals: new Map<string, ProposalRecord>(),
+    executions: new Map<string, ExecutionRecord>(),
+    auditEvents: [],
+  });
+
+const conversations = memoryState.conversations;
+const messages = memoryState.messages;
+const proposals = memoryState.proposals;
+const executions = memoryState.executions;
+const auditEvents = memoryState.auditEvents;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;

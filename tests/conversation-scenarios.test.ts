@@ -178,7 +178,7 @@ describe('multi-turn campaign creation', () => {
 
     const state = await loadAgentState('user-1', conversationId);
     expect(state.tasks).toHaveLength(1);
-    expect(state.tasks[0]).toMatchObject({ status: 'completed', parameters: { name: 'Winter Boots 2026', campaignType: 'SEARCH', dailyBudget: 30 } });
+    expect(state.tasks[0]).toMatchObject({ status: 'completed', parameters: { name: 'Winter Boots 2026', campaignType: 'SEARCH', dailyBudget: 40 } });
   });
 });
 

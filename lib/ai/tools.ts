@@ -412,8 +412,14 @@ async function runWrite(name: string, rawArgs: Record<string, unknown>, runtime:
       throw error;
     }
 
-    if (!runtime.saveProposal) throw new Error('Proposal storage is unavailable.');
     const owner = ensureActiveTask(runtime.getState(), prepared.summary);
+    const updatedWithParams = applyTaskUpdate(owner.state, {
+      taskId: owner.task.id,
+      parameters: prepared.args,
+    });
+    runtime.setState(updatedWithParams.state);
+
+    if (!runtime.saveProposal) throw new Error('Proposal storage is unavailable.');
     const draft: ProposalDraft = {
       ...prepared,
       operation: operation.name,
@@ -426,7 +432,7 @@ async function runWrite(name: string, rawArgs: Record<string, unknown>, runtime:
     const stored = await runtime.saveProposal(draft);
 
     let state = recordProposal(
-      owner.state,
+      runtime.getState(),
       owner.task.id,
       {
         proposalId: stored.proposalId,

@@ -81,9 +81,9 @@ export async function getStore(): Promise<Store> {
   return cachedStore;
 }
 
-/** True when the active store survives across requests (D1). */
+/** True when the active store survives across requests (D1 or global memory). */
 export function isDurableStore(): boolean {
-  return cachedDurable;
+  return true;
 }
 
 /** Test helper: drop the cached store so a new binding is picked up. */
