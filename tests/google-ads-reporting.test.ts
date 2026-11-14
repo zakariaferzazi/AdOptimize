@@ -8,7 +8,9 @@ import {
   runGaql,
   type GoogleAdsContext,
 } from '@/lib/google-ads/gaql';
+import { searchLocations } from '@/lib/google-ads/geo';
 import {
+  getCampaignDetails,
   getConversionSetup,
   getPerformance,
   getSearchTerms,
@@ -155,5 +157,22 @@ describe('reporting', () => {
     expect(types).toEqual(expect.arrayContaining(['limited_by_budget', 'non_converting_search_terms', 'low_quality_score_keywords', 'high_cpa_campaign']));
     const budget = result.findings.find((finding: any) => finding.type === 'limited_by_budget');
     expect(budget.evidence.impressionShareLostToBudgetPercent).toBe(32);
+  });
+
+  it('reads campaign locations in getCampaignDetails and searches geo targets via searchLocations', async () => {
+    const details = (await getCampaignDetails(context, { campaignId: '111' })) as any;
+    expect(details.campaign.locations.targeted.map((l: any) => l.name)).toEqual(['Canada', 'United States']);
+    expect(details.campaign.locations.excluded).toEqual([]);
+
+    const searched = await searchLocations(context, { query: 'London' });
+    expect(searched.totalFound).toBe(2);
+    expect(searched.locations.map((l) => l.canonicalName)).toEqual([
+      'London,England,United Kingdom',
+      'London,Ontario,Canada',
+    ]);
+
+    const filtered = await searchLocations(context, { query: 'London', countryCode: 'GB' });
+    expect(filtered.locations).toHaveLength(1);
+    expect(filtered.locations[0].id).toBe('1006886');
   });
 });

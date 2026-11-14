@@ -1,6 +1,13 @@
 import { invalidArgument, notFound, unsupported } from '@/lib/mcp/errors';
 import { cleanId, isIsoDate, round, toMicros, type GoogleAdsContext } from '../gaql';
-import { readCampaignState, resolveCampaign, type CampaignState } from '../reporting';
+import { normalizeGeoName, parseGeoTargetId, resolveLocationInputs, type GeoTarget } from '../geo';
+import {
+  readCampaignLocations,
+  readCampaignState,
+  resolveCampaign,
+  type CampaignLocationCriterion,
+  type CampaignState,
+} from '../reporting';
 import {
   assertAccountCurrency,
   campaignIdProperty,
@@ -638,6 +645,394 @@ export const updateCampaignBidding: OperationDescriptor = {
   },
 };
 
+// ---------------------------------------------------------------------------
+
+function formatLocationLabel(loc: { canonicalName?: string; name?: string; id: string }): string {
+  return `${loc.canonicalName || loc.name || loc.id} (${loc.id})`;
+}
+
+export const updateCampaignLocations: OperationDescriptor = {
+  name: 'update_campaign_locations',
+  title: 'Change location targeting',
+  description:
+    'Set, add, or remove targeted and excluded locations on an existing campaign, or change its positive/negative geo target options (e.g. PRESENCE vs PRESENCE_OR_INTEREST). Supports country, state/region, city names, or numeric geo target IDs.',
+  schema: {
+    type: 'object',
+    properties: {
+      campaignId: campaignIdProperty,
+      setLocations: {
+        type: 'array',
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description:
+          'Replace ALL current targeted locations with this exact list (names or numeric geo target IDs). Pass [] only to remove all specific targets and target all countries/territories. Do not combine with addLocations.',
+      },
+      addLocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description: 'Add targeted locations while keeping existing targeted locations.',
+      },
+      excludeLocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description: 'Add excluded (negative) locations while keeping existing exclusions.',
+      },
+      removeLocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description: 'Remove existing targeted or excluded locations (by name, geo target ID, or criterion ID).',
+      },
+      positiveGeoTargetType: {
+        type: 'string',
+        enum: ['PRESENCE_OR_INTEREST', 'PRESENCE', 'SEARCH_INTEREST'],
+        description:
+          'Target option for included locations: PRESENCE_OR_INTEREST (in, regularly in, or interested in), PRESENCE (people in or regularly in), or SEARCH_INTEREST (Search only).',
+      },
+      negativeGeoTargetType: {
+        type: 'string',
+        enum: ['PRESENCE_OR_INTEREST', 'PRESENCE'],
+        description: 'Exclusion option: PRESENCE_OR_INTEREST or PRESENCE.',
+      },
+      reason: reasonProperty,
+    },
+    required: ['campaignId'],
+    additionalProperties: false,
+  },
+  internalArgs: ['resolvedCreates', 'resolvedRemovals', 'expectedTargetedGeoConstants', 'expectedExcludedGeoConstants'],
+  actionType: () => 'UPDATE_SETTINGS',
+  destructive: () => false,
+  targetKey: (args) => `campaign:${cleanId(args.campaignId)}:locations`,
+  async prepare(args, context) {
+    const hasLocationAction =
+      args.setLocations !== undefined ||
+      args.addLocations !== undefined ||
+      args.excludeLocations !== undefined ||
+      args.removeLocations !== undefined ||
+      args.positiveGeoTargetType !== undefined ||
+      args.negativeGeoTargetType !== undefined;
+    if (!hasLocationAction) {
+      throw invalidArgument(
+        'Provide setLocations, addLocations, excludeLocations, removeLocations, positiveGeoTargetType, or negativeGeoTargetType.'
+      );
+    }
+    if (args.setLocations !== undefined && args.addLocations !== undefined) {
+      throw invalidArgument('Use setLocations to replace targeted locations or addLocations to add to them, not both.');
+    }
+
+    const state = await loadCampaignForWrite(args, context);
+    if (args.positiveGeoTargetType === 'SEARCH_INTEREST' && state.channel !== 'SEARCH') {
+      throw unsupported(`SEARCH_INTEREST location targeting is only supported for Search campaigns; "${state.name}" is ${humanize(state.channel)}.`);
+    }
+
+    const current = await readCampaignLocations(context, state.campaignId, { fresh: true });
+    const allExisting: CampaignLocationCriterion[] = [...current.targeted, ...current.excluded];
+
+    const setRaw = Array.isArray(args.setLocations) ? (args.setLocations as string[]) : undefined;
+    const addRaw = Array.isArray(args.addLocations) ? (args.addLocations as string[]) : [];
+    const excludeRaw = Array.isArray(args.excludeLocations) ? (args.excludeLocations as string[]) : [];
+    const removeRaw = Array.isArray(args.removeLocations) ? (args.removeLocations as string[]) : [];
+
+    const [setResolved, addResolved, excludeResolved]: [GeoTarget[] | undefined, GeoTarget[], GeoTarget[]] = await Promise.all([
+      setRaw !== undefined ? (setRaw.length ? resolveLocationInputs(context, setRaw, 'target location') : Promise.resolve([])) : Promise.resolve(undefined),
+      addRaw.length ? resolveLocationInputs(context, addRaw, 'target location') : Promise.resolve([]),
+      excludeRaw.length ? resolveLocationInputs(context, excludeRaw, 'excluded location') : Promise.resolve([]),
+    ]);
+
+    const removalsMap = new Map<string, CampaignLocationCriterion>();
+    const missingRemovals: string[] = [];
+
+    for (const raw of removeRaw) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      const numericId = cleanId(trimmed);
+      const geoId = parseGeoTargetId(trimmed);
+      const norm = normalizeGeoName(trimmed);
+      const directMatches = allExisting.filter(
+        (item) =>
+          (numericId && item.criterionId === numericId) ||
+          (geoId && item.id === geoId) ||
+          item.geoTargetConstant.toLowerCase() === trimmed.toLowerCase() ||
+          (item.canonicalName && normalizeGeoName(item.canonicalName) === norm) ||
+          (item.name && normalizeGeoName(item.name) === norm)
+      );
+      if (directMatches.length > 0) {
+        for (const matched of directMatches) removalsMap.set(matched.resourceName, matched);
+        continue;
+      }
+      const [resolved] = await resolveLocationInputs(context, [trimmed], 'location to remove');
+      const byGeo = allExisting.filter((item) => item.geoTargetConstant === resolved.resourceName);
+      if (byGeo.length > 0) {
+        for (const matched of byGeo) removalsMap.set(matched.resourceName, matched);
+      } else {
+        missingRemovals.push(resolved.canonicalName || resolved.name || trimmed);
+      }
+    }
+
+    if (setResolved !== undefined) {
+      const keepSet = new Set(setResolved.map((item) => item.resourceName));
+      for (const existing of current.targeted) {
+        if (!keepSet.has(existing.geoTargetConstant)) {
+          removalsMap.set(existing.resourceName, existing);
+        }
+      }
+    }
+
+    const remainingTargeted = current.targeted.filter((item) => !removalsMap.has(item.resourceName));
+    const remainingExcluded = current.excluded.filter((item) => !removalsMap.has(item.resourceName));
+    const remainingTargetSet = new Set(remainingTargeted.map((item) => item.geoTargetConstant));
+    const remainingExcludeSet = new Set(remainingExcluded.map((item) => item.geoTargetConstant));
+
+    const desiredTargets = setResolved !== undefined ? setResolved : addResolved;
+    if (desiredTargets.length && excludeResolved.length) {
+      const desiredSet = new Set(desiredTargets.map((item) => item.resourceName));
+      const clash = excludeResolved.find((item) => desiredSet.has(item.resourceName));
+      if (clash) {
+        throw invalidArgument(`Location "${clash.canonicalName || clash.name}" cannot be both targeted and excluded.`);
+      }
+    }
+
+    const warnings: string[] = [];
+    if (missingRemovals.length) {
+      warnings.push(`Not currently on this campaign (skipped removal): ${missingRemovals.join(', ')}.`);
+    }
+
+    const resolvedCreates: Array<{ geoTargetConstant: string; negative: boolean; id: string; label: string }> = [];
+    const skippedTargets: string[] = [];
+    const skippedExcludes: string[] = [];
+
+    for (const loc of desiredTargets) {
+      if (remainingExcludeSet.has(loc.resourceName)) {
+        throw invalidArgument(
+          `Location "${loc.canonicalName || loc.name}" is currently excluded on "${state.name}". Include it in removeLocations if you want to remove the exclusion and target it.`
+        );
+      }
+      if (remainingTargetSet.has(loc.resourceName)) {
+        if (addRaw.length) skippedTargets.push(loc.canonicalName || loc.name);
+        continue;
+      }
+      resolvedCreates.push({
+        geoTargetConstant: loc.resourceName,
+        negative: false,
+        id: loc.id,
+        label: loc.canonicalName || loc.name,
+      });
+    }
+
+    const resultingTargetSet = new Set([
+      ...remainingTargeted.map((item) => item.geoTargetConstant),
+      ...resolvedCreates.filter((item) => !item.negative).map((item) => item.geoTargetConstant),
+    ]);
+
+    for (const loc of excludeResolved) {
+      if (resultingTargetSet.has(loc.resourceName)) {
+        throw invalidArgument(
+          `Location "${loc.canonicalName || loc.name}" is targeted on "${state.name}". Remove it from targeted locations before excluding it.`
+        );
+      }
+      if (remainingExcludeSet.has(loc.resourceName)) {
+        skippedExcludes.push(loc.canonicalName || loc.name);
+        continue;
+      }
+      resolvedCreates.push({
+        geoTargetConstant: loc.resourceName,
+        negative: true,
+        id: loc.id,
+        label: loc.canonicalName || loc.name,
+      });
+    }
+
+    if (skippedTargets.length) warnings.push(`Already targeted (kept as is): ${skippedTargets.join(', ')}.`);
+    if (skippedExcludes.length) warnings.push(`Already excluded (kept as is): ${skippedExcludes.join(', ')}.`);
+
+    const positiveSetting =
+      typeof args.positiveGeoTargetType === 'string' &&
+      args.positiveGeoTargetType !== state.geoTargetTypeSetting?.positiveGeoTargetType
+        ? args.positiveGeoTargetType
+        : undefined;
+    const negativeSetting =
+      typeof args.negativeGeoTargetType === 'string' &&
+      args.negativeGeoTargetType !== state.geoTargetTypeSetting?.negativeGeoTargetType
+        ? args.negativeGeoTargetType
+        : undefined;
+
+    const resolvedRemovals = [...removalsMap.values()].map((item) => ({
+      resourceName: item.resourceName,
+      geoTargetConstant: item.geoTargetConstant,
+      negative: item.negative,
+      id: item.id,
+      label: item.canonicalName || item.name || item.id,
+    }));
+
+    if (!resolvedCreates.length && !resolvedRemovals.length && !positiveSetting && !negativeSetting) {
+      if (missingRemovals.length) {
+        throw invalidArgument(`None of those locations (${missingRemovals.join(', ')}) are currently configured on "${state.name}".`);
+      }
+      throw invalidArgument(`Campaign "${state.name}" already has the requested location targeting.`);
+    }
+
+    const expectedTargetedGeoConstants = [
+      ...new Set([
+        ...remainingTargeted.map((item) => item.geoTargetConstant),
+        ...resolvedCreates.filter((item) => !item.negative).map((item) => item.geoTargetConstant),
+      ]),
+    ].sort();
+    const expectedExcludedGeoConstants = [
+      ...new Set([
+        ...remainingExcluded.map((item) => item.geoTargetConstant),
+        ...resolvedCreates.filter((item) => item.negative).map((item) => item.geoTargetConstant),
+      ]),
+    ].sort();
+
+    if (expectedTargetedGeoConstants.length === 0 && resolvedRemovals.some((item) => !item.negative)) {
+      warnings.push('No specific targeted locations will remain, so Google Ads will target all countries and territories by default.');
+    }
+
+    const changes: string[] = [];
+    for (const item of resolvedCreates.filter((entry) => !entry.negative)) {
+      changes.push(`+ Target: ${item.label} (${item.id})`);
+    }
+    for (const item of resolvedRemovals.filter((entry) => !entry.negative)) {
+      changes.push(`− Remove target: ${item.label} (${item.id})`);
+    }
+    for (const item of resolvedCreates.filter((entry) => entry.negative)) {
+      changes.push(`+ Exclude: ${item.label} (${item.id})`);
+    }
+    for (const item of resolvedRemovals.filter((entry) => entry.negative)) {
+      changes.push(`− Remove exclusion: ${item.label} (${item.id})`);
+    }
+    if (positiveSetting) {
+      changes.push(
+        `Positive location option: ${state.geoTargetTypeSetting?.positiveGeoTargetType ? humanize(state.geoTargetTypeSetting.positiveGeoTargetType) : 'default'} → ${humanize(positiveSetting)}`
+      );
+    }
+    if (negativeSetting) {
+      changes.push(
+        `Exclusion location option: ${state.geoTargetTypeSetting?.negativeGeoTargetType ? humanize(state.geoTargetTypeSetting.negativeGeoTargetType) : 'default'} → ${humanize(negativeSetting)}`
+      );
+    }
+
+    const normalized: Record<string, unknown> = {
+      campaignId: state.campaignId,
+      resolvedCreates: resolvedCreates.map(({ geoTargetConstant, negative }) => ({ geoTargetConstant, negative })),
+      resolvedRemovals: resolvedRemovals.map(({ resourceName }) => resourceName),
+      expectedTargetedGeoConstants,
+      expectedExcludedGeoConstants,
+      ...(setResolved !== undefined ? { setLocations: setResolved.map((item) => formatLocationLabel(item)) } : {}),
+      ...(addResolved.length ? { addLocations: addResolved.map((item) => formatLocationLabel(item)) } : {}),
+      ...(excludeResolved.length ? { excludeLocations: excludeResolved.map((item) => formatLocationLabel(item)) } : {}),
+      ...(removeRaw.length ? { removeLocations: removeRaw } : {}),
+      ...(positiveSetting ? { positiveGeoTargetType: positiveSetting } : {}),
+      ...(negativeSetting ? { negativeGeoTargetType: negativeSetting } : {}),
+      ...(args.reason ? { reason: args.reason } : {}),
+    };
+
+    return {
+      args: normalized,
+      summary: `Update location targeting for "${state.name}".`,
+      changes,
+      before: {
+        campaignId: state.campaignId,
+        name: state.name,
+        targetedGeoConstants: current.targeted.map((item) => item.geoTargetConstant).sort(),
+        excludedGeoConstants: current.excluded.map((item) => item.geoTargetConstant).sort(),
+        positiveGeoTargetType: state.geoTargetTypeSetting?.positiveGeoTargetType,
+        negativeGeoTargetType: state.geoTargetTypeSetting?.negativeGeoTargetType,
+      },
+      target: campaignTarget(state),
+      warnings,
+    };
+  },
+  async readState(args, context) {
+    const id = cleanId(args.campaignId);
+    const [state, current] = await Promise.all([
+      readCampaignState(context, id, { fresh: true }),
+      readCampaignLocations(context, id, { fresh: true }),
+    ]);
+    if (!state || state.status === 'REMOVED') return { exists: false };
+    return {
+      exists: true,
+      name: state.name,
+      targetedGeoConstants: current.targeted.map((item) => item.geoTargetConstant).sort(),
+      excludedGeoConstants: current.excluded.map((item) => item.geoTargetConstant).sort(),
+      positiveGeoTargetType: state.geoTargetTypeSetting?.positiveGeoTargetType,
+      negativeGeoTargetType: state.geoTargetTypeSetting?.negativeGeoTargetType,
+    };
+  },
+  driftKeys: ['targetedGeoConstants', 'excludedGeoConstants', 'positiveGeoTargetType', 'negativeGeoTargetType'],
+  plan(args, context) {
+    const campaign = campaignResource(context, args.campaignId);
+    const removals = (args.resolvedRemovals || []) as string[];
+    const creates = (args.resolvedCreates || []) as Array<{ geoTargetConstant: string; negative: boolean }>;
+
+    const steps = [];
+    const criteriaOps = [
+      ...removals.map((resourceName) => ({ remove: resourceName })),
+      ...creates.map((item) => ({
+        create: {
+          campaign,
+          negative: item.negative,
+          location: { geoTargetConstant: item.geoTargetConstant },
+        },
+      })),
+    ];
+
+    if (criteriaOps.length) {
+      steps.push({
+        kind: 'service' as const,
+        service: 'campaignCriteria' as const,
+        operations: criteriaOps,
+      });
+    }
+
+    if (args.positiveGeoTargetType || args.negativeGeoTargetType) {
+      const geoTargetTypeSetting: Record<string, unknown> = {};
+      const masks: string[] = [];
+      if (args.positiveGeoTargetType) {
+        geoTargetTypeSetting.positiveGeoTargetType = args.positiveGeoTargetType;
+        masks.push('geoTargetTypeSetting.positiveGeoTargetType');
+      }
+      if (args.negativeGeoTargetType) {
+        geoTargetTypeSetting.negativeGeoTargetType = args.negativeGeoTargetType;
+        masks.push('geoTargetTypeSetting.negativeGeoTargetType');
+      }
+      steps.push({
+        kind: 'service' as const,
+        service: 'campaigns' as const,
+        operations: [{ updateMask: masks.join(','), update: { resourceName: campaign, geoTargetTypeSetting } }],
+      });
+    }
+
+    return steps;
+  },
+  verify(args, after) {
+    const issues: string[] = [];
+    const observedTargeted = (after.targetedGeoConstants || []) as string[];
+    const observedExcluded = (after.excludedGeoConstants || []) as string[];
+    const expectedTargeted = (args.expectedTargetedGeoConstants || []) as string[];
+    const expectedExcluded = (args.expectedExcludedGeoConstants || []) as string[];
+
+    if (JSON.stringify([...observedTargeted].sort()) !== JSON.stringify([...expectedTargeted].sort())) {
+      issues.push('targeted locations differ from proposal');
+    }
+    if (JSON.stringify([...observedExcluded].sort()) !== JSON.stringify([...expectedExcluded].sort())) {
+      issues.push('excluded locations differ from proposal');
+    }
+    if (args.positiveGeoTargetType && after.positiveGeoTargetType !== args.positiveGeoTargetType) {
+      issues.push(`positiveGeoTargetType is ${String(after.positiveGeoTargetType)}`);
+    }
+    if (args.negativeGeoTargetType && after.negativeGeoTargetType !== args.negativeGeoTargetType) {
+      issues.push(`negativeGeoTargetType is ${String(after.negativeGeoTargetType)}`);
+    }
+    return issues;
+  },
+};
+
 export const CAMPAIGN_OPERATIONS: OperationDescriptor[] = [
   updateCampaignStatus,
   updateCampaignBudget,
@@ -646,4 +1041,5 @@ export const CAMPAIGN_OPERATIONS: OperationDescriptor[] = [
   updateCampaignNetworks,
   updateCampaignTracking,
   updateCampaignBidding,
+  updateCampaignLocations,
 ];

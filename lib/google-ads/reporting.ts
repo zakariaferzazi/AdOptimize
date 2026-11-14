@@ -11,6 +11,7 @@ import {
   type ResolvedDateRange,
 } from './gaql';
 import { ambiguous, invalidArgument, notFound } from '@/lib/mcp/errors';
+import { fetchGeoTargetsByResourceNames, type GeoTarget } from './geo';
 
 /**
  * Business-level Google Ads read capabilities.
@@ -518,6 +519,10 @@ export interface CampaignState {
     display?: boolean;
     partnerSearch?: boolean;
   };
+  geoTargetTypeSetting?: {
+    positiveGeoTargetType?: string;
+    negativeGeoTargetType?: string;
+  };
   budget?: {
     resourceName: string;
     dailyAmount?: number;
@@ -529,9 +534,92 @@ export interface CampaignState {
   selectiveOptimizationActions?: string[];
 }
 
+export interface CampaignLocationCriterion {
+  criterionId: string;
+  resourceName: string;
+  geoTargetConstant: string;
+  id: string;
+  name?: string;
+  canonicalName?: string;
+  countryCode?: string;
+  targetType?: string;
+  negative: boolean;
+}
+
+export interface CampaignLocationsState {
+  targeted: CampaignLocationCriterion[];
+  excluded: CampaignLocationCriterion[];
+}
+
 function datePart(value: unknown): string | undefined {
   if (typeof value !== 'string' || !value) return undefined;
   return value.slice(0, 10);
+}
+
+export async function readCampaignLocations(
+  context: GoogleAdsContext,
+  campaignId: string,
+  options: { fresh?: boolean } = {}
+): Promise<CampaignLocationsState> {
+  const id = cleanId(campaignId);
+  if (!id) throw invalidArgument('A numeric campaignId is required.');
+  const rows = await runGaql(
+    context,
+    `SELECT campaign_criterion.criterion_id, campaign_criterion.resource_name,
+            campaign_criterion.negative, campaign_criterion.location.geo_target_constant
+     FROM campaign_criterion
+     WHERE campaign.id = ${id}
+       AND campaign_criterion.type = 'LOCATION'
+       AND campaign_criterion.status != 'REMOVED'`,
+    { cacheTtlMs: options.fresh ? 0 : 15_000 }
+  );
+
+  const rawCriteria = rows
+    .map((row) => {
+      const criterion = row.campaignCriterion || {};
+      const geoConstant = String(criterion.location?.geoTargetConstant || '');
+      const criterionId = cleanId(criterion.criterionId || String(criterion.resourceName || '').split('~').pop());
+      const geoId = cleanId(geoConstant.split('/').pop());
+      return {
+        criterionId,
+        resourceName: String(criterion.resourceName || `customers/${cleanId(context.customerId)}/campaignCriteria/${id}~${criterionId}`),
+        geoTargetConstant: geoConstant,
+        id: geoId,
+        negative: Boolean(criterion.negative),
+      };
+    })
+    .filter((item) => Boolean(item.geoTargetConstant));
+
+  let geoMap = new Map<string, GeoTarget>();
+  if (rawCriteria.length) {
+    try {
+      geoMap = await fetchGeoTargetsByResourceNames(
+        context,
+        rawCriteria.map((item) => item.geoTargetConstant)
+      );
+    } catch {
+      // Metadata lookup failure should not hide raw geoTargetConstants from campaign details or verification.
+    }
+  }
+
+  const enriched: CampaignLocationCriterion[] = rawCriteria.map((item) => {
+    const geo = geoMap.get(item.geoTargetConstant);
+    return {
+      ...item,
+      ...(geo?.name ? { name: geo.name } : {}),
+      ...(geo?.canonicalName ? { canonicalName: geo.canonicalName } : {}),
+      ...(geo?.countryCode ? { countryCode: geo.countryCode } : {}),
+      ...(geo?.targetType ? { targetType: geo.targetType } : {}),
+    };
+  });
+
+  const byLabel = (left: CampaignLocationCriterion, right: CampaignLocationCriterion) =>
+    (left.canonicalName || left.name || left.id).localeCompare(right.canonicalName || right.name || right.id);
+
+  return {
+    targeted: enriched.filter((item) => !item.negative).sort(byLabel),
+    excluded: enriched.filter((item) => item.negative).sort(byLabel),
+  };
 }
 
 export async function readCampaignState(
@@ -557,6 +645,8 @@ export async function readCampaignState(
             campaign.network_settings.target_search_network,
             campaign.network_settings.target_content_network,
             campaign.network_settings.target_partner_search_network,
+            campaign.geo_target_type_setting.positive_geo_target_type,
+            campaign.geo_target_type_setting.negative_geo_target_type,
             campaign.app_campaign_setting.app_id, campaign.app_campaign_setting.app_store,
             campaign.app_campaign_setting.bidding_strategy_goal_type,
             campaign.selective_optimization.conversion_actions,
@@ -571,6 +661,7 @@ export async function readCampaignState(
   const campaign = row.campaign || {};
   const budget = row.campaignBudget || {};
   const network = campaign.networkSettings || {};
+  const geoSetting = campaign.geoTargetTypeSetting;
   const app = campaign.appCampaignSetting;
   const targetCpa = micros(campaign.maximizeConversions?.targetCpaMicros) ?? micros(campaign.targetCpa?.targetCpaMicros);
   const targetRoas = campaign.maximizeConversionValue?.targetRoas ?? campaign.targetRoas?.targetRoas;
@@ -605,6 +696,13 @@ export async function readCampaignState(
             partnerSearch: network.targetPartnerSearchNetwork,
           }
         : undefined,
+    geoTargetTypeSetting:
+      geoSetting !== undefined
+        ? {
+            positiveGeoTargetType: geoSetting.positiveGeoTargetType || undefined,
+            negativeGeoTargetType: geoSetting.negativeGeoTargetType || undefined,
+          }
+        : undefined,
     budget: campaign.campaignBudget
       ? {
           resourceName: String(campaign.campaignBudget),
@@ -623,9 +721,16 @@ export async function readCampaignState(
 
 export async function getCampaignDetails(context: GoogleAdsContext, args: Record<string, unknown>) {
   const ref = await resolveCampaign(context, args);
-  const state = await readCampaignState(context, ref.id);
+  const [state, locations] = await Promise.all([
+    readCampaignState(context, ref.id),
+    readCampaignLocations(context, ref.id),
+  ]);
   if (!state) throw notFound(`Campaign ${ref.id}`);
   const { resourceName, ...visible } = state;
+  const notes = biddingNotes(state);
+  if (locations.targeted.length === 0) {
+    notes.push('Location targeting has no specific targeted locations set, so Google Ads targets all countries and territories unless restricted.');
+  }
   return {
     currency: context.currency,
     campaign: {
@@ -633,8 +738,12 @@ export async function getCampaignDetails(context: GoogleAdsContext, args: Record
       budget: visible.budget
         ? { ...visible.budget, resourceName: undefined, budgetId: cleanId(visible.budget.resourceName.split('/').pop()) }
         : undefined,
+      locations: {
+        targeted: locations.targeted,
+        excluded: locations.excluded,
+      },
     },
-    notes: biddingNotes(state),
+    notes,
   };
 }
 

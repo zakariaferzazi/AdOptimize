@@ -435,3 +435,91 @@ describe('persistence', () => {
   });
 });
 
+describe('location targeting in chat', () => {
+  it('creates a new campaign with targeted & excluded locations and executes end-to-end', async () => {
+    scripted.script(
+      toolResponse([
+        {
+          name: 'create_campaign',
+          args: {
+            name: 'Global Expansion 2026',
+            campaignType: 'SEARCH',
+            dailyBudget: 45,
+            targetLocations: ['United Kingdom', 'London, UK'],
+            excludedLocations: ['Texas'],
+            positiveGeoTargetType: 'PRESENCE',
+          },
+        },
+      ]),
+      textResponse('I prepared "Global Expansion 2026" targeting United Kingdom and London, England (Presence), excluding Texas.')
+    );
+
+    const turn1 = await chat('Create a search campaign named Global Expansion 2026 with $45/day targeting UK and London, UK (presence only), excluding Texas');
+    expect(turn1.status).toBe(200);
+    const proposal = turn1.body.actionProposal;
+    expect(proposal).toMatchObject({ actionType: 'CREATE_CAMPAIGN', status: 'PENDING_APPROVAL' });
+    expect(proposal.proposedChanges).toMatch(/United Kingdom \(2826\)/);
+    expect(proposal.proposedChanges).toMatch(/London,England,United Kingdom \(1006886\)/);
+    expect(proposal.proposedChanges).toMatch(/Excluded locations: Texas,United States \(21176\)/);
+
+    const executed = await approveAndExecute(proposal);
+    expect(executed.execution!.status).toBe(200);
+    expect(executed.execution!.body).toMatchObject({ success: true, status: 'succeeded' });
+
+    const createdId = executed.execution!.body.result.realIds.campaignId;
+    const savedLocations = fake.account.campaignLocations.filter((loc) => loc.campaignId === createdId);
+    expect(savedLocations).toHaveLength(3);
+    expect(savedLocations.filter((l) => !l.negative).map((l) => l.geoTargetConstant).sort()).toEqual([
+      'geoTargetConstants/1006886',
+      'geoTargetConstants/2826',
+    ]);
+    expect(savedLocations.filter((l) => l.negative).map((l) => l.geoTargetConstant)).toEqual([
+      'geoTargetConstants/21176',
+    ]);
+  });
+
+  it('reads and edits location targeting on an existing campaign through chat', async () => {
+    scripted.script(
+      toolResponse([{ name: 'get_campaign_details', args: { campaignId: '111' } }]),
+      (request) => {
+        const result = JSON.parse(String(request.messages[request.messages.length - 1].content));
+        expect(result.campaign.locations.targeted.map((l: any) => l.name)).toEqual(['Canada', 'United States']);
+        return toolResponse([
+          {
+            name: 'update_campaign_locations',
+            args: {
+              campaignId: '111',
+              addLocations: ['Australia'],
+              removeLocations: ['Canada'],
+              excludeLocations: ['California'],
+            },
+          },
+        ]);
+      },
+      textResponse('Prepared the location update for Brand - Search.')
+    );
+
+    const turn = await chat('Update Brand - Search locations: add Australia, remove Canada, and exclude California');
+    expect(turn.status).toBe(200);
+    const proposal = turn.body.actionProposal;
+    expect(proposal).toMatchObject({ actionType: 'UPDATE_SETTINGS', status: 'PENDING_APPROVAL' });
+    expect(proposal.proposedChanges).toMatch(/\+ Target: Australia \(2036\)/);
+    expect(proposal.proposedChanges).toMatch(/− Remove target: Canada \(2124\)/);
+    expect(proposal.proposedChanges).toMatch(/\+ Exclude: California,United States \(21137\)/);
+
+    const executed = await approveAndExecute(proposal);
+    expect(executed.execution!.status).toBe(200);
+    expect(executed.execution!.body).toMatchObject({ success: true, status: 'succeeded' });
+
+    const brandLocs = fake.account.campaignLocations.filter((loc) => loc.campaignId === '111');
+    expect(brandLocs.filter((l) => !l.negative).map((l) => l.geoTargetConstant).sort()).toEqual([
+      'geoTargetConstants/2036',
+      'geoTargetConstants/2840',
+    ]);
+    expect(brandLocs.filter((l) => l.negative).map((l) => l.geoTargetConstant)).toEqual([
+      'geoTargetConstants/21137',
+    ]);
+  });
+});
+
+

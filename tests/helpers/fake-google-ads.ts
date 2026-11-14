@@ -28,6 +28,7 @@ export interface FakeCampaign {
   metrics: FakeMetrics;
   lostToBudget?: number;
   network?: { targetGoogleSearch: boolean; targetSearchNetwork: boolean; targetContentNetwork: boolean; targetPartnerSearchNetwork: boolean };
+  geoTargetTypeSetting?: { positiveGeoTargetType?: string; negativeGeoTargetType?: string };
   startDateTime?: string;
   endDateTime?: string;
   targetCpaMicros?: number;
@@ -58,6 +59,22 @@ export interface FakeKeyword {
   metrics: FakeMetrics;
 }
 
+export interface FakeGeoTarget {
+  id: string;
+  name: string;
+  canonicalName: string;
+  countryCode: string;
+  targetType: string;
+  status: 'ENABLED' | 'REMOVAL_PLANNED';
+}
+
+export interface FakeCampaignLocation {
+  campaignId: string;
+  criterionId: string;
+  geoTargetConstant: string;
+  negative: boolean;
+}
+
 export interface FakeAccount {
   customerId: string;
   name: string;
@@ -67,6 +84,8 @@ export interface FakeAccount {
   adGroups: FakeAdGroup[];
   keywords: FakeKeyword[];
   campaignNegatives: Array<{ campaignId: string; criterionId: string; text: string; matchType: string }>;
+  campaignLocations: FakeCampaignLocation[];
+  geoTargets: FakeGeoTarget[];
   searchTerms: Array<{ campaignId: string; adGroupId: string; term: string; status: string; metrics: FakeMetrics }>;
   conversionActions: Array<{ id: string; name: string; category: string; origin: string; type: string; status: string; primaryForGoal: boolean }>;
   campaignGoals: Array<{ campaignId: string; category: string; origin: string; biddable: boolean }>;
@@ -111,6 +130,33 @@ export function defaultAccount(): FakeAccount {
       { adGroupId: '5002', criterionId: '7003', text: 'waterproof boots', matchType: 'PHRASE', status: 'ENABLED', qualityScore: 7, metrics: metrics(300, 6) },
     ],
     campaignNegatives: [{ campaignId: '222', criterionId: '8001', text: 'free', matchType: 'BROAD' }],
+    campaignLocations: [
+      { campaignId: '111', criterionId: '8101', geoTargetConstant: 'geoTargetConstants/2840', negative: false },
+      { campaignId: '111', criterionId: '8102', geoTargetConstant: 'geoTargetConstants/2124', negative: false },
+      { campaignId: '222', criterionId: '8201', geoTargetConstant: 'geoTargetConstants/2840', negative: false },
+      { campaignId: '444', criterionId: '8401', geoTargetConstant: 'geoTargetConstants/2826', negative: false },
+    ],
+    geoTargets: [
+      { id: '2840', name: 'United States', canonicalName: 'United States', countryCode: 'US', targetType: 'Country', status: 'ENABLED' },
+      { id: '2826', name: 'United Kingdom', canonicalName: 'United Kingdom', countryCode: 'GB', targetType: 'Country', status: 'ENABLED' },
+      { id: '2124', name: 'Canada', canonicalName: 'Canada', countryCode: 'CA', targetType: 'Country', status: 'ENABLED' },
+      { id: '2036', name: 'Australia', canonicalName: 'Australia', countryCode: 'AU', targetType: 'Country', status: 'ENABLED' },
+      { id: '2276', name: 'Germany', canonicalName: 'Germany', countryCode: 'DE', targetType: 'Country', status: 'ENABLED' },
+      { id: '2250', name: 'France', canonicalName: 'France', countryCode: 'FR', targetType: 'Country', status: 'ENABLED' },
+      { id: '2784', name: 'United Arab Emirates', canonicalName: 'United Arab Emirates', countryCode: 'AE', targetType: 'Country', status: 'ENABLED' },
+      { id: '2682', name: 'Saudi Arabia', canonicalName: 'Saudi Arabia', countryCode: 'SA', targetType: 'Country', status: 'ENABLED' },
+      { id: '2818', name: 'Egypt', canonicalName: 'Egypt', countryCode: 'EG', targetType: 'Country', status: 'ENABLED' },
+      { id: '21137', name: 'California', canonicalName: 'California,United States', countryCode: 'US', targetType: 'State', status: 'ENABLED' },
+      { id: '21176', name: 'Texas', canonicalName: 'Texas,United States', countryCode: 'US', targetType: 'State', status: 'ENABLED' },
+      { id: '21132', name: 'Alaska', canonicalName: 'Alaska,United States', countryCode: 'US', targetType: 'State', status: 'ENABLED' },
+      { id: '21142', name: 'Florida', canonicalName: 'Florida,United States', countryCode: 'US', targetType: 'State', status: 'ENABLED' },
+      { id: '1006886', name: 'London', canonicalName: 'London,England,United Kingdom', countryCode: 'GB', targetType: 'City', status: 'ENABLED' },
+      { id: '1002376', name: 'London', canonicalName: 'London,Ontario,Canada', countryCode: 'CA', targetType: 'City', status: 'ENABLED' },
+      { id: '1006094', name: 'Paris', canonicalName: 'Paris,Ile-de-France,France', countryCode: 'FR', targetType: 'City', status: 'ENABLED' },
+      { id: '1026741', name: 'Paris', canonicalName: 'Paris,Texas,United States', countryCode: 'US', targetType: 'City', status: 'ENABLED' },
+      { id: '1023191', name: 'New York', canonicalName: 'New York,New York,United States', countryCode: 'US', targetType: 'City', status: 'ENABLED' },
+      { id: '21167', name: 'New York', canonicalName: 'New York,United States', countryCode: 'US', targetType: 'State', status: 'ENABLED' },
+    ],
     searchTerms: [
       { campaignId: '222', adGroupId: '5002', term: 'hiking boots repair', status: 'NONE', metrics: metrics(240, 0) },
       { campaignId: '222', adGroupId: '5002', term: 'cheap hiking boots used', status: 'NONE', metrics: metrics(180, 0) },
@@ -214,8 +260,11 @@ export class FakeGoogleAds {
     }
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     const isQuery = url.endsWith(':searchStream');
+    const isSuggest = url.endsWith('geoTargetConstants:suggest');
     const request: RecordedRequest = isQuery
       ? { kind: 'query', url, query: body.query, from: /FROM\s+(\w+)/i.exec(body.query || '')?.[1] }
+      : isSuggest
+      ? { kind: 'query', url, from: 'geo_target_constant_suggest', body }
       : { kind: 'mutate', url, service: /\/([A-Za-z]+):mutate$/.exec(url)?.[1], body, validateOnly: Boolean(body.validateOnly) };
     this.requests.push(request);
 
@@ -226,6 +275,7 @@ export class FakeGoogleAds {
     }
 
     try {
+      if (isSuggest) return this.json(this.suggestGeoTargets(body));
       if (isQuery) return this.json([{ results: this.query(body.query) }]);
       if (request.validateOnly) return this.json({ results: [] });
       return this.json(this.mutate(request.service || '', body));
@@ -236,6 +286,43 @@ export class FakeGoogleAds {
       );
     }
   };
+
+  private suggestGeoTargets(body: any) {
+    const names = Array.isArray(body?.locationNames?.names) ? (body.locationNames.names as string[]) : [];
+    const countryFilter = typeof body?.countryCode === 'string' ? body.countryCode.toUpperCase() : undefined;
+    const suggestions: Array<Record<string, unknown>> = [];
+
+    for (const searchTerm of names) {
+      const norm = searchTerm.toLowerCase().replace(/\s*,\s*/g, ', ').trim();
+      const parts = norm.split(',').map((part) => part.trim()).filter(Boolean);
+      const matches = this.account.geoTargets.filter((geo) => {
+        if (countryFilter && geo.countryCode.toUpperCase() !== countryFilter) return false;
+        const nameLower = geo.name.toLowerCase();
+        const canonLower = geo.canonicalName.toLowerCase().replace(/\s*,\s*/g, ', ');
+        if (canonLower === norm || nameLower === norm) return true;
+        if (geo.targetType === 'Country' && geo.countryCode.toLowerCase() === norm) return true;
+        if (parts.length > 1 && parts.every((part) => canonLower.includes(part))) return true;
+        return nameLower.includes(norm) || canonLower.includes(norm);
+      });
+      for (const geo of matches) {
+        suggestions.push({
+          locale: body?.locale || 'en',
+          searchTerm,
+          geoTargetConstant: {
+            id: geo.id,
+            resourceName: `geoTargetConstants/${geo.id}`,
+            name: geo.name,
+            canonicalName: geo.canonicalName,
+            countryCode: geo.countryCode,
+            targetType: geo.targetType,
+            status: geo.status,
+          },
+        });
+      }
+    }
+
+    return { geoTargetConstantSuggestions: suggestions };
+  }
 
   private json(value: unknown) {
     return new Response(JSON.stringify(value), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -258,6 +345,7 @@ export class FakeGoogleAds {
         startDateTime: campaign.startDateTime,
         endDateTime: campaign.endDateTime,
         networkSettings: campaign.network,
+        ...(campaign.geoTargetTypeSetting ? { geoTargetTypeSetting: campaign.geoTargetTypeSetting } : {}),
         ...(campaign.bidding === 'MAXIMIZE_CONVERSIONS' && campaign.targetCpaMicros ? { maximizeConversions: { targetCpaMicros: enc(campaign.targetCpaMicros) } } : {}),
         ...(campaign.bidding === 'TARGET_CPA' && campaign.targetCpaMicros ? { targetCpa: { targetCpaMicros: enc(campaign.targetCpaMicros) } } : {}),
         ...(campaign.bidding === 'MAXIMIZE_CONVERSION_VALUE' && campaign.targetRoas ? { maximizeConversionValue: { targetRoas: campaign.targetRoas } } : {}),
@@ -352,12 +440,44 @@ export class FakeGoogleAds {
             };
           });
       }
-      case 'campaign_criterion':
+      case 'campaign_criterion': {
+        if (/campaign_criterion\.type\s*=\s*'LOCATION'/.test(query)) {
+          return account.campaignLocations
+            .filter((loc) => !campaignId || loc.campaignId === campaignId)
+            .map((loc) => ({
+              campaignCriterion: {
+                criterionId: loc.criterionId,
+                resourceName: `customers/${cid}/campaignCriteria/${loc.campaignId}~${loc.criterionId}`,
+                negative: loc.negative,
+                location: { geoTargetConstant: loc.geoTargetConstant },
+              },
+            }));
+        }
         return account.campaignNegatives
           .filter((negative) => !campaignId || negative.campaignId === campaignId)
           .map((negative) => ({
             campaignCriterion: { criterionId: negative.criterionId, keyword: { text: negative.text, matchType: negative.matchType } },
           }));
+      }
+      case 'geo_target_constant': {
+        const matches = [...query.matchAll(/geoTargetConstants\/(\d+)/g)].map((m) => m[1]);
+        const idEq = idFilter(query, 'geo_target_constant.id');
+        if (idEq) matches.push(idEq);
+        const idSet = new Set(matches);
+        return account.geoTargets
+          .filter((geo) => !idSet.size || idSet.has(geo.id))
+          .map((geo) => ({
+            geoTargetConstant: {
+              id: geo.id,
+              resourceName: `geoTargetConstants/${geo.id}`,
+              name: geo.name,
+              canonicalName: geo.canonicalName,
+              countryCode: geo.countryCode,
+              targetType: geo.targetType,
+              status: geo.status,
+            },
+          }));
+      }
       case 'search_term_view':
         return account.searchTerms
           .filter((term) => !campaignId || term.campaignId === campaignId)
@@ -424,6 +544,7 @@ export class FakeGoogleAds {
     if (update.status) campaign.status = update.status;
     if (update.name) campaign.name = update.name;
     if (update.networkSettings) campaign.network = { ...(campaign.network || ({} as any)), ...update.networkSettings };
+    if (update.geoTargetTypeSetting) campaign.geoTargetTypeSetting = { ...(campaign.geoTargetTypeSetting || {}), ...update.geoTargetTypeSetting };
     if (update.startDateTime) campaign.startDateTime = update.startDateTime;
     if (update.endDateTime) campaign.endDateTime = update.endDateTime;
     if (update.manualCpc) campaign.bidding = 'MANUAL_CPC';
@@ -482,6 +603,7 @@ export class FakeGoogleAds {
           budgetMicros: budget.amount,
           metrics: metrics(0, 0, 0),
           network: create.networkSettings,
+          geoTargetTypeSetting: create.geoTargetTypeSetting,
           cpcCeilingMicros: create.targetSpend?.cpcBidCeilingMicros ? Number(create.targetSpend.cpcBidCeilingMicros) : undefined,
           targetCpaMicros: create.maximizeConversions?.targetCpaMicros
             ? Number(create.maximizeConversions.targetCpaMicros)
@@ -520,6 +642,26 @@ export class FakeGoogleAds {
         responses.push({ adGroupCriterionResult: { resourceName: `customers/${cid}/adGroupCriteria/x~${id}` } });
       } else if (kind === 'adGroupAdOperation') {
         responses.push({ adGroupAdResult: { resourceName: `customers/${cid}/adGroupAds/x~${this.nextId++}` } });
+      } else if (kind === 'campaignCriterionOperation') {
+        const create = value.create;
+        const resolvedCampaignId = this.idFromResource(real(create.campaign));
+        const id = String(this.nextId++);
+        if (create.location?.geoTargetConstant) {
+          this.account.campaignLocations.push({
+            campaignId: resolvedCampaignId,
+            criterionId: id,
+            geoTargetConstant: create.location.geoTargetConstant,
+            negative: Boolean(create.negative),
+          });
+        } else if (create.keyword) {
+          this.account.campaignNegatives.push({
+            campaignId: resolvedCampaignId,
+            criterionId: id,
+            text: create.keyword.text,
+            matchType: create.keyword.matchType,
+          });
+        }
+        responses.push({ campaignCriterionResult: { resourceName: `customers/${cid}/campaignCriteria/${resolvedCampaignId}~${id}` } });
       } else if (kind === 'conversionGoalCampaignConfigOperation') {
         const campaignId = this.idFromResource(value.update.resourceName);
         this.account.goalConfigs[campaignId] = { level: 'CAMPAIGN', customGoal: value.update.customConversionGoal };
@@ -586,14 +728,35 @@ export class FakeGoogleAds {
           break;
         }
         case 'campaignCriteria': {
+          if (operation.remove) {
+            const [campId, critId] = this.idFromResource(operation.remove).split('~');
+            this.account.campaignLocations = this.account.campaignLocations.filter(
+              (item) => !(item.campaignId === campId && item.criterionId === critId)
+            );
+            this.account.campaignNegatives = this.account.campaignNegatives.filter(
+              (item) => !(item.campaignId === campId && item.criterionId === critId)
+            );
+            results.push({ resourceName: operation.remove });
+            continue;
+          }
+          const campId = this.idFromResource(create.campaign);
           const id = String(this.nextId++);
-          this.account.campaignNegatives.push({
-            campaignId: this.idFromResource(create.campaign),
-            criterionId: id,
-            text: create.keyword.text,
-            matchType: create.keyword.matchType,
-          });
-          results.push({ resourceName: `customers/${cid}/campaignCriteria/${this.idFromResource(create.campaign)}~${id}` });
+          if (create.location?.geoTargetConstant) {
+            this.account.campaignLocations.push({
+              campaignId: campId,
+              criterionId: id,
+              geoTargetConstant: create.location.geoTargetConstant,
+              negative: Boolean(create.negative),
+            });
+          } else {
+            this.account.campaignNegatives.push({
+              campaignId: campId,
+              criterionId: id,
+              text: create.keyword.text,
+              matchType: create.keyword.matchType,
+            });
+          }
+          results.push({ resourceName: `customers/${cid}/campaignCriteria/${campId}~${id}` });
           continue;
         }
         case 'customConversionGoals': {

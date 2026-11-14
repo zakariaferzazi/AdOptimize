@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '@/lib/openrouter-service';
 import { DATE_PRESETS, type GoogleAdsContext } from '@/lib/google-ads/gaql';
+import { searchLocations } from '@/lib/google-ads/geo';
 import {
   getCampaignDetails,
   getConversionSetup,
@@ -146,13 +147,30 @@ const READ_TOOLS: ReadTool[] = [
     name: 'get_campaign_details',
     kind: 'read',
     description:
-      'Live settings of one campaign: status and serving reasons, channel, bidding strategy with targets/max CPC limit, budget (and whether shared), dates, networks, tracking, App settings.',
+      'Live settings of one campaign: status and serving reasons, channel, bidding strategy with targets/max CPC limit, budget (and whether shared), dates, networks, targeted & excluded locations and geo target options, tracking, App settings.',
     inputSchema: {
       type: 'object',
       properties: { campaignId, campaignName },
       additionalProperties: false,
     },
     handler: getCampaignDetails,
+  },
+  {
+    name: 'search_locations',
+    kind: 'read',
+    description:
+      'Search Google Ads geo target constants by location name (country, state/region, city, postal code) or numeric geo target ID. Use when verifying or disambiguating locations before creating or editing campaign location targeting.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Location name or numeric geo target constant ID.' },
+        countryCode: { type: 'string', description: 'Optional 2-letter ISO country code to narrow results (e.g. US, GB, CA).' },
+        limit: { type: 'number', minimum: 1, maximum: 25, description: 'Maximum location candidates to return.' },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    handler: searchLocations,
   },
   {
     name: 'get_conversion_setup',

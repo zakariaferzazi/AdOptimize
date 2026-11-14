@@ -51,6 +51,7 @@ describe('operation catalog', () => {
         'update_campaign_status',
         'update_campaign_budget',
         'update_campaign_bidding',
+        'update_campaign_locations',
         'create_campaign',
         'set_campaign_conversion_actions',
         'update_campaign_conversion_goals',
@@ -211,6 +212,61 @@ describe('campaign creation', () => {
     });
   });
 
+  it('creates a Search campaign with targeted and excluded locations and geo target type', async () => {
+    const { prepared, mismatches, realIds, after } = await run('create_campaign', {
+      name: 'UK & Europe Boots',
+      campaignType: 'SEARCH',
+      dailyBudget: 35,
+      targetLocations: ['United Kingdom', 'France', 'Paris, France'],
+      excludedLocations: ['Germany'],
+      positiveGeoTargetType: 'PRESENCE',
+      negativeGeoTargetType: 'PRESENCE',
+    });
+    expect(mismatches).toEqual([]);
+    expect(realIds.campaignId).toBeDefined();
+    expect(prepared.changes.join('\n')).toMatch(/United Kingdom \(2826\)/);
+    expect(prepared.changes.join('\n')).toMatch(/Excluded locations: Germany \(2276\)/);
+    const locations = after.locations as any;
+    expect(locations.targeted.map((l: any) => l.geoTargetConstant).sort()).toEqual([
+      'geoTargetConstants/1006094',
+      'geoTargetConstants/2250',
+      'geoTargetConstants/2826',
+    ]);
+    expect(locations.excluded.map((l: any) => l.geoTargetConstant)).toEqual(['geoTargetConstants/2276']);
+    expect((after.geoTargetTypeSetting as any)?.positiveGeoTargetType).toBe('PRESENCE');
+  });
+
+  it('rejects overlapping targeted and excluded locations on creation', async () => {
+    await expect(
+      run('create_campaign', {
+        name: 'Conflict Campaign',
+        campaignType: 'SEARCH',
+        dailyBudget: 20,
+        targetLocations: ['United States'],
+        excludedLocations: ['2840'],
+      })
+    ).rejects.toMatchObject({ payload: { code: 'invalid_argument', message: expect.stringMatching(/both targeted and excluded/) } });
+  });
+
+  it('surfaces ambiguity when a location name has multiple matches', async () => {
+    await expect(
+      run('create_campaign', {
+        name: 'Ambiguous City Campaign',
+        campaignType: 'SEARCH',
+        dailyBudget: 20,
+        targetLocations: ['London'],
+      })
+    ).rejects.toMatchObject({
+      payload: {
+        code: 'ambiguous',
+        candidates: expect.arrayContaining([
+          expect.objectContaining({ id: '1006886' }),
+          expect.objectContaining({ id: '1002376' }),
+        ]),
+      },
+    });
+  });
+
   it('surfaces Google Ads validation failures before a proposal exists', async () => {
     fake.failNext((request) => request.kind === 'mutate' && Boolean(request.validateOnly), 'TOO_LONG', 'stringLengthError', 'Too long.', 'mutate_operations.campaign_operation.create.name');
     const operation = getOperation('create_campaign')!;
@@ -311,5 +367,62 @@ describe('ad group and keyword operations', () => {
     const created = await run('create_ad_group', { campaignId: '222', name: 'Trail', defaultMaxCpc: 1, keywords: [{ text: 'trail shoes', matchType: 'PHRASE' }] });
     expect(created.mismatches).toEqual([]);
     expect(created.realIds.adGroupId).toBeDefined();
+  });
+});
+
+describe('location targeting operations', () => {
+  it('adds, excludes, removes, and replaces locations on an existing campaign', async () => {
+    // Campaign 111 initially targets United States (2840) and Canada (2124).
+    const added = await run('update_campaign_locations', {
+      campaignId: '111',
+      addLocations: ['United Kingdom', 'United States'],
+      excludeLocations: ['Alaska'],
+      positiveGeoTargetType: 'PRESENCE',
+    });
+    expect(added.mismatches).toEqual([]);
+    expect(added.prepared.warnings.join(' ')).toMatch(/Already targeted.*United States/);
+    expect(added.after.targetedGeoConstants).toEqual([
+      'geoTargetConstants/2124',
+      'geoTargetConstants/2826',
+      'geoTargetConstants/2840',
+    ]);
+    expect(added.after.excludedGeoConstants).toEqual(['geoTargetConstants/21132']);
+    expect(added.after.positiveGeoTargetType).toBe('PRESENCE');
+
+    // Now replace targeted locations with just France & Germany, and remove Alaska exclusion.
+    const replaced = await run('update_campaign_locations', {
+      campaignId: '111',
+      setLocations: ['France', 'Germany'],
+      removeLocations: ['Alaska'],
+    });
+    expect(replaced.mismatches).toEqual([]);
+    expect(replaced.after.targetedGeoConstants).toEqual([
+      'geoTargetConstants/2250',
+      'geoTargetConstants/2276',
+    ]);
+    expect(replaced.after.excludedGeoConstants).toEqual([]);
+  });
+
+  it('rejects invalid combinations and no-op location edits', async () => {
+    await expect(
+      run('update_campaign_locations', {
+        campaignId: '222',
+        setLocations: ['United States'],
+      })
+    ).rejects.toMatchObject({ payload: { code: 'invalid_argument', message: expect.stringMatching(/already has/) } });
+
+    await expect(
+      run('update_campaign_locations', {
+        campaignId: '444',
+        positiveGeoTargetType: 'SEARCH_INTEREST',
+      })
+    ).rejects.toMatchObject({ payload: { code: 'unsupported' } });
+
+    await expect(
+      run('update_campaign_locations', {
+        campaignId: '222',
+        excludeLocations: ['United States'],
+      })
+    ).rejects.toMatchObject({ payload: { code: 'invalid_argument', message: expect.stringMatching(/Remove it from targeted locations/) } });
   });
 });

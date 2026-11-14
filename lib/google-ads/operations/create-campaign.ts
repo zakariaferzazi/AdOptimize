@@ -1,6 +1,13 @@
 import { invalidArgument, unsupported } from '@/lib/mcp/errors';
 import { cleanId, isIsoDate, round, runGaql, toMicros, type GoogleAdsContext } from '../gaql';
-import { listConversionActions, readCampaignState, resolveCampaign } from '../reporting';
+import { resolveLocationInputs, type GeoTarget } from '../geo';
+import {
+  listConversionActions,
+  readCampaignLocations,
+  readCampaignState,
+  resolveCampaign,
+  type CampaignLocationsState,
+} from '../reporting';
 import { BIDDING_STRATEGIES, biddingFields, checkBiddingArgs } from './campaign-ops';
 import {
   assertAccountCurrency,
@@ -71,7 +78,7 @@ export const createCampaign: OperationDescriptor = {
   name: 'create_campaign',
   title: 'Create campaign',
   description:
-    'Create a new Search or App campaign with its own daily budget in one atomic request. Search campaigns can include a first ad group (default max CPC + keywords) and a responsive search ad so they are ready to serve. App campaigns need appId/appStore and an app bidding goal; they can be limited to specific conversion actions (selective optimization). Campaigns are created PAUSED unless status ENABLED is requested.',
+    'Create a new Search or App campaign with its own daily budget in one atomic request, including optional targeted/excluded locations and location options. Search campaigns can include a first ad group (default max CPC + keywords) and a responsive search ad so they are ready to serve. App campaigns need appId/appStore and an app bidding goal; they can be limited to specific conversion actions (selective optimization). Campaigns are created PAUSED unless status ENABLED is requested.',
   schema: {
     type: 'object',
     properties: {
@@ -82,6 +89,32 @@ export const createCampaign: OperationDescriptor = {
       status: { type: 'string', enum: ['PAUSED', 'ENABLED'], description: 'Defaults to PAUSED.' },
       startDate: { type: 'string', description: 'YYYY-MM-DD, optional.' },
       endDate: { type: 'string', description: 'YYYY-MM-DD, optional.' },
+      targetLocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description:
+          'Optional locations to target (country, state/region, city names or numeric geo target IDs). Omit to target all countries and territories.',
+      },
+      excludedLocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: { type: 'string', maxLength: 200 },
+        description: 'Optional locations to exclude (country, state/region, city names or numeric geo target IDs).',
+      },
+      positiveGeoTargetType: {
+        type: 'string',
+        enum: ['PRESENCE_OR_INTEREST', 'PRESENCE', 'SEARCH_INTEREST'],
+        description:
+          'Optional positive location option: PRESENCE_OR_INTEREST (default), PRESENCE (people in or regularly in targeted locations), or SEARCH_INTEREST (Search only).',
+      },
+      negativeGeoTargetType: {
+        type: 'string',
+        enum: ['PRESENCE_OR_INTEREST', 'PRESENCE'],
+        description: 'Optional exclusion location option: PRESENCE_OR_INTEREST (default) or PRESENCE.',
+      },
       biddingStrategy: { type: 'string', enum: [...BIDDING_STRATEGIES], description: 'Search only. Defaults to MAXIMIZE_CLICKS.' },
       targetCpa: { type: 'number', minimum: 0.01, description: 'Search: target CPA. App: target cost per install or per in-app action.' },
       targetRoas: { type: 'number', minimum: 0.01 },
@@ -136,7 +169,7 @@ export const createCampaign: OperationDescriptor = {
     additionalProperties: false,
   },
   actionType: () => 'CREATE_CAMPAIGN',
-  internalArgs: ['budgetName'],
+  internalArgs: ['budgetName', 'resolvedTargetLocations', 'resolvedExcludedLocations'],
   destructive: () => false,
   targetKey: () => 'new_campaign',
   async prepare(args, context) {
@@ -275,6 +308,56 @@ export const createCampaign: OperationDescriptor = {
       }
     }
 
+    if (type === 'APP' && args.positiveGeoTargetType === 'SEARCH_INTEREST') {
+      throw invalidArgument('SEARCH_INTEREST positive location targeting is only available for Search campaigns.');
+    }
+
+    const rawTargets = Array.isArray(args.targetLocations) ? (args.targetLocations as string[]) : [];
+    const rawExcludes = Array.isArray(args.excludedLocations) ? (args.excludedLocations as string[]) : [];
+    const [resolvedTargets, resolvedExcludes]: [GeoTarget[], GeoTarget[]] = await Promise.all([
+      rawTargets.length ? resolveLocationInputs(context, rawTargets, 'target location') : Promise.resolve([]),
+      rawExcludes.length ? resolveLocationInputs(context, rawExcludes, 'excluded location') : Promise.resolve([]),
+    ]);
+
+    if (resolvedTargets.length && resolvedExcludes.length) {
+      const targetResources = new Set(resolvedTargets.map((item) => item.resourceName));
+      const clash = resolvedExcludes.find((item) => targetResources.has(item.resourceName));
+      if (clash) {
+        throw invalidArgument(`Location "${clash.canonicalName || clash.name}" cannot be both targeted and excluded.`);
+      }
+    }
+
+    if (resolvedTargets.length) {
+      normalized.targetLocations = resolvedTargets.map((item) => item.canonicalName || item.name);
+      normalized.resolvedTargetLocations = resolvedTargets.map((item) => ({
+        id: item.id,
+        geoTargetConstant: item.resourceName,
+        canonicalName: item.canonicalName || item.name,
+      }));
+      changes.push(`Target locations: ${resolvedTargets.map((item) => `${item.canonicalName || item.name} (${item.id})`).join(', ')}`);
+    } else {
+      changes.push('Target locations: All countries and territories');
+    }
+
+    if (resolvedExcludes.length) {
+      normalized.excludedLocations = resolvedExcludes.map((item) => item.canonicalName || item.name);
+      normalized.resolvedExcludedLocations = resolvedExcludes.map((item) => ({
+        id: item.id,
+        geoTargetConstant: item.resourceName,
+        canonicalName: item.canonicalName || item.name,
+      }));
+      changes.push(`Excluded locations: ${resolvedExcludes.map((item) => `${item.canonicalName || item.name} (${item.id})`).join(', ')}`);
+    }
+
+    if (args.positiveGeoTargetType) {
+      normalized.positiveGeoTargetType = args.positiveGeoTargetType;
+      changes.push(`Positive location option: ${humanize(args.positiveGeoTargetType)}`);
+    }
+    if (args.negativeGeoTargetType) {
+      normalized.negativeGeoTargetType = args.negativeGeoTargetType;
+      changes.push(`Exclusion location option: ${humanize(args.negativeGeoTargetType)}`);
+    }
+
     if (!normalized.containsEuPoliticalAdvertising) changes.push('Declared as not containing EU political advertising.');
     if (status === 'ENABLED') warnings.push('The campaign will be eligible to spend as soon as it is created.');
 
@@ -292,15 +375,25 @@ export const createCampaign: OperationDescriptor = {
       const state = await readCampaignState(context, realIds.campaignId, { fresh: true });
       if (!state) return { exists: false };
       let adGroups: Array<{ id: string; name: string }> = [];
+      let locations: CampaignLocationsState | undefined;
+      const needsLocations =
+        Array.isArray(args.resolvedTargetLocations) ||
+        Array.isArray(args.resolvedExcludedLocations);
+      const [groupRows, locationState] = await Promise.all([
+        args.adGroup
+          ? runGaql(
+              context,
+              `SELECT ad_group.id, ad_group.name FROM ad_group WHERE campaign.id = ${state.campaignId} AND ad_group.status != 'REMOVED'`,
+              { cacheTtlMs: 0 }
+            )
+          : Promise.resolve([]),
+        needsLocations ? readCampaignLocations(context, state.campaignId, { fresh: true }) : Promise.resolve(undefined),
+      ]);
       if (args.adGroup) {
-        const rows = await runGaql(
-          context,
-          `SELECT ad_group.id, ad_group.name FROM ad_group WHERE campaign.id = ${state.campaignId} AND ad_group.status != 'REMOVED'`,
-          { cacheTtlMs: 0 }
-        );
-        adGroups = rows.map((row) => ({ id: cleanId(row.adGroup?.id), name: String(row.adGroup?.name || '') }));
+        adGroups = groupRows.map((row) => ({ id: cleanId(row.adGroup?.id), name: String(row.adGroup?.name || '') }));
       }
-      return { exists: true, ...state, adGroups } as unknown as Record<string, unknown>;
+      locations = locationState;
+      return { exists: true, ...state, adGroups, ...(locations ? { locations } : {}) } as unknown as Record<string, unknown>;
     }
     try {
       const existing = await resolveCampaign(context, { campaignName: String(args.name) }, { fresh: true });
@@ -328,6 +421,14 @@ export const createCampaign: OperationDescriptor = {
         : 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
       ...(args.startDate ? { startDateTime: `${String(args.startDate)} 00:00:00` } : {}),
       ...(args.endDate ? { endDateTime: `${String(args.endDate)} 23:59:59` } : {}),
+      ...(args.positiveGeoTargetType || args.negativeGeoTargetType
+        ? {
+            geoTargetTypeSetting: {
+              ...(args.positiveGeoTargetType ? { positiveGeoTargetType: args.positiveGeoTargetType } : {}),
+              ...(args.negativeGeoTargetType ? { negativeGeoTargetType: args.negativeGeoTargetType } : {}),
+            },
+          }
+        : {}),
     };
 
     if (isApp) {
@@ -407,6 +508,31 @@ export const createCampaign: OperationDescriptor = {
       }
     }
 
+    const resolvedTargets = (args.resolvedTargetLocations || []) as Array<{ geoTargetConstant: string }>;
+    const resolvedExcludes = (args.resolvedExcludedLocations || []) as Array<{ geoTargetConstant: string }>;
+    for (const loc of resolvedTargets) {
+      operations.push({
+        campaignCriterionOperation: {
+          create: {
+            campaign,
+            negative: false,
+            location: { geoTargetConstant: loc.geoTargetConstant },
+          },
+        },
+      });
+    }
+    for (const loc of resolvedExcludes) {
+      operations.push({
+        campaignCriterionOperation: {
+          create: {
+            campaign,
+            negative: true,
+            location: { geoTargetConstant: loc.geoTargetConstant },
+          },
+        },
+      });
+    }
+
     return [{ kind: 'combined', operations }];
   },
   realIds(_args, results) {
@@ -441,6 +567,24 @@ export const createCampaign: OperationDescriptor = {
       if (group?.name && !((after.adGroups || []) as Array<{ name: string }>).some((item) => item.name === group.name)) {
         issues.push('ad group missing');
       }
+    }
+    const locations = (after.locations || { targeted: [], excluded: [] }) as CampaignLocationsState;
+    const expectedTargets = (args.resolvedTargetLocations || []) as Array<{ geoTargetConstant: string; canonicalName: string }>;
+    const expectedExcludes = (args.resolvedExcludedLocations || []) as Array<{ geoTargetConstant: string; canonicalName: string }>;
+    const observedTargets = new Set(locations.targeted.map((item) => item.geoTargetConstant));
+    const observedExcludes = new Set(locations.excluded.map((item) => item.geoTargetConstant));
+    for (const loc of expectedTargets) {
+      if (!observedTargets.has(loc.geoTargetConstant)) issues.push(`target location missing: ${loc.canonicalName}`);
+    }
+    for (const loc of expectedExcludes) {
+      if (!observedExcludes.has(loc.geoTargetConstant)) issues.push(`excluded location missing: ${loc.canonicalName}`);
+    }
+    const geoSetting = (after.geoTargetTypeSetting || {}) as { positiveGeoTargetType?: string; negativeGeoTargetType?: string };
+    if (args.positiveGeoTargetType && geoSetting.positiveGeoTargetType !== args.positiveGeoTargetType) {
+      issues.push(`positiveGeoTargetType is ${String(geoSetting.positiveGeoTargetType)}`);
+    }
+    if (args.negativeGeoTargetType && geoSetting.negativeGeoTargetType !== args.negativeGeoTargetType) {
+      issues.push(`negativeGeoTargetType is ${String(geoSetting.negativeGeoTargetType)}`);
     }
     return issues;
   },
