@@ -7,3 +7,5 @@ coverage/
 !.env.example
 .open-next/
 .wrangler/
+bun.lock
+bun.lockb
