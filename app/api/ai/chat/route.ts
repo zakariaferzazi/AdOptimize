@@ -183,8 +183,14 @@ export async function POST(req: NextRequest) {
         executionTimeMs: call.durationMs,
       }));
 
+    const isModelInterrupted = result.stopReason === 'model_error' && pending.length === 0;
+
     return NextResponse.json({
       success: true,
+      retryable: isModelInterrupted || undefined,
+      error: isModelInterrupted
+        ? 'The AI model could not finish responding. Nothing in your account was changed.'
+        : undefined,
       conversationId: conversation.id,
       reply: result.reply,
       actionProposal: pending[pending.length - 1],

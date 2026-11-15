@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Send,
   Square,
@@ -12,7 +12,7 @@ import {
   Check,
   X,
   ChevronDown,
-  ChevronUp,
+  ArrowDown,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -27,6 +27,8 @@ import {
   MessageSquare,
   Search,
   Zap,
+  Bot,
+  Copy,
 } from 'lucide-react';
 import { ChatMarkdown } from './markdown-renderer';
 import { auth } from '@/lib/firebase';
@@ -44,8 +46,6 @@ import {
   AutomationRule,
   GoogleAdsAccount,
   ProposedAccountChange,
-  InteractiveRecommendationCard,
-  AnalysisSummaryDetail,
 } from '@/types/adoptimize';
 
 export type ActiveAiModel = 'deepseek' | 'chatgpt' | 'gemini';
@@ -58,6 +58,11 @@ export function normalizeModel(model: string | undefined): ActiveAiModel {
   return 'deepseek';
 }
 
+function isInterruptedErrorReply(content: string | undefined | null): boolean {
+  if (!content) return false;
+  return /stopped responding partway through this request/i.test(content);
+}
+
 interface ChatSession {
   id: string;
   title: string;
@@ -65,6 +70,11 @@ interface ChatSession {
   updatedAt: number;
   model: ActiveAiModel;
   messages: ChatMessage[];
+}
+
+interface FailedAttempt {
+  query: string;
+  message: string;
 }
 
 interface AiChatViewProps {
@@ -95,27 +105,17 @@ What would you like to investigate?`;
 export function AiChatView({
   account,
   campaigns,
-  keywords,
-  searchTerms,
-  auditLogs,
-  anomalies,
-  insights,
-  recommendations,
-  rules,
   userId,
-  accessToken,
   onMutateCampaign,
   onSelectCampaign,
   onSelectCampaignByName,
 }: AiChatViewProps) {
-  // Model selector: DeepSeek, ChatGPT, Gemini
   const [selectedModel, setSelectedModel] = useState<ActiveAiModel>('deepseek');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useClickOutside<HTMLDivElement>(() => setShowModelDropdown(false), showModelDropdown);
   const sessionsToggleRef = useRef<HTMLButtonElement>(null);
   const sessionsDrawerRef = useRef<HTMLDivElement>(null);
 
-  // Conversation history / Sessions
   const storageKey = useMemo(() => `adoptimize_chat_sessions_${userId || 'guest'}`, [userId]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>('default');
@@ -123,20 +123,19 @@ export function AiChatView({
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
 
-  // Active message input & streaming/loading
   const [inputValue, setInputValue] = useState('');
-  const [preservedDraft, setPreservedDraft] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<number>(0);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [failedAttempt, setFailedAttempt] = useState<FailedAttempt | null>(null);
   const [executingProposalId, setExecutingProposalId] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isNearBottomRef = useRef<boolean>(true);
 
   useEffect(() => {
     if (!showSessionsDrawer) return;
@@ -162,7 +161,6 @@ export function AiChatView({
     };
   }, [showSessionsDrawer]);
 
-  // Initialize or load sessions from localStorage, then hydrate from the server.
   useEffect(() => {
     let cancelled = false;
 
@@ -188,7 +186,8 @@ export function AiChatView({
         const hydrated: ChatMessage[] = stored
           .filter(
             (item: { role: string; content: string | null }) =>
-              item.role === 'user' || (item.role === 'assistant' && Boolean(item.content))
+              item.role === 'user' ||
+              (item.role === 'assistant' && Boolean(item.content) && !isInterruptedErrorReply(item.content))
           )
           .map((item: { id: string; role: string; content: string | null; createdAt: string }) => ({
             id: item.id,
@@ -214,7 +213,7 @@ export function AiChatView({
           return next;
         });
       } catch {
-        // The local cache remains usable when the server is unreachable.
+        // Local cache remains usable when server is unreachable
       }
     };
 
@@ -236,7 +235,6 @@ export function AiChatView({
       // fallback
     }
 
-    // Default initial session
     const initialSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'Performance Analysis',
@@ -261,7 +259,6 @@ export function AiChatView({
     };
   }, [storageKey]);
 
-  // Persist sessions
   const saveSessions = (updatedSessions: ChatSession[]) => {
     setSessions(updatedSessions);
     try {
@@ -291,65 +288,54 @@ export function AiChatView({
     return currentSession?.messages || [];
   }, [currentSession]);
 
-  const activeCampaign = useMemo(() => {
-    const latestMessageTarget = [...messages]
-      .reverse()
-      .find((message) => message.activeCampaign);
-    if (latestMessageTarget?.activeCampaign) {
-      return latestMessageTarget.activeCampaign;
-    }
-    const latestProposal = [...messages]
-      .reverse()
-      .map((message) => message.actionProposal)
-      .find((proposal): proposal is ProposedAccountChange =>
-        Boolean(proposal && proposal.status !== 'DECLINED' && proposal.status !== 'FAILED')
-      );
-    return latestProposal
-      ? { id: latestProposal.campaignId, name: latestProposal.campaignName }
-      : undefined;
-  }, [messages]);
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    const container = chatScrollContainerRef.current;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior,
+        });
+      });
+    });
+  };
 
-  // Track if user is scrolled near bottom
   const handleScroll = () => {
-    if (!chatScrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
-    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+    const container = chatScrollContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowScrollButton(distanceFromBottom > 160);
   };
 
-  // Scroll to bottom only if user was already near bottom
-  const scrollToBottomIfAppropriate = (force = false) => {
-    if (force || isNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const lastMessage = messages[messages.length - 1];
+  const lastMessageSignature = `${currentSessionId}:${messages.length}:${lastMessage?.id || ''}:${lastMessage?.content?.length || 0}`;
 
   useEffect(() => {
-    scrollToBottomIfAppropriate();
-  }, [messages, isLoading, loadingStep]);
+    scrollToBottom('smooth');
+  }, [lastMessageSignature, isLoading, failedAttempt]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 144)}px`;
     }
   }, [inputValue]);
 
-  // Simulate realistic progress steps during analysis
   useEffect(() => {
     if (!isLoading) {
       setLoadingStep(0);
       return;
     }
 
-    setLoadingStep(1); // "Understanding your request"
+    setLoadingStep(1);
     const timer1 = setTimeout(() => {
-      setLoadingStep(2); // "Reviewing relevant information"
-    }, 1200);
+      setLoadingStep(2);
+    }, 1100);
 
     const timer2 = setTimeout(() => {
-      setLoadingStep(3); // "Crafting a clear response"
-    }, 2500);
+      setLoadingStep(3);
+    }, 2400);
 
     return () => {
       clearTimeout(timer1);
@@ -357,25 +343,28 @@ export function AiChatView({
     };
   }, [isLoading]);
 
-  // Primary 4 quick suggestions
   const primarySuggestions = [
     {
       label: 'Find Wasted Spend',
+      subtitle: 'Spot non-converting clicks & budget leaks',
       prompt: 'Analyze my Google Ads account and tell me what is wasting money.',
       icon: TrendingDown,
     },
     {
       label: 'Analyze My Campaigns',
+      subtitle: 'Full metrics breakdown & opportunities',
       prompt: 'Analyze all my active campaigns and give me a clear performance breakdown with metrics and recommendations.',
       icon: Layers,
     },
     {
-      label: 'Improve My Budget',
+      label: 'Optimize Daily Budget',
+      subtitle: 'Shift spend toward highest-ROAS campaigns',
       prompt: 'Recommend how to redistribute my daily budget across campaigns to maximize conversions and ROAS.',
       icon: TrendingUp,
     },
     {
-      label: 'Explain Performance Changes',
+      label: 'Explain Performance Shifts',
+      subtitle: 'Compare current vs previous period deltas',
       prompt: 'Compare my current performance against the previous period and explain what changed and why.',
       icon: Sliders,
     },
@@ -399,34 +388,53 @@ export function AiChatView({
     },
   ];
 
-  // Send message
-  const handleSendMessage = async (textToSend?: string) => {
-    const query = (textToSend || inputValue).trim();
+  const handleSendMessage = async (
+    textToSend?: string,
+    opts?: { isRetry?: boolean }
+  ) => {
+    const query = (textToSend ?? inputValue).trim();
     if (!query || isLoading) return;
+    const isRetry = Boolean(opts?.isRetry);
     const requestSessionId = currentSessionId;
 
-    setErrorMessage(null);
-    setPreservedDraft(query);
-    setInputValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    setFailedAttempt(null);
+    if (!isRetry) {
+      setInputValue('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    let updatedMessages: ChatMessage[];
+    if (isRetry) {
+      updatedMessages = [...messages];
+      const hasSameLastUserMessage =
+        updatedMessages.length > 0 &&
+        updatedMessages[updatedMessages.length - 1].role === 'user' &&
+        updatedMessages[updatedMessages.length - 1].content.trim() === query;
 
-    // Update active session messages
-    const updatedMessages = [...messages, userMessage];
+      if (!hasSameLastUserMessage) {
+        updatedMessages.push({
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: query,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      }
+    } else {
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: query,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      updatedMessages = [...messages, userMessage];
+    }
+
     const isFirstUserMessage = messages.filter((m) => m.role === 'user').length === 0;
-
     let updatedSessionTitle = currentSession?.title || 'Performance Analysis';
     if (isFirstUserMessage) {
-      // Auto-title session from first query
-      updatedSessionTitle = query.length > 32 ? `${query.slice(0, 32)}...` : query;
+      updatedSessionTitle = query.length > 36 ? `${query.slice(0, 36)}...` : query;
     }
 
     const updatedSessions = sessions.map((s) => {
@@ -443,7 +451,7 @@ export function AiChatView({
 
     saveSessions(updatedSessions);
     setIsLoading(true);
-    scrollToBottomIfAppropriate(true);
+    scrollToBottom('smooth');
 
     const controller = new AbortController();
     setAbortController(controller);
@@ -463,7 +471,11 @@ export function AiChatView({
           modelTier: selectedModel,
           conversationId: requestSessionId,
           history: updatedMessages
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .filter(
+              (m) =>
+                (m.role === 'user' || m.role === 'assistant') &&
+                !isInterruptedErrorReply(m.content)
+            )
             .map((m) => ({
               role: m.role,
               content: m.content || '',
@@ -473,17 +485,18 @@ export function AiChatView({
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || `HTTP error ${response.status}`);
+        throw new Error(errJson.error || `Request failed (${response.status})`);
       }
 
       const data = await response.json();
 
-      // The server is authoritative for the conversation ID. Adopt it so the
-      // next turn continues the same durable conversation and task state.
       const serverConversationId = data.conversationId as string | undefined;
       const targetSessionId = serverConversationId || requestSessionId;
       if (serverConversationId && serverConversationId !== requestSessionId) {
         setCurrentSessionId(serverConversationId);
+        updateSessions((current) =>
+          current.map((s) => (s.id === requestSessionId ? { ...s, id: targetSessionId } : s))
+        );
       }
 
       const proposals: ProposedAccountChange[] = Array.isArray(data.actionProposals)
@@ -491,6 +504,21 @@ export function AiChatView({
         : data.actionProposal
         ? [data.actionProposal]
         : [];
+
+      const isModelInterrupted =
+        Boolean(data.retryable) ||
+        (data.stopReason === 'model_error' && proposals.length === 0) ||
+        (isInterruptedErrorReply(data.reply) && proposals.length === 0);
+
+      if (isModelInterrupted) {
+        setFailedAttempt({
+          query,
+          message:
+            data.error ||
+            'The AI model could not finish responding. Nothing in your account was changed.',
+        });
+        return;
+      }
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
@@ -505,7 +533,7 @@ export function AiChatView({
         toolCalls: data.toolCalls,
         modelUsed: data.modelUsed,
       };
-      // Each additional proposal from the same turn gets its own card.
+
       const extraCards: ChatMessage[] = proposals.slice(1).map((proposal, index) => ({
         id: `assistant-${Date.now()}-card-${index + 1}`,
         role: 'assistant',
@@ -514,7 +542,6 @@ export function AiChatView({
         actionProposal: proposal,
       }));
 
-      // Proposals replaced on the server by a newer revision are no longer approvable.
       const newIds = new Set(proposals.map((proposal) => proposal.proposalId));
       const replacedIds = new Set<string>(
         Array.isArray(data.supersededProposalIds) ? data.supersededProposalIds : []
@@ -535,6 +562,7 @@ export function AiChatView({
             }
           : message
       );
+
       const finalMessages = [...messagesWithSupersession, assistantMessage, ...extraCards];
       updateSessions((current) =>
         current.map((s) =>
@@ -543,12 +571,13 @@ export function AiChatView({
             : s
         )
       );
-      setPreservedDraft('');    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const errorObj = err as { name?: string; message?: string };
+      if (errorObj?.name === 'AbortError') {
         const cancelledMessage: ChatMessage = {
           id: `cancelled-${Date.now()}`,
           role: 'assistant',
-          content: 'Analysis was stopped.',
+          content: 'Response generation was stopped.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
         updateSessions((current) =>
@@ -559,12 +588,17 @@ export function AiChatView({
           )
         );
       } else {
-        setErrorMessage(err.message || 'Unable to complete request. Please try again or switch model.');
+        setFailedAttempt({
+          query,
+          message:
+            errorObj?.message ||
+            'Unable to complete request. No Google Ads changes were made.',
+        });
       }
     } finally {
       setIsLoading(false);
       setAbortController(null);
-      scrollToBottomIfAppropriate(true);
+      scrollToBottom('smooth');
     }
   };
 
@@ -574,14 +608,20 @@ export function AiChatView({
     }
   };
 
-  const handleRetryFailedDraft = () => {
-    if (preservedDraft) {
-      setInputValue(preservedDraft);
-      setErrorMessage(null);
-    }
+  const handleRetryNow = () => {
+    if (!failedAttempt || isLoading) return;
+    void handleSendMessage(failedAttempt.query, { isRetry: true });
   };
 
-  // Start a fresh new conversation session
+  const handleEditFailedPrompt = () => {
+    if (!failedAttempt) return;
+    setInputValue(failedAttempt.query);
+    setFailedAttempt(null);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
   const handleNewConversation = () => {
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
@@ -602,14 +642,13 @@ export function AiChatView({
 
     updateSessions((current) => [newSession, ...current]);
     setCurrentSessionId(newSession.id);
-    setErrorMessage(null);
+    setFailedAttempt(null);
     setInputValue('');
   };
 
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setErrorMessage(null);
-    setPreservedDraft('');
+    setFailedAttempt(null);
     const remaining = sessions.filter((s) => s.id !== id);
     const nextCurrentId = currentSessionId === id ? remaining[0]?.id : currentSessionId;
     if (remaining.length > 0) {
@@ -624,7 +663,15 @@ export function AiChatView({
       createdAt: Date.now(),
       updatedAt: Date.now(),
       model: selectedModel,
-      messages: [{ id: `welcome-${Date.now()}`, role: 'assistant', content: WELCOME_TEXT, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), modelUsed: 'Google Ads Assistant' }],
+      messages: [
+        {
+          id: `welcome-${Date.now()}`,
+          role: 'assistant',
+          content: WELCOME_TEXT,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          modelUsed: 'Google Ads Assistant',
+        },
+      ],
     };
     saveSessions([emptySession]);
     setCurrentSessionId(emptySession.id);
@@ -641,7 +688,18 @@ export function AiChatView({
     setEditingSessionTitle('');
   };
 
-  // Safe Account Change Execution
+  const handleCopyMessage = async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(messageId);
+      setTimeout(() => {
+        setCopiedMessageId((current) => (current === messageId ? null : current));
+      }, 1500);
+    } catch {
+      // clipboard unavailable
+    }
+  };
+
   const handleApproveProposal = async (proposal: ProposedAccountChange, messageId: string) => {
     if (!proposal || !proposal.actionType || !proposal.proposalId || !proposal.revision || !proposal.payloadHash) {
       updateSessions((current) =>
@@ -656,7 +714,8 @@ export function AiChatView({
                         actionProposal: {
                           ...msg.actionProposal,
                           status: 'FAILED',
-                          executionResult: 'This approval is no longer valid. Request the action again and approve the latest card.',
+                          executionResult:
+                            'This approval is no longer valid. Request the action again and approve the latest card.',
                         },
                       }
                     : msg
@@ -715,7 +774,6 @@ export function AiChatView({
       });
 
       const resData = await response.json();
-
       const unverified = resData.status === 'executed_unverified';
       if (!unverified && (!response.ok || !resData.success)) {
         throw new Error(resData.error || resData.message || 'Failed to execute Google Ads change.');
@@ -741,8 +799,12 @@ export function AiChatView({
                       ...(createdCampaignId
                         ? { campaignId: String(createdCampaignId) }
                         : {}),
-                      executionResult: resData.message || 'Change successfully verified and executed in Google Ads.',
-                      appliedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      executionResult:
+                        resData.message || 'Change successfully verified and executed in Google Ads.',
+                      appliedAt: new Date().toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }),
                     },
                   };
                 }
@@ -753,7 +815,8 @@ export function AiChatView({
           return s;
         })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
       updateSessions((current) =>
         current.map((s) => {
           if (s.id === currentSessionId) {
@@ -766,7 +829,8 @@ export function AiChatView({
                     actionProposal: {
                       ...msg.actionProposal,
                       status: 'FAILED',
-                      executionResult: err.message || 'Execution failed. No changes were confirmed.',
+                      executionResult:
+                        errorObj?.message || 'Execution failed. No changes were confirmed.',
                     },
                   };
                 }
@@ -802,7 +866,10 @@ export function AiChatView({
       declineError = 'The proposal could not be declined. Check your connection and try again.';
     }
     if (declineError) {
-      setErrorMessage(declineError);
+      setFailedAttempt({
+        query: '',
+        message: declineError,
+      });
       return;
     }
     updateSessions((current) =>
@@ -843,118 +910,98 @@ export function AiChatView({
     }
   };
 
-  // User-facing tiers keep the configured provider and model names private.
-  const aiModelDetails: Record<string, { label: string; icon: any }> = {
-    deepseek: {
-      label: 'DeepSeek',
-      icon: DeepSeekIcon,
-    },
-    chatgpt: {
-      label: 'ChatGPT',
-      icon: ChatGPTIcon,
-    },
-    gemini: {
-      label: 'Gemini',
-      icon: GeminiIcon,
-    },
-    // Backwards-compatible aliases for previously cached sessions in localStorage
-    fast: {
-      label: 'Gemini',
-      icon: GeminiIcon,
-    },
-    balanced: {
-      label: 'ChatGPT',
-      icon: ChatGPTIcon,
-    },
-    advanced: {
-      label: 'DeepSeek',
-      icon: DeepSeekIcon,
-    },
+  const aiModelDetails: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    deepseek: { label: 'DeepSeek', icon: DeepSeekIcon },
+    chatgpt: { label: 'ChatGPT', icon: ChatGPTIcon },
+    gemini: { label: 'Gemini', icon: GeminiIcon },
+    fast: { label: 'Gemini', icon: GeminiIcon },
+    balanced: { label: 'ChatGPT', icon: ChatGPTIcon },
+    advanced: { label: 'DeepSeek', icon: DeepSeekIcon },
   };
 
-  const isInitialState = messages.length <= 1;
+  const hasUserMessages = messages.some((m) => m.role === 'user');
+  const isInitialState = !hasUserMessages;
+  const isConnectedAccount = Boolean(
+    account?.isConnected && account.clientCustomerId !== 'Not Connected'
+  );
+
+  const ActiveModelMeta = aiModelDetails[normalizeModel(selectedModel)] || aiModelDetails.deepseek;
+  const ActiveModelIcon = ActiveModelMeta.icon;
+
+  const loadingStageLabel =
+    loadingStep >= 3
+      ? 'Drafting recommendations'
+      : loadingStep >= 2
+      ? 'Reviewing campaign performance'
+      : 'Analyzing your request';
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden relative">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between px-6 py-3.5 border-b border-slate-200/80 bg-slate-50/70 gap-3 shrink-0">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/icon.svg"
-            alt="AdOptimize AI"
-            width={34}
-            height={34}
-            className="w-8 h-8 rounded-xl object-contain shadow-xs shadow-[#00d67d]/20"
-            referrerPolicy="no-referrer"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-950">AI Marketing Agent</h2>
-              {/* Connected Google Ads account indicator - Professional without raw CID repetition */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-900 border border-emerald-200/80">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />
-                <span className="font-semibold truncate max-w-[130px] sm:max-w-[180px]">
-                  {account?.accountName || 'Google Ads Account'}
+    <div className="flex flex-col h-[calc(100vh-118px)] min-h-[560px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative">
+      {/* 1. Clean Header Toolbar — No repeated brand logo */}
+      <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white gap-3 shrink-0 z-10">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm font-semibold text-slate-950 tracking-tight">
+                AI Marketing Agent
+              </h2>
+              <span className="text-slate-300 hidden sm:inline">·</span>
+              <span className="text-xs text-slate-600 font-medium truncate max-w-[180px] sm:max-w-[260px] flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isConnectedAccount ? 'bg-[#00d67d]' : 'bg-amber-400'
+                  }`}
+                />
+                <span className="truncate">{account?.accountName || 'Google Ads Account'}</span>
+                <span className="text-slate-400 font-normal">
+                  ({isConnectedAccount ? 'Connected' : 'Offline'})
                 </span>
-                <span className="text-[10px] text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded font-bold">
-                  Connected
-                </span>
-              </div>
+              </span>
             </div>
-            <p className="text-[11px] text-slate-500">
-              Interactive Google Ads optimization &amp; real-time performance diagnostics
-            </p>
           </div>
         </div>
 
-        {/* Right Controls: Model Selector (DeepSeek, ChatGPT, Gemini) + Session Manager + New Chat */}
-        <div className="flex items-center gap-2.5">
-          {/* Explicit Model Selector: DeepSeek, ChatGPT, Gemini */}
+        {/* Right Controls */}
+        <div className="flex items-center gap-2">
+          {/* Model Selector */}
           <div className="relative" ref={modelDropdownRef}>
             <button
+              type="button"
               onClick={() => setShowModelDropdown((p) => !p)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-800 transition-colors cursor-pointer"
               title="Select AI model"
             >
-              <span className="text-[11px] font-normal text-slate-500">Model:</span>
-              <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                {(() => {
-                  const safeKey = normalizeModel(selectedModel);
-                  const meta = aiModelDetails[safeKey] || aiModelDetails.deepseek;
-                  const Icon = meta?.icon || DeepSeekIcon;
-                  return <Icon className="w-3.5 h-3.5" />;
-                })()}
-                <span>{(aiModelDetails[normalizeModel(selectedModel)] || aiModelDetails.deepseek).label}</span>
-              </div>
+              <ActiveModelIcon className="w-3.5 h-3.5" />
+              <span className="font-semibold text-slate-900">{ActiveModelMeta.label}</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
             {showModelDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 z-40">
                 {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
                   const meta = aiModelDetails[mKey] || aiModelDetails.deepseek;
                   const Icon = meta.icon;
                   const isSelected = normalizeModel(selectedModel) === mKey;
                   return (
                     <button
+                      type="button"
                       key={mKey}
                       onClick={() => {
                         setSelectedModel(mKey);
                         setShowModelDropdown(false);
                       }}
-                      className={`w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 ${
+                      className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2.5 ${
                         isSelected
-                          ? 'bg-[#00d67d]/10 border border-[#00d67d]/30 text-slate-950 font-semibold'
+                          ? 'bg-emerald-50/90 text-slate-950 font-semibold'
                           : 'hover:bg-slate-50 text-slate-700'
                       }`}
                     >
-                      <div className="p-1 rounded-lg bg-slate-100 shrink-0 mt-0.5">
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                      </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0 mt-1" />}
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="text-xs flex-1">{meta.label}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0" />}
                     </button>
                   );
                 })}
@@ -964,630 +1011,776 @@ export function AiChatView({
 
           {/* Conversations Drawer Toggle */}
           <button
+            type="button"
             ref={sessionsToggleRef}
             onClick={() => setShowSessionsDrawer((p) => !p)}
             className={`px-3 py-1.5 border rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               showSessionsDrawer
                 ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                : 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-700'
             }`}
             title="Conversation history"
           >
-            <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">History ({sessions.length})</span>
+            <MessageSquare className="w-3.5 h-3.5 opacity-75" />
+            <span className="hidden sm:inline">History</span>
+            <span className="tabular-nums text-[11px] opacity-70">({sessions.length})</span>
           </button>
 
-          {/* New Chat Button */}
+          {/* New Chat */}
           <button
+            type="button"
             onClick={handleNewConversation}
-            className="px-3.5 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
             title="Start fresh conversation"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>New Chat</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Side History Drawer (if open) */}
-      {showSessionsDrawer && (
-        <div
-          ref={sessionsDrawerRef}
-          className="absolute top-[61px] right-0 bottom-0 w-80 bg-white border-l border-slate-200 z-30 shadow-xl flex flex-col animate-in slide-in-from-right duration-200"
-        >
-          <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-            <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Saved Conversations
-            </span>
-            <button
-              onClick={() => setShowSessionsDrawer(false)}
-              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {sessions.map((sess) => {
-              const isCurrent = sess.id === currentSessionId;
-              const isEditing = editingSessionId === sess.id;
-
-              return (
-                <div
-                  key={sess.id}
-                  onClick={() => {
-                    if (!isEditing) {
-                      setCurrentSessionId(sess.id);
-                      setShowSessionsDrawer(false);
-                      setErrorMessage(null);
-                      setPreservedDraft('');
-                    }
-                  }}
-                  className={`group p-2.5 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                    isCurrent
-                      ? 'bg-slate-900 text-white font-semibold shadow-xs'
-                      : 'hover:bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {isEditing ? (
-                    <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="text"
-                        value={editingSessionTitle}
-                        onChange={(e) => setEditingSessionTitle(e.target.value)}
-                        className="px-2 py-1 text-xs bg-white text-slate-900 border rounded-lg flex-1 outline-none"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRenameSession(sess.id);
-                          if (e.key === 'Escape') setEditingSessionId(null);
-                        }}
-                      />
-                      <button
-                        onClick={() => handleRenameSession(sess.id)}
-                        className="p-1 text-emerald-400 hover:text-white"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate">{sess.title}</div>
-                        <div className={`text-[10px] mt-0.5 ${isCurrent ? 'text-slate-300' : 'text-slate-400'}`}>
-                          {new Date(sess.updatedAt).toLocaleDateString()} · {sess.messages.length} messages
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingSessionId(sess.id);
-                            setEditingSessionTitle(sess.title);
-                          }}
-                          className="p-1 hover:text-slate-200 text-slate-400 rounded"
-                          title="Rename"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteSession(sess.id, e)}
-                          className="p-1 hover:text-rose-400 text-slate-400 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-            <button
-              onClick={() => {
-                handleNewConversation();
-                setShowSessionsDrawer(false);
-              }}
-              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Start New Conversation</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Conversation Area */}
-      <div
-        ref={chatScrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/30"
-      >
-        {/* Render Conversation Messages */}
-        {messages.map((message) => {
-          const isUser = message.role === 'user';
-          return (
-            <div
-              key={message.id}
-              className={`flex gap-3 max-w-3xl sm:max-w-4xl ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-            >
-              {/* Avatar Icon */}
-              {isUser ? (
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 text-xs font-bold shadow-xs">
-                  You
-                </div>
-              ) : (
-                <Image
-                  src="/icon.svg"
-                  alt="AdOptimize AI"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 rounded-xl object-contain shadow-xs shrink-0 shadow-[#00d67d]/20"
-                  referrerPolicy="no-referrer"
-                />
-              )}
-
-              {/* Message Bubble & Cards */}
-              <div className="space-y-3.5 max-w-[90%] sm:max-w-[85%]">
-                {/* Speech Bubble */}
-                <div
-                  className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed ${
-                    isUser
-                      ? 'bg-slate-900 text-white rounded-tr-xs shadow-xs'
-                      : 'bg-white text-slate-900 border border-slate-200/90 rounded-tl-xs shadow-xs'
-                  }`}
-                >
-                  {/* Clean Markdown Response Formatting */}
-                  {isUser ? (
-                    <div className="whitespace-pre-wrap text-sm text-white font-medium">
-                      {message.content}
-                    </div>
-                  ) : (
-                    <ChatMarkdown content={message.content} />
-                  )}
-
-                </div>
-
-                {/* 4. STRUCTURED INTERACTIVE RECOMMENDATION CARDS */}
-                {!isUser && message.recommendations && message.recommendations.length > 0 && (
-                  <div className="space-y-2.5">
-                    {message.recommendations.map((rec) => (
-                      <div
-                        key={rec.id}
-                        className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-150"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold shrink-0">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                {rec.title}
-                              </span>
-                              <h4 className="text-xs font-bold text-slate-950 flex items-center gap-1">
-                                <span>Campaign:</span>
-                                <button
-                                  onClick={() => handleCampaignClick(rec.campaignName)}
-                                  className="text-slate-900 hover:text-emerald-700 underline font-extrabold cursor-pointer inline-flex items-center gap-0.5"
-                                >
-                                  <span>{rec.campaignName}</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </button>
-                              </h4>
-                            </div>
-                          </div>
-
-                          {rec.metrics && !Array.isArray(rec.metrics) && rec.metrics.spend !== undefined && (
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-400 block font-medium">Spend</span>
-                              <span className="font-mono font-bold text-xs text-rose-600">
-                                ${rec.metrics.spend.toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          {rec.metrics && Array.isArray(rec.metrics) && (
-                            <div className="flex gap-2">
-                              {rec.metrics.slice(0, 2).map((m, mIdx) => (
-                                <div key={mIdx} className="text-right">
-                                  <span className="text-[10px] text-slate-400 block font-medium">{m.label}</span>
-                                  <span className="font-mono font-bold text-xs text-slate-800">{m.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/70 p-2.5 rounded-xl border border-slate-100">
-                          {rec.finding}
-                        </p>
-
-                        {/* Interactive Action Buttons */}
-                        <div className="pt-1 flex flex-wrap gap-2">
-                          {(rec.actions || rec.recommendedActions || []).map((act, actIdx) => (
-                            <button
-                              key={actIdx}
-                              onClick={() => handleSendMessage(act.prompt)}
-                              disabled={isLoading}
-                              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all hover:border-slate-300 cursor-pointer shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
-                            >
-                              <Zap className="w-3 h-3 text-[#00a85e]" />
-                              <span>{act.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 5. SAFE ACCOUNT CHANGE CONFIRMATION CARD (For Consequential Modifications) */}
-                {message.actionProposal && (
-                  <div className="bg-white rounded-3xl border-2 border-slate-900 p-5 shadow-md space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold">
-                          <ShieldCheck className="w-4 h-4 text-amber-600" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-950 uppercase tracking-wider">
-                            Confirm Google Ads Action
-                          </h4>
-                          <p className="text-[11px] text-slate-500">
-                            Review the details, then click the button below to apply this exact change
-                          </p>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                          message.actionProposal.status === 'PENDING_APPROVAL'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : message.actionProposal.status === 'EXECUTED'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                            ? 'bg-amber-100 text-amber-900 border border-amber-400'
-                            : message.actionProposal.status === 'APPROVED'
-                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                            : message.actionProposal.status === 'DECLINED' ||
-                              message.actionProposal.status === 'SUPERSEDED' ||
-                              message.actionProposal.status === 'EXPIRED'
-                            ? 'bg-slate-100 text-slate-600'
-                            : 'bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        {message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                          ? 'Applied, not yet verified'
-                          : message.actionProposal.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5 text-xs">
-                      <div>
-                        <span className="font-bold text-slate-700">Affected Campaign: </span>
-                        <button
-                          onClick={() => handleCampaignClick(message.actionProposal!.campaignName)}
-                          className="font-bold text-slate-950 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>{message.actionProposal.campaignName}</span>
-                          <ExternalLink className="w-3 h-3 text-slate-500" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                            Current Settings
-                          </span>
-                          <span className="font-mono text-slate-800 font-semibold whitespace-pre-line">
-                            {message.actionProposal.currentSettings}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-bold text-[#00a85e] uppercase tracking-wider block">
-                            Change to Apply
-                          </span>
-                          <span className="font-mono text-slate-950 font-bold whitespace-pre-line">
-                            {message.actionProposal.proposedChanges}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="font-bold text-slate-700">Optimization Reason: </span>
-                        <span className="text-slate-600">{message.actionProposal.reason}</span>
-                      </div>
-
-                      <div>
-                        <span className="font-bold text-slate-700">Performance Evidence: </span>
-                        <span className="font-mono text-[11px] text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {message.actionProposal.evidence}
-                        </span>
-                      </div>
-
-                      <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Potential Risks:</strong> {message.actionProposal.potentialRisks}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Result state if already handled */}
-                    {message.actionProposal.executionResult && (
-                      <div
-                        className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
-                          message.actionProposal.status === 'EXECUTED'
-                            ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
-                            : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                            ? 'bg-amber-50 text-amber-950 border border-amber-300'
-                            : message.actionProposal.status === 'DECLINED' ||
-                              message.actionProposal.status === 'SUPERSEDED' ||
-                              message.actionProposal.status === 'EXPIRED'
-                            ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                            : 'bg-rose-50 text-rose-950 border border-rose-300'
-                        }`}
-                      >
-                        {message.actionProposal.status === 'EXECUTED' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        ) : message.actionProposal.status === 'DECLINED' ||
-                          message.actionProposal.status === 'SUPERSEDED' ||
-                          message.actionProposal.status === 'EXPIRED' ? (
-                          <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
-                        ) : (
-                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                        )}
-                        <span>{message.actionProposal.executionResult}</span>
-                      </div>
-                    )}
-
-                    {/* Action Execution Buttons */}
-                    {message.actionProposal.status === 'PENDING_APPROVAL' && (
-                      <div className="flex items-center gap-3 pt-2">
-                        <button
-                          onClick={() => handleApproveProposal(message.actionProposal!, message.id)}
-                          disabled={executingProposalId === message.actionProposal.id}
-                          className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-2xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                        >
-                          {executingProposalId === message.actionProposal.id ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                          ) : (
-                            <Check className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
-                          )}
-                          <span>
-                            {executingProposalId === message.actionProposal.id
-                              ? 'Executing in Google Ads...'
-                              : message.actionProposal.actionType === 'ENABLE_CAMPAIGN'
-                              ? 'Enable campaign'
-                              : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
-                              ? 'Pause campaign'
-                              : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
-                              ? 'Approve & create campaign'
-                              : message.actionProposal.destructive
-                              ? 'Review impact & approve'
-                              : 'Approve & Execute Change'}
-                          </span>
-                        </button>
-
-                        <button
-                          onClick={() => handleDeclineProposal(message.actionProposal!.id, message.id)}
-                          disabled={executingProposalId === message.actionProposal.id}
-                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-2xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Decline</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Message Timestamp */}
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 px-1">
-                  <span>{message.timestamp}</span>
-                  {!isUser && message.modelUsed && (
-                    <>
-                      <span>•</span>
-                      <span className="font-medium text-slate-500">{message.modelUsed}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* 6. Neutral progress indicator during response generation */}
-        {isLoading && (
-          <div className="flex gap-3 max-w-2xl mr-auto animate-in fade-in duration-200">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
-              <RefreshCw className="w-4 h-4 animate-spin text-[#00d67d]" />
-            </div>
-
-            <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-xs text-xs space-y-2 w-full max-w-md">
-              <div className="font-bold text-slate-900 flex items-center justify-between">
-                <span>Thinking through your request<span className="inline-flex w-5 ml-0.5 text-left"><span className="animate-pulse">...</span></span></span>
-                <button
-                  onClick={handleStopRequest}
-                  className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer flex items-center gap-1"
-                >
-                  <Square className="w-3 h-3 fill-rose-600" />
-                  <span>Stop</span>
-                </button>
-              </div>
-
-              {/* Multi-step progress list */}
-              <div className="space-y-1.5 text-slate-600 font-medium">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Understanding your request</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {loadingStep >= 2 ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  ) : (
-                    <span className="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin inline-block shrink-0" />
-                  )}
-                  <span className={loadingStep >= 2 ? 'text-slate-700' : 'text-slate-400'}>
-                    Reviewing relevant information
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {loadingStep >= 3 ? (
-                    <span className="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin inline-block shrink-0" />
-                  ) : (
-                    <span className="w-2 h-2 rounded-full bg-slate-300 ml-0.5 shrink-0" />
-                  )}
-                  <span className={loadingStep >= 3 ? 'text-slate-700' : 'text-slate-400'}>
-                    Crafting a clear response
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Actionable Error State with Retry */}
-        {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-950 flex items-start justify-between gap-3 max-w-2xl animate-in fade-in">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-rose-900">Request Encountered an Issue</p>
-                <p className="text-rose-700 mt-0.5">{errorMessage}</p>
-              </div>
-            </div>
-            {preservedDraft && (
+      {/* 2. Side History Drawer */}
+      <AnimatePresence>
+        {showSessionsDrawer && (
+          <motion.div
+            ref={sessionsDrawerRef}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="absolute top-[57px] right-0 bottom-0 w-80 bg-white border-l border-slate-200 z-30 shadow-xl flex flex-col"
+          >
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                Conversations
+              </span>
               <button
-                onClick={handleRetryFailedDraft}
-                className="px-3 py-1.5 bg-rose-900 hover:bg-rose-950 text-white font-bold rounded-xl text-xs shrink-0 cursor-pointer shadow-xs"
+                type="button"
+                onClick={() => setShowSessionsDrawer(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
               >
-                Restore &amp; Retry
+                <X className="w-4 h-4" />
               </button>
-            )}
-          </div>
-        )}
+            </div>
 
-        <div ref={messagesEndRef} />
-      </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sessions.map((sess) => {
+                const isCurrent = sess.id === currentSessionId;
+                const isEditing = editingSessionId === sess.id;
 
-      {/* 4. Quick Suggestions (Visible when starting or toggled) */}
-      {isInitialState && !isLoading && (
-        <div className="px-6 py-3 bg-slate-50/70 border-t border-slate-200/70 shrink-0 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Suggested Starting Questions
-            </span>
-            <button
-              onClick={() => setShowMoreSuggestions((p) => !p)}
-              className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
-            >
-              {showMoreSuggestions ? 'Fewer Suggestions' : 'More Suggestions'}
-            </button>
-          </div>
-
-          {/* 4 Primary Suggestions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {primarySuggestions.map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(item.prompt)}
-                  className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-2xl text-left transition-all cursor-pointer shadow-2xs group flex items-start gap-2.5"
-                >
-                  <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-[#00d67d] group-hover:text-slate-950 transition-colors shrink-0">
-                    <Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">{item.label}</div>
-                    <div className="text-[10px] text-slate-500 truncate mt-0.5">Click to run analysis</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Additional suggestions when requested */}
-          {showMoreSuggestions && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 animate-in fade-in duration-150">
-              {secondarySuggestions.map((item, idx) => {
-                const Icon = item.icon;
                 return (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendMessage(item.prompt)}
-                    className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-2xl text-left transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
+                  <div
+                    key={sess.id}
+                    onClick={() => {
+                      if (!isEditing) {
+                        setCurrentSessionId(sess.id);
+                        setShowSessionsDrawer(false);
+                        setFailedAttempt(null);
+                      }
+                    }}
+                    className={`group p-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                      isCurrent
+                        ? 'bg-slate-900 text-white font-medium'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
                   >
-                    <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="text-xs font-medium text-slate-800 truncate">{item.label}</span>
-                  </button>
+                    {isEditing ? (
+                      <div
+                        className="flex items-center gap-1 flex-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="text"
+                          value={editingSessionTitle}
+                          onChange={(e) => setEditingSessionTitle(e.target.value)}
+                          className="px-2 py-1 text-xs bg-white text-slate-900 border rounded-lg flex-1 outline-none"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameSession(sess.id);
+                            if (e.key === 'Escape') setEditingSessionId(null);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRenameSession(sess.id)}
+                          className="p-1 text-emerald-400 hover:text-white"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <div className="truncate">{sess.title}</div>
+                          <div
+                            className={`text-[10px] mt-0.5 tabular-nums ${
+                              isCurrent ? 'text-slate-300' : 'text-slate-400'
+                            }`}
+                          >
+                            {new Date(sess.updatedAt).toLocaleDateString()} · {sess.messages.length} msgs
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingSessionId(sess.id);
+                              setEditingSessionTitle(sess.title);
+                            }}
+                            className="p-1 hover:text-slate-200 text-slate-400 rounded cursor-pointer"
+                            title="Rename"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSession(sess.id, e)}
+                            className="p-1 hover:text-rose-400 text-slate-400 rounded cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 );
               })}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* 5. Fixed Message Composer Area */}
-      <div className="p-4 border-t border-slate-200 bg-white shrink-0">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendMessage();
-          }}
-          className="flex items-end gap-2.5"
-        >
-          <div className="flex-1 relative bg-slate-50 rounded-2xl border border-slate-200 focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00d67d]/20 transition-all">
+            <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => {
+                  handleNewConversation();
+                  setShowSessionsDrawer(false);
+                }}
+                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Start New Conversation</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. Conversation Stream Viewport */}
+      <div
+        ref={chatScrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 bg-[#fafbfc] relative"
+      >
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* Modern Empty / Initial Welcome Canvas */}
+          {isInitialState && !isLoading ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="py-6 sm:py-10 space-y-6"
+            >
+              <div className="text-center space-y-2 max-w-xl mx-auto">
+                <div className="w-11 h-11 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center mx-auto mb-3 shadow-xs">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950">
+                  What would you like to investigate?
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Ask questions about campaign spend, uncover wasted budget, inspect search terms, or prepare Google Ads optimizations with explicit approval before any change runs.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Suggested Prompts
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreSuggestions((p) => !p)}
+                    className="text-xs text-emerald-700 hover:text-emerald-800 font-medium cursor-pointer"
+                  >
+                    {showMoreSuggestions ? 'Show fewer' : 'More prompts'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {primarySuggestions.map((item, idx) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => void handleSendMessage(item.prompt)}
+                        className="p-3.5 bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-emerald-300 rounded-2xl text-left transition-all cursor-pointer group flex items-start gap-3 shadow-2xs"
+                      >
+                        <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-[#00d67d] group-hover:text-slate-950 transition-colors shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900">{item.label}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                            {item.subtitle}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <AnimatePresence>
+                  {showMoreSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 overflow-hidden"
+                    >
+                      {secondarySuggestions.map((item, idx) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            type="button"
+                            key={idx}
+                            onClick={() => void handleSendMessage(item.prompt)}
+                            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 rounded-xl text-left transition-colors cursor-pointer flex items-center gap-2"
+                          >
+                            <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="text-xs font-medium text-slate-800 truncate">
+                              {item.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          ) : (
+            /* Active Conversation Thread */
+            messages
+              .filter((m) => !(m.id.startsWith('welcome') && hasUserMessages && m.content === WELCOME_TEXT))
+              .map((message) => {
+                const isUser = message.role === 'user';
+                const modelMeta =
+                  aiModelDetails[normalizeModel(message.modelUsed?.toLowerCase())] || null;
+                const MsgIcon = modelMeta?.icon || Bot;
+
+                return (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {!isUser && (
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <MsgIcon className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+
+                    <div
+                      className={`space-y-3 min-w-0 ${
+                        isUser ? 'max-w-[82%] sm:max-w-[75%]' : 'flex-1 max-w-[92%]'
+                      }`}
+                    >
+                      <div
+                        className={`group relative px-4 py-3.5 rounded-2xl text-sm leading-relaxed ${
+                          isUser
+                            ? 'bg-slate-900 text-white rounded-br-xs shadow-2xs'
+                            : 'bg-white text-slate-900 border border-slate-200/85 rounded-tl-xs shadow-2xs'
+                        }`}
+                      >
+                        {isUser ? (
+                          <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-white">
+                            {message.content}
+                          </div>
+                        ) : (
+                          <ChatMarkdown content={message.content} />
+                        )}
+                      </div>
+
+                      {/* Structured Interactive Recommendation Cards */}
+                      {!isUser && message.recommendations && message.recommendations.length > 0 && (
+                        <div className="space-y-2.5">
+                          {message.recommendations.map((rec) => (
+                            <div
+                              key={rec.id}
+                              className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                                      {rec.title}
+                                    </span>
+                                    <h4 className="text-xs font-semibold text-slate-950 flex items-center gap-1">
+                                      <span>Campaign:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCampaignClick(rec.campaignName)}
+                                        className="text-slate-900 hover:text-emerald-700 underline font-bold cursor-pointer inline-flex items-center gap-0.5"
+                                      >
+                                        <span>{rec.campaignName}</span>
+                                        <ExternalLink className="w-2.5 h-2.5" />
+                                      </button>
+                                    </h4>
+                                  </div>
+                                </div>
+
+                                {rec.metrics && !Array.isArray(rec.metrics) && rec.metrics.spend !== undefined && (
+                                  <div className="text-right tabular-nums">
+                                    <span className="text-[10px] text-slate-400 block font-medium">
+                                      Spend
+                                    </span>
+                                    <span className="font-mono font-semibold text-xs text-rose-600">
+                                      ${rec.metrics.spend.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                                {rec.metrics && Array.isArray(rec.metrics) && (
+                                  <div className="flex gap-3 tabular-nums">
+                                    {rec.metrics.slice(0, 2).map((m, mIdx) => (
+                                      <div key={mIdx} className="text-right">
+                                        <span className="text-[10px] text-slate-400 block font-medium">
+                                          {m.label}
+                                        </span>
+                                        <span className="font-mono font-semibold text-xs text-slate-800">
+                                          {m.value}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                {rec.finding}
+                              </p>
+
+                              <div className="flex flex-wrap gap-2">
+                                {(rec.actions || rec.recommendedActions || []).map((act, actIdx) => (
+                                  <button
+                                    type="button"
+                                    key={actIdx}
+                                    onClick={() => void handleSendMessage(act.prompt)}
+                                    disabled={isLoading}
+                                    className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                                  >
+                                    <Zap className="w-3 h-3 text-[#00a85e]" />
+                                    <span>{act.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Safe Account Change Confirmation Card */}
+                      {message.actionProposal && (
+                        <div className="bg-white rounded-2xl border border-slate-900/90 p-4 sm:p-5 shadow-sm space-y-4">
+                          <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0">
+                                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-semibold text-slate-950 uppercase tracking-wider">
+                                  Confirm Google Ads Action
+                                </h4>
+                                <p className="text-[11px] text-slate-500">
+                                  Review details before applying this change to your account
+                                </p>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
+                                message.actionProposal.status === 'PENDING_APPROVAL'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : message.actionProposal.status === 'EXECUTED'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-400'
+                                  : message.actionProposal.status === 'APPROVED'
+                                  ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                  : message.actionProposal.status === 'DECLINED' ||
+                                    message.actionProposal.status === 'SUPERSEDED' ||
+                                    message.actionProposal.status === 'EXPIRED'
+                                  ? 'bg-slate-100 text-slate-600'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                ? 'Applied, not yet verified'
+                                : message.actionProposal.status.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2.5 text-xs">
+                            <div>
+                              <span className="font-semibold text-slate-700">Campaign: </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCampaignClick(message.actionProposal!.campaignName)}
+                                className="font-semibold text-slate-950 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>{message.actionProposal.campaignName}</span>
+                                <ExternalLink className="w-3 h-3 text-slate-500" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/80 tabular-nums">
+                              <div>
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">
+                                  Current Settings
+                                </span>
+                                <span className="font-mono text-slate-800 font-medium whitespace-pre-line">
+                                  {message.actionProposal.currentSettings}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-semibold text-[#00a85e] uppercase tracking-wider block mb-0.5">
+                                  Change to Apply
+                                </span>
+                                <span className="font-mono text-slate-950 font-semibold whitespace-pre-line">
+                                  {message.actionProposal.proposedChanges}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <span className="font-semibold text-slate-700">Reason: </span>
+                              <span className="text-slate-600">{message.actionProposal.reason}</span>
+                            </div>
+
+                            <div>
+                              <span className="font-semibold text-slate-700">Evidence: </span>
+                              <span className="font-mono text-[11px] text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md tabular-nums">
+                                {message.actionProposal.evidence}
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                              <span>
+                                <strong>Potential Risks:</strong> {message.actionProposal.potentialRisks}
+                              </span>
+                            </div>
+                          </div>
+
+                          {message.actionProposal.executionResult && (
+                            <div
+                              className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                                message.actionProposal.status === 'EXECUTED'
+                                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
+                                  : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                  ? 'bg-amber-50 text-amber-950 border border-amber-300'
+                                  : message.actionProposal.status === 'DECLINED' ||
+                                    message.actionProposal.status === 'SUPERSEDED' ||
+                                    message.actionProposal.status === 'EXPIRED'
+                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  : 'bg-rose-50 text-rose-950 border border-rose-300'
+                              }`}
+                            >
+                              {message.actionProposal.status === 'EXECUTED' ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : message.actionProposal.status === 'DECLINED' ||
+                                message.actionProposal.status === 'SUPERSEDED' ||
+                                message.actionProposal.status === 'EXPIRED' ? (
+                                <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                              ) : (
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                              )}
+                              <span>{message.actionProposal.executionResult}</span>
+                            </div>
+                          )}
+
+                          {message.actionProposal.status === 'PENDING_APPROVAL' && (
+                            <div className="flex items-center gap-2.5 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => void handleApproveProposal(message.actionProposal!, message.id)}
+                                disabled={executingProposalId === message.actionProposal.id}
+                                className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                {executingProposalId === message.actionProposal.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                                )}
+                                <span>
+                                  {executingProposalId === message.actionProposal.id
+                                    ? 'Executing in Google Ads...'
+                                    : message.actionProposal.actionType === 'ENABLE_CAMPAIGN'
+                                    ? 'Enable campaign'
+                                    : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
+                                    ? 'Pause campaign'
+                                    : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
+                                    ? 'Approve & create campaign'
+                                    : message.actionProposal.destructive
+                                    ? 'Review impact & approve'
+                                    : 'Approve & Execute Change'}
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => void handleDeclineProposal(message.actionProposal!.id, message.id)}
+                                disabled={executingProposalId === message.actionProposal.id}
+                                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Decline</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Footer Metadata & Copy */}
+                      <div
+                        className={`flex items-center gap-2 text-[11px] text-slate-400 px-1 ${
+                          isUser ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        <span className="tabular-nums">{message.timestamp}</span>
+                        {!isUser && message.modelUsed && (
+                          <>
+                            <span>·</span>
+                            <span className="font-medium text-slate-500">{message.modelUsed}</span>
+                          </>
+                        )}
+                        {!isUser && message.content && (
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyMessage(message.id, message.content)}
+                            className="ml-1 p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
+                            title="Copy response"
+                          >
+                            {copiedMessageId === message.id ? (
+                              <Check className="w-3 h-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })
+          )}
+
+          {/* 4. Modern AI Thinking & Reasoning Loading Indicator */}
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="flex gap-3 justify-start"
+              >
+                <div className="w-7 h-7 rounded-lg bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+
+                <div className="flex-1 max-w-lg rounded-2xl rounded-tl-xs bg-white border border-slate-200/85 p-4 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Smooth 3-bar harmonic equalizer */}
+                      <div className="flex items-center gap-0.5 h-3.5 px-1" aria-hidden="true">
+                        {[0, 0.16, 0.32].map((delay, idx) => (
+                          <motion.span
+                            key={idx}
+                            className="w-[3px] h-full rounded-full bg-[#00d67d] origin-center"
+                            animate={{
+                              scaleY: [0.35, 1, 0.45],
+                              opacity: [0.55, 1, 0.55],
+                            }}
+                            transition={{
+                              duration: 0.9,
+                              repeat: Infinity,
+                              ease: 'easeInOut',
+                              delay,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs font-semibold text-slate-900 truncate">
+                        {loadingStageLabel}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleStopRequest}
+                      className="text-[11px] text-slate-500 hover:text-rose-600 font-medium cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                    >
+                      <Square className="w-2.5 h-2.5 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                  </div>
+
+                  {/* Shimmer skeleton lines */}
+                  <div className="space-y-2 pt-0.5">
+                    {['w-11/12', 'w-4/5', 'w-3/5'].map((widthClass, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-2 rounded-full bg-slate-100 overflow-hidden relative ${widthClass}`}
+                      >
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-200/60 to-transparent"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            ease: 'linear',
+                            delay: idx * 0.15,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 5. Actionable Failure Card with Immediate One-Click "Try Again" */}
+          <AnimatePresence>
+            {failedAttempt && !isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18 }}
+                className="flex gap-3 justify-start"
+              >
+                <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
+
+                <div className="flex-1 max-w-lg rounded-2xl rounded-tl-xs bg-white border border-rose-200/90 p-4 shadow-2xs space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-slate-950">
+                      Couldn&apos;t complete this response
+                    </p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {failedAttempt.message}
+                    </p>
+                  </div>
+
+                  {failedAttempt.query && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetryNow}
+                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Try Again</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleEditFailedPrompt}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs cursor-pointer transition-colors"
+                      >
+                        Edit message
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div ref={messagesEndRef} className="h-1" />
+        </div>
+
+        {/* Floating Jump-to-Latest Button when user scrolled up */}
+        <AnimatePresence>
+          {showScrollButton && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={() => scrollToBottom('smooth')}
+              className="sticky bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-900 text-white rounded-full text-[11px] font-medium shadow-md flex items-center gap-1.5 cursor-pointer mx-auto z-20"
+            >
+              <ArrowDown className="w-3 h-3" />
+              <span>Scroll to latest</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 6. Modern Composer Dock */}
+      <div className="px-4 sm:px-6 py-3.5 border-t border-slate-200/80 bg-white shrink-0">
+        <div className="max-w-3xl mx-auto">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSendMessage();
+            }}
+            className="flex items-end gap-2 bg-slate-50/90 rounded-2xl border border-slate-200/90 focus-within:border-emerald-500/80 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00d67d]/15 transition-all p-1.5"
+          >
             <textarea
               ref={textareaRef}
               rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  handleSendMessage();
+                  void handleSendMessage(e.currentTarget.value);
                 }
               }}
               placeholder="Ask about your campaigns, find wasted spend, or request an optimization..."
-              className="w-full px-4 py-3 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"
+              className="flex-1 px-3 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"
               disabled={isLoading}
             />
+
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={handleStopRequest}
+                className="h-9 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                title="Stop response generation"
+              >
+                <Square className="w-3 h-3 fill-rose-600 text-rose-600" />
+                <span>Stop</span>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!inputValue.trim()}
+                className="h-9 px-4 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Send message (Enter)"
+              >
+                <span>Send</span>
+                <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.25]" />
+              </button>
+            )}
+          </form>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1">
+            <span>You approve campaign changes before they are applied.</span>
+            <span className="hidden sm:inline text-[10px]">Enter to send · Shift + Enter for new line</span>
           </div>
-
-          {isLoading ? (
-            <button
-              type="button"
-              onClick={handleStopRequest}
-              className="h-[46px] px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-              title="Stop response generation"
-            >
-              <Square className="w-3.5 h-3.5 fill-rose-600 text-rose-600" />
-              <span>Stop</span>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!inputValue.trim()}
-              className="h-[46px] px-5 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer shrink-0"
-              title="Send message (Enter)"
-            >
-              <span>Send</span>
-              <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-            </button>
-          )}
-        </form>
-
-        {/* Subtle Safety Note */}
-        <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
-          <span>You approve important campaign changes before they&apos;re applied.</span>
-          <span className="hidden sm:inline text-[10px]">Shift + Enter for new line</span>
         </div>
       </div>
     </div>
