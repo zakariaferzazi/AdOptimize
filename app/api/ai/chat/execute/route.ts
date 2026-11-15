@@ -7,7 +7,14 @@ import {
   resolveFreshAccessToken,
 } from '@/lib/ai/account-binding';
 import { executeProposal } from '@/lib/ai/execution';
+import { idempotencyKey } from '@/lib/ai/proposals';
 import { getStore } from '@/lib/store';
+import {
+  hydrateExecutionIntoStore,
+  hydrateProposalIntoStore,
+  syncExecutionToFirestore,
+  syncProposalToFirestore,
+} from '@/lib/store/firestore-fallback';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -34,6 +41,9 @@ export async function POST(req: NextRequest) {
     }
 
     const store = await getStore();
+    await hydrateProposalIntoStore(proposalId, identity.uid, idToken);
+    const execKey = idempotencyKey(proposalId, revision, payloadHash);
+    await hydrateExecutionIntoStore(execKey, identity.uid, idToken);
     const record = await store.proposals.get(proposalId, identity.uid);
     if (!record) {
       return NextResponse.json({ error: 'This proposal was not found.' }, { status: 404 });
@@ -64,6 +74,11 @@ export async function POST(req: NextRequest) {
       currency: binding.currency,
       accountName: binding.accountName,
     });
+
+    const updatedRecord = await store.proposals.get(proposalId, identity.uid);
+    if (updatedRecord) await syncProposalToFirestore(updatedRecord, idToken);
+    const updatedExecution = await store.executions.get(execKey);
+    if (updatedExecution) await syncExecutionToFirestore(updatedExecution, identity.uid, idToken);
 
     const status =
       outcome.status === 'succeeded' || outcome.status === 'executed_unverified'

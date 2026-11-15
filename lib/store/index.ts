@@ -86,6 +86,11 @@ export function isDurableStore(): boolean {
   return true;
 }
 
+/** True only when a Cloudflare D1 binding is actively backing getStore(). */
+export function isD1Active(): boolean {
+  return cachedDurable;
+}
+
 /** Test helper: drop the cached store so a new binding is picked up. */
 export function resetStoreCache(): void {
   cachedStore = undefined;

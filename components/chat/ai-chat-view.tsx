@@ -20,7 +20,7 @@ import {
   TrendingDown,
   TrendingUp,
   Layers,
-  Sparkles,
+  BrainCircuit,
   ExternalLink,
   Sliders,
   History,
@@ -759,7 +759,9 @@ export function AiChatView({
       const approvalData = await approvalResponse.json();
       if (!approvalResponse.ok) {
         throw new Error(
-          approvalData.error || 'This proposal is no longer pending approval.'
+          approvalResponse.status === 404
+            ? 'This proposal expired or is from a previous server session. Ask the AI to prepare this change again.'
+            : approvalData.error || 'This proposal is no longer pending approval.'
         );
       }
 
@@ -941,7 +943,7 @@ export function AiChatView({
       <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white gap-3 shrink-0 z-10">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4" />
+            <BrainCircuit className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1459,18 +1461,6 @@ export function AiChatView({
                               </div>
                             </div>
 
-                            <div>
-                              <span className="font-semibold text-slate-700">Reason: </span>
-                              <span className="text-slate-600">{message.actionProposal.reason}</span>
-                            </div>
-
-                            <div>
-                              <span className="font-semibold text-slate-700">Evidence: </span>
-                              <span className="font-mono text-[11px] text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md tabular-nums">
-                                {message.actionProposal.evidence}
-                              </span>
-                            </div>
-
                             <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                               <span>
@@ -1593,7 +1583,7 @@ export function AiChatView({
                 className="flex gap-3 justify-start"
               >
                 <div className="w-7 h-7 rounded-lg bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <BrainCircuit className="w-3.5 h-3.5" />
                 </div>
 
                 <div className="flex-1 max-w-lg rounded-2xl rounded-tl-xs bg-white border border-slate-200/85 p-4 shadow-2xs space-y-3">

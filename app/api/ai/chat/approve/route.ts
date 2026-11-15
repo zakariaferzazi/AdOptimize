@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
+import { extractBearerToken, requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
 import { approveProposalRevision, ProposalError, toProposalView } from '@/lib/ai/proposals';
+import { getStore } from '@/lib/store';
+import { hydrateProposalIntoStore, syncProposalToFirestore } from '@/lib/store/firestore-fallback';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +15,17 @@ export const dynamic = 'force-dynamic';
  * sends after the user confirms the impact.
  */
 export async function POST(req: NextRequest) {
+  let proposalId = '';
+  let userId = '';
+  let idToken: string | undefined;
+
   try {
     const identity = await requireIdentity(req);
+    userId = identity.uid;
+    idToken = extractBearerToken(req);
     const body = await req.json();
 
-    const proposalId = String(body?.proposal_id || body?.proposalId || '');
+    proposalId = String(body?.proposal_id || body?.proposalId || '');
     const revision = Number(body?.revision);
     const payloadHash = String(body?.payload_hash || body?.payloadHash || '');
     const acknowledgeRisk = body?.acknowledge_risk === true || body?.acknowledgeRisk === true;
@@ -25,6 +33,8 @@ export async function POST(req: NextRequest) {
     if (!proposalId || !Number.isInteger(revision) || !payloadHash) {
       return NextResponse.json({ error: 'proposal_id, revision and payload_hash are required.' }, { status: 400 });
     }
+
+    await hydrateProposalIntoStore(proposalId, identity.uid, idToken);
 
     const approved = await approveProposalRevision({
       userId: identity.uid,
@@ -34,12 +44,19 @@ export async function POST(req: NextRequest) {
       acknowledgeRisk,
     });
 
+    await syncProposalToFirestore(approved, idToken);
+
     return NextResponse.json({ success: true, proposal: toProposalView(approved) });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
     if (error instanceof ProposalError) {
+      if (proposalId && userId && idToken) {
+        const store = await getStore();
+        const latest = await store.proposals.get(proposalId, userId);
+        if (latest) await syncProposalToFirestore(latest, idToken);
+      }
       return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
     console.error('[AI Chat] Approval failed:', error);

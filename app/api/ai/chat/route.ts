@@ -15,6 +15,7 @@ import { createProposal, expireStaleProposals, toProposalView } from '@/lib/ai/p
 import { toClientProposal } from '@/lib/ai/proposal-client';
 import { recordProposalOutcome } from '@/lib/ai/agent-state';
 import { getStore, isDurableStore } from '@/lib/store';
+import { syncProposalToFirestore } from '@/lib/store/firestore-fallback';
 import { newRequestStats, type GoogleAdsContext } from '@/lib/google-ads/gaql';
 import { OpenRouterError } from '@/lib/openrouter-service';
 import type { ProposedAccountChange } from '@/types/adoptimize';
@@ -145,6 +146,16 @@ export async function POST(req: NextRequest) {
           },
         });
         supersededThisTurn.push(...supersededIds);
+        await syncProposalToFirestore(record, idToken);
+        if (supersededIds.length > 0) {
+          const activeStore = await getStore();
+          for (const supersededId of supersededIds) {
+            const supersededRecord = await activeStore.proposals.get(supersededId, identity.uid);
+            if (supersededRecord) {
+              await syncProposalToFirestore(supersededRecord, idToken);
+            }
+          }
+        }
         return { proposalId: record.id, revision: record.revision, supersededIds };
       },
     });
