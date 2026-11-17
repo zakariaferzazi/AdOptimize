@@ -12,7 +12,10 @@ import {
   Check,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowDown,
+  ArrowRight,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -120,10 +123,15 @@ export function AiChatView({
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>('default');
   const [showSessionsDrawer, setShowSessionsDrawer] = useState(false);
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
 
   const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showQuickPrompts, setShowQuickPrompts] = useState(false);
+  const quickPromptsRef = useClickOutside<HTMLDivElement>(() => setShowQuickPrompts(false), showQuickPrompts);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<number>(0);
   const [failedAttempt, setFailedAttempt] = useState<FailedAttempt | null>(null);
@@ -613,6 +621,56 @@ export function AiChatView({
     void handleSendMessage(failedAttempt.query, { isRetry: true });
   };
 
+  const handleRegenerateLastResponse = () => {
+    if (isLoading) return;
+    const lastUserIndex = [...messages].reverse().findIndex((m) => m.role === 'user');
+    if (lastUserIndex === -1) return;
+    const actualUserIndex = messages.length - 1 - lastUserIndex;
+    const lastUserPrompt = messages[actualUserIndex]?.content?.trim();
+    if (!lastUserPrompt) return;
+
+    const trimmedMessages = messages.slice(0, actualUserIndex + 1);
+    updateSessions((current) =>
+      current.map((s) =>
+        s.id === currentSessionId ? { ...s, messages: trimmedMessages } : s
+      )
+    );
+    void handleSendMessage(lastUserPrompt, { isRetry: true });
+  };
+
+  const handleClearHistory = () => {
+    const freshSession: ChatSession = {
+      id: `session-${Date.now()}`,
+      title: 'New Conversation',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      model: selectedModel,
+      messages: [
+        {
+          id: `welcome-${Date.now()}`,
+          role: 'assistant',
+          content: WELCOME_TEXT,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          modelUsed: 'Google Ads Assistant',
+        },
+      ],
+    };
+    saveSessions([freshSession]);
+    setCurrentSessionId(freshSession.id);
+    setFailedAttempt(null);
+    setConfirmClearHistory(false);
+    setSearchQuery('');
+  };
+
+  const getSessionPreview = (sess: ChatSession): string => {
+    const reversed = [...sess.messages].reverse();
+    const meaningful =
+      reversed.find((m) => m.role === 'user' && m.content.trim()) ||
+      reversed.find((m) => m.content.trim() && m.content !== WELCOME_TEXT);
+    if (!meaningful) return 'Start asking about campaigns, spend, or optimizations';
+    return meaningful.content.replace(/[#*`>\n]+/g, ' ').trim();
+  };
+
   const handleEditFailedPrompt = () => {
     if (!failedAttempt) return;
     setInputValue(failedAttempt.query);
@@ -937,337 +995,434 @@ export function AiChatView({
       ? 'Reviewing campaign performance'
       : 'Analyzing your request';
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-118px)] min-h-[560px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative">
-      {/* 1. Clean Header Toolbar — No repeated brand logo */}
-      <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white gap-3 shrink-0 z-10">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0">
-            <BrainCircuit className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-sm font-semibold text-slate-950 tracking-tight">
-                AI Marketing Agent
-              </h2>
-              <span className="text-slate-300 hidden sm:inline">·</span>
-              <span className="text-xs text-slate-600 font-medium truncate max-w-[180px] sm:max-w-[260px] flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    isConnectedAccount ? 'bg-[#00d67d]' : 'bg-amber-400'
-                  }`}
-                />
-                <span className="truncate">{account?.accountName || 'Google Ads Account'}</span>
-                <span className="text-slate-400 font-normal">
-                  ({isConnectedAccount ? 'Connected' : 'Offline'})
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
+  const visibleMessages = useMemo(() => {
+    const base = messages.filter(
+      (m) => !(m.id.startsWith('welcome') && hasUserMessages && m.content === WELCOME_TEXT)
+    );
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return base;
+    return base.filter(
+      (m) =>
+        m.content.toLowerCase().includes(term) ||
+        m.actionProposal?.campaignName?.toLowerCase().includes(term) ||
+        m.actionProposal?.proposedChanges?.toLowerCase().includes(term)
+    );
+  }, [messages, hasUserMessages, searchQuery]);
 
-        {/* Right Controls */}
+  const canRegenerate =
+    hasUserMessages &&
+    !isLoading &&
+    !failedAttempt &&
+    !searchQuery.trim() &&
+    visibleMessages.length > 0 &&
+    visibleMessages[visibleMessages.length - 1]?.role === 'assistant';
+
+  const renderHistoryList = (isMobileDrawer = false) => (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="px-4 py-3.5 border-b border-slate-200/80 bg-white flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          {/* Model Selector */}
-          <div className="relative" ref={modelDropdownRef}>
+          <span className="text-sm font-semibold text-slate-950 tracking-tight">History</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-400 tabular-nums">
+            {sessions.length}
+          </span>
+          {isMobileDrawer && (
             <button
               type="button"
-              onClick={() => setShowModelDropdown((p) => !p)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-800 transition-colors cursor-pointer"
-              title="Select AI model"
+              onClick={() => setShowSessionsDrawer(false)}
+              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              aria-label="Close history"
             >
-              <ActiveModelIcon className="w-3.5 h-3.5" />
-              <span className="font-semibold text-slate-900">{ActiveModelMeta.label}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <X className="w-4 h-4" />
             </button>
-
-            {showModelDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 z-40">
-                {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
-                  const meta = aiModelDetails[mKey] || aiModelDetails.deepseek;
-                  const Icon = meta.icon;
-                  const isSelected = normalizeModel(selectedModel) === mKey;
-                  return (
-                    <button
-                      type="button"
-                      key={mKey}
-                      onClick={() => {
-                        setSelectedModel(mKey);
-                        setShowModelDropdown(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2.5 ${
-                        isSelected
-                          ? 'bg-emerald-50/90 text-slate-950 font-semibold'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="text-xs flex-1">{meta.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Conversations Drawer Toggle */}
-          <button
-            type="button"
-            ref={sessionsToggleRef}
-            onClick={() => setShowSessionsDrawer((p) => !p)}
-            className={`px-3 py-1.5 border rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-              showSessionsDrawer
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-700'
-            }`}
-            title="Conversation history"
-          >
-            <MessageSquare className="w-3.5 h-3.5 opacity-75" />
-            <span className="hidden sm:inline">History</span>
-            <span className="tabular-nums text-[11px] opacity-70">({sessions.length})</span>
-          </button>
-
-          {/* New Chat */}
-          <button
-            type="button"
-            onClick={handleNewConversation}
-            className="px-3 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Start fresh conversation"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>New Chat</span>
-          </button>
+          )}
         </div>
       </div>
 
-      {/* 2. Side History Drawer */}
-      <AnimatePresence>
-        {showSessionsDrawer && (
-          <motion.div
-            ref={sessionsDrawerRef}
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 24 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute top-[57px] right-0 bottom-0 w-80 bg-white border-l border-slate-200 z-30 shadow-xl flex flex-col"
-          >
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                Conversations
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowSessionsDrawer(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {sessions.map((sess) => {
+          const isCurrent = sess.id === currentSessionId;
+          const isEditing = editingSessionId === sess.id;
+          const preview = getSessionPreview(sess);
 
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {sessions.map((sess) => {
-                const isCurrent = sess.id === currentSessionId;
-                const isEditing = editingSessionId === sess.id;
-
-                return (
-                  <div
-                    key={sess.id}
-                    onClick={() => {
-                      if (!isEditing) {
-                        setCurrentSessionId(sess.id);
-                        setShowSessionsDrawer(false);
-                        setFailedAttempt(null);
-                      }
-                    }}
-                    className={`group p-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
-                      isCurrent
-                        ? 'bg-slate-900 text-white font-medium'
-                        : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {isEditing ? (
-                      <div
-                        className="flex items-center gap-1 flex-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="text"
-                          value={editingSessionTitle}
-                          onChange={(e) => setEditingSessionTitle(e.target.value)}
-                          className="px-2 py-1 text-xs bg-white text-slate-900 border rounded-lg flex-1 outline-none"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameSession(sess.id);
-                            if (e.key === 'Escape') setEditingSessionId(null);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRenameSession(sess.id)}
-                          className="p-1 text-emerald-400 hover:text-white"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex-1 min-w-0">
-                          <div className="truncate">{sess.title}</div>
-                          <div
-                            className={`text-[10px] mt-0.5 tabular-nums ${
-                              isCurrent ? 'text-slate-300' : 'text-slate-400'
-                            }`}
-                          >
-                            {new Date(sess.updatedAt).toLocaleDateString()} · {sess.messages.length} msgs
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingSessionId(sess.id);
-                              setEditingSessionTitle(sess.title);
-                            }}
-                            className="p-1 hover:text-slate-200 text-slate-400 rounded cursor-pointer"
-                            title="Rename"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteSession(sess.id, e)}
-                            className="p-1 hover:text-rose-400 text-slate-400 rounded cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => {
-                  handleNewConversation();
+          return (
+            <div
+              key={sess.id}
+              onClick={() => {
+                if (!isEditing) {
+                  setCurrentSessionId(sess.id);
                   setShowSessionsDrawer(false);
-                }}
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Start New Conversation</span>
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. Conversation Stream Viewport */}
-      <div
-        ref={chatScrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 bg-[#fafbfc] relative"
-      >
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Modern Empty / Initial Welcome Canvas */}
-          {isInitialState && !isLoading ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="py-6 sm:py-10 space-y-6"
+                  setFailedAttempt(null);
+                  setSearchQuery('');
+                }
+              }}
+              className={`group p-3 rounded-xl text-xs transition-all cursor-pointer border ${
+                isCurrent
+                  ? 'bg-white border-slate-200/90 shadow-[0_2px_10px_rgba(15,23,42,0.06)]'
+                  : 'bg-transparent border-transparent hover:bg-white/80 hover:border-slate-200/60'
+              }`}
             >
-              <div className="text-center space-y-2 max-w-xl mx-auto">
-                <div className="w-11 h-11 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center mx-auto mb-3 shadow-xs">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950">
-                  What would you like to investigate?
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Ask questions about campaign spend, uncover wasted budget, inspect search terms, or prepare Google Ads optimizations with explicit approval before any change runs.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-0.5">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Suggested Prompts
-                  </span>
+              {isEditing ? (
+                <div
+                  className="flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="text"
+                    value={editingSessionTitle}
+                    onChange={(e) => setEditingSessionTitle(e.target.value)}
+                    className="px-2 py-1 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg flex-1 outline-none focus:border-[#00d67d]"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameSession(sess.id);
+                      if (e.key === 'Escape') setEditingSessionId(null);
+                    }}
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowMoreSuggestions((p) => !p)}
-                    className="text-xs text-emerald-700 hover:text-emerald-800 font-medium cursor-pointer"
+                    onClick={() => handleRenameSession(sess.id)}
+                    className="p-1 text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                    aria-label="Save title"
                   >
-                    {showMoreSuggestions ? 'Show fewer' : 'More prompts'}
+                    <Check className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              ) : (
+                <div className="flex items-start gap-2.5">
+                  <span
+                    className={`mt-1 w-3 h-3 rounded-[4px] shrink-0 flex items-center justify-center transition-colors ${
+                      isCurrent
+                        ? 'bg-[#00d67d] border border-[#00c06f]'
+                        : 'border border-slate-300 bg-white'
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {isCurrent && <span className="w-1 h-1 rounded-full bg-slate-950" />}
+                  </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {primarySuggestions.map((item, idx) => {
-                    const Icon = item.icon;
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <div
+                        className={`truncate text-xs ${
+                          isCurrent ? 'font-semibold text-slate-950' : 'font-medium text-slate-800'
+                        }`}
+                      >
+                        {sess.title}
+                      </div>
+
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSessionId(sess.id);
+                            setEditingSessionTitle(sess.title);
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-700 rounded cursor-pointer"
+                          title="Rename conversation"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSession(sess.id, e)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                          title="Delete conversation"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-1">
+                      {preview}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="p-3 border-t border-slate-200/80 bg-white shrink-0">
+        {confirmClearHistory ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Confirm clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmClearHistory(false)}
+              className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmClearHistory(true)}
+            className="w-full py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs whitespace-nowrap"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+            <span>Clear history</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-[calc(100vh-118px)] min-h-[600px] bg-white rounded-2xl border border-slate-200/85 shadow-[0_2px_16px_rgba(15,23,42,0.04)] overflow-hidden relative">
+      {/* Main Left/Center Chat Workspace */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+        {/* 1. Clean Top Header Bar */}
+        <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white gap-3 shrink-0 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0 shadow-2xs">
+              <BrainCircuit className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-semibold text-slate-950 tracking-tight whitespace-nowrap">
+                  AI Marketing Agent
+                </h2>
+                <span className="text-slate-300 hidden sm:inline">·</span>
+                <span className="text-xs text-slate-500 font-medium truncate max-w-[170px] sm:max-w-[240px]">
+                  {account?.accountName || 'Google Ads Account'} ·{' '}
+                  <span className={isConnectedAccount ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                    {isConnectedAccount ? 'Connected' : 'Offline'}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Functional Controls (Search, Model Switcher, Mobile/Collapsed History, New Chat) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Live Conversation Search */}
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 focus-within:border-[#00d67d] focus-within:bg-white rounded-xl transition-colors w-44 lg:w-52">
+              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search chat..."
+                aria-label="Search current conversation"
+                className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer shrink-0"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Model Selector */}
+            <div className="relative" ref={modelDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowModelDropdown((p) => !p)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-800 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                title="Select AI model"
+              >
+                <ActiveModelIcon className="w-3.5 h-3.5" />
+                <span className="font-semibold text-slate-900">{ActiveModelMeta.label}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {showModelDropdown && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 z-40">
+                  {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
+                    const meta = aiModelDetails[mKey] || aiModelDetails.deepseek;
+                    const Icon = meta.icon;
+                    const isSelected = normalizeModel(selectedModel) === mKey;
                     return (
                       <button
                         type="button"
-                        key={idx}
-                        onClick={() => void handleSendMessage(item.prompt)}
-                        className="p-3.5 bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-emerald-300 rounded-2xl text-left transition-all cursor-pointer group flex items-start gap-3 shadow-2xs"
+                        key={mKey}
+                        onClick={() => {
+                          setSelectedModel(mKey);
+                          setShowModelDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2.5 ${
+                          isSelected
+                            ? 'bg-emerald-50/90 text-slate-950 font-semibold'
+                            : 'hover:bg-slate-50 text-slate-700'
+                        }`}
                       >
-                        <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-[#00d67d] group-hover:text-slate-950 transition-colors shrink-0">
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900">{item.label}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                            {item.subtitle}
-                          </div>
-                        </div>
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="text-xs flex-1">{meta.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0" />}
                       </button>
                     );
                   })}
                 </div>
+              )}
+            </div>
 
-                <AnimatePresence>
-                  {showMoreSuggestions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 overflow-hidden"
-                    >
-                      {secondarySuggestions.map((item, idx) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            type="button"
-                            key={idx}
-                            onClick={() => void handleSendMessage(item.prompt)}
-                            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 rounded-xl text-left transition-colors cursor-pointer flex items-center gap-2"
-                          >
-                            <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                            <span className="text-xs font-medium text-slate-800 truncate">
-                              {item.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* History Toggle (Always on mobile/tablet, and on desktop when docked rail is collapsed) */}
+            <button
+              type="button"
+              ref={sessionsToggleRef}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+                  setIsHistoryCollapsed(false);
+                } else {
+                  setShowSessionsDrawer((p) => !p);
+                }
+              }}
+              className={`px-3 py-1.5 border rounded-xl text-xs font-medium transition-colors cursor-pointer items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                isHistoryCollapsed ? 'flex' : 'flex lg:hidden'
+              } ${
+                showSessionsDrawer
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-700'
+              }`}
+              title="Conversation history"
+            >
+              <MessageSquare className="w-3.5 h-3.5 opacity-75" />
+              <span className="hidden sm:inline">History</span>
+              <span className="tabular-nums text-[11px] opacity-70">{sessions.length}</span>
+            </button>
+
+            {/* Primary AdOptimize CTA */}
+            <button
+              type="button"
+              onClick={handleNewConversation}
+              className="px-3.5 py-1.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              title="Start fresh conversation"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>New Chat</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Conversation Stream Viewport */}
+        <div
+          ref={chatScrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 bg-[#f8fafc] relative"
+        >
+          <div className="max-w-3xl mx-auto space-y-6">
+            {searchQuery.trim() && (
+              <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 text-xs text-slate-600">
+                <span>
+                  Showing <strong className="text-slate-950 tabular-nums">{visibleMessages.length}</strong>{' '}
+                  {visibleMessages.length === 1 ? 'message' : 'messages'} matching &ldquo;{searchQuery}&rdquo;
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                >
+                  Clear filter
+                </button>
               </div>
-            </motion.div>
-          ) : (
-            /* Active Conversation Thread */
-            messages
-              .filter((m) => !(m.id.startsWith('welcome') && hasUserMessages && m.content === WELCOME_TEXT))
-              .map((message) => {
+            )}
+
+            {/* Empty / Initial Welcome Canvas */}
+            {isInitialState && !isLoading ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22 }}
+                className="py-6 sm:py-10 space-y-7"
+              >
+                <div className="text-center space-y-2.5 max-w-xl mx-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-950 text-[#00d67d] flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <BrainCircuit className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 [text-wrap:balance]">
+                    What would you like to investigate?
+                  </h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Diagnose wasted ad spend, compare period deltas, inspect search terms, or prepare Google Ads updates with explicit approval before any change runs.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Suggested Starting Points
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreSuggestions((p) => !p)}
+                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                    >
+                      {showMoreSuggestions ? 'Show fewer' : 'More prompts'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {primarySuggestions.map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          type="button"
+                          key={idx}
+                          onClick={() => void handleSendMessage(item.prompt)}
+                          className="p-4 bg-white hover:border-[#00d67d] border border-slate-200/85 rounded-2xl text-left transition-all cursor-pointer group flex items-start gap-3 shadow-[0_1px_4px_rgba(15,23,42,0.03)]"
+                        >
+                          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-[#00d67d] group-hover:text-slate-950 transition-colors shrink-0">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-950">{item.label}</div>
+                            <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                              {item.subtitle}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <AnimatePresence>
+                    {showMoreSuggestions && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 overflow-hidden"
+                      >
+                        {secondarySuggestions.map((item, idx) => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              type="button"
+                              key={idx}
+                              onClick={() => void handleSendMessage(item.prompt)}
+                              className="p-3 bg-white hover:bg-slate-50 border border-slate-200/85 hover:border-slate-300 rounded-xl text-left transition-colors cursor-pointer flex items-center gap-2 shadow-2xs"
+                            >
+                              <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                              <span className="text-xs font-medium text-slate-800 truncate">
+                                {item.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            ) : (
+              /* Active Conversation Thread */
+              visibleMessages.map((message) => {
                 const isUser = message.role === 'user';
                 const modelMeta =
                   aiModelDetails[normalizeModel(message.modelUsed?.toLowerCase())] || null;
@@ -1278,317 +1433,338 @@ export function AiChatView({
                     key={message.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
                     className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
-                    {!isUser && (
-                      <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                        <MsgIcon className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-
-                    <div
-                      className={`space-y-3 min-w-0 ${
-                        isUser ? 'max-w-[82%] sm:max-w-[75%]' : 'flex-1 max-w-[92%]'
-                      }`}
-                    >
-                      <div
-                        className={`group relative px-4 py-3.5 rounded-2xl text-sm leading-relaxed ${
-                          isUser
-                            ? 'bg-slate-900 text-white rounded-br-xs shadow-2xs'
-                            : 'bg-white text-slate-900 border border-slate-200/85 rounded-tl-xs shadow-2xs'
-                        }`}
-                      >
-                        {isUser ? (
+                    {isUser ? (
+                      <div className="max-w-[84%] sm:max-w-[74%] space-y-1.5">
+                        <div className="px-4 py-3 rounded-2xl rounded-br-xs bg-slate-950 text-white shadow-xs">
                           <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-white">
                             {message.content}
                           </div>
-                        ) : (
-                          <ChatMarkdown content={message.content} />
-                        )}
-                      </div>
-
-                      {/* Structured Interactive Recommendation Cards */}
-                      {!isUser && message.recommendations && message.recommendations.length > 0 && (
-                        <div className="space-y-2.5">
-                          {message.recommendations.map((rec) => (
-                            <div
-                              key={rec.id}
-                              className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                                    <AlertTriangle className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-                                      {rec.title}
-                                    </span>
-                                    <h4 className="text-xs font-semibold text-slate-950 flex items-center gap-1">
-                                      <span>Campaign:</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCampaignClick(rec.campaignName)}
-                                        className="text-slate-900 hover:text-emerald-700 underline font-bold cursor-pointer inline-flex items-center gap-0.5"
-                                      >
-                                        <span>{rec.campaignName}</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </button>
-                                    </h4>
-                                  </div>
-                                </div>
-
-                                {rec.metrics && !Array.isArray(rec.metrics) && rec.metrics.spend !== undefined && (
-                                  <div className="text-right tabular-nums">
-                                    <span className="text-[10px] text-slate-400 block font-medium">
-                                      Spend
-                                    </span>
-                                    <span className="font-mono font-semibold text-xs text-rose-600">
-                                      ${rec.metrics.spend.toFixed(2)}
-                                    </span>
-                                  </div>
-                                )}
-                                {rec.metrics && Array.isArray(rec.metrics) && (
-                                  <div className="flex gap-3 tabular-nums">
-                                    {rec.metrics.slice(0, 2).map((m, mIdx) => (
-                                      <div key={mIdx} className="text-right">
-                                        <span className="text-[10px] text-slate-400 block font-medium">
-                                          {m.label}
-                                        </span>
-                                        <span className="font-mono font-semibold text-xs text-slate-800">
-                                          {m.value}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
-                                {rec.finding}
-                              </p>
-
-                              <div className="flex flex-wrap gap-2">
-                                {(rec.actions || rec.recommendedActions || []).map((act, actIdx) => (
-                                  <button
-                                    type="button"
-                                    key={actIdx}
-                                    onClick={() => void handleSendMessage(act.prompt)}
-                                    disabled={isLoading}
-                                    className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                                  >
-                                    <Zap className="w-3 h-3 text-[#00a85e]" />
-                                    <span>{act.label}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
                         </div>
-                      )}
-
-                      {/* Safe Account Change Confirmation Card */}
-                      {message.actionProposal && (
-                        <div className="bg-white rounded-2xl border border-slate-900/90 p-4 sm:p-5 shadow-sm space-y-4">
-                          <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0">
-                                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                        <div className="flex justify-end px-1 text-[11px] text-slate-400 tabular-nums">
+                          {message.timestamp}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-0 space-y-2.5">
+                        {/* Elevated Assistant Card inspired by pro split-pane UI */}
+                        <div className="bg-white rounded-2xl border border-slate-200/85 shadow-[0_2px_12px_rgba(15,23,42,0.035)] overflow-hidden">
+                          <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-gradient-to-r from-[#00d67d]/[0.06] via-white to-white flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-lg bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0">
+                                <MsgIcon className="w-3.5 h-3.5" />
                               </div>
-                              <div>
-                                <h4 className="text-xs font-semibold text-slate-950 uppercase tracking-wider">
-                                  Confirm Google Ads Action
-                                </h4>
-                                <p className="text-[11px] text-slate-500">
-                                  Review details before applying this change to your account
-                                </p>
-                              </div>
+                              <span className="text-xs font-semibold text-slate-900 truncate">
+                                {message.modelUsed || ActiveModelMeta.label}
+                              </span>
                             </div>
-
-                            <span
-                              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
-                                message.actionProposal.status === 'PENDING_APPROVAL'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  : message.actionProposal.status === 'EXECUTED'
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                  : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-400'
-                                  : message.actionProposal.status === 'APPROVED'
-                                  ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                  : message.actionProposal.status === 'DECLINED' ||
-                                    message.actionProposal.status === 'SUPERSEDED' ||
-                                    message.actionProposal.status === 'EXPIRED'
-                                  ? 'bg-slate-100 text-slate-600'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                                ? 'Applied, not yet verified'
-                                : message.actionProposal.status.replace(/_/g, ' ')}
+                            <span className="text-[11px] text-slate-400 tabular-nums shrink-0">
+                              {message.timestamp}
                             </span>
                           </div>
 
-                          <div className="space-y-2.5 text-xs">
-                            <div>
-                              <span className="font-semibold text-slate-700">Campaign: </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCampaignClick(message.actionProposal!.campaignName)}
-                                className="font-semibold text-slate-950 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                              >
-                                <span>{message.actionProposal.campaignName}</span>
-                                <ExternalLink className="w-3 h-3 text-slate-500" />
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/80 tabular-nums">
-                              <div>
-                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">
-                                  Current Settings
-                                </span>
-                                <span className="font-mono text-slate-800 font-medium whitespace-pre-line">
-                                  {message.actionProposal.currentSettings}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-semibold text-[#00a85e] uppercase tracking-wider block mb-0.5">
-                                  Change to Apply
-                                </span>
-                                <span className="font-mono text-slate-950 font-semibold whitespace-pre-line">
-                                  {message.actionProposal.proposedChanges}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                              <span>
-                                <strong>Potential Risks:</strong> {message.actionProposal.potentialRisks}
-                              </span>
-                            </div>
+                          <div className="px-4 sm:px-5 py-4">
+                            <ChatMarkdown content={message.content} />
                           </div>
 
-                          {message.actionProposal.executionResult && (
-                            <div
-                              className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
-                                message.actionProposal.status === 'EXECUTED'
-                                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
-                                  : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
-                                  ? 'bg-amber-50 text-amber-950 border border-amber-300'
-                                  : message.actionProposal.status === 'DECLINED' ||
-                                    message.actionProposal.status === 'SUPERSEDED' ||
-                                    message.actionProposal.status === 'EXPIRED'
-                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                                  : 'bg-rose-50 text-rose-950 border border-rose-300'
-                              }`}
-                            >
-                              {message.actionProposal.status === 'EXECUTED' ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                              ) : message.actionProposal.status === 'DECLINED' ||
-                                message.actionProposal.status === 'SUPERSEDED' ||
-                                message.actionProposal.status === 'EXPIRED' ? (
-                                <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
-                              ) : (
-                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                              )}
-                              <span>{message.actionProposal.executionResult}</span>
-                            </div>
-                          )}
-
-                          {message.actionProposal.status === 'PENDING_APPROVAL' && (
-                            <div className="flex items-center gap-2.5 pt-1">
+                          {/* Linked Campaign Action Strip (when campaign context is attached) */}
+                          {message.activeCampaign?.name && !message.actionProposal && (
+                            <div className="mx-4 sm:mx-5 mb-4 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+                              <span className="text-xs font-medium text-slate-800 truncate">
+                                Campaign context: <strong className="text-slate-950">{message.activeCampaign.name}</strong>
+                              </span>
                               <button
                                 type="button"
-                                onClick={() => void handleApproveProposal(message.actionProposal!, message.id)}
-                                disabled={executingProposalId === message.actionProposal.id}
-                                className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+                                onClick={() => handleCampaignClick(message.activeCampaign!.name)}
+                                className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 inline-flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
                               >
-                                {executingProposalId === message.actionProposal.id ? (
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                                ) : (
-                                  <Check className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-                                )}
-                                <span>
-                                  {executingProposalId === message.actionProposal.id
-                                    ? 'Executing in Google Ads...'
-                                    : message.actionProposal.actionType === 'ENABLE_CAMPAIGN'
-                                    ? 'Enable campaign'
-                                    : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
-                                    ? 'Pause campaign'
-                                    : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
-                                    ? 'Approve & create campaign'
-                                    : message.actionProposal.destructive
-                                    ? 'Review impact & approve'
-                                    : 'Approve & Execute Change'}
-                                </span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => void handleDeclineProposal(message.actionProposal!.id, message.id)}
-                                disabled={executingProposalId === message.actionProposal.id}
-                                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Decline</span>
+                                <ExternalLink className="w-3 h-3 text-slate-500" />
+                                <span>View</span>
                               </button>
                             </div>
                           )}
                         </div>
-                      )}
 
-                      {/* Footer Metadata & Copy */}
-                      <div
-                        className={`flex items-center gap-2 text-[11px] text-slate-400 px-1 ${
-                          isUser ? 'justify-end' : 'justify-start'
-                        }`}
-                      >
-                        <span className="tabular-nums">{message.timestamp}</span>
-                        {!isUser && message.modelUsed && (
-                          <>
-                            <span>·</span>
-                            <span className="font-medium text-slate-500">{message.modelUsed}</span>
-                          </>
+                        {/* Structured Interactive Recommendation Cards */}
+                        {message.recommendations && message.recommendations.length > 0 && (
+                          <div className="space-y-2.5">
+                            {message.recommendations.map((rec) => (
+                              <div
+                                key={rec.id}
+                                className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-[0_1px_6px_rgba(15,23,42,0.03)] space-y-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                                      <AlertTriangle className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[11px] font-semibold text-amber-700 block">
+                                        {rec.title}
+                                      </span>
+                                      <h4 className="text-xs font-semibold text-slate-950 flex items-center gap-1">
+                                        <span>Campaign:</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCampaignClick(rec.campaignName)}
+                                          className="text-slate-900 hover:text-emerald-700 underline font-bold cursor-pointer inline-flex items-center gap-0.5"
+                                        >
+                                          <span>{rec.campaignName}</span>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </button>
+                                      </h4>
+                                    </div>
+                                  </div>
+
+                                  {rec.metrics && !Array.isArray(rec.metrics) && rec.metrics.spend !== undefined && (
+                                    <div className="text-right tabular-nums">
+                                      <span className="text-[10px] text-slate-400 block font-medium">
+                                        Spend
+                                      </span>
+                                      <span className="font-mono font-semibold text-xs text-rose-600">
+                                        ${rec.metrics.spend.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {rec.metrics && Array.isArray(rec.metrics) && (
+                                    <div className="flex gap-3 tabular-nums">
+                                      {rec.metrics.slice(0, 2).map((m, mIdx) => (
+                                        <div key={mIdx} className="text-right">
+                                          <span className="text-[10px] text-slate-400 block font-medium">
+                                            {m.label}
+                                          </span>
+                                          <span className="font-mono font-semibold text-xs text-slate-800">
+                                            {m.value}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                  {rec.finding}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2">
+                                  {(rec.actions || rec.recommendedActions || []).map((act, actIdx) => (
+                                    <button
+                                      type="button"
+                                      key={actIdx}
+                                      onClick={() => void handleSendMessage(act.prompt)}
+                                      disabled={isLoading}
+                                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                                    >
+                                      <Zap className="w-3 h-3 text-[#00a85e]" />
+                                      <span>{act.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                        {!isUser && message.content && (
-                          <button
-                            type="button"
-                            onClick={() => void handleCopyMessage(message.id, message.content)}
-                            className="ml-1 p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
-                            title="Copy response"
-                          >
-                            {copiedMessageId === message.id ? (
-                              <Check className="w-3 h-3 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3 h-3" />
+
+                        {/* Safe Account Change Confirmation Card (No Reason / Evidence) */}
+                        {message.actionProposal && (
+                          <div className="bg-white rounded-2xl border border-slate-900/90 p-4 sm:p-5 shadow-sm space-y-4">
+                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0">
+                                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-semibold text-slate-950">
+                                    Confirm Google Ads Action
+                                  </h4>
+                                  <p className="text-[11px] text-slate-500">
+                                    Review details before applying this change to your account
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md shrink-0 whitespace-nowrap ${
+                                  message.actionProposal.status === 'PENDING_APPROVAL'
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    : message.actionProposal.status === 'EXECUTED'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                    ? 'bg-amber-50 text-amber-900 border border-amber-300'
+                                    : message.actionProposal.status === 'APPROVED'
+                                    ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                                    : message.actionProposal.status === 'DECLINED' ||
+                                      message.actionProposal.status === 'SUPERSEDED' ||
+                                      message.actionProposal.status === 'EXPIRED'
+                                    ? 'bg-slate-100 text-slate-600'
+                                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                                }`}
+                              >
+                                {message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                  ? 'Applied, unverified'
+                                  : message.actionProposal.status
+                                      .toLowerCase()
+                                      .replace(/_/g, ' ')
+                                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2.5 text-xs">
+                              <div>
+                                <span className="font-semibold text-slate-700">Campaign: </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCampaignClick(message.actionProposal!.campaignName)}
+                                  className="font-semibold text-slate-950 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>{message.actionProposal.campaignName}</span>
+                                  <ExternalLink className="w-3 h-3 text-slate-500" />
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/80 tabular-nums">
+                                <div>
+                                  <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">
+                                    Current Settings
+                                  </span>
+                                  <span className="font-mono text-slate-800 font-medium whitespace-pre-line">
+                                    {message.actionProposal.currentSettings}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[11px] font-semibold text-[#00a85e] block mb-0.5">
+                                    Change to Apply
+                                  </span>
+                                  <span className="font-mono text-slate-950 font-semibold whitespace-pre-line">
+                                    {message.actionProposal.proposedChanges}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="p-2.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>Potential Risks:</strong> {message.actionProposal.potentialRisks}
+                                </span>
+                              </div>
+                            </div>
+
+                            {message.actionProposal.executionResult && (
+                              <div
+                                className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                                  message.actionProposal.status === 'EXECUTED'
+                                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
+                                    : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
+                                    ? 'bg-amber-50 text-amber-950 border border-amber-300'
+                                    : message.actionProposal.status === 'DECLINED' ||
+                                      message.actionProposal.status === 'SUPERSEDED' ||
+                                      message.actionProposal.status === 'EXPIRED'
+                                    ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    : 'bg-rose-50 text-rose-950 border border-rose-300'
+                                }`}
+                              >
+                                {message.actionProposal.status === 'EXECUTED' ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                ) : message.actionProposal.status === 'DECLINED' ||
+                                  message.actionProposal.status === 'SUPERSEDED' ||
+                                  message.actionProposal.status === 'EXPIRED' ? (
+                                  <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                                ) : (
+                                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                                )}
+                                <span>{message.actionProposal.executionResult}</span>
+                              </div>
                             )}
-                          </button>
+
+                            {message.actionProposal.status === 'PENDING_APPROVAL' && (
+                              <div className="flex items-center gap-2.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleApproveProposal(message.actionProposal!, message.id)}
+                                  disabled={executingProposalId === message.actionProposal.id}
+                                  className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                                >
+                                  {executingProposalId === message.actionProposal.id ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                                  ) : (
+                                    <Check className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                                  )}
+                                  <span>
+                                    {executingProposalId === message.actionProposal.id
+                                      ? 'Executing in Google Ads...'
+                                      : message.actionProposal.actionType === 'ENABLE_CAMPAIGN'
+                                      ? 'Enable campaign'
+                                      : message.actionProposal.actionType === 'PAUSE_CAMPAIGN'
+                                      ? 'Pause campaign'
+                                      : message.actionProposal.actionType === 'CREATE_CAMPAIGN'
+                                      ? 'Approve & create campaign'
+                                      : message.actionProposal.destructive
+                                      ? 'Review impact & approve'
+                                      : 'Approve & Execute Change'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeclineProposal(message.actionProposal!.id, message.id)}
+                                  disabled={executingProposalId === message.actionProposal.id}
+                                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                                >
+                                  <X className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Decline</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Clean Copy Action Row */}
+                        {message.content && (
+                          <div className="flex items-center justify-end px-1">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyMessage(message.id, message.content)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200/85 rounded-lg text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Copy response"
+                            >
+                              {copiedMessageId === message.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span className="text-emerald-700">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                 );
               })
-          )}
+            )}
 
-          {/* 4. Modern AI Thinking & Reasoning Loading Indicator */}
-          <AnimatePresence>
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="flex gap-3 justify-start"
-              >
-                <div className="w-7 h-7 rounded-lg bg-slate-900 text-[#00d67d] flex items-center justify-center shrink-0 mt-0.5">
-                  <BrainCircuit className="w-3.5 h-3.5" />
-                </div>
-
-                <div className="flex-1 max-w-lg rounded-2xl rounded-tl-xs bg-white border border-slate-200/85 p-4 shadow-2xs space-y-3">
+            {/* 3. Modern AI Thinking & Reasoning Loading Indicator */}
+            <AnimatePresence>
+              {isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="bg-white rounded-2xl border border-slate-200/85 p-4 sm:p-5 shadow-[0_2px_12px_rgba(15,23,42,0.035)] space-y-3"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-6 h-6 rounded-lg bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0">
+                        <BrainCircuit className="w-3.5 h-3.5" />
+                      </div>
                       {/* Smooth 3-bar harmonic equalizer */}
                       <div className="flex items-center gap-0.5 h-3.5 px-1" aria-hidden="true">
                         {[0, 0.16, 0.32].map((delay, idx) => (
@@ -1616,7 +1792,7 @@ export function AiChatView({
                     <button
                       type="button"
                       onClick={handleStopRequest}
-                      className="text-[11px] text-slate-500 hover:text-rose-600 font-medium cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                      className="text-[11px] text-slate-500 hover:text-rose-600 font-medium cursor-pointer flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
                     >
                       <Square className="w-2.5 h-2.5 fill-current" />
                       <span>Stop</span>
@@ -1643,41 +1819,40 @@ export function AiChatView({
                       </div>
                     ))}
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* 5. Actionable Failure Card with Immediate One-Click "Try Again" */}
-          <AnimatePresence>
-            {failedAttempt && !isLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18 }}
-                className="flex gap-3 justify-start"
-              >
-                <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                </div>
-
-                <div className="flex-1 max-w-lg rounded-2xl rounded-tl-xs bg-white border border-rose-200/90 p-4 shadow-2xs space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-950">
-                      Couldn&apos;t complete this response
-                    </p>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {failedAttempt.message}
-                    </p>
+            {/* 4. Actionable Failure Card with Immediate One-Click "Try Again" */}
+            <AnimatePresence>
+              {failedAttempt && !isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18 }}
+                  className="bg-white rounded-2xl border border-rose-200/90 p-4 sm:p-5 shadow-2xs space-y-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-slate-950">
+                        Couldn&apos;t complete this response
+                      </p>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {failedAttempt.message}
+                      </p>
+                    </div>
                   </div>
 
                   {failedAttempt.query && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 pl-10">
                       <button
                         type="button"
                         onClick={handleRetryNow}
-                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs cursor-pointer transition-colors inline-flex items-center gap-1.5"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                         <span>Try Again</span>
@@ -1692,87 +1867,189 @@ export function AiChatView({
                       </button>
                     </div>
                   )}
-                </div>
-              </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Centered Regenerate Response Button (inspired by reference UI) */}
+            {canRegenerate && (
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleRegenerateLastResponse}
+                  className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-medium text-slate-700 shadow-2xs inline-flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Regenerate response</span>
+                </button>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} className="h-1" />
+          </div>
+
+          {/* Floating Jump-to-Latest Button when scrolled up */}
+          <AnimatePresence>
+            {showScrollButton && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                onClick={() => scrollToBottom('smooth')}
+                className="sticky bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-950/90 hover:bg-slate-950 text-white rounded-xl text-[11px] font-medium shadow-md flex items-center gap-1.5 cursor-pointer mx-auto z-20"
+              >
+                <ArrowDown className="w-3 h-3" />
+                <span>Scroll to latest</span>
+              </motion.button>
             )}
           </AnimatePresence>
-
-          <div ref={messagesEndRef} className="h-1" />
         </div>
 
-        {/* Floating Jump-to-Latest Button when user scrolled up */}
-        <AnimatePresence>
-          {showScrollButton && (
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              onClick={() => scrollToBottom('smooth')}
-              className="sticky bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900/90 hover:bg-slate-900 text-white rounded-full text-[11px] font-medium shadow-md flex items-center gap-1.5 cursor-pointer mx-auto z-20"
-            >
-              <ArrowDown className="w-3 h-3" />
-              <span>Scroll to latest</span>
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </div>
+        {/* 5. Modern Docked Composer */}
+        <div className="px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white shrink-0 relative">
+          <div className="max-w-3xl mx-auto relative">
+            {/* Quick Prompts Popover */}
+            <AnimatePresence>
+              {showQuickPrompts && (
+                <motion.div
+                  ref={quickPromptsRef}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.14 }}
+                  className="absolute bottom-full left-0 mb-2 w-80 max-w-full bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-30 space-y-1"
+                >
+                  <div className="px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                    Quick Marketing Prompts
+                  </div>
+                  {[...primarySuggestions, ...secondarySuggestions].map((item, idx) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={idx}
+                        onClick={() => {
+                          setShowQuickPrompts(false);
+                          void handleSendMessage(item.prompt);
+                        }}
+                        className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-2.5"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span className="text-xs font-medium text-slate-800 truncate flex-1">
+                          {item.label}
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      {/* 6. Modern Composer Dock */}
-      <div className="px-4 sm:px-6 py-3.5 border-t border-slate-200/80 bg-white shrink-0">
-        <div className="max-w-3xl mx-auto">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleSendMessage();
-            }}
-            className="flex items-end gap-2 bg-slate-50/90 rounded-2xl border border-slate-200/90 focus-within:border-emerald-500/80 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00d67d]/15 transition-all p-1.5"
-          >
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void handleSendMessage(e.currentTarget.value);
-                }
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleSendMessage();
               }}
-              placeholder="Ask about your campaigns, find wasted spend, or request an optimization..."
-              className="flex-1 px-3 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"
-              disabled={isLoading}
-            />
-
-            {isLoading ? (
+              className="flex items-end gap-2 bg-[#f8fafc] rounded-2xl border border-slate-200/90 focus-within:border-[#00d67d] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00d67d]/15 transition-all p-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.03)]"
+            >
               <button
                 type="button"
-                onClick={handleStopRequest}
-                className="h-9 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-                title="Stop response generation"
+                onClick={() => setShowQuickPrompts((p) => !p)}
+                disabled={isLoading}
+                className="h-9 w-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-600 hover:text-slate-950 flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                title="Quick marketing prompts"
+                aria-label="Open quick marketing prompts"
               >
-                <Square className="w-3 h-3 fill-rose-600 text-rose-600" />
-                <span>Stop</span>
+                <Zap className="w-4 h-4 text-emerald-700" />
               </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!inputValue.trim()}
-                className="h-9 px-4 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-                title="Send message (Enter)"
-              >
-                <span>Send</span>
-                <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.25]" />
-              </button>
-            )}
-          </form>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1">
-            <span>You approve campaign changes before they are applied.</span>
-            <span className="hidden sm:inline text-[10px]">Enter to send · Shift + Enter for new line</span>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    void handleSendMessage(e.currentTarget.value);
+                  }
+                }}
+                placeholder="Ask about your campaigns, find wasted spend, or prepare a change..."
+                className="flex-1 px-2.5 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"
+                disabled={isLoading}
+              />
+
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={handleStopRequest}
+                  className="h-9 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                  title="Stop response generation"
+                >
+                  <Square className="w-3 h-3 fill-rose-600 text-rose-600" />
+                  <span>Stop</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim()}
+                  className="h-9 w-9 sm:w-auto sm:px-3.5 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                  title="Send message (Enter)"
+                >
+                  <span className="hidden sm:inline">Send</span>
+                  <Send className="w-3.5 h-3.5 text-slate-950 stroke-[2.25]" />
+                </button>
+              )}
+            </form>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1">
+              <span>You review and approve changes before they apply to Google Ads.</span>
+              <span className="hidden sm:inline text-[10px]">Enter to send · Shift + Enter for new line</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Desktop Docked Collapsible Right History Panel (inspired by reference image) */}
+      <aside
+        className={`hidden lg:flex flex-col relative shrink-0 border-l border-slate-200/80 bg-[#fafbfc] transition-all duration-200 ${
+          isHistoryCollapsed ? 'w-0 border-l-0 overflow-visible' : 'w-72 xl:w-80'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setIsHistoryCollapsed((prev) => !prev)}
+          className="hidden lg:flex absolute -left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-sm hover:border-slate-300 text-slate-500 hover:text-slate-950 items-center justify-center z-20 cursor-pointer transition-colors"
+          title={isHistoryCollapsed ? 'Expand history panel' : 'Collapse history panel'}
+          aria-label={isHistoryCollapsed ? 'Expand history panel' : 'Collapse history panel'}
+        >
+          {isHistoryCollapsed ? (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
+          )}
+        </button>
+
+        {!isHistoryCollapsed && renderHistoryList(false)}
+      </aside>
+
+      {/* Mobile / Tablet Slide-over History Drawer */}
+      <AnimatePresence>
+        {showSessionsDrawer && (
+          <motion.div
+            ref={sessionsDrawerRef}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="lg:hidden absolute top-[57px] right-0 bottom-0 w-80 max-w-full bg-[#fafbfc] border-l border-slate-200 z-30 shadow-xl flex flex-col"
+          >
+            {renderHistoryList(true)}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
