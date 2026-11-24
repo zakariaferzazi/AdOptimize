@@ -149,6 +149,16 @@ SHA-256 hash is stored, and it expires no later than its Firebase token.
 Token refresh rotates the session; logout invalidates it. Clearing cookies does
 not delete subscriptions or account history.
 
+The homepage always remains public, including for signed-in users. Log In opens
+`/sign-in`; Get started and the Google signup CTAs open `/sign-up`, where Google
+authentication is initiated. Sign-in synchronizes the secure server session
+before navigating to the workspace. Anonymous workspace visits go to sign-in;
+only the homepage **View Demo** link opens the anonymous dashboard preview at
+`/dashboard?demo=true`. That flag never bypasses API authentication or Pro access.
+Subscription management is available in Settings and `/billing`, not a
+sidebar "Billing & Pro" button. Rebuild before deploying routing changes;
+deploying an existing `.open-next` bundle can publish stale UI.
+
 **Only verified webhooks write subscription state.** Checkout creation, redirect
 parameters, and portal access cannot grant Pro. The SDK verifies the original raw
 body, signature, and delivery timestamp (five-minute tolerance). D1 atomically

@@ -13,6 +13,7 @@ import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
 import { BillingClientError, fetchBillingStatus, startCheckout, type BillingStatus } from '@/lib/billing-client';
+import { synchronizeServerSession } from '@/lib/auth-session';
 
 type Mode = 'sign-in' | 'sign-up';
 const STEPS = ['Account', 'Plan', 'Payment', 'Done'];
@@ -294,8 +295,14 @@ export function AuthFlow({ mode }: { mode: Mode }) {
   }, [ready, user, signUp, attempt]);
 
   useEffect(() => {
-    if (ready && user && !signUp) router.replace(next);
-  }, [ready, user, signUp, next, router]);
+    if (!ready || !user || signUp) return;
+    let active = true;
+    synchronizeServerSession(user).then(
+      () => { if (active) router.replace(next); },
+      (failure) => { if (active) setLoaded({ uid: user.uid, error: failure instanceof Error ? failure.message : 'Unable to synchronize your secure session.' }); },
+    );
+    return () => { active = false; };
+  }, [ready, user, signUp, next, router, attempt]);
 
   const current = user && loaded?.uid === user.uid ? loaded : null;
   const status = current?.status ?? null;
@@ -336,8 +343,8 @@ export function AuthFlow({ mode }: { mode: Mode }) {
             </div>
 
             {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</p>
-              : !user ? <AccountForm mode={mode} next={next} onDone={() => { if (!signUp) router.replace(next); }} />
-              : !signUp ? <p role="status" className="text-sm text-slate-500">Redirecting...</p>
+              : !user ? <AccountForm mode={mode} next={next} onDone={() => {}} />
+              : !signUp ? statusError ? <div role="alert" className="space-y-3 text-sm text-rose-700"><p>{statusError}</p><button type="button" onClick={retry} className="font-semibold underline">Retry sign-in</button></div> : <p role="status" className="text-sm text-slate-500">Synchronizing secure sign-in...</p>
               : statusError ? (
                 <div className="space-y-3">
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>

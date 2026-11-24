@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { AdOptimizeProvider, useAdOptimize } from '@/context/adoptimize-context';
 import { LandingPage } from '@/components/landing/landing-page';
-import { ConnectAccountsStep } from '@/components/onboarding/connect-accounts-step';
-import { DashboardClientView } from '@/app/dashboard/dashboard-client';
 
 export function AdOptimizeRootClient() {
   return (
@@ -18,20 +16,11 @@ export function AdOptimizeRootClient() {
 function AdOptimizeRootView() {
   const router = useRouter();
   const {
-    state,
     user,
     authLoading,
     isInitialLoading,
     handleSignOut,
-    handleConnectAccount,
   } = useAdOptimize();
-
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('adoptimize_onboarding_completed') === 'true';
-    }
-    return false;
-  });
 
   // Auth & Workspace Data Loading Screen
   if (authLoading || isInitialLoading) {
@@ -45,56 +34,12 @@ function AdOptimizeRootView() {
     );
   }
 
-  // 1. Unauthenticated: public landing page. Sign-up and sign-in live on their own routes.
-  if (!user) {
-    return (
+  return (
       <LandingPage
-        onOpenApp={() => router.push('/dashboard')}
+        onOpenApp={() => router.push(user ? '/dashboard' : '/sign-in')}
         onConnectGoogleAds={() => router.push('/sign-up')}
-        onSignIn={() => router.push('/sign-in')}
         user={user}
         onSignOut={handleSignOut}
       />
     );
-  }
-
-  // 2. Authenticated: Check if ad account is connected
-  const isAccountConnected = Boolean(
-    state.account.isConnected &&
-    state.account.clientCustomerId &&
-    state.account.clientCustomerId !== 'Not Connected'
-  );
-
-  // If user is connected OR has already completed onboarding, go straight to dashboard
-  if (user && !isAccountConnected && !hasCompletedOnboarding) {
-    return (
-      <ConnectAccountsStep
-        user={user}
-        account={state.account}
-        onConnectSuccess={(connectedAccount, syncedCampaigns, token, keywords, searchTerms) => {
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('adoptimize_onboarding_completed', 'true');
-            } catch {}
-          }
-          setHasCompletedOnboarding(true);
-          handleConnectAccount(connectedAccount, syncedCampaigns, token, keywords, searchTerms);
-          router.push('/dashboard');
-        }}
-        onContinueToDashboard={() => {
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('adoptimize_onboarding_completed', 'true');
-            } catch {}
-          }
-          setHasCompletedOnboarding(true);
-          router.push('/dashboard');
-        }}
-        onSignOut={handleSignOut}
-      />
-    );
-  }
-
-  // 3. Authenticated workspace: Render Dashboard directly
-  return <DashboardClientView />;
 }

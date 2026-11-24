@@ -36,8 +36,6 @@ import { PlanCta } from '@/components/billing/plan-cta';
 interface LandingPageProps {
   onOpenApp: () => void;
   onConnectGoogleAds: () => void;
-  onSignIn?: () => void;
-  onSignInWithGoogle?: () => void;
   user?: { displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
   onSignOut?: () => void;
 }
@@ -45,8 +43,6 @@ interface LandingPageProps {
 export function LandingPage({
   onOpenApp,
   onConnectGoogleAds,
-  onSignIn,
-  onSignInWithGoogle,
   user,
   onSignOut,
 }: LandingPageProps) {
@@ -145,9 +141,9 @@ export function LandingPage({
       {/* 1. TOP NAVIGATION */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="cursor-pointer" onClick={onOpenApp}>
+          <Link href="/" className="cursor-pointer">
             <BrandLogo theme="light" />
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
             <a href="#simulator" className="hover:text-slate-900 transition-colors">Audit Simulator</a>
@@ -180,20 +176,20 @@ export function LandingPage({
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <button
-                  onClick={onSignIn || onOpenApp}
+                <Link
+                  href="/sign-in"
                   className="px-3.5 py-2 text-slate-700 hover:text-slate-900 font-medium text-xs transition-colors cursor-pointer"
                 >
                   Log In
-                </button>
+                </Link>
 
-                <button
-                  onClick={onSignInWithGoogle || onConnectGoogleAds}
+                <Link
+                  href="/sign-up"
                   className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   <span>Get started</span>
                   <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                </button>
+                </Link>
               </div>
             )}
           </div>
@@ -217,21 +213,21 @@ export function LandingPage({
 
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
-            <button
-              onClick={onSignInWithGoogle || onConnectGoogleAds}
+            <Link
+              href="/sign-up"
               className="px-6 py-3.5 bg-slate-900 hover:bg-black text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-2.5 cursor-pointer hover:translate-y-[-1px]"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
               <span>Start free with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
-            </button>
+            </Link>
 
-            <button
-              onClick={onOpenApp}
+            <Link
+              href="/dashboard?demo=true"
               className="px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
             >
-              <span>View Dashboard</span>
-            </button>
+              <span>View Demo</span>
+            </Link>
           </div>
 
           {/* Quiet Unboxed Proof Line */}
@@ -246,7 +242,7 @@ export function LandingPage({
           {/* Interactive Multi-Model Agent Simulation */}
           <div id="simulator" className="pt-8 sm:pt-12 scroll-mt-24">
             <ModelDemoSimulator
-              onConnectGoogleAds={onSignInWithGoogle || onConnectGoogleAds}
+              onConnectGoogleAds={onConnectGoogleAds}
               onOpenApp={onOpenApp}
             />
           </div>
@@ -591,14 +587,14 @@ export function LandingPage({
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={onSignInWithGoogle || onConnectGoogleAds}
+            <Link
+              href="/sign-up"
               className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
               <span>Start free with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
-            </button>
+            </Link>
             <button
               onClick={onOpenApp}
               className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors cursor-pointer"
@@ -617,9 +613,9 @@ export function LandingPage({
       <footer className="py-12 px-6 bg-white border-t border-slate-200 text-xs text-slate-500">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <div className="cursor-pointer" onClick={onOpenApp}>
+            <Link href="/" className="cursor-pointer">
               <BrandLogo iconSize={22} iconClassName="w-5 h-5 rounded-lg" textClassName="text-sm font-bold" theme="light" />
-            </div>
+            </Link>
             <p className="text-slate-500 text-[11px]">
               Continuous search query intelligence and guarded budget protection for Google Ads.
             </p>

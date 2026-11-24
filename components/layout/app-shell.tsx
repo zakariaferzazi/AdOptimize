@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectModal } from '@/components/connect-modal';
@@ -25,11 +25,14 @@ interface AppShellProps {
 }
 
 export function AppShell(props: AppShellProps) {
-  return <AppShellInner {...props} />;
+  return <Suspense fallback={<p role="status">Loading workspace...</p>}><AppShellInner {...props} /></Suspense>;
 }
 
 function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const params = useSearchParams();
+  const isDemo = pathname === '/dashboard' && params.get('demo') === 'true';
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -59,7 +62,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
     isSyncing,
     syncCooldownRemaining,
     lastSyncTimestamp,
-    handleSignInWithGoogle,
     handleSignOut,
     handleSync,
     handleConnectAccount,
@@ -69,6 +71,12 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   } = useAdOptimize();
 
   const { account, campaigns, anomalies, budgetRecommendations, auditLogs } = state;
+
+  useEffect(() => {
+    if (!authLoading && !user && !isDemo) {
+      router.replace(`/sign-in?next=${encodeURIComponent(pathname || '/dashboard')}`);
+    }
+  }, [authLoading, user, isDemo, pathname, router]);
 
   useEffect(() => {
     if (syncedPathRef.current === pathname) return;
@@ -138,6 +146,10 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
 
   const currentTab = getCurrentTab();
 
+  if (authLoading || (!user && !isDemo)) {
+    return <p role="status" className="p-8 text-sm text-slate-500">Loading your workspace...</p>;
+  }
+
   return (
     <div className="min-h-screen flex items-stretch bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
       {/* 1. Sidebar Navigation (Desktop collapsible + Mobile slide-over drawer) */}
@@ -170,7 +182,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
             const camp = campaigns.find((c) => c.id === anomaly.campaignId);
             if (camp) setSelectedCampaign(camp);
           }}
-          onSignInWithGoogle={handleSignInWithGoogle}
+          onSignInWithGoogle={() => router.push('/sign-in')}
           onSignOut={handleSignOut}
           headerExtra={headerExtra}
           onToggleMobileMenu={() => setIsMobileSidebarOpen((prev) => !prev)}
