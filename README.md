@@ -167,6 +167,11 @@ free plan go straight to their dashboard and can connect later in Settings.
 Auth screens include an illustrative AI Marketing Agent conversation, not customer
 data or promised performance results. Keep decorative sparkle icons out of the website UI;
 navigation and loading indicators use functional icons instead.
+Email signup requires **Email/Password** to be enabled under Firebase Console ->
+Authentication -> Sign-in method in the project used by `firebase-applet-config.json`.
+`OPERATION_NOT_ALLOWED` from `accounts:signUp` means that provider is disabled;
+changing Cloudflare secrets or the form will not enable it. Enable Email/Password
+(not just email-link sign-in) and save before testing signup.
 
 **Only verified webhooks write subscription state.** Checkout creation, redirect
 parameters, and portal access cannot grant Pro. The SDK verifies the original raw

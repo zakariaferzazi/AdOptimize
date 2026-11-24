@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthFlow } from '@/components/auth/auth-flow';
+import { AuthFlow, describeAuthError } from '@/components/auth/auth-flow';
 import { CheckoutSuccess } from '@/components/billing/checkout-success';
 import type { BillingStatus } from '@/lib/billing-client';
 
@@ -50,6 +50,16 @@ beforeEach(() => {
 });
 
 describe('paid signup connection step', () => {
+  it('explains disabled email authentication instead of hiding the Firebase configuration error', () => {
+    expect(describeAuthError({ code: 'auth/operation-not-allowed' })).toContain('Email/password sign-in is not enabled');
+    expect(describeAuthError({ code: 'auth/operation-not-allowed' })).toContain('Google');
+  });
+
+  it('explains a stricter Firebase password policy without exposing the raw provider message', () => {
+    expect(describeAuthError({ code: 'auth/password-does-not-meet-requirements', message: 'raw provider details' })).toContain('security requirements');
+    expect(describeAuthError({ code: 'auth/password-does-not-meet-requirements', message: 'raw provider details' })).not.toContain('raw provider details');
+  });
+
   it('resumes Google Ads connection for a webhook-confirmed Pro user', () => {
     const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
     expect(html).toContain('Post-payment Google Ads connection');

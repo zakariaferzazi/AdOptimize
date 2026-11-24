@@ -273,7 +273,7 @@ export async function signUpWithEmail(email: string, pass: string) {
     const res = await createUserWithEmailAndPassword(auth, email, pass);
     return res.user;
   } catch (error) {
-    console.error('Error signing up with email:', error);
+    console.error('[Auth] Email sign-up failed.');
     throw error;
   }
 }
@@ -283,7 +283,7 @@ export async function signInWithEmail(email: string, pass: string) {
     const res = await signInWithEmailAndPassword(auth, email, pass);
     return res.user;
   } catch (error) {
-    console.error('Error signing in with email:', error);
+    console.error('[Auth] Email sign-in failed.');
     throw error;
   }
 }

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordResetEmail, updateProfile, type User } from 'firebase/auth';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck, Target, TrendingUp, User as UserIcon,
+  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck, User as UserIcon,
 } from 'lucide-react';
 import { auth, signInWithEmail, signInWithGoogle, signUpWithEmail } from '@/lib/firebase';
 import { GoogleIcon } from '@/components/ui/google-icon';
@@ -20,15 +21,17 @@ import { PostPaymentConnect } from '@/components/billing/post-payment-connect';
 type Mode = 'sign-in' | 'sign-up';
 const STEPS = ['Account', 'Plan', 'Payment', 'Connect'];
 
-function describeAuthError(error: unknown): string {
-  const code = (error as { code?: string })?.code;
+export function describeAuthError(error: unknown): string {
+  const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
   switch (code) {
+    case 'auth/operation-not-allowed': return 'Email/password sign-in is not enabled yet. Please continue with Google or contact support.';
     case 'auth/email-already-in-use': return 'An account already exists with this email. Please sign in instead.';
     case 'auth/wrong-password':
     case 'auth/user-not-found':
     case 'auth/invalid-credential': return 'Invalid email or password. Please try again.';
     case 'auth/invalid-email': return 'Please enter a valid email address.';
     case 'auth/weak-password': return 'Choose a stronger password.';
+    case 'auth/password-does-not-meet-requirements': return 'Your password does not meet the account security requirements. Please choose a stronger password.';
     case 'auth/too-many-requests': return 'Too many attempts. Please wait a moment and try again.';
     case 'auth/network-request-failed': return 'Network error. Check your connection and try again.';
     default: return error instanceof Error && !code ? error.message : 'Something went wrong. Please try again.';
@@ -73,32 +76,24 @@ function ShowcasePanel() {
       <div className="absolute -top-24 -right-16 w-96 h-96 rounded-[56px] bg-indigo-800/60 rotate-12" aria-hidden="true" />
       <div className="absolute top-40 -left-24 w-[28rem] h-80 rounded-[56px] bg-indigo-400/40 -rotate-6" aria-hidden="true" />
       <div className="absolute -bottom-32 -right-24 w-[34rem] h-96 rounded-[64px] bg-sky-400/60 rotate-12" aria-hidden="true" />
-      <div className="relative h-full flex flex-col justify-center gap-6">
+      <div className="relative h-full flex flex-col justify-center gap-5">
         <div className="space-y-3 text-white">
           <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight">Make every ad dollar<br />work harder.</h2>
-          <p className="max-w-sm text-sm leading-relaxed text-indigo-100">Put your AI Marketing Agent to work on the analysis that takes hours to do by hand.</p>
+          <p className="max-w-sm text-sm leading-relaxed text-indigo-100">Your AI Marketing Agent, ready for the heavy lifting.</p>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-xl space-y-4">
-          <div className="flex items-center gap-3">
-            <AgentIcon className="w-9 h-9" />
-            <div className="flex-1"><div className="text-sm font-bold text-slate-900">AI Marketing Agent</div><div className="text-[11px] text-slate-400">Example conversation</div></div>
-          </div>
-          <div className="ml-6 rounded-2xl rounded-tr-sm bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">Audit the last 30 days across my campaigns. Find wasted search terms and budget bottlenecks, then give me a prioritized fix plan. Don&apos;t change anything yet.</div>
-          <div className="rounded-2xl rounded-tl-sm bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 space-y-3">
-            <p className="font-semibold text-slate-900">Done. Your audit and action plan are ready.</p>
-            <ul className="space-y-2">
-              {['Flagged search terms spending without conversions', 'Identified campaigns limited by their daily budgets', 'Ranked the recommended fixes for your review'].map((item) => (
-                <li key={item} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-600 shrink-0" /><span>{item}</span></li>
-              ))}
-            </ul>
-            <p>No campaign changes made. Tell me which recommendation you want to explore first.</p>
-          </div>
-          <p className="text-[10px] leading-relaxed text-slate-400">Illustrative example. Findings depend on your connected account.</p>
+        <div className="relative aspect-[5/3] w-full max-h-[220px]">
+          <Image src="/auth_panel.png" alt="" fill priority sizes="(min-width: 1280px) 480px, 400px" className="object-contain" />
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {([[Target, 'Spot waste'], [BarChart3, 'Find clarity'], [TrendingUp, 'Plan growth']] as const).map(([FeatureIcon, label]) => (
-            <div key={label} className="rounded-xl border border-white/20 bg-white/10 p-3 text-white"><FeatureIcon className="w-5 h-5 mb-2 text-indigo-100" /><span className="text-[11px] font-semibold">{label}</span></div>
-          ))}
+        <div className="self-end w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
+          <div className="flex items-center gap-2">
+            <AgentIcon className="w-7 h-7" />
+            <div className="flex-1"><div className="text-xs font-bold text-slate-900">AI Marketing Agent</div><div className="text-[10px] text-slate-400">Example conversation</div></div>
+          </div>
+          <div className="ml-4 rounded-xl rounded-tr-sm bg-indigo-50 p-2.5 text-[11px] leading-relaxed text-indigo-900">Audit all my campaigns for the last 30 days. Find wasted spend and prioritize the fixes.</div>
+          <div className="rounded-xl rounded-tl-sm bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
+            <p><strong className="text-slate-900">Done.</strong> Wasted search terms flagged, budget bottlenecks identified, and your action plan is ready. No changes made.</p>
+          </div>
+          <p className="text-[9px] leading-relaxed text-slate-400">Illustrative example. Findings depend on your account.</p>
         </div>
       </div>
     </aside>
