@@ -85,6 +85,9 @@ compare-and-swap, applies the plan, reads back and verifies, and records
 
 ### Environment
 
+- `MODEL_CLAUDE` selects the OpenRouter Claude model, defaulting to `anthropic/claude-haiku-5.5`.
+  To set it as a Cloudflare Worker secret from PowerShell:
+  `'anthropic/claude-haiku-5.5' | npx wrangler secret put MODEL_CLAUDE`.
 - `AI_STORE=memory` forces the in-memory store (tests, local dev without D1).
 - `AI_PROPOSAL_EXPIRATION_MINUTES` defaults to 60.
 - D1 binding `DB` in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`,
@@ -97,7 +100,7 @@ reporting, every operation end-to-end, agent loop limits, multi-turn scenarios, 
 safety, MCP protocol, state model and storage.
 
 `npm run test:eval` runs the live-model evaluation (real OpenRouter model, fake account) and is
-skipped unless `OPENROUTER_API_KEY` and `MODEL_CHATGPT`/`MODEL_DEEPSEEK` are set.
+skipped unless `OPENROUTER_API_KEY` and `MODEL_CHATGPT`/`MODEL_CLAUDE` are set.
 ### Deploying
 
 Wrangler validates the D1 `database_id` at deploy time. Create the database once, paste the id

@@ -1,4 +1,4 @@
-export type SupportedModel = 'deepseek' | 'chatgpt' | 'gemini';
+export type SupportedModel = 'claude' | 'chatgpt' | 'gemini';
 export type ModelTier = SupportedModel | 'fast' | 'analysis' | 'advanced';
 
 export interface ModelConfig {
@@ -12,7 +12,7 @@ export interface ModelConfig {
 
 export function getAvailableModels(): ModelConfig[] {
   return [
-    { id: process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat', name: 'DeepSeek', model: 'deepseek', provider: 'DeepSeek', badge: 'Reasoning & Math', description: 'Reasoning and campaign diagnostics.' },
+    { id: process.env.MODEL_CLAUDE || 'anthropic/claude-haiku-5.5', name: 'Claude', model: 'claude', provider: 'Anthropic', badge: 'Anthropic', description: 'Reasoning and campaign diagnostics.' },
     { id: process.env.MODEL_CHATGPT || 'openai/gpt-4o-mini', name: 'ChatGPT', model: 'chatgpt', provider: 'OpenAI', badge: 'OpenAI', description: 'Campaign strategy and performance analysis.' },
     { id: process.env.MODEL_GEMINI || 'google/gemini-2.5-flash', name: 'Gemini', model: 'gemini', provider: 'Google', badge: 'Google', description: 'Fast account analysis and campaign assistance.' },
   ];
@@ -20,16 +20,16 @@ export function getAvailableModels(): ModelConfig[] {
 
 export function resolveModelId(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return process.env.MODEL_DEEPSEEK || 'deepseek/deepseek-chat';
+  if (normalized === 'claude' || normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return process.env.MODEL_CLAUDE || 'anthropic/claude-haiku-5.5';
   if (normalized === 'chatgpt' || normalized === 'balanced') return process.env.MODEL_CHATGPT || 'openai/gpt-4o-mini';
   return process.env.MODEL_GEMINI || 'google/gemini-2.5-flash';
 }
 
 export function getModelDisplayName(modelOrTier: string = 'gemini'): string {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'DeepSeek';
+  if (normalized === 'claude' || normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'Claude';
   if (normalized === 'chatgpt' || normalized === 'balanced') return 'ChatGPT';
-  return 'Fast Model';
+  return 'Gemini';
 }
 
 export interface ChatCompletionMessage {
@@ -97,14 +97,14 @@ export class OpenRouterError extends Error {
 }
 
 const MODEL_CONTEXT_LIMITS: Record<SupportedModel, number> = {
-  deepseek: 32768,
+  claude: 32768,
   chatgpt: 128000,
   gemini: 1000000,
 };
 
 function normalizeTier(modelOrTier: string): SupportedModel {
   const normalized = modelOrTier.toLowerCase();
-  if (normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'deepseek';
+  if (normalized === 'claude' || normalized === 'deepseek' || normalized === 'advanced' || normalized === 'analysis') return 'claude';
   if (normalized === 'chatgpt' || normalized === 'balanced') return 'chatgpt';
   return 'gemini';
 }

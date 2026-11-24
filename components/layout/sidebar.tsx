@@ -10,7 +10,6 @@ import {
   Sparkles,
   SlidersHorizontal,
   Zap,
-  MessageSquare,
   History,
   Settings,
   BarChart3,
@@ -19,6 +18,7 @@ import {
   PanelLeftOpen,
   PanelLeft,
 } from 'lucide-react';
+import { AgentIcon } from '@/components/ui/ai-model-icons';
 
 export type NavTab =
   | 'overview'
@@ -101,7 +101,7 @@ export function Sidebar({
       href: '/chat',
       matchPaths: ['/chat', '/copilot'],
       label: 'AI Marketing Agent',
-      icon: MessageSquare,
+      icon: AgentIcon,
     },
   ];
 

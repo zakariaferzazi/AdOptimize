@@ -12,7 +12,7 @@ import { FakeGoogleAds } from './helpers/fake-google-ads';
  *   OPENROUTER_API_KEY=... MODEL_CHATGPT=openai/gpt-4o-mini npm run test:eval
  */
 
-const live = Boolean(process.env.OPENROUTER_API_KEY && (process.env.MODEL_CHATGPT || process.env.MODEL_DEEPSEEK));
+const live = Boolean(process.env.OPENROUTER_API_KEY && (process.env.MODEL_CHATGPT || process.env.MODEL_CLAUDE));
 
 vi.mock('@/lib/ai/identity', async () => {
   const actual = await vi.importActual<typeof import('@/lib/ai/identity')>('@/lib/ai/identity');
@@ -35,7 +35,7 @@ import { resetMemoryStore } from '@/lib/store/memory';
 import { loadAgentState } from '@/lib/ai/conversations';
 import { invalidateGaqlCache } from '@/lib/google-ads/gaql';
 
-const MODEL = process.env.MODEL_CHATGPT ? 'chatgpt' : 'deepseek';
+const MODEL = process.env.MODEL_CHATGPT ? 'chatgpt' : 'claude';
 let fake: FakeGoogleAds;
 
 async function say(message: string, conversationId?: string) {

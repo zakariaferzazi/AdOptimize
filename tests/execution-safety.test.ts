@@ -64,6 +64,13 @@ afterEach(() => {
 });
 
 describe('execution safety', () => {
+  it('uses Claude when a chat request does not select a model', async () => {
+    scripted.script(textResponse('Hello.'));
+    const response = await chatPost(jsonRequest('http://localhost/api/ai/chat', { message: 'Hello' }));
+    expect(response.status).toBe(200);
+    expect(scripted.requests[0].model).toBe('claude');
+  });
+
   it('refuses to execute a proposal that was never approved', async () => {
     const { proposal } = await prepareProposal();
     const response = await executePost(jsonRequest('http://localhost/api/ai/chat/execute', identity(proposal)));
@@ -272,6 +279,7 @@ describe('model payload', () => {
     const response = await conversationsGet(getRequest(`http://localhost/api/ai/conversations?conversationId=${conversationId}`));
     const data = await response.json();
     expect(data.transcript).toHaveLength(2);
+    expect(data.transcript[1].model).toBe('Test Model');
     expect(data.proposals[0]).toMatchObject({ status: 'PENDING_APPROVAL', campaignName: 'Brand - Search' });
     expect(data.proposals[0].currentSettings).toMatch(/Daily budget: 50/);
   });

@@ -23,19 +23,17 @@ import {
   TrendingDown,
   TrendingUp,
   Layers,
-  BrainCircuit,
   ExternalLink,
   Sliders,
   History,
   MessageSquare,
   Search,
   Zap,
-  Bot,
   Copy,
 } from 'lucide-react';
 import { ChatMarkdown } from './markdown-renderer';
 import { auth } from '@/lib/firebase';
-import { DeepSeekIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
+import { AgentIcon, ClaudeIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
   ChatMessage,
@@ -51,14 +49,14 @@ import {
   ProposedAccountChange,
 } from '@/types/adoptimize';
 
-export type ActiveAiModel = 'deepseek' | 'chatgpt' | 'gemini';
+export type ActiveAiModel = 'claude' | 'chatgpt' | 'gemini';
 
 export function normalizeModel(model: string | undefined): ActiveAiModel {
   if (model === 'fast') return 'gemini';
   if (model === 'balanced') return 'chatgpt';
-  if (model === 'advanced') return 'deepseek';
-  if (model === 'deepseek' || model === 'chatgpt' || model === 'gemini') return model;
-  return 'deepseek';
+  if (model === 'advanced' || model === 'analysis' || model === 'deepseek') return 'claude';
+  if (model === 'claude' || model === 'chatgpt' || model === 'gemini') return model;
+  return 'claude';
 }
 
 function isInterruptedErrorReply(content: string | undefined | null): boolean {
@@ -113,7 +111,7 @@ export function AiChatView({
   onSelectCampaign,
   onSelectCampaignByName,
 }: AiChatViewProps) {
-  const [selectedModel, setSelectedModel] = useState<ActiveAiModel>('deepseek');
+  const [selectedModel, setSelectedModel] = useState<ActiveAiModel>('claude');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelDropdownRef = useClickOutside<HTMLDivElement>(() => setShowModelDropdown(false), showModelDropdown);
   const sessionsToggleRef = useRef<HTMLButtonElement>(null);
@@ -197,10 +195,11 @@ export function AiChatView({
               item.role === 'user' ||
               (item.role === 'assistant' && Boolean(item.content) && !isInterruptedErrorReply(item.content))
           )
-          .map((item: { id: string; role: string; content: string | null; createdAt: string }) => ({
+          .map((item: { id: string; role: string; content: string | null; createdAt: string; model?: string | null }) => ({
             id: item.id,
             role: item.role as 'user' | 'assistant',
             content: item.content || '',
+            ...(item.role === 'assistant' && item.model ? { modelUsed: item.model } : {}),
             timestamp: new Date(item.createdAt).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
@@ -248,7 +247,7 @@ export function AiChatView({
       title: 'Performance Analysis',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      model: 'deepseek',
+      model: 'claude',
       messages: [
         {
           id: 'welcome-msg',
@@ -548,6 +547,7 @@ export function AiChatView({
         content: proposal.title ? `Also prepared: ${proposal.title}.` : 'Another change is ready for review.',
         timestamp: assistantMessage.timestamp,
         actionProposal: proposal,
+        modelUsed: assistantMessage.modelUsed,
       }));
 
       const newIds = new Set(proposals.map((proposal) => proposal.proposalId));
@@ -970,13 +970,10 @@ export function AiChatView({
     }
   };
 
-  const aiModelDetails: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-    deepseek: { label: 'DeepSeek', icon: DeepSeekIcon },
+  const aiModelDetails: Record<ActiveAiModel, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    claude: { label: 'Claude', icon: ClaudeIcon },
     chatgpt: { label: 'ChatGPT', icon: ChatGPTIcon },
     gemini: { label: 'Gemini', icon: GeminiIcon },
-    fast: { label: 'Gemini', icon: GeminiIcon },
-    balanced: { label: 'ChatGPT', icon: ChatGPTIcon },
-    advanced: { label: 'DeepSeek', icon: DeepSeekIcon },
   };
 
   const hasUserMessages = messages.some((m) => m.role === 'user');
@@ -985,7 +982,7 @@ export function AiChatView({
     account?.isConnected && account.clientCustomerId !== 'Not Connected'
   );
 
-  const ActiveModelMeta = aiModelDetails[normalizeModel(selectedModel)] || aiModelDetails.deepseek;
+  const ActiveModelMeta = aiModelDetails[selectedModel];
   const ActiveModelIcon = ActiveModelMeta.icon;
 
   const loadingStageLabel =
@@ -1185,9 +1182,7 @@ export function AiChatView({
         {/* 1. Clean Top Header Bar */}
         <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white gap-3 shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0 shadow-2xs">
-              <BrainCircuit className="w-4 h-4" />
-            </div>
+            <AgentIcon className="w-8 h-8 rounded-xl shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-semibold text-slate-950 tracking-tight whitespace-nowrap">
@@ -1244,8 +1239,8 @@ export function AiChatView({
 
               {showModelDropdown && (
                 <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 z-40">
-                  {(['deepseek', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
-                    const meta = aiModelDetails[mKey] || aiModelDetails.deepseek;
+                  {(['claude', 'chatgpt', 'gemini'] as ActiveAiModel[]).map((mKey) => {
+                    const meta = aiModelDetails[mKey];
                     const Icon = meta.icon;
                     const isSelected = normalizeModel(selectedModel) === mKey;
                     return (
@@ -1254,6 +1249,11 @@ export function AiChatView({
                         key={mKey}
                         onClick={() => {
                           setSelectedModel(mKey);
+                          updateSessions((current) =>
+                            current.map((session) =>
+                              session.id === currentSessionId ? { ...session, model: mKey } : session
+                            )
+                          );
                           setShowModelDropdown(false);
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2.5 ${
@@ -1342,9 +1342,7 @@ export function AiChatView({
                 className="py-6 sm:py-10 space-y-7"
               >
                 <div className="text-center space-y-2.5 max-w-xl mx-auto">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-950 text-[#00d67d] flex items-center justify-center mx-auto mb-3 shadow-sm">
-                    <BrainCircuit className="w-5 h-5" />
-                  </div>
+                  <AgentIcon className="w-12 h-12 rounded-2xl mx-auto mb-3" />
                   <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 [text-wrap:balance]">
                     What would you like to investigate?
                   </h3>
@@ -1424,9 +1422,11 @@ export function AiChatView({
               /* Active Conversation Thread */
               visibleMessages.map((message) => {
                 const isUser = message.role === 'user';
-                const modelMeta =
-                  aiModelDetails[normalizeModel(message.modelUsed?.toLowerCase())] || null;
-                const MsgIcon = modelMeta?.icon || Bot;
+                const modelName = message.modelUsed?.toLowerCase();
+                const modelMeta = modelName === 'claude' || modelName === 'chatgpt' || modelName === 'gemini'
+                  ? aiModelDetails[modelName]
+                  : null;
+                const MsgIcon = modelMeta?.icon || AgentIcon;
 
                 return (
                   <motion.div
@@ -1453,8 +1453,8 @@ export function AiChatView({
                         <div className="bg-white rounded-2xl border border-slate-200/85 shadow-[0_2px_12px_rgba(15,23,42,0.035)] overflow-hidden">
                           <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-gradient-to-r from-[#00d67d]/[0.06] via-white to-white flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-6 h-6 rounded-lg bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0">
-                                <MsgIcon className="w-3.5 h-3.5" />
+                              <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center shrink-0">
+                                <MsgIcon className="w-4 h-4" />
                               </div>
                               <span className="text-xs font-semibold text-slate-900 truncate">
                                 {message.modelUsed || ActiveModelMeta.label}
@@ -1762,9 +1762,7 @@ export function AiChatView({
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-6 h-6 rounded-lg bg-slate-950 text-[#00d67d] flex items-center justify-center shrink-0">
-                        <BrainCircuit className="w-3.5 h-3.5" />
-                      </div>
+                      <AgentIcon className="w-6 h-6 rounded-lg shrink-0" />
                       {/* Smooth 3-bar harmonic equalizer */}
                       <div className="flex items-center gap-0.5 h-3.5 px-1" aria-hidden="true">
                         {[0, 0.16, 0.32].map((delay, idx) => (

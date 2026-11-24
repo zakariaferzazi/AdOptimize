@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const message = typeof body?.message === 'string' ? body.message.trim() : '';
-    const model = String(body?.model || body?.modelTier || 'deepseek');
+    const model = String(body?.model || body?.modelTier || 'claude');
     const requestedConversationId = typeof body?.conversationId === 'string' ? body.conversationId : undefined;
 
     if (!message) {

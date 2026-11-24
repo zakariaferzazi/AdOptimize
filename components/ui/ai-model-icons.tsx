@@ -1,33 +1,33 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Bot, Brain } from 'lucide-react';
+import Image from 'next/image';
+import { siClaude, siGooglegemini } from 'simple-icons';
 
 interface ModelIconProps {
   className?: string;
-  size?: number;
 }
 
-export function DeepSeekIcon({ className = 'w-4 h-4' }: ModelIconProps) {
+export function AgentIcon({ className = 'w-4 h-4' }: ModelIconProps) {
+  return <Image src="/ai-agent-icon.svg" alt="" width={48} height={48} className={className} />;
+}
+
+export function ClaudeIcon({ className = 'w-4 h-4' }: ModelIconProps) {
   return (
-    <div className={`flex items-center justify-center rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 ${className}`}>
-      <Brain className="w-full h-full p-0.5" />
-    </div>
+    <svg viewBox="0 0 24 24" fill={`#${siClaude.hex}`} className={className} aria-hidden="true">
+      <path d={siClaude.path} />
+    </svg>
   );
 }
 
 export function ChatGPTIcon({ className = 'w-4 h-4' }: ModelIconProps) {
-  return (
-    <div className={`flex items-center justify-center rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ${className}`}>
-      <Bot className="w-full h-full p-0.5" />
-    </div>
-  );
+  return <Image src="/assets/openai.ico" alt="" width={24} height={24} className={className} unoptimized />;
 }
 
 export function GeminiIcon({ className = 'w-4 h-4' }: ModelIconProps) {
   return (
-    <div className={`flex items-center justify-center rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 ${className}`}>
-      <Sparkles className="w-full h-full p-0.5" />
-    </div>
+    <svg viewBox="0 0 24 24" fill={`#${siGooglegemini.hex}`} className={className} aria-hidden="true">
+      <path d={siGooglegemini.path} />
+    </svg>
   );
 }

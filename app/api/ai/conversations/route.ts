@@ -19,11 +19,11 @@ export const dynamic = 'force-dynamic';
  * turn. Intermediate tool steps stay in `messages` for the model transcript.
  */
 function visibleTranscript(messages: StoredMessage[]) {
-  const visible: Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: string }> = [];
+  const visible: Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: string; model?: string | null }> = [];
   let lastReply: StoredMessage | undefined;
   const flush = () => {
     if (lastReply?.content) {
-      visible.push({ id: lastReply.id, role: 'assistant', content: lastReply.content, createdAt: lastReply.createdAt });
+      visible.push({ id: lastReply.id, role: 'assistant', content: lastReply.content, createdAt: lastReply.createdAt, model: lastReply.model });
     }
     lastReply = undefined;
   };
