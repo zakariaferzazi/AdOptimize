@@ -7,6 +7,8 @@ import { AppShell } from '@/components/layout/app-shell';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
 import { auth } from '@/lib/firebase';
+import { downloadCsv } from '@/lib/csv';
+import { buildAuditCsv } from '@/lib/google-ads/audit-csv';
 import type { AdsAuditReport } from '@/lib/google-ads/audit';
 import type { Metrics } from '@/lib/google-ads/reporting';
 
@@ -97,38 +99,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
 
   const downloadReport = () => {
     if (!report) return;
-    const rows: Array<Array<string | number>> = [
-      ['Google Ads audit', report.account.name],
-      ['Customer ID', report.account.customerId],
-      ['Period', report.dateRange.startDate, report.dateRange.endDate],
-      ['Time zone', report.account.timeZone],
-      ['Currency', report.account.currency],
-      ['Generated at', report.generatedAt],
-      ['Previous period', report.previousRange.startDate, report.previousRange.endDate],
-      ['Target CPA', report.targets.cpa ?? 'Not set'], ['Target ROAS', report.targets.roas ?? 'Not set'],
-      [],
-      ['Metric', 'Selected period', 'Previous period'],
-      ...metrics.map(({ key, label }) => [label, report.totals[key] ?? 'Not available', report.previousTotals[key] ?? 'Not available']),
-      [],
-      ['Priority', 'Category', 'Campaign', 'Finding', 'Evidence', 'Next step'],
-      ...report.findings.map((finding) => [finding.priority, finding.category, finding.campaignName || 'Account',
-        finding.title, finding.evidence, finding.recommendation]),
-      [],
-      ['Coverage and limitations'],
-      ...report.warnings.map((warning) => [warning]),
-    ];
-    const csv = rows.map((row) => row.map((cell) => {
-      const text = String(cell);
-      return `"${(/^[=+\-@\t\r]/.test(text) ? "'" : '') + text.replace(/"/g, '""')}"`;
-    }).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `google-ads-audit-${report.dateRange.startDate}-${report.dateRange.endDate}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadCsv(buildAuditCsv(report.findings), `google-ads-audit-${report.dateRange.startDate}-${report.dateRange.endDate}.csv`);
   };
 
   return (
@@ -204,7 +175,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
               <p className="mt-1 text-xs text-slate-500">Audit targets: CPA {report.targets.cpa === null ? 'not set' : money(report.targets.cpa)} / ROAS {report.targets.roas === null ? 'not set' : `${report.targets.roas}x`}. Change the scope above and run again to update this report.</p>
             </div>
             <button type="button" onClick={downloadReport} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
-              <Download className="w-4 h-4" /> Export report CSV
+              <Download className="w-4 h-4" /> Export findings CSV
             </button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

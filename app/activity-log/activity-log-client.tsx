@@ -7,18 +7,12 @@ import { useAdOptimize } from '@/context/adoptimize-context';
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
 
 export const ActivityLogClientView = withAdOptimize(function ActivityLogClientViewInner() {
-  const {
-    state,
-    handleRevertLog,
-  } = useAdOptimize();
-
+  const { state, user } = useAdOptimize();
+  const accountId = state.account.clientCustomerId.replace(/\D/g, '');
   return (
-    <AppShell title="Audit Log & Activity History">
-      <AuditLogView
-        logs={state.auditLogs}
-        onRevertLog={handleRevertLog}
-      />
+    <AppShell title="AdOptimize Activity">
+      <AuditLogView key={`${user?.uid}:${accountId}`} userId={user?.uid}
+        accountId={accountId.length === 10 ? accountId : ''} accountName={state.account.accountName} />
     </AppShell>
   );
 });
-

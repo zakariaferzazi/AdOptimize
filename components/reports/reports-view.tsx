@@ -1,319 +1,196 @@
 'use client';
 
-import React from 'react';
-import Image from 'next/image';
-import {
-  FileText,
-  Download,
-  Printer,
-  Calendar,
-} from 'lucide-react';
-import { Campaign, AIInsight, GoogleAdsAccount, DateRangePeriod } from '@/types/adoptimize';
-import { getCurrencySymbol, getCampaignPeriodMetrics, CalculatedPeriodMetrics } from '@/lib/metrics-calculator';
+import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Download, FileText, Loader2, Printer } from 'lucide-react';
+import { auth } from '@/lib/firebase';
+import { downloadCsv } from '@/lib/csv';
+import { buildPerformanceCsv } from '@/lib/google-ads/report-csv';
+import type { PerformanceReport } from '@/lib/google-ads/performance-report';
+import type { Metrics } from '@/lib/google-ads/reporting';
 
-interface ReportsViewProps {
-  campaigns: Campaign[];
-  metrics: CalculatedPeriodMetrics;
-  insights: AIInsight[];
-  account: GoogleAdsAccount;
-  selectedPeriod?: DateRangePeriod;
-  onSelectPeriod?: (period: DateRangePeriod) => void;
-}
+const periods = [
+  ['LAST_7_DAYS', 'Last 7 complete days'], ['LAST_14_DAYS', 'Last 14 complete days'],
+  ['LAST_30_DAYS', 'Last 30 complete days'], ['LAST_90_DAYS', 'Last 90 complete days'],
+  ['THIS_MONTH', 'This month'], ['LAST_MONTH', 'Last month'], ['CUSTOM', 'Custom dates'],
+];
+const metricLabels: Array<{ key: keyof Metrics; label: string }> = [
+  { key: 'cost', label: 'Spend' }, { key: 'conversions', label: 'Conversions' },
+  { key: 'cpa', label: 'Cost / conversion' }, { key: 'roas', label: 'ROAS' },
+  { key: 'impressions', label: 'Impressions' }, { key: 'clicks', label: 'Clicks' },
+  { key: 'ctr', label: 'CTR' }, { key: 'conversionValue', label: 'Recorded conversion value' },
+];
 
-export function ReportsView({
-  campaigns,
-  metrics,
-  insights,
-  account,
-  selectedPeriod = 'LAST_7_DAYS',
-  onSelectPeriod,
-}: ReportsViewProps) {
-  const sym = getCurrencySymbol(account.currency);
+export function ReportsView({ userId, connected }: { userId?: string; connected: boolean }) {
+  const [period, setPeriod] = useState('LAST_30_DAYS');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [report, setReport] = useState<PerformanceReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('ALL');
+  const [sort, setSort] = useState('cost');
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
 
-  const getPeriodDisplayLabel = (p: DateRangePeriod) => {
-    switch (p) {
-      case 'TODAY': return 'Today';
-      case 'YESTERDAY': return 'Yesterday';
-      case 'LAST_2_DAYS': return 'Last 2 Days';
-      case 'LAST_7_DAYS': return 'Last 7 Days';
-      case 'LAST_14_DAYS': return 'Last 14 Days';
-      case 'LAST_30_DAYS': return 'Last 30 Days';
-      case 'THIS_MONTH': return 'This Month';
-      case 'LAST_MONTH': return 'Last Month';
-      case 'ALL_TIME': return 'All Time';
-      default: return 'Last 7 Days';
+  const generate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    setReport(null);
+    const controller = new AbortController();
+    request.current = controller;
+    try {
+      if (!userId || auth.currentUser?.uid !== userId) throw new Error('Sign in to generate a report.');
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/google-ads/report', {
+        method: 'POST', signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(period === 'CUSTOM' ? { startDate, endDate } : { dateRange: period }),
+      });
+      const data: { report?: PerformanceReport; error?: string } = await response.json();
+      if (!response.ok || !data.report) throw new Error(data.error || 'The report returned no data.');
+      setReport(data.report);
+      setSearch('');
+      setStatus('ALL');
+    } catch (failure) {
+      if (controller.signal.aborted) return;
+      console.error('[Reports] Generation failed:', failure);
+      setError(failure instanceof Error ? failure.message : 'The report could not be generated.');
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 
-  const periodLabel = getPeriodDisplayLabel(selectedPeriod);
-
-  const handlePrint = () => {
-    window.print();
+  const money = (value: number) => new Intl.NumberFormat(undefined, {
+    style: 'currency', currency: report?.account.currency || 'USD', maximumFractionDigits: 2,
+  }).format(value);
+  const number = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+  const format = (key: keyof Metrics, value: number | null) => {
+    if (value === null) return 'Not available';
+    if (['cost', 'cpa', 'conversionValue', 'avgCpc'].includes(key)) return money(value);
+    return `${number(value)}${key === 'roas' ? 'x' : key === 'ctr' || key === 'conversionRate' ? '%' : ''}`;
   };
-
-  const handleDownloadCsv = () => {
-    const headers = ['Campaign', 'Type', 'Daily Budget', 'Spend', 'Conversions', 'CPA', 'ROAS'];
-    const rows = campaigns.map((c) => {
-      const m = getCampaignPeriodMetrics(c, selectedPeriod);
-      return [
-        `"${c.name.replace(/"/g, '""')}"`,
-        c.type,
-        c.budgetDaily,
-        m.spend.toFixed(2),
-        m.conversions,
-        m.conversions > 0 ? m.cpa.toFixed(2) : '0.00',
-        m.spend > 0 ? m.roas.toFixed(2) : '0.00',
-      ];
+  const campaigns = (report?.campaigns || [])
+    .filter((campaign) => (status === 'ALL' || campaign.status === status) &&
+      `${campaign.name} ${campaign.id} ${campaign.channel}`.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((left, right) => {
+      const key = sort === 'conversions' ? 'conversions' : sort === 'cpa' ? 'cpa' : sort === 'roas' ? 'roas' : 'cost';
+      const a = left.metrics[key];
+      const b = right.metrics[key];
+      if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+      return (key === 'cpa' ? a - b : b - a) || left.name.localeCompare(right.name);
     });
+  const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `adoptimize_report_${selectedPeriod.toLowerCase()}_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  return <div className="space-y-6 max-w-7xl mx-auto">
+    <section className="rounded-3xl bg-slate-950 p-6 sm:p-8 text-white print:hidden">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300"><FileText className="w-4 h-4" /> Performance reports</p>
+      <h2 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">A clear view of what your ad spend delivered.</h2>
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Build a report for your chosen dates, compare the previous period, and share campaign results. Direct Google Ads reporting, not estimates from a cached dashboard.</p>
+    </section>
 
-  const campaignsWithMetrics = campaigns.map((c) => ({
-    campaign: c,
-    metrics: getCampaignPeriodMetrics(c, selectedPeriod),
-  }));
+    <form onSubmit={generate} className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 print:hidden">
+      <h3 className="font-semibold text-slate-900">Report period</h3>
+      <p className="mt-1 text-xs text-slate-500">All non-removed campaigns. Dates use your Google Ads account time zone. Custom periods support up to 366 days.</p>
+      <fieldset disabled={loading} className="mt-4 flex flex-wrap items-end gap-4">
+        <label className="min-w-0 w-full sm:w-64 text-xs font-medium text-slate-700">Reporting period
+          <select className={inputClass} value={period} onChange={(event) => setPeriod(event.target.value)}>{periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        </label>
+        {period === 'CUSTOM' && <>
+          <label className="w-full sm:w-auto text-xs font-medium text-slate-700">Start date<input className={inputClass} type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+          <label className="w-full sm:w-auto text-xs font-medium text-slate-700">End date<input className={inputClass} type="date" required min={startDate || undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        </>}
+        <button disabled={loading || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50">
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading ? 'Generating...' : 'Generate report'}
+        </button>
+      </fieldset>
+      {!userId || !connected ? <p className="mt-4 text-sm text-amber-800">{!userId ? 'Sign in' : 'Connect a Google Ads account'} to generate reports. <Link className="underline" href="/settings">Open settings</Link></p> : null}
+    </form>
 
-  const topCampaignItem = [...campaignsWithMetrics]
-    .filter((cm) => cm.metrics.spend > 0)
-    .sort((a, b) => b.metrics.roas - a.metrics.roas)[0];
+    {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>}
+    {loading && <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">Reading selected-period and previous-period performance from Google Ads...</div>}
+    {!report && !loading && !error && <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">Choose a period and generate a report. CSV and print exports become available when the report is ready.</div>}
 
-  const lowestCampaignItem = [...campaignsWithMetrics]
-    .filter((cm) => cm.metrics.spend > 0)
-    .sort((a, b) => a.metrics.roas - b.metrics.roas)[0];
-
-  return (
-    <div className="space-y-6">
-      {/* Top Banner & Export Actions */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-semibold mb-3">
-            <FileText className="w-3.5 h-3.5" />
-            <span>Executive Performance Summary</span>
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            Performance Reports & Briefs
-          </h2>
-          <p className="text-slate-300 text-xs sm:text-sm mt-1 leading-relaxed">
-            Audit report ready for leadership, founders, and agency client presentations. Grounded in live Google Ads metrics.
-          </p>
+    {report && <article data-print-report className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7 print:border-0 print:p-0">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">AdOptimize / Google Ads performance</p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-950 break-words">{report.account.name}</h3>
+          <p className="mt-1 text-sm text-slate-700">{report.dateRange.startDate} to {report.dateRange.endDate}</p>
+          <p className="mt-1 text-xs text-slate-500">Compared with {report.previousRange.startDate} to {report.previousRange.endDate}.</p>
+          <p className="mt-1 text-xs text-slate-500">Account {report.account.customerId} / {report.account.timeZone} / {report.account.currency}</p>
+          <p className="mt-1 text-xs text-slate-500">Generated {new Date(report.generatedAt).toLocaleString()}</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {onSelectPeriod && (
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5">
-              <Calendar className="w-3.5 h-3.5 text-[#00d67d]" />
-              <select
-                value={selectedPeriod}
-                onChange={(e) => onSelectPeriod(e.target.value as DateRangePeriod)}
-                className="bg-transparent text-xs text-white font-bold focus:outline-none cursor-pointer"
-              >
-                <option value="LAST_7_DAYS" className="bg-slate-900">Last 7 Days</option>
-                <option value="LAST_14_DAYS" className="bg-slate-900">Last 14 Days</option>
-                <option value="LAST_30_DAYS" className="bg-slate-900">Last 30 Days</option>
-                <option value="TODAY" className="bg-slate-900">Today</option>
-                <option value="YESTERDAY" className="bg-slate-900">Yesterday</option>
-                <option value="THIS_MONTH" className="bg-slate-900">This Month</option>
-                <option value="ALL_TIME" className="bg-slate-900">All Time</option>
-              </select>
-            </div>
-          )}
-
-          <button
-            onClick={handleDownloadCsv}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </button>
-
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print / Save PDF</span>
-          </button>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button type="button" disabled={!campaigns.length} onClick={() => downloadCsv(buildPerformanceCsv(campaigns, report.account.currency), `google-ads-campaigns-${report.dateRange.startDate}-${report.dateRange.endDate}.csv`)}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><Download className="w-4 h-4" /> Export campaign CSV</button>
+          <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white"><Printer className="w-4 h-4" /> Print / Save PDF</button>
         </div>
-      </div>
+      </header>
 
-      {/* Printable Report Canvas */}
-      <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/80 shadow-xs space-y-8 print:p-0 print:border-none print:shadow-none">
-        {/* Report Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-200">
-          <div>
-            <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
-              <Image
-                src="/icon.svg"
-                alt="AdOptimize Logo"
-                width={28}
-                height={28}
-                className="w-7 h-7 rounded-lg object-contain shadow-xs shadow-[#00d67d]/20"
-                referrerPolicy="no-referrer"
-              />
-              <div className="flex items-baseline">
-                <span className="text-slate-900">Ad</span>
-                <span className="text-[#00d67d]">Optimize</span>
-              </div>
-              <span className="text-slate-400 font-normal text-sm ml-2">Executive Performance Audit</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-1 font-mono">
-              Account: {account.accountName} (Account ID: {account.clientCustomerId})
-            </div>
-          </div>
-
-          <div className="text-right text-xs text-slate-500 font-mono">
-            <div>Period: <strong className="text-slate-800">{periodLabel}</strong></div>
-            <div>Generated: {new Date().toLocaleDateString()}</div>
-          </div>
+      <section>
+        <h4 className="font-semibold text-slate-900">Account performance</h4>
+        <p className="mt-1 text-xs text-slate-500">Totals cover all {report.totalCampaigns} non-removed campaigns, independent of the table filters below.</p>
+        <div className="mt-4 grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-3">
+          {metricLabels.map(({ key, label }) => {
+            const current = report.totals[key];
+            const previous = report.previousTotals[key];
+            const delta = current !== null && previous !== null && previous !== 0 ? (current - previous) / Math.abs(previous) * 100 : null;
+            return <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 p-4 break-inside-avoid">
+              <p className="text-xs text-slate-500">{label}</p>
+              <p className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{format(key, current)}</p>
+              <p className="mt-2 text-xs text-slate-500">Previous: {format(key, previous)}</p>
+              <p className="mt-1 text-xs text-slate-600">{delta === null ? 'No comparable percentage change' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}% vs previous`}</p>
+            </div>;
+          })}
         </div>
+        {report.totals.cost === 0 && report.totals.impressions === 0 && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">No delivery was reported for these dates. Check the account and period before drawing conclusions.</p>}
+      </section>
 
-        {/* Executive Summary */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            1. Executive Summary & Findings
-          </h3>
-          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-xs sm:text-sm text-slate-800 leading-relaxed space-y-2">
-            {campaigns.length === 0 ? (
-              <p className="text-slate-500 italic">
-                No campaign data currently recorded in this account. Connect your Google Ads account to generate live performance audits.
-              </p>
-            ) : (
-              <>
-                <p>
-                  Over the reporting period ({periodLabel}), your account deployed <strong>{sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> in advertising capital across {campaigns.length} campaigns, generating <strong>{metrics.conversions} conversions</strong> at a blended CPA of <strong>{metrics.conversions > 0 ? `${sym}${metrics.cpa.toFixed(2)}` : '—'}</strong> and an aggregate ROAS of <strong>{metrics.spend > 0 ? `${metrics.roas.toFixed(2)}x` : '—'}</strong>.
-                </p>
-                {topCampaignItem && (
-                  <p>
-                    <strong>Top Performer:</strong> Campaign <em>&quot;{topCampaignItem.campaign.name}&quot;</em> generated {topCampaignItem.metrics.conversions} conversions with a return of <strong>{topCampaignItem.metrics.roas.toFixed(2)}x ROAS</strong> at {topCampaignItem.metrics.conversions > 0 ? `${sym}${topCampaignItem.metrics.cpa.toFixed(2)} CPA` : '0 conv'}.
-                    {lowestCampaignItem && lowestCampaignItem.campaign.id !== topCampaignItem.campaign.id && lowestCampaignItem.metrics.spend > 0 && (
-                      <span> In contrast, <em>&quot;{lowestCampaignItem.campaign.name}&quot;</em> absorbed {sym}{lowestCampaignItem.metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} with {lowestCampaignItem.metrics.roas.toFixed(2)}x ROAS, representing an immediate budget reallocation opportunity.</span>
-                    )}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
+      <section className="space-y-4">
+        <div><h4 className="font-semibold text-slate-900">Campaign breakdown</h4>
+          <p className="mt-1 text-xs text-slate-500">{campaigns.length} shown / {report.campaigns.length} loaded / {report.totalCampaigns} total. CSV and print use the table&apos;s current filters and ordering.</p></div>
+        <div className="flex flex-wrap gap-3 print:hidden">
+          <input aria-label="Search campaigns" type="search" placeholder="Search name, ID or type" value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+          <select aria-label="Filter campaign status" value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><option value="ALL">All current statuses</option><option value="ENABLED">Enabled</option><option value="PAUSED">Paused</option></select>
+          <select aria-label="Sort campaigns" value={sort} onChange={(event) => setSort(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><option value="cost">Highest spend</option><option value="conversions">Most conversions</option><option value="cpa">Lowest CPA</option><option value="roas">Highest ROAS</option></select>
         </div>
-
-        {/* Key Aggregate Metrics Cards */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            2. Core Financial & Acquisition Metrics ({periodLabel})
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[11px] text-slate-500 font-medium">Total Spend</div>
-              <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                {sym}{metrics.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[11px] text-slate-500 font-medium">Conversions</div>
-              <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                {metrics.conversions}
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[11px] text-slate-500 font-medium">Blended CPA</div>
-              <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                {metrics.conversions > 0 ? `${sym}${metrics.cpa.toFixed(2)}` : '—'}
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[11px] text-slate-500 font-medium">Account ROAS</div>
-              <div className="text-xl font-bold font-mono text-emerald-600 mt-1">
-                {metrics.spend > 0 ? `${metrics.roas.toFixed(2)}x` : '—'}
-              </div>
-            </div>
-          </div>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500"><tr>{['Campaign / current settings', 'Spend', 'Clicks', 'Conversions', 'CPA', 'ROAS'].map((label) => <th key={label} scope="col" className="whitespace-nowrap px-4 py-3">{label}</th>)}</tr></thead>
+            <tbody>{campaigns.map((campaign) => <tr key={campaign.id} className="border-t border-slate-100">
+              <td className="px-4 py-3"><p className="font-semibold text-slate-900">{campaign.name}</p><p className="mt-1 text-slate-500">{campaign.channel} / {campaign.status} / #{campaign.id}</p></td>
+              <td className="px-4 py-3 whitespace-nowrap">{money(campaign.metrics.cost)}</td>
+              <td className="px-4 py-3">{number(campaign.metrics.clicks)}</td>
+              <td className="px-4 py-3">{number(campaign.metrics.conversions)}</td>
+              <td className="px-4 py-3 whitespace-nowrap">{format('cpa', campaign.metrics.cpa)}</td>
+              <td className="px-4 py-3 whitespace-nowrap">{format('roas', campaign.metrics.roas)}</td>
+            </tr>)}
+              {!campaigns.length && <tr><td colSpan={6} className="p-6 text-center text-slate-500">{report.campaigns.length ? 'No campaigns match these filters.' : 'No non-removed campaigns were returned.'}</td></tr>}
+            </tbody>
+          </table>
         </div>
+      </section>
 
-        {/* Campaign Breakdown Table */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            3. Campaign Breakdown ({periodLabel})
-          </h3>
-          <div className="border border-slate-100 rounded-2xl overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-100 text-slate-500">
-                <tr>
-                  <th className="py-2.5 px-3">Campaign</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3 text-right">Spend</th>
-                  <th className="py-2.5 px-3 text-right">Conversions</th>
-                  <th className="py-2.5 px-3 text-right">CPA</th>
-                  <th className="py-2.5 px-3 text-right">ROAS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
-                {campaigns.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400 font-sans italic text-xs">
-                      No campaigns currently configured in this account.
-                    </td>
-                  </tr>
-                ) : (
-                  campaigns.map((c) => {
-                    const m = getCampaignPeriodMetrics(c, selectedPeriod);
-                    return (
-                      <tr key={c.id}>
-                        <td className="py-2.5 px-3 font-sans font-bold text-slate-900">{c.name}</td>
-                        <td className="py-2.5 px-3 font-sans text-slate-500">{c.type}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                          {sym}{m.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">{m.conversions}</td>
-                        <td className="py-2.5 px-3 text-right">
-                          {m.conversions > 0 ? `${sym}${m.cpa.toFixed(2)}` : '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-emerald-600 font-bold">
-                          {m.spend > 0 ? `${m.roas.toFixed(2)}x` : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Priority AI Recommendations */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            4. Priority Action Recommendations
-          </h3>
-          <div className="space-y-2.5">
-            {insights.length === 0 ? (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-500">
-                All campaigns are operating within normal efficiency thresholds.
-              </div>
-            ) : (
-              insights.slice(0, 3).map((ins) => (
-                <div key={ins.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
-                  <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
-                    <span>{ins.problem}</span>
-                    <span className="font-mono text-emerald-700">{ins.confidence}% Confidence</span>
-                  </div>
-                  <div className="text-slate-600 leading-relaxed">{ins.recommendedAction}</div>
-                  <div className="text-emerald-700 font-semibold mt-1">Impact: {ins.expectedImpact}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+      <section className="border-t border-slate-100 pt-5">
+        <h4 className="font-semibold text-slate-900">Reporting notes</h4>
+        <ul className="mt-2 space-y-2 text-xs leading-5 text-slate-500">{report.warnings.map((warning) => <li key={warning}>- {warning}</li>)}</ul>
+        <Link href="/audit" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 print:hidden">Find evidence-led next steps in Ads Audit <ArrowRight className="w-4 h-4" /></Link>
+      </section>
+    </article>}
+    <style>{`@media print {
+      @page { margin: 14mm; }
+      body:has([data-print-report]) *:not([data-print-report]):not([data-print-report] *):not(:has([data-print-report])) { display: none !important; }
+      body:has([data-print-report]), body:has([data-print-report]) :has([data-print-report]) {
+        display: block !important; min-height: 0 !important; max-width: none !important;
+        padding: 0 !important; margin: 0 !important; overflow: visible !important; background: white !important;
+      }
+      [data-print-report] .overflow-x-auto { overflow: visible; }
+      [data-print-report] table { font-size: 9px; }
+      [data-print-report] tr { break-inside: avoid; }
+    }`}</style>
+  </div>;
 }

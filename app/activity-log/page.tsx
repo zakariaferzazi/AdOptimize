@@ -4,14 +4,14 @@ import { ActivityLogClientView } from './activity-log-client';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Google Ads Audit Log & 1-Click Rollback Trail | AdOptimize',
-  description: 'Complete verifiable changelog of all Google Ads actions, budget shifts, negative keyword exclusions, and automated rules with instant 1-click rollback.',
+  title: 'AdOptimize Activity & Execution History | AdOptimize',
+  description: 'Review account-linked AdOptimize proposals, approvals, execution outcomes and app records with search, filters and export.',
   alternates: {
     canonical: 'https://adoptimize.app/activity-log',
   },
   openGraph: {
-    title: 'Google Ads Audit Log & 1-Click Rollback Trail | AdOptimize',
-    description: 'Verifiable changelog and 1-click instant rollback for all Google Ads actions and optimizations.',
+    title: 'AdOptimize Activity & Execution History | AdOptimize',
+    description: 'Search saved proposals, approvals and verified or failed execution events for your connected account.',
     url: 'https://adoptimize.app/activity-log',
     siteName: 'AdOptimize',
   },

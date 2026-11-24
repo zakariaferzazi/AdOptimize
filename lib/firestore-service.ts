@@ -8,8 +8,10 @@ import {
   deleteDoc,
   collection,
   getDocs,
+  getDocsFromServer,
   query,
   orderBy,
+  where,
   onSnapshot,
   writeBatch,
 } from 'firebase/firestore';
@@ -263,11 +265,12 @@ export async function saveAutomationRuleToFirestore(userId: string, rule: Automa
 }
 
 // 8. Audit Logs
-export async function fetchUserAuditLogs(userId: string): Promise<AuditLog[]> {
+export async function fetchUserAuditLogs(userId: string, options?: { accountId?: string; requireServer?: boolean }): Promise<AuditLog[]> {
   const path = `users/${userId}/auditLogs`;
   try {
     const colRef = collection(db, 'users', userId, 'auditLogs');
-    const snap = await getDocs(colRef);
+    const request = options?.accountId ? query(colRef, where('accountId', '==', options.accountId)) : colRef;
+    const snap = options?.requireServer ? await getDocsFromServer(request) : await getDocs(request);
     const items: AuditLog[] = [];
     snap.forEach((d) => {
       items.push(d.data() as AuditLog);
@@ -276,6 +279,7 @@ export async function fetchUserAuditLogs(userId: string): Promise<AuditLog[]> {
     return items;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
+    if (options?.requireServer) throw error;
     return [];
   }
 }

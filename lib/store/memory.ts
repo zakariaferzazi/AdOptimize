@@ -191,11 +191,16 @@ const auditRepository: AuditRepository = {
   async append(record) {
     auditEvents.push(clone(record));
   },
-  async list(userId, limit = 50) {
+  async list(userId, limit = 50, options = {}) {
     return auditEvents
-      .filter((record) => record.user_id === userId)
-      .slice(-limit)
-      .reverse()
+      .filter((record) => record.user_id === userId && (!options.accountId || record.account_id === options.accountId))
+      .filter((record) => !options.before || record.timestamp < options.before.timestamp ||
+        (record.timestamp === options.before.timestamp && record.id < options.before.id))
+      .sort((left, right) => {
+        if (left.timestamp !== right.timestamp) return left.timestamp > right.timestamp ? -1 : 1;
+        return left.id === right.id ? 0 : left.id > right.id ? -1 : 1;
+      })
+      .slice(0, limit)
       .map(clone);
   },
 };

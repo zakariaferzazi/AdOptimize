@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeGoogleAds, metrics } from './helpers/fake-google-ads';
 import { invalidateGaqlCache, type GoogleAdsContext } from '@/lib/google-ads/gaql';
-import { runAdsAudit, validateAuditOptions } from '@/lib/google-ads/audit';
+import { runAdsAudit, validateAuditOptions, type AuditFinding } from '@/lib/google-ads/audit';
+import { buildAuditCsv } from '@/lib/google-ads/audit-csv';
 import { jsonRequest } from './helpers/model';
 
 const mocks = vi.hoisted(() => ({ uid: 'audit-user', connected: true }));
@@ -33,6 +34,36 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe('audit findings CSV', () => {
+  const finding: AuditFinding = {
+    id: 'cpa-111', priority: 'high', category: 'Efficiency', campaignName: 'Brand',
+    title: 'CPA exceeds your audit target', evidence: 'CPA 75.00 GBP vs 50.00 GBP target.',
+    recommendation: 'Review expensive queries.',
+  };
+  const header = '"Priority","Category","Campaign","Finding","Evidence","Next step"';
+
+  it('exports one findings table without metadata, metric summaries or footer rows', () => {
+    expect(buildAuditCsv([finding, { ...finding, id: 'account', campaignName: undefined }])).toBe([
+      header,
+      '"high","Efficiency","Brand","CPA exceeds your audit target","CPA 75.00 GBP vs 50.00 GBP target.","Review expensive queries."',
+      '"high","Efficiency","Account","CPA exceeds your audit target","CPA 75.00 GBP vs 50.00 GBP target.","Review expensive queries."',
+    ].join('\r\n'));
+  });
+
+  it('keeps quoted and multiline evidence in a single cell and neutralizes spreadsheet formulas', () => {
+    expect(buildAuditCsv([{
+      ...finding, campaignName: '=1+1', evidence: 'Query "boots, sale"\nspent 10 GBP.',
+    }])).toBe([
+      header,
+      `"high","Efficiency","'=1+1","CPA exceeds your audit target","Query ""boots, sale""\nspent 10 GBP.","Review expensive queries."`,
+    ].join('\r\n'));
+  });
+
+  it('exports only the column headers when there are no findings', () => {
+    expect(buildAuditCsv([])).toBe(header);
+  });
 });
 
 describe('period-specific audit', () => {

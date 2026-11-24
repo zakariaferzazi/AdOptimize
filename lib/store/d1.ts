@@ -406,10 +406,20 @@ function auditRepository(db: D1Database): AuditRepository {
         )
         .run();
     },
-    async list(userId, limit = 50) {
+    async list(userId, limit = 50, options = {}) {
+      const filters = ['user_id = ?'];
+      const values: Array<string | number> = [userId];
+      if (options.accountId) {
+        filters.push('account_id = ?');
+        values.push(options.accountId);
+      }
+      if (options.before) {
+        filters.push('(timestamp < ? OR (timestamp = ? AND id < ?))');
+        values.push(options.before.timestamp, options.before.timestamp, options.before.id);
+      }
       const result = await db
-        .prepare('SELECT * FROM audit_events WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?')
-        .bind(userId, limit)
+        .prepare(`SELECT * FROM audit_events WHERE ${filters.join(' AND ')} ORDER BY timestamp DESC, id DESC LIMIT ?`)
+        .bind(...values, limit)
         .all<AuditEventRecord>();
       return result.results || [];
     },

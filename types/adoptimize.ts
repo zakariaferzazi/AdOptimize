@@ -259,6 +259,8 @@ export interface AutomationRule {
 
 export interface AuditLog {
   id: string;
+  accountId?: string;
+  verification?: 'api_accepted' | 'app_only';
   timestamp: string;
   campaignId: string;
   campaignName: string;

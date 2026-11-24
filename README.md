@@ -95,6 +95,9 @@ audit benchmarks only; they never change bidding settings.
 
 Reports include campaign performance, non-converting reported search queries,
 current keyword Quality Scores, prioritized review steps and a CSV export.
+The CSV is a single findings table (priority, category, campaign, finding,
+evidence and next step), with the reporting dates in its filename. Account
+details, metric summaries and coverage notes remain on the audit page.
 Checks are deterministic and disclose their thresholds, missing data and row
 limits. Zero conversions are not proof of waste, missing revenue is not zero
 ROAS, and overlapping campaign/query spend is not added into a savings claim.
@@ -104,3 +107,28 @@ Campaign-level failures stop the report. Google Ads reads may use the shared
 
 Automations is no longer an application page or navigation item. The AI
 Marketing Agent and its explicit proposal/approval workflow are unchanged.
+
+## Reports and activity
+
+Reports reads selected-period and equally long previous-period campaign
+performance directly from the signed-in user's server-bound Google Ads account.
+Presets and custom dates use the account time zone (maximum 366 days).
+Account totals include all non-removed campaigns; the campaign table loads
+the top 200 by spend, with explicit coverage notes. Table search, current-status
+filters and sorting also control the clean campaign CSV and printable report.
+Missing CPA/ROAS stays unavailable rather than becoming a misleading zero.
+
+Activity is a read-only AdOptimize history, not Google's complete change log.
+AI proposal, approval, cancellation and execution events are loaded from D1,
+scoped by verified user and server-bound account before pagination. Load older
+AI events to extend the searchable history. Account-linked app records are
+read from Firestore; up to 200 are displayed. Older app records without an
+account ID are excluded rather than attributed to the wrong account.
+Filters and CSV export apply to loaded records. Source failures are disclosed.
+
+An approval does not mean a change ran. AI executions distinguish verified,
+failed and unverified outcomes, with recorded details and available snapshots.
+App mutations accepted by the API are labelled separately from read-back
+verified executions; app-only records are not proof of Google Ads changes.
+The former activity-page Revert action only changed app records and has been
+removed. Undoing a live change requires a fresh, explicitly approved proposal.

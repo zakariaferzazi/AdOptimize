@@ -139,7 +139,10 @@ export interface ExecutionRepository {
 
 export interface AuditRepository {
   append(record: AuditEventRecord): Promise<void>;
-  list(userId: string, limit?: number): Promise<AuditEventRecord[]>;
+  list(userId: string, limit?: number, options?: {
+    accountId?: string;
+    before?: { timestamp: string; id: string };
+  }): Promise<AuditEventRecord[]>;
 }
 
 export interface Store {

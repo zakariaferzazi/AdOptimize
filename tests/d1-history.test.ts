@@ -29,6 +29,28 @@ afterAll(async () => {
 });
 
 describe('D1 account history', () => {
+  it('filters audit events by account before keyset pagination', async () => {
+    const store = await getStore();
+    const timestamp = '2026-10-16T12:00:00.000Z';
+    for (const [id, userId, accountId] of [
+      ['activity-a', 'activity-user', '1234567890'],
+      ['activity-b', 'activity-user', '1234567890'],
+      ['activity-z', 'activity-user', '9999999999'],
+      ['activity-y', 'another-user', '1234567890'],
+    ]) {
+      await store.audit.append({
+        id, user_id: userId, account_id: accountId, timestamp, event: 'proposal_approved',
+        proposal_id: null, conversation_id: null, details: null,
+      });
+    }
+    const first = await store.audit.list('activity-user', 1, { accountId: '1234567890' });
+    expect(first.map((entry) => entry.id)).toEqual(['activity-b']);
+    const next = await store.audit.list('activity-user', 1, {
+      accountId: '1234567890', before: { timestamp, id: first[0].id },
+    });
+    expect(next.map((entry) => entry.id)).toEqual(['activity-a']);
+  });
+
   it('survives store reinitialization without a browser cache and remains scoped to its owner', async () => {
     const conversation = await ensureConversation({
       userId: 'd1-user', accountId: 'test-account', model: 'claude', title: 'Saved campaign audit',

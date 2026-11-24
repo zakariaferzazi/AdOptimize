@@ -5,13 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Google Ads Executive Reports & Analytics | AdOptimize',
-  description: 'Generate audit reports, campaign breakdown analytics, and ROAS performance exports for executive teams and stakeholders.',
+  description: 'Generate period-specific Google Ads performance reports with previous-period comparisons, campaign breakdowns and clean CSV or print exports.',
   alternates: {
     canonical: 'https://adoptimize.app/reports',
   },
   openGraph: {
     title: 'Google Ads Executive Reports & Analytics | AdOptimize',
-    description: 'Generate audit reports, campaign breakdown analytics, and ROAS performance exports.',
+    description: 'Period-specific Google Ads reporting, previous-period comparisons and campaign performance exports.',
     url: 'https://adoptimize.app/reports',
     siteName: 'AdOptimize',
   },
