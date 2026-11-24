@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appOrigin, BillingError, billingProducts, organizationId, polarClient, polarRedirect } from '@/lib/billing/config';
+import { appOrigin, BillingError, billingEnvironment, billingProducts, organizationId, polarClient, polarRedirect } from '@/lib/billing/config';
 import { billingFailure, billingIdentity, checkOrigin, clientIp, readJson } from '@/lib/billing/http';
 import { hash, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
 
@@ -23,10 +23,25 @@ export async function POST(request: Request) {
     const product = await polar.products.get(productId);
     const expected = interval === 'monthly' ? 2900 : 9900;
     const prices = product.prices.filter((price) => !price.is_archived);
-    if (product.organization_id !== organizationId() || product.is_archived || !product.is_recurring ||
-      product.recurring_interval !== (interval === 'monthly' ? 'month' : 'year') || product.recurring_interval_count !== 1 ||
-      prices.length !== 1 || prices[0].amount_type !== 'fixed' || prices[0].price_amount !== expected || prices[0].price_currency !== 'usd') {
-      throw new BillingError(503, 'The configured product does not match the advertised Pro plan.');
+    const unit = interval === 'monthly' ? 'month' : 'year';
+    const mismatches: string[] = [];
+    if (product.organization_id !== organizationId()) mismatches.push('product belongs to a different organization');
+    if (product.is_archived) mismatches.push('product is archived');
+    if (!product.is_recurring || product.recurring_interval !== unit || product.recurring_interval_count !== 1) {
+      mismatches.push(`billing cycle must be every 1 ${unit}`);
+    }
+    if (prices.length !== 1) {
+      mismatches.push('product must have exactly one non-archived price');
+    } else {
+      if (prices[0].amount_type !== 'fixed') {
+        mismatches.push('pricing must be fixed-price');
+      } else if (prices[0].price_amount !== expected) {
+        mismatches.push(`price must be $${expected / 100}`);
+      }
+      if (prices[0].price_currency !== 'usd') mismatches.push('currency must be USD');
+    }
+    if (mismatches.length) {
+      throw new BillingError(503, `The ${billingEnvironment()} ${interval} Pro product is misconfigured: ${mismatches.join('; ')}. Contact support.`, 'billing_product_mismatch');
     }
     await reserveCustomer(identity.uid);
     const checkout = await polar.checkouts.create({

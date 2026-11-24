@@ -318,6 +318,32 @@ describe('Polar environment switching', () => {
 });
 
 describe('server-created checkout and portal', () => {
+  it.each([
+    [{ organization_id: yearly }, 'different organization'],
+    [{ is_archived: true }, 'product is archived'],
+    [{ recurring_interval: 'year' }, 'every 1 month'],
+    [{ recurring_interval_count: 2 }, 'every 1 month'],
+    [{ prices: [] }, 'exactly one non-archived price'],
+    [{ prices: [{ is_archived: false, amount_type: 'fixed', price_currency: 'eur', price_amount: 100 }] }, 'price must be $29; currency must be USD'],
+    [{ prices: [{ is_archived: false, amount_type: 'custom', price_currency: 'usd' }] }, 'pricing must be fixed-price'],
+  ])('explains catalog mismatches without opening checkout or exposing credentials (%j)', async (changes, reason) => {
+    mocks.product.mockResolvedValueOnce({
+      id: monthly, organization_id: organization, is_archived: false, is_recurring: true,
+      recurring_interval: 'month', recurring_interval_count: 1,
+      prices: [{ is_archived: false, amount_type: 'fixed', price_currency: 'usd', price_amount: 2900 }],
+      ...changes,
+    });
+    const response = await checkout(request('/api/billing/checkout', { interval: 'monthly' }));
+    const body = await response.json();
+    expect(response.status).toBe(503);
+    expect(body.code).toBe('billing_product_mismatch');
+    expect(body.error).toContain('sandbox monthly Pro product');
+    expect(body.error).toContain(reason);
+    expect(body.error).not.toContain(organization);
+    expect(body.error).not.toContain('unit-test-token');
+    expect(mocks.checkout).not.toHaveBeenCalled();
+  });
+
   it.each([['monthly', monthly], ['yearly', yearly]])('creates %s checkout with server-owned prices and Firebase identity', async (interval, id) => {
     const checkoutRequest = request('/api/billing/checkout', { interval });
     checkoutRequest.headers.set('cf-connecting-ip', '2001:db8::1');

@@ -186,6 +186,13 @@ Missing D1/configuration fails explicitly; `AI_STORE=memory` and
    Keep **Organization Settings > Subscriptions > Allow multiple subscriptions**
    disabled to prevent duplicate subscriptions, including concurrent checkouts.
    Trials and checkout discount codes are disabled by this integration.
+   A checkout `503` with `billing_product_mismatch` means the fetched product
+   fails catalog validation, even if all Wrangler secret names exist. The error
+   lists the mismatched organization, archive state, cycle, price count, amount,
+   or currency without exposing IDs or credentials. Check **Products** in the
+   selected Polar environment, then update that environment's product IDs if
+   necessary. Monthly and yearly IDs must refer to two separate products;
+   recurring cycles are fixed at product creation.
 2. Create an organization-scoped token with `checkouts:write`,
    `customer_sessions:write`, and `products:read`. Copy both product UUIDs and the
    organization UUID. Never put billing credentials in `NEXT_PUBLIC_*`.
