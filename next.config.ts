@@ -45,13 +45,21 @@ const nextConfig: NextConfig = {
     ],
   },
   transpilePackages: ['motion'],
-  webpack: (config, {dev}) => {
+  webpack: (config, {dev, isServer}) => {
     // Alias web-streams-polyfill ponyfill for fetch-blob / gaxios compatibility
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
       'web-streams-polyfill/dist/ponyfill.es2018.js': 'web-streams-polyfill',
     };
+
+    if (isServer) {
+      // Firebase's Node Firestore build loads gRPC/protobuf codegen, which Workers forbid.
+      config.module.rules.push({
+        test: /[\\/]node_modules[\\/](?:@firebase|firebase)[\\/]/,
+        resolve: { conditionNames: ['browser', 'import', 'default'] },
+      });
+    }
 
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modify—file watching is disabled to prevent flickering during agent edits.

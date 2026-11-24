@@ -6,6 +6,9 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "vars": {
+    "APP_URL": "https://adoptimize.app"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

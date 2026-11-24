@@ -73,6 +73,7 @@ const subscriptionId = '55555555-5555-4555-8555-555555555555';
 const signingKey = Buffer.from('local-billing-signature-test-key-only');
 const secret = `whsec_${signingKey.toString('base64')}`;
 let db: D1Database;
+let deploymentOrigin: string;
 let dispose: (() => Promise<void>) | undefined;
 let clock = Date.now() - 60000;
 let delivery = 0;
@@ -114,8 +115,9 @@ async function deliver(event: unknown = subscriptionEvent(), id?: string) {
 }
 
 beforeAll(async () => {
-  const platform = await getPlatformProxy<{ DB: D1Database }>({ configPath: 'wrangler.jsonc', persist: false });
+  const platform = await getPlatformProxy<{ DB: D1Database; APP_URL: string }>({ configPath: 'wrangler.jsonc', persist: false });
   db = platform.env.DB;
+  deploymentOrigin = platform.env.APP_URL;
   mocks.db = db;
   dispose = platform.dispose;
   const sql = readFileSync('migrations\\0004_billing.sql', 'utf8');
@@ -339,6 +341,26 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     ['/api/ai/chat', chat], ['/api/ai/chat/approve', approve], ['/api/ai/chat/execute', execute],
     ['/api/google-ads/audit', audit], ['/api/google-ads/report', report], ['/api/google-ads/mutate', mutate], ['/api/mcp', mcp],
   ] as const;
+  it('creates and revokes sessions with the deployed origin before Polar is configured', async () => {
+    vi.stubEnv('APP_URL', deploymentOrigin);
+    for (const name of [
+      'POLAR_ENVIRONMENT', 'POLAR_ACCESS_TOKEN', 'POLAR_WEBHOOK_SECRET',
+      'POLAR_ORGANIZATION_ID', 'POLAR_PRODUCT_PRO_MONTHLY', 'POLAR_PRODUCT_PRO_YEARLY',
+    ]) vi.stubEnv(name, undefined);
+    vi.mocked(createPolar).mockClear();
+    const response = await createSession(new Request(`${deploymentOrigin}/api/auth/session`, {
+      method: 'POST', headers: { Origin: deploymentOrigin, Authorization: 'Bearer valid-a' },
+    }));
+    expect(response.status).toBe(200);
+    const cookie = response.headers.get('set-cookie')!.split(';')[0];
+    expect((await db.prepare('SELECT token_hash FROM app_sessions').all()).results).toHaveLength(1);
+    expect((await deleteSession(new Request(`${deploymentOrigin}/api/auth/session`, {
+      method: 'DELETE', headers: { Origin: deploymentOrigin, Cookie: cookie },
+    }))).status).toBe(200);
+    expect((await db.prepare('SELECT token_hash FROM app_sessions').all()).results).toHaveLength(0);
+    expect(createPolar).not.toHaveBeenCalled();
+  });
+
   it('denies unpaid and unauthenticated callers on every premium API, including old MCP bypass headers', async () => {
     vi.stubEnv('AI_ALLOW_ANONYMOUS', '1');
     for (const [path, handler] of premium) {

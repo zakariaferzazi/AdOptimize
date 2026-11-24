@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthSessionBridge } from '@/components/auth-session-bridge';
+import { AuthSessionProvider } from '@/components/auth-session-provider';
 
 export const metadata: Metadata = {
   title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
@@ -66,7 +66,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className="h-full antialiased">
       <body className="h-full bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans" suppressHydrationWarning>
-        <AuthSessionBridge />
+        <AuthSessionProvider />
         {children}
       </body>
     </html>

@@ -191,7 +191,8 @@ Missing D1/configuration fails explicitly; `AI_STORE=memory` and
    POLAR_PRODUCT_PRO_YEARLY=<yearly-product-uuid>
    ```
 
-   `APP_URL` is the canonical application origin, not user input. Use the actual
+   `APP_URL` is required for secure sign-in, even before Polar is configured.
+   It is the canonical application origin, not user input. Use the actual
    HTTPS application/tunnel origin outside local development; it controls trusted
    return URLs and same-origin checks. Omitting `POLAR_ENVIRONMENT` defaults to
    sandbox; switching environments isolates customer/subscription/event records.
@@ -221,11 +222,15 @@ Missing D1/configuration fails explicitly; `AI_STORE=memory` and
    Use an HTTPS tunnel or a sandbox deployment for local deliveries. Do not use
    public checkout links: start checkout from the signed-in app so Polar receives
    the verified Firebase UID as `external_customer_id`.
-5. On Cloudflare, configure each server value interactively (not as a CLI value
-   that can leak through shell history), then apply the schema before deployment:
+5. On Cloudflare, `wrangler.jsonc` sets the non-secret `APP_URL` variable to
+   `https://adoptimize.app`. Update this value for another deployment domain;
+   do not also create a secret with the same name.
+   Configure the Polar values interactively (not as CLI values that can leak
+   through shell history), then apply the schema before deployment. The migration
+   creates the secure-session and rate-limit tables too, so it is required for
+   sign-in even if Polar payments have not been configured:
 
    ```powershell
-   npx wrangler secret put APP_URL
    npx wrangler secret put POLAR_ENVIRONMENT
    npx wrangler secret put POLAR_ACCESS_TOKEN
    npx wrangler secret put POLAR_WEBHOOK_SECRET
