@@ -69,7 +69,11 @@ export function billingFailure(error: unknown): NextResponse {
       },
     });
   }
-  console.error('[Billing] Operation failed.');
+  const upstream = error as { name?: unknown; statusCode?: unknown };
+  console.error('[Billing] Operation failed.', {
+    error: typeof upstream?.name === 'string' ? upstream.name : 'unknown',
+    upstreamStatus: typeof upstream?.statusCode === 'number' ? upstream.statusCode : undefined,
+  });
   return NextResponse.json({ error: 'Billing is temporarily unavailable. Please try again.' }, {
     status: 503, headers: { 'Cache-Control': 'no-store' },
   });

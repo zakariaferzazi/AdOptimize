@@ -516,7 +516,7 @@ export function LandingPage({
 
                   <div className="pt-6">
                     <Link
-                      href={tier.popular ? '/billing' : '/dashboard'}
+                      href={tier.popular ? '/settings?tab=billing' : '/dashboard'}
                       className={`block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                         tier.popular
                           ? 'bg-slate-900 hover:bg-black text-white shadow-xs'

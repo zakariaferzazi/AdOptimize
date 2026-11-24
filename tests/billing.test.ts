@@ -282,7 +282,7 @@ describe('server-created checkout and portal', () => {
     expect(createPolar).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }));
     expect(mocks.checkout).toHaveBeenCalledWith(expect.objectContaining({
       products: [id], external_customer_id: 'user-a', allow_trial: false,
-      success_url: 'https://app.example.test/billing?checkout=complete', currency: 'usd',
+      success_url: 'https://app.example.test/settings?tab=billing&checkout=complete', currency: 'usd',
       customer_ip_address: '2001:db8::1',
     }));
     expect(await subscription('user-a')).toBeNull();
@@ -311,7 +311,7 @@ describe('server-created checkout and portal', () => {
   it('opens the portal only for the stored customer, including after failed renewal', async () => {
     await deliver(subscriptionEvent('subscription.past_due', { status: 'past_due' }));
     expect((await portal(request('/api/billing/portal', {}))).status).toBe(200);
-    expect(mocks.portal).toHaveBeenCalledWith({ customer_id: customerId, return_url: 'https://app.example.test/billing' });
+    expect(mocks.portal).toHaveBeenCalledWith({ customer_id: customerId, return_url: 'https://app.example.test/settings?tab=billing' });
     expect((await portal(request('/api/billing/portal', { customer_id: monthly }))).status).toBe(400);
     expect((await portal(request('/api/billing/portal', {}, 'valid-b'))).status).toBe(409);
   });
@@ -331,7 +331,7 @@ describe('server-created checkout and portal', () => {
     const response = await checkout(request('/api/billing/checkout', { interval: 'monthly' }));
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain('private details');
-    expect(console.error).toHaveBeenCalledWith('[Billing] Operation failed.');
+    expect(console.error).toHaveBeenCalledWith('[Billing] Operation failed.', { error: 'Error', upstreamStatus: undefined });
     expect(vi.mocked(console.error).mock.calls.flat().join(' ')).not.toContain('unit-test-token');
   });
 });
@@ -389,7 +389,7 @@ describe('server-side Pro enforcement and opaque sessions', () => {
 
   it('guards all premium server pages and stores only an expiring session hash', async () => {
     for (const [path, page] of [['/chat', ChatPage], ['/audit', AuditPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
-      await expect(page()).rejects.toThrow(`redirect:/billing?returnTo=${encodeURIComponent(path)}`);
+      await expect(page()).rejects.toThrow(`redirect:/settings?tab=billing&returnTo=${encodeURIComponent(path)}`);
     }
     const response = await createSession(request('/api/auth/session', {}));
     expect(response.status).toBe(200);
@@ -402,14 +402,14 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     const stored = await db.prepare('SELECT token_hash, expires_at FROM app_sessions').first<{ token_hash: string; expires_at: number }>();
     expect(stored?.token_hash).toBe(hash(mocks.cookie));
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
-    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/billing');
+    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/settings?tab=billing');
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },
     });
     expect((await deleteSession(logout)).status).toBe(200);
-    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/billing');
+    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/settings?tab=billing');
     expect(hasPaidAccess(await subscription('user-a'))).toBe(true);
   });
 
