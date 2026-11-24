@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     await appendMessages({
       userId: identity.uid,
       conversationId: conversation.id,
-      messages: [userMessage, ...result.producedMessages],
+      messages: [...(stored.length === 0 ? effectiveHistory : []), userMessage, ...result.producedMessages],
       model: result.modelUsed,
       usage: result.usage,
     });

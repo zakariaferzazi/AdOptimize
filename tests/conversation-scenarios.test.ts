@@ -360,6 +360,41 @@ describe('efficiency', () => {
 });
 
 describe('persistence', () => {
+  it('persists recovered browser history with the new turn after the server store is lost', async () => {
+    scripted.script(textResponse('The brand campaign performs best.'));
+    const first = await chat('Which campaign performs best?');
+    resetMemoryStore();
+
+    scripted.script((request) => {
+      expect(request.messages.slice(1).map((item) => item.content)).toEqual([
+        'Which campaign performs best?',
+        'The brand campaign performs best.',
+        'What should I do next?',
+      ]);
+      return textResponse('Review the generic campaign next.');
+    });
+    const response = await chatPost(jsonRequest('http://localhost/api/ai/chat', {
+      message: 'What should I do next?',
+      model: 'chatgpt',
+      conversationId: first.body.conversationId,
+      history: [
+        { role: 'user', content: 'Which campaign performs best?' },
+        { role: 'assistant', content: 'The brand campaign performs best.' },
+        { role: 'user', content: 'What should I do next?' },
+      ],
+    }));
+    expect(response.status).toBe(200);
+    const restored = await conversationsGet(getRequest(
+      `http://localhost/api/ai/conversations?conversationId=${first.body.conversationId}`
+    ));
+    expect((await restored.json()).transcript.map((item: { content: string }) => item.content)).toEqual([
+      'Which campaign performs best?',
+      'The brand campaign performs best.',
+      'What should I do next?',
+      'Review the generic campaign next.',
+    ]);
+  });
+
   it('rebuilds the visible conversation and approval cards after a reload', async () => {
     scripted.script(
       toolResponse([{ name: 'update_campaign_budget', args: { campaignId: '111', dailyBudget: 70 } }], 'Let me prepare that.'),

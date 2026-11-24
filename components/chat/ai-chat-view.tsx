@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { ChatMarkdown } from './markdown-renderer';
 import { auth } from '@/lib/firebase';
+import { mergeChatHistory } from '@/lib/ai/chat-history';
 import { AgentIcon, ClaudeIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
@@ -178,7 +179,7 @@ export function AiChatView({
           `/api/ai/conversations?conversationId=${encodeURIComponent(sessionId)}`,
           { headers: { Authorization: `Bearer ${idToken}` } }
         );
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`Conversation history request failed (${response.status}).`);
         const data = await response.json();
         const transcript = Array.isArray(data?.transcript) ? data.transcript : undefined;
         const stored = transcript || (Array.isArray(data?.messages) ? data.messages : []);
@@ -210,17 +211,19 @@ export function AiChatView({
         if (hydrated.length === 0) return;
         setSessions((current) => {
           const next = current.map((session) =>
-            session.id === sessionId ? { ...session, messages: hydrated } : session
+            session.id === sessionId
+              ? { ...session, messages: mergeChatHistory(session.messages, hydrated) }
+              : session
           );
           try {
             localStorage.setItem(storageKey, JSON.stringify(next));
-          } catch {
-            // storage unavailable
+          } catch (error) {
+            console.error('[AI Chat] Restored history could not be saved locally:', error);
           }
           return next;
         });
-      } catch {
-        // Local cache remains usable when server is unreachable
+      } catch (error) {
+        console.warn('[AI Chat] Server history could not be restored; keeping the local conversation:', error);
       }
     };
 

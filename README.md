@@ -74,3 +74,8 @@ Wrangler fail with error 10021.
 Without a D1 binding the agent still runs, but it falls back to an in-memory store.
 Conversations and proposals then do not survive across requests, and approvals fail
 closed with "proposal not found". The server logs a warning when this happens.
+
+The chat keeps a browser-local history cache and merges server history into it on
+refresh, preserving turns missing from an incomplete server response. This cache
+is specific to that browser; configure D1 for durable server-side conversations
+across Worker restarts and devices.
