@@ -6,7 +6,7 @@ import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Pricing - AdOptimize | Transparent Google Ads AI Optimization Plans',
-  description: 'Select your AdOptimize plan. Free starter monitoring, Performance Pro for scaling accounts, and Agency Scale for multi-account management.',
+  description: 'Basic campaign viewing is free. Unlock Pro for $29 per month or $99 per year: AI Marketing Agent, Ads Audit, Reports, and Budget Optimizer.',
 };
 
 export default function PricingPage() {
@@ -40,7 +40,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {SUBSCRIPTION_PLANS.map((plan) => (
             <div
               key={plan.id}
@@ -61,6 +61,7 @@ export default function PricingPage() {
                 <div className={`text-xs mt-1 ${plan.popular ? 'text-slate-400' : 'text-slate-500'}`}>
                   {plan.description}
                 </div>
+                {plan.id === 'PRO' && <p className="mt-2 text-sm">Or $99 per year. USD; applicable taxes extra.</p>}
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-3xl font-bold font-mono">${plan.monthlyPrice}</span>
@@ -93,7 +94,7 @@ export default function PricingPage() {
               </div>
 
               <Link
-                href="/"
+                href={plan.id === 'FREE' ? '/dashboard' : '/billing'}
                 className={`mt-8 w-full py-2.5 rounded-xl text-xs font-bold text-center block transition-all ${
                   plan.popular
                     ? 'bg-[#00d67d] text-slate-950 hover:bg-[#00c06f]'

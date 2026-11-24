@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSubscription } from '@/lib/billing/access';
 import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
 import {
   AccountBindingError,
@@ -26,7 +27,8 @@ export const maxDuration = 60;
  * Google Ads credentials are all resolved server-side, so a forged request
  * cannot reach another account.
  */
-export async function POST(req: NextRequest) {
+export const POST = withSubscription(handleExecute);
+async function handleExecute(req: NextRequest) {
   try {
     const identity = await requireIdentity(req);
     const idToken = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { OptimizerClientView } from './optimizer-client';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OptimizerPage() {
+export default async function OptimizerPage() {
+  await requirePageSubscription('/optimizer');
   return <OptimizerClientView />;
 }

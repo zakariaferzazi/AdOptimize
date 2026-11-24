@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthSessionBridge } from '@/components/auth-session-bridge';
 
 export const metadata: Metadata = {
   title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
@@ -49,7 +50,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         operatingSystem: 'All',
         offers: {
           '@type': 'Offer',
-          price: '49',
+          price: '29',
           priceCurrency: 'USD',
         },
         description: 'Instant Google Ads audit and budget optimization software for high-growth businesses and agencies.',
@@ -65,6 +66,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className="h-full antialiased">
       <body className="h-full bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans" suppressHydrationWarning>
+        <AuthSessionBridge />
         {children}
       </body>
     </html>

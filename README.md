@@ -132,3 +132,152 @@ App mutations accepted by the API are labelled separately from read-back
 verified executions; app-only records are not proof of Google Ads changes.
 The former activity-page Revert action only changed app records and has been
 removed. Undoing a live change requires a fresh, explicitly approved proposal.
+
+## Polar billing (sandbox first)
+
+One paid plan, **Pro: USD $29/month or $99/year**, plus applicable taxes.
+Basic dashboard/campaign viewing, settings, billing, and activity history remain
+free. Pro protects AI chat/approval/execution, Ads Audit, Reports, Budget Optimizer,
+Google Ads mutations, and the HTTP MCP endpoint. Conversation history and canceling
+an unexecuted proposal remain available after expiration.
+
+The official `@polar-sh/sdk` is pinned to API version `2026-10`.
+Use Node.js 24+ for local tooling/builds, as required by the SDK package.
+Billing uses Firebase ID tokens and D1, never a browser-selected plan. An HttpOnly, SameSite
+session cookie lets server pages check the same stored entitlement; only its
+SHA-256 hash is stored, and it expires no later than its Firebase token.
+Token refresh rotates the session; logout invalidates it. Clearing cookies does
+not delete subscriptions or account history.
+
+**Only verified webhooks write subscription state.** Checkout creation, redirect
+parameters, and portal access cannot grant Pro. The SDK verifies the original raw
+body, signature, and delivery timestamp (five-minute tolerance). D1 atomically
+commits the event marker and state, so retries/concurrent duplicates are harmless
+and failed writes can be retried. Resource modification times preserve ordering;
+equal-time contradictory subscription states resolve conservatively. Only minimal
+IDs/statuses/dates and payload hashes are saved, not webhook bodies, customer
+addresses, payment details, portal tokens, or SDK errors.
+
+Access requires an active allowlisted subscription with an unexpired paid-through
+date. Scheduled cancellation retains access until that date; revocation, pausing,
+and `past_due` suspend it. A newer active webhook restores recovered payments.
+Order/refund events are recorded but do not independently change access: refunds
+follow the subscription's state. There is no invented `payment.failed` event;
+failed renewals arrive as `subscription.past_due`/subscription updates.
+Missing D1/configuration fails explicitly; `AI_STORE=memory` and
+`AI_ALLOW_ANONYMOUS` never bypass paid-route authentication or entitlement checks.
+
+### Configure sandbox
+
+1. In your **Polar sandbox organization**, create two recurring fixed-price
+   products: Pro Monthly ($29 USD, every one month), Pro Yearly ($99 USD, every one
+   year). Each product should have exactly one enabled fixed USD price, with no
+   metered or seat-based additions. Checkout validates this catalog configuration.
+   Keep **Organization Settings > Subscriptions > Allow multiple subscriptions**
+   disabled to prevent duplicate subscriptions, including concurrent checkouts.
+   Trials and checkout discount codes are disabled by this integration.
+2. Create an organization-scoped token with `checkouts:write`,
+   `customer_sessions:write`, and `products:read`. Copy both product UUIDs and the
+   organization UUID. Never put billing credentials in `NEXT_PUBLIC_*`.
+3. Configure the server environment from `.env.example`:
+
+   ```dotenv
+   APP_URL=http://localhost:3000
+   POLAR_ENVIRONMENT=sandbox
+   POLAR_ACCESS_TOKEN=<sandbox-organization-token>
+   POLAR_WEBHOOK_SECRET=<exact-dashboard-webhook-secret>
+   POLAR_ORGANIZATION_ID=<sandbox-organization-uuid>
+   POLAR_PRODUCT_PRO_MONTHLY=<monthly-product-uuid>
+   POLAR_PRODUCT_PRO_YEARLY=<yearly-product-uuid>
+   ```
+
+   `APP_URL` is the canonical application origin, not user input. Use the actual
+   HTTPS application/tunnel origin outside local development; it controls trusted
+   return URLs and same-origin checks. Omitting `POLAR_ENVIRONMENT` defaults to
+   sandbox; switching environments isolates customer/subscription/event records.
+   Local billing also requires the D1 binding and schema. Choose the appropriate
+   command; do not replay old ALTER TABLE migrations on an existing AI database:
+
+   ```powershell
+   # Fresh local database only:
+   npm run db:migrate:local
+   # Existing local database with AI migrations already applied:
+   npm run db:migrate:billing:local
+   ```
+
+4. Create an API-version **2026-10** webhook endpoint at
+   `https://YOUR_APP_OR_TUNNEL/api/billing/webhook`. Subscribe to:
+
+   ```text
+   subscription.created   subscription.updated    subscription.active
+   subscription.canceled  subscription.uncanceled subscription.cycled
+   subscription.revoked   subscription.past_due   subscription.paused
+   subscription.resumed   subscription.migrated
+   order.created          order.updated          order.paid
+   order.refunded         refund.created         refund.updated
+   ```
+
+   Pass the dashboard webhook secret **unchanged**, including any `whsec_` prefix.
+   Use an HTTPS tunnel or a sandbox deployment for local deliveries. Do not use
+   public checkout links: start checkout from the signed-in app so Polar receives
+   the verified Firebase UID as `external_customer_id`.
+5. On Cloudflare, configure each server value interactively (not as a CLI value
+   that can leak through shell history), then apply the schema before deployment:
+
+   ```powershell
+   npx wrangler secret put APP_URL
+   npx wrangler secret put POLAR_ENVIRONMENT
+   npx wrangler secret put POLAR_ACCESS_TOKEN
+   npx wrangler secret put POLAR_WEBHOOK_SECRET
+   npx wrangler secret put POLAR_ORGANIZATION_ID
+   npx wrangler secret put POLAR_PRODUCT_PRO_MONTHLY
+   npx wrangler secret put POLAR_PRODUCT_PRO_YEARLY
+   npm run db:migrate:billing
+   npm run deploy
+   ```
+
+   Start with sandbox values. Do not run these commands against a live deployment
+   until you intend to change its configuration. The billing migration is
+   additive and repeatable. For a brand-new remote database, run the full
+   `npm run db:migrate` once instead. Existing installations must use the
+   billing-only command to avoid replaying earlier ALTER TABLE migrations.
+
+Endpoints: authenticated `POST /api/billing/checkout` accepts only
+`{"interval":"monthly"}` or `{"interval":"yearly"}`; `POST /api/billing/portal`
+accepts `{}`. `GET /api/billing/status` reads stored state. Responses containing
+billing status or redirects are `no-store`; portal links are generated on click,
+not stored. Checkout and portal are limited per verified user in D1 (5 and 10
+requests per ten minutes). Other sensitive routes have persistent limits too.
+Cloudflare connecting IPs are validated, hashed for short-lived auth rate limits,
+and forwarded to checkout for country/tax detection; they are not logged.
+
+### Verify and go live
+
+- Run `npx vitest run tests\billing.test.ts`, TypeScript, and lint. The focused
+  suite uses the real SDK signature verifier and an isolated real D1 instance.
+  Existing AI/report tests isolate the paid guard; the billing suite exercises
+  every actual premium API and server-page guard separately.
+- Complete sandbox checkout for **both** intervals. Confirm Pro stays locked
+  before the webhook and unlocks afterward, including after reload/new sign-in.
+  Verify the portal, monthly/yearly switching, invoices, duplicate deliveries,
+  scheduled cancellation, revocation, failed renewal/recovery, and refunds.
+- Confirm unpaid users cannot call any premium API directly; free viewing,
+  history, billing, and payment recovery must remain accessible. Test logout,
+  expired sessions, and a second user's account.
+- Monitor webhook delivery failures in Polar; correct failures and redeliver.
+  Do not manually toggle database access flags. Alert on repeated non-2xx
+  deliveries. Protect unsigned webhook traffic with Cloudflare WAF/rate limits.
+- Review dependency audit findings and get a production Cloudflare build/preview
+  passing. Automated mocked-provider tests are not a real sandbox payment test.
+- Create equivalent **production** products/token/webhook and configure allowed
+  portal plan changes between only the two Pro products. Keep multiple
+  subscriptions disabled. Replace **all** sandbox IDs/secrets, set
+  `POLAR_ENVIRONMENT=production` and the real HTTPS `APP_URL`, deploy, and verify
+  one controlled live purchase and webhook before launch.
+
+Official references:
+[TypeScript SDK](https://polar.sh/docs/integrate/sdk/typescript.md),
+[webhook verification](https://polar.sh/docs/integrate/webhooks/endpoints.md),
+[checkout sessions](https://polar.sh/docs/features/checkout/session.md),
+[customer portal](https://polar.sh/docs/features/customer-portal/navigate-customers.md),
+[subscriptions](https://polar.sh/docs/features/subscriptions/introduction.md).

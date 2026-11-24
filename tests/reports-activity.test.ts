@@ -9,6 +9,7 @@ import { memoryStore, resetMemoryStore } from '@/lib/store/memory';
 import type { AuditEventRecord, ProposalRecord } from '@/lib/store/types';
 
 const mocks = vi.hoisted(() => ({ unauthorized: false, connected: true }));
+vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
 vi.mock('@/lib/ai/identity', () => {
   class UnauthorizedError extends Error {}
   return {

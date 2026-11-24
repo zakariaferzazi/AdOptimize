@@ -6,6 +6,7 @@ import { buildAuditCsv } from '@/lib/google-ads/audit-csv';
 import { jsonRequest } from './helpers/model';
 
 const mocks = vi.hoisted(() => ({ uid: 'audit-user', connected: true }));
+vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
 vi.mock('@/lib/ai/identity', () => ({
   requireIdentity: async () => ({ uid: mocks.uid }),
   UnauthorizedError: class UnauthorizedError extends Error {},

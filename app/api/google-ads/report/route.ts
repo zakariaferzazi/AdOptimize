@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSubscription } from '@/lib/billing/access';
 import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
 import { AccountBindingError, resolveAccountBinding, resolveFreshAccessToken } from '@/lib/ai/account-binding';
 import { validateAuditOptions } from '@/lib/google-ads/audit';
@@ -9,7 +10,8 @@ import { ToolError } from '@/lib/mcp/errors';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export async function POST(req: NextRequest) {
+export const POST = withSubscription(handleReport);
+async function handleReport(req: NextRequest) {
   try {
     const identity = await requireIdentity(req);
     let body: unknown;

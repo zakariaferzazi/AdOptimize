@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ReportsClientView } from './reports-client';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  await requirePageSubscription('/reports');
   return <ReportsClientView />;
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequest, jsonRequest, ScriptedModel, textResponse, toolResponse } from './helpers/model';
 import { FakeGoogleAds } from './helpers/fake-google-ads';
+vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
 
 const mocks = vi.hoisted(() => ({
   model: undefined as any,

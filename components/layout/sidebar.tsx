@@ -242,6 +242,9 @@ export function Sidebar({
         </div>
 
         {/* Divider line below Activity, Reports and Settings */}
+        <Link href="/billing" onClick={() => isMobile && onCloseMobile?.()} className="px-3 py-2 text-center text-xs text-slate-400 hover:text-white">
+          Billing &amp; Pro
+        </Link>
         <div className="border-t border-slate-800/80" />
 
         {/* Legal links below the divider line */}

@@ -3,6 +3,7 @@ import { getRequest, jsonRequest, ScriptedModel, textResponse, toolResponse } fr
 import { FakeGoogleAds } from './helpers/fake-google-ads';
 
 const mocks = vi.hoisted(() => ({ model: undefined as any }));
+vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
 
 vi.mock('@/lib/openrouter-service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/openrouter-service')>('@/lib/openrouter-service');

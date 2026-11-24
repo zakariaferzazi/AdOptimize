@@ -1,4 +1,5 @@
 'use client';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -1724,7 +1725,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
     let mutateData: any = null;
     try {
-      const res = await fetch('/api/google-ads/mutate', {
+      const res = await authenticatedFetch('/api/google-ads/mutate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1732,14 +1733,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           customerId: state.account.clientCustomerId,
           campaignId: target.id,
           status: newStatus,
-          accessToken: token,
-          refreshToken: state.account.refreshToken || refreshToken || undefined,
-          loginCustomerId:
-            state.account.loginCustomerId ||
-            (typeof window !== 'undefined'
-              ? sessionStorage.getItem('google_ads_login_cid') ||
-                localStorage.getItem('google_ads_login_cid')
-              : undefined),
         }),
       });
       mutateData = await res.json().catch(() => null);
@@ -1841,7 +1834,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
     let mutateData: any = null;
     try {
-      const res = await fetch('/api/google-ads/mutate', {
+      const res = await authenticatedFetch('/api/google-ads/mutate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1849,14 +1842,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           customerId: state.account.clientCustomerId,
           campaignId: target.id,
           budgetDaily: newBudget,
-          accessToken: token,
-          refreshToken: state.account.refreshToken || refreshToken || undefined,
-          loginCustomerId:
-            state.account.loginCustomerId ||
-            (typeof window !== 'undefined'
-              ? sessionStorage.getItem('google_ads_login_cid') ||
-                localStorage.getItem('google_ads_login_cid')
-              : undefined),
         }),
       });
       mutateData = await res.json().catch(() => null);
@@ -1928,36 +1913,31 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       state.account.clientCustomerId &&
       state.account.clientCustomerId !== 'Not Connected';
 
-    let createdId = `camp-live-${Date.now()}`;
+    if (!isConnected || !token) {
+      showToast('Connect Google Ads before creating a campaign.');
+      return false;
+    }
+    let createdId: string;
 
-    if (isConnected && token) {
-      try {
-        const res = await fetch('/api/google-ads/mutate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'create_campaign',
-            customerId: state.account.clientCustomerId,
-            campaignData,
-            accessToken: token,
-            loginCustomerId:
-              state.account.loginCustomerId ||
-              (typeof window !== 'undefined'
-                ? sessionStorage.getItem('google_ads_login_cid') ||
-                  localStorage.getItem('google_ads_login_cid')
-                : undefined),
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          console.warn('Google Ads API create campaign note:', data?.error);
-        } else if (data.campaignId) {
-          createdId = `camp-live-${data.campaignId}`;
-        }
-      } catch (err) {
-        console.warn('Network error creating campaign in Google Ads:', err);
+    try {
+      const res = await authenticatedFetch('/api/google-ads/mutate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_campaign',
+          customerId: state.account.clientCustomerId,
+          campaignData,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.campaignId) {
+        showToast(data?.error || 'Google Ads did not confirm campaign creation.');
+        return false;
       }
+      createdId = `camp-live-${data.campaignId}`;
+    } catch {
+      showToast('Campaign creation could not be confirmed. Refresh before retrying.');
+      return false;
     }
 
     const newCamp: Campaign = {

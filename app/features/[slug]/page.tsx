@@ -65,7 +65,7 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
     operatingSystem: 'All',
     offers: {
       '@type': 'Offer',
-      price: '49',
+      price: '29',
       priceCurrency: 'USD',
     },
     description: feature.metaDescription,

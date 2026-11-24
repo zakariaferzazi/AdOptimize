@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSubscription } from '@/lib/billing/access';
 import { runAgent, type AgentMessage } from '@/lib/ai/agent';
 import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
 import { AccountBindingError, resolveAccountBinding, resolveFreshAccessToken } from '@/lib/ai/account-binding';
@@ -31,7 +32,8 @@ export const maxDuration = 60;
  * conversation state are loaded, the agent runs, and the turn (user message,
  * tool calls, tool results, reply) plus the updated state are persisted.
  */
-export async function POST(req: NextRequest) {
+export const POST = withSubscription(handleChat);
+async function handleChat(req: NextRequest) {
   try {
     const identity = await requireIdentity(req);
     const idToken = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();

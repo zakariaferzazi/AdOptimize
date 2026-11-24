@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ChatClientView } from './chat-client';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ChatPage() {
+export default async function ChatPage() {
+  await requirePageSubscription('/chat');
   return <ChatClientView />;
 }

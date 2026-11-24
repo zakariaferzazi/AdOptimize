@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSubscription } from '@/lib/billing/access';
 import { extractBearerToken, requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
 import { approveProposalRevision, ProposalError, toProposalView } from '@/lib/ai/proposals';
 import { getStore } from '@/lib/store';
@@ -14,7 +15,8 @@ export const dynamic = 'force-dynamic';
  * Destructive changes also require `acknowledge_risk: true`, which the UI only
  * sends after the user confirms the impact.
  */
-export async function POST(req: NextRequest) {
+export const POST = withSubscription(handleApprove);
+async function handleApprove(req: NextRequest) {
   let proposalId = '';
   let userId = '';
   let idToken: string | undefined;

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AuditClientView } from './audit-client';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AuditPage() {
+export default async function AuditPage() {
+  await requirePageSubscription('/audit');
   return <AuditClientView />;
 }

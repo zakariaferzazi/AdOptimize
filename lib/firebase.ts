@@ -1,4 +1,5 @@
 'use client';
+import { synchronizeServerSession } from '@/lib/auth-session';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import {
@@ -331,6 +332,7 @@ export async function signInWithEmail(email: string, pass: string) {
 
 export async function logOut() {
   try {
+    await synchronizeServerSession(null);
     clearStoredGoogleAdsToken();
     await signOut(auth);
   } catch (error) {

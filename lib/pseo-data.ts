@@ -440,7 +440,7 @@ export const PSEO_SOLUTIONS: PSEOSolution[] = [
     faqs: [
       {
         q: 'Can AdOptimize manage multiple Google Ads accounts?',
-        a: 'Yes. Our Agency Scale plan supports multiple client accounts with centralized cross-account monitoring, anomaly alerts, and customizable client budgets.',
+        a: 'Pro covers your connected Google Ads account for $29/month or $99/year. There is no separate multi-account Agency tier.',
       },
       {
         q: 'Does AdOptimize replace human agency media buyers?',
@@ -460,7 +460,7 @@ export const PSEO_COMPARISONS: PSEOComparison[] = [
     competitorName: 'Traditional PPC Agency',
     tagline: 'Why pay $3,000–$10,000/mo for weekly manual checks when software monitors your campaigns every 15 minutes?',
     comparisonPoints: [
-      { feature: 'Cost', adoptimize: '$49 – $199 / month flat', competitor: '$3,000 – $10,000/mo + 15% ad spend fee' },
+      { feature: 'Cost', adoptimize: '$29/month or $99/year', competitor: '$3,000 – $10,000/mo + 15% ad spend fee' },
       { feature: 'Audit Frequency', adoptimize: 'Continuous (every 15 minutes)', competitor: 'Weekly or monthly manual check' },
       { feature: 'Root Cause Explanation', adoptimize: 'Instant grounded metrics & data logs', competitor: 'Bi-weekly slide deck summary' },
       { feature: 'Human Control', adoptimize: '1-click approval or guarded auto-rules', competitor: 'Changes made without your direct visibility' },

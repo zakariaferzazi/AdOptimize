@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSubscription } from '@/lib/billing/access';
+import { BillingError } from '@/lib/billing/config';
+import { billingFailure, billingIdentity, readJson } from '@/lib/billing/http';
+import { extractBearerToken } from '@/lib/ai/identity';
+import { resolveAccountBinding, resolveFreshAccessToken } from '@/lib/ai/account-binding';
 import {
   validateAndFormatCustomerId,
   mutateGoogleAdsCampaignStatus,
@@ -7,23 +12,31 @@ import {
   clearGoogleAdsCache,
 } from '@/lib/google-ads-api';
 
-export async function POST(req: NextRequest) {
+export const POST = withSubscription(handleMutation);
+async function handleMutation(req: NextRequest) {
   try {
-    const body = await req.json();
+    const identity = await billingIdentity(req);
+    const firebaseToken = extractBearerToken(req)!;
+    const binding = await resolveAccountBinding(identity.uid, firebaseToken);
+    if (!binding?.isConnected) throw new BillingError(409, 'Connect a Google Ads account first.');
+    const fresh = await resolveFreshAccessToken(identity.uid, firebaseToken);
+    if (!fresh.accessToken) throw new BillingError(401, 'Reconnect Google Ads to continue.');
+    const accessToken = fresh.accessToken;
+    const loginCustomerId = binding.loginCustomerId;
+    const body = await readJson(req, 65536);
     const {
       action,
       customerId,
-      accessToken,
-      loginCustomerId,
-      developerToken,
       campaignId,
       status,
       budgetDaily,
       campaignData,
     } = body;
 
-    const validation = validateAndFormatCustomerId(customerId || '');
+    if (typeof customerId !== 'string') throw new BillingError(400, 'A Google Ads customer ID is required.');
+    const validation = validateAndFormatCustomerId(customerId);
     const cleanCid = validation.isValid ? validation.clean : String(customerId || '').replace(/\D/g, '');
+    if (cleanCid !== binding.customerId) throw new BillingError(403, 'The campaign must belong to your connected account.');
 
     if (!cleanCid || cleanCid.length !== 10) {
       return NextResponse.json(
@@ -35,7 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const devToken = developerToken || process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    const devToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
     if (!accessToken || typeof accessToken !== 'string') {
       return NextResponse.json(
@@ -90,7 +103,7 @@ export async function POST(req: NextRequest) {
     // 2. Action: Update Campaign Daily Budget
     if (action === 'update_campaign_budget') {
       const budgetNum = Number(budgetDaily);
-      if (!campaignId || isNaN(budgetNum) || budgetNum <= 0) {
+      if (!campaignId || !Number.isFinite(budgetNum) || budgetNum <= 0) {
         return NextResponse.json(
           {
             success: false,
@@ -133,8 +146,15 @@ export async function POST(req: NextRequest) {
 
     // 3. Action: Create Campaign
     if (action === 'create_campaign') {
-      const campName = String(campaignData?.name || '').trim();
-      const campBudget = Number(campaignData?.budgetDaily || 50);
+      if (!campaignData || typeof campaignData !== 'object' || Array.isArray(campaignData)) throw new BillingError(400, 'Campaign details are required.');
+      const campaign = campaignData as Record<string, unknown>;
+      const campName = typeof campaign.name === 'string' ? campaign.name.trim() : '';
+      const campBudget = campaign.budgetDaily === undefined ? 50 : Number(campaign.budgetDaily);
+      const channelType = campaign.channelType ?? 'SEARCH';
+      const campaignStatus = campaign.status ?? 'ENABLED';
+      if (!Number.isFinite(campBudget) || campBudget <= 0 ||
+        typeof channelType !== 'string' || !['SEARCH', 'DISPLAY', 'SHOPPING', 'VIDEO', 'PERFORMANCE_MAX', 'MULTI_CHANNEL'].includes(channelType) ||
+        (campaignStatus !== 'ENABLED' && campaignStatus !== 'PAUSED')) throw new BillingError(400, 'Invalid campaign budget, channel, or status.');
 
       if (!campName) {
         return NextResponse.json(
@@ -151,8 +171,8 @@ export async function POST(req: NextRequest) {
         {
           name: campName,
           budgetDaily: campBudget,
-          channelType: campaignData?.channelType || 'SEARCH',
-          status: campaignData?.status || 'ENABLED',
+          channelType,
+          status: campaignStatus,
         },
         accessToken,
         devToken,
@@ -190,12 +210,13 @@ export async function POST(req: NextRequest) {
       },
       { status: 400 }
     );
-  } catch (err: any) {
-    console.error('Error in /api/google-ads/mutate:', err);
+  } catch (err: unknown) {
+    if (err instanceof BillingError) return billingFailure(err);
+    console.error('[Google Ads mutation] Request failed.');
     return NextResponse.json(
       {
         success: false,
-        error: err.message || 'Internal error processing Google Ads mutation.',
+        error: 'Internal error processing Google Ads mutation.',
       },
       { status: 500 }
     );

@@ -18,8 +18,8 @@ import {
   Lock,
   Clock,
 } from 'lucide-react';
-import { GoogleAdsAccount, SubscriptionPlan } from '@/types/adoptimize';
-import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
+import { GoogleAdsAccount } from '@/types/adoptimize';
+import { BillingPanel } from '@/components/billing/billing-panel';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 export const SUPPORTED_CURRENCIES = [
@@ -64,8 +64,6 @@ export function SettingsView({
   isSyncing = false,
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
-  const [currentPlan, setCurrentPlan] = useState<'FREE' | 'PRO' | 'BUSINESS'>('PRO');
-  const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [minConfidence, setMinConfidence] = useState(90);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXX');
@@ -319,113 +317,7 @@ export function SettingsView({
       )}
 
       {/* TAB 2: BILLING & PLANS */}
-      {activeTab === 'billing' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Subscription Plans</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Scale your monitoring frequency, accounts limit, and AI automation capabilities.
-                </p>
-              </div>
-
-              {/* Monthly / Annual Toggle */}
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                <button
-                  onClick={() => setBillingInterval('MONTHLY')}
-                  className={`px-3 py-1 rounded-lg transition-colors ${
-                    billingInterval === 'MONTHLY' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setBillingInterval('ANNUAL')}
-                  className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                    billingInterval === 'ANNUAL' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  <span>Annual</span>
-                  <span className="text-[10px] text-emerald-600 font-extrabold">Save 20%</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Plan Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {SUBSCRIPTION_PLANS.map((plan) => {
-                const isSelected = currentPlan === plan.id;
-                const price = billingInterval === 'ANNUAL' ? plan.annualPriceMonthly : plan.monthlyPrice;
-
-                return (
-                  <div
-                    key={plan.id}
-                    className={`rounded-3xl p-6 border transition-all relative flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-slate-900 bg-slate-950 text-white shadow-xl'
-                        : 'border-slate-200/80 bg-white text-slate-900'
-                    }`}
-                  >
-                    {plan.badge && (
-                      <span className="absolute -top-3 right-6 bg-[#00d67d] text-slate-950 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                        {plan.badge}
-                      </span>
-                    )}
-
-                    <div>
-                      <div className="text-sm font-bold">{plan.name}</div>
-                      <div className={`text-xs mt-1 ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {plan.description}
-                      </div>
-
-                      <div className="mt-4 flex items-baseline gap-1">
-                        <span className="text-3xl font-bold font-mono">${price}</span>
-                        <span className={`text-xs ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
-                          / month
-                        </span>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-slate-200/20 text-xs font-semibold space-y-1">
-                        <div>{plan.accountLimit}</div>
-                        <div className={isSelected ? 'text-emerald-400' : 'text-emerald-700'}>
-                          {plan.spendLimit}
-                        </div>
-                      </div>
-
-                      <ul className="mt-4 space-y-2 text-xs">
-                        {plan.features.map((feat, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <CheckCircle2
-                              className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                                isSelected ? 'text-[#00d67d]' : 'text-emerald-600'
-                              }`}
-                            />
-                            <span className={isSelected ? 'text-slate-300' : 'text-slate-600'}>
-                              {feat}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <button
-                      onClick={() => setCurrentPlan(plan.id)}
-                      className={`mt-6 w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
-                        isSelected
-                          ? 'bg-[#00d67d] text-slate-950 hover:bg-[#00c06f]'
-                          : 'bg-slate-900 hover:bg-slate-800 text-white'
-                      }`}
-                    >
-                      {isSelected ? 'Active Plan' : 'Select Plan'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'billing' && <BillingPanel />}
 
       {/* TAB 3: OPTIMIZATION RULES */}
       {activeTab === 'ai_config' && (

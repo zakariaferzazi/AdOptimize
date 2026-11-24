@@ -52,72 +52,34 @@ export function LandingPage({
 
   const pricingTiers = [
     {
-      name: 'Free Forever',
+      name: 'Free',
       priceMonthly: 0,
-      priceAnnualMonthly: 0,
-      description: 'Essential monitoring and search query auditing for smaller ad spend.',
+      priceAnnual: 0,
+      description: 'Basic visibility into your connected Google Ads account.',
       popular: false,
-      spendLimit: 'Up to $1,000 / mo ad spend',
+      spendLimit: 'Basic campaign viewing',
       features: [
-        '1 connected Google Ads account',
-        'Daily search query waste scan',
-        'Top 20 negative keyword recommendations',
-        'Email anomaly alerts',
-        'Standard 1-click Google OAuth connect',
+        'Dashboard and campaign viewing',
+        'Google Ads account connection',
+        'Settings and activity history',
       ],
-      cta: 'Start Free Forever',
+      cta: 'Open free dashboard',
     },
     {
-      name: 'Starter',
+      name: 'Pro',
       priceMonthly: 29,
-      priceAnnualMonthly: 23,
-      description: 'Complete autonomous optimization for solo operators and media buyers.',
-      popular: false,
-      spendLimit: 'Up to $5,000 / mo ad spend',
-      features: [
-        '1 connected Google Ads account',
-        'Continuous hourly background audit',
-        '1-click negative keyword harvester',
-        'Daily budget pacing & runaway alerts',
-        'Audit log with instant 1-click rollback',
-        'Search & Performance Max auditing',
-      ],
-      cta: 'Start Free Trial',
-    },
-    {
-      name: 'Growth',
-      priceMonthly: 69,
-      priceAnnualMonthly: 55,
-      description: 'Deep optimization and automated capital reallocation for high-ROAS accounts.',
+      priceAnnual: 99,
+      description: 'Evidence-led auditing, reporting, and assisted optimization.',
       popular: true,
-      spendLimit: 'Up to $25,000 / mo ad spend',
+      spendLimit: '$29 monthly or $99 yearly',
       features: [
-        'Up to 3 Google Ads accounts',
-        'Continuous 15-minute background sync',
-        'Dynamic budget shift simulator',
-        'Rapid CPA spike & tracking anomaly alerts',
-        'PMax asset diagnostics & low-ROAS flags',
-        'Instant 1-click rollback on all actions',
-        'Priority email & webhook notifications',
+        'AI Marketing Agent with account history',
+        'Period-specific Ads Audit and Reports',
+        'Clean CSV and print exports',
+        'Budget Optimizer',
+        'Google Ads campaign changes',
       ],
-      cta: 'Start Free Trial',
-    },
-    {
-      name: 'Scale',
-      priceMonthly: 129,
-      priceAnnualMonthly: 99,
-      description: 'Multi-account oversight and dedicated throughput for growing portfolios.',
-      popular: false,
-      spendLimit: 'Up to $100,000 / mo ad spend',
-      features: [
-        'Up to 10 Google Ads accounts',
-        'Continuous real-time sync',
-        'Cross-account capital rebalancing',
-        'Slack & Discord webhook integration',
-        'Dedicated onboarding & priority queue',
-        'Custom safety limits & approval workflows',
-      ],
-      cta: 'Start Scale Trial',
+      cta: 'Get Pro',
     },
   ];
 
@@ -499,14 +461,14 @@ export function LandingPage({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Annual billing (Save 20%)
+                Annual billing ($99 for Pro)
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
             {pricingTiers.map((tier) => {
-              const price = billingInterval === 'ANNUAL' ? tier.priceAnnualMonthly : tier.priceMonthly;
+              const price = billingInterval === 'ANNUAL' ? tier.priceAnnual : tier.priceMonthly;
               return (
                 <div
                   key={tier.name}
@@ -531,7 +493,7 @@ export function LandingPage({
                         <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
                           ${price}
                         </span>
-                        <span className="text-xs text-slate-500 font-medium">/ month</span>
+                        <span className="text-xs text-slate-500 font-medium">/ {billingInterval === 'ANNUAL' ? 'year' : 'month'}</span>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-1">
                         {tier.spendLimit}
@@ -553,16 +515,16 @@ export function LandingPage({
                   </div>
 
                   <div className="pt-6">
-                    <button
-                      onClick={onSignInWithGoogle || onConnectGoogleAds}
-                      className={`w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    <Link
+                      href={tier.popular ? '/billing' : '/dashboard'}
+                      className={`block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                         tier.popular
                           ? 'bg-slate-900 hover:bg-black text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
                       }`}
                     >
                       {tier.cta}
-                    </button>
+                    </Link>
                   </div>
                 </div>
               );

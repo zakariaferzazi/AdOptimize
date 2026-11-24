@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeGoogleAds } from './helpers/fake-google-ads';
+vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
 
 /**
  * Live-model evaluation.

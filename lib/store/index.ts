@@ -21,7 +21,7 @@ let cachedDurable = false;
 let schemaReady: Promise<void> | undefined;
 let warnedAboutMemory = false;
 
-async function resolveD1(): Promise<D1Database | undefined> {
+export async function getD1Database(): Promise<D1Database | undefined> {
   try {
     const mod = await import('@opennextjs/cloudflare');
     const context = (mod as { getCloudflareContext?: (options?: { async?: boolean }) => unknown })
@@ -64,7 +64,7 @@ export async function getStore(): Promise<Store> {
     return cachedStore;
   }
 
-  const db = await resolveD1();
+  const db = await getD1Database();
   if (!db) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Account chat storage is unavailable. Configure the D1 binding "DB".');
