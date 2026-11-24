@@ -11,8 +11,9 @@ export class BillingError extends Error {
   }
 }
 
+// One flag selects the whole Polar environment. Unset means sandbox.
 export function billingEnvironment(): 'sandbox' | 'production' {
-  const value = process.env.POLAR_ENVIRONMENT || 'sandbox';
+  const value = process.env.POLAR_ENVIRONMENT?.trim() || 'sandbox';
   if (value !== 'sandbox' && value !== 'production') throw new BillingError(503, 'Billing configuration is unavailable.');
   return value;
 }
@@ -23,19 +24,25 @@ export function requiredEnv(name: string): string {
   return value;
 }
 
+// Production uses the unsuffixed names; sandbox uses the same names with _SANDBOX.
+// Never mix values across environments: the flag decides every Polar setting.
+export function polarSetting(name: string): string {
+  return requiredEnv(billingEnvironment() === 'sandbox' ? `${name}_SANDBOX` : name);
+}
+
 export function uuid(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
 }
 
 export function billingProducts() {
-  const monthly = requiredEnv('POLAR_PRODUCT_PRO_MONTHLY');
-  const yearly = requiredEnv('POLAR_PRODUCT_PRO_YEARLY');
+  const monthly = polarSetting('POLAR_PRODUCT_PRO_MONTHLY');
+  const yearly = polarSetting('POLAR_PRODUCT_PRO_YEARLY');
   if (!uuid(monthly) || !uuid(yearly) || monthly === yearly) throw new BillingError(503, 'Billing product configuration is invalid.');
   return { monthly, yearly };
 }
 
 export function organizationId(): string {
-  const id = requiredEnv('POLAR_ORGANIZATION_ID');
+  const id = polarSetting('POLAR_ORGANIZATION_ID');
   if (!uuid(id)) throw new BillingError(503, 'Billing organization configuration is invalid.');
   return id;
 }
@@ -52,7 +59,7 @@ export function appOrigin(): string {
 
 export function polarClient() {
   return createPolar({
-    accessToken: requiredEnv('POLAR_ACCESS_TOKEN'),
+    accessToken: polarSetting('POLAR_ACCESS_TOKEN'),
     environment: billingEnvironment(), organizationId: organizationId(), timeout: 8,
   });
 }

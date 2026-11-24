@@ -64,6 +64,7 @@ import ReportsPage from '@/app/reports/page';
 import OptimizerPage from '@/app/optimizer/page';
 import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
+import { polarSetting } from '@/lib/billing/config';
 
 const organization = '11111111-1111-4111-8111-111111111111';
 const monthly = '22222222-2222-4222-8222-222222222222';
@@ -126,11 +127,11 @@ beforeAll(async () => {
 beforeEach(async () => {
   vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
   vi.stubEnv('APP_URL', 'https://app.example.test');
-  vi.stubEnv('POLAR_ORGANIZATION_ID', organization);
-  vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY', monthly);
-  vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY', yearly);
-  vi.stubEnv('POLAR_WEBHOOK_SECRET', secret);
-  vi.stubEnv('POLAR_ACCESS_TOKEN', 'unit-test-token-not-a-real-credential');
+  vi.stubEnv('POLAR_ORGANIZATION_ID_SANDBOX', organization);
+  vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY_SANDBOX', monthly);
+  vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY_SANDBOX', yearly);
+  vi.stubEnv('POLAR_WEBHOOK_SECRET_SANDBOX', secret);
+  vi.stubEnv('POLAR_ACCESS_TOKEN_SANDBOX', 'unit-test-token-not-a-real-credential');
   mocks.db = db;
   mocks.cookie = undefined;
   await db.batch(['billing_customers', 'billing_subscriptions', 'billing_events', 'billing_payments', 'billing_rate_limits', 'app_sessions']
@@ -258,7 +259,11 @@ describe('verified Polar webhook lifecycle on real D1', () => {
     const mismatch = subscriptionEvent('subscription.updated', { customer_id: yearly, customer: { id: yearly, external_id: 'user-a', organization_id: organization } });
     expect((await webhook(signedRequest(mismatch))).status).toBe(409);
     vi.stubEnv('POLAR_ENVIRONMENT', 'production');
+    vi.stubEnv('POLAR_ORGANIZATION_ID', organization);
+    vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY', monthly);
+    vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY', yearly);
     expect(await subscription('user-a')).toBeNull();
+    vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
   });
 
   it('ignores future and checkout confirmation events without granting access', async () => {
@@ -336,6 +341,18 @@ describe('server-created checkout and portal', () => {
   });
 });
 
+describe('one Polar environment flag, never mixed', () => {
+  it('reads only the selected environment and never falls back to the other one', () => {
+    vi.stubEnv('POLAR_ENVIRONMENT', 'production');
+    vi.stubEnv('POLAR_ACCESS_TOKEN', 'production-token-value');
+    expect(polarSetting('POLAR_ACCESS_TOKEN')).toBe('production-token-value');
+    vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
+    expect(polarSetting('POLAR_ACCESS_TOKEN')).toBe('unit-test-token-not-a-real-credential');
+    vi.stubEnv('POLAR_ACCESS_TOKEN_SANDBOX', '');
+    expect(() => polarSetting('POLAR_ACCESS_TOKEN')).toThrow();
+  });
+});
+
 describe('server-side Pro enforcement and opaque sessions', () => {
   const premium = [
     ['/api/ai/chat', chat], ['/api/ai/chat/approve', approve], ['/api/ai/chat/execute', execute],
@@ -344,8 +361,8 @@ describe('server-side Pro enforcement and opaque sessions', () => {
   it('creates and revokes sessions with the deployed origin before Polar is configured', async () => {
     vi.stubEnv('APP_URL', deploymentOrigin);
     for (const name of [
-      'POLAR_ENVIRONMENT', 'POLAR_ACCESS_TOKEN', 'POLAR_WEBHOOK_SECRET',
-      'POLAR_ORGANIZATION_ID', 'POLAR_PRODUCT_PRO_MONTHLY', 'POLAR_PRODUCT_PRO_YEARLY',
+      'POLAR_ENVIRONMENT', 'POLAR_ACCESS_TOKEN_SANDBOX', 'POLAR_WEBHOOK_SECRET_SANDBOX',
+      'POLAR_ORGANIZATION_ID_SANDBOX', 'POLAR_PRODUCT_PRO_MONTHLY_SANDBOX', 'POLAR_PRODUCT_PRO_YEARLY_SANDBOX',
     ]) vi.stubEnv(name, undefined);
     vi.mocked(createPolar).mockClear();
     const response = await createSession(new Request(`${deploymentOrigin}/api/auth/session`, {

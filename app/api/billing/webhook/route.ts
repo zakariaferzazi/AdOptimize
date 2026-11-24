@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { webhooks } from '@polar-sh/sdk/2026-10';
-import { BillingError, requiredEnv } from '@/lib/billing/config';
+import { BillingError, polarSetting } from '@/lib/billing/config';
 import { billingFailure, readBody } from '@/lib/billing/http';
 import { applyWebhook, hash, rateLimit } from '@/lib/billing/store';
 import { webhookUpdate } from '@/lib/billing/webhook';
@@ -8,7 +8,7 @@ import { webhookUpdate } from '@/lib/billing/webhook';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
-    const secret = requiredEnv('POLAR_WEBHOOK_SECRET');
+    const secret = polarSetting('POLAR_WEBHOOK_SECRET');
     const headers = Object.fromEntries(['webhook-id', 'webhook-timestamp', 'webhook-signature']
       .map((key) => [key, request.headers.get(key) || '']));
     if (!headers['webhook-id'] || headers['webhook-id'].length > 200 ||
