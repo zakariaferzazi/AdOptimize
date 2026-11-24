@@ -60,6 +60,7 @@ import {
   addAuditLogToFirestore,
   updateAuditLogStatus,
   saveUserAccount,
+  purgeLegacyGoogleAdsSecrets,
   clearAllUserData,
   saveInsightToFirestore,
   saveAnomalyToFirestore,
@@ -107,7 +108,6 @@ interface AdOptimizeContextType {
   handleSignOut: () => Promise<void>;
   handleSync: (force?: boolean) => Promise<void>;
   handleRefreshToken: (isSilent?: boolean) => Promise<string | null>;
-  handleSaveRefreshToken: (refreshToken: string, clientSecret?: string) => Promise<boolean>;
   handleConnectAccount: (
     connectedAccount: GoogleAdsAccount,
     syncedCampaigns?: Campaign[],
@@ -304,34 +304,14 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       if (nearingExpiry) {
         isRenewing = true;
         try {
-          if (activeRefreshTok) {
-            const res = await fetch('/api/google-ads/token/refresh', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                refreshToken: activeRefreshTok,
-                customerId: state.account.clientCustomerId,
-                userEmail: user?.email || undefined,
-                userId: user?.uid || undefined,
-              }),
-            });
-            const data = await res.json();
-            if (res.ok && data.success && data.accessToken) {
-              storeGoogleAdsToken(data.accessToken);
+          if (user) {
+            // The encrypted refresh token stays on the server; only a short-lived access token returns.
+            const res = await authenticatedFetch('/api/google-ads/token', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.accessToken) {
+              storeGoogleAdsToken(data.accessToken, undefined, data.expiresAt);
               setOauthToken(data.accessToken);
               setIsTokenExpired(false);
-              if (data.refreshToken) {
-                storeGoogleAdsRefreshToken(data.refreshToken);
-                setRefreshToken(data.refreshToken);
-              }
-              if (user) {
-                saveUserAccount(user.uid, {
-                  ...state.account,
-                  accessToken: data.accessToken,
-                  refreshToken: data.refreshToken || activeRefreshTok,
-                  isTokenExpired: false,
-                });
-              }
               return;
             }
           }
@@ -525,13 +505,14 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             initialLocalSuccessfulTs >= (isNaN(remoteSuccessfulTs) ? 0 : remoteSuccessfulTs);
           preferLocalDataRef.current = initialLocalIsFresher;
 
-          if (remoteAccount?.accessToken) {
-            setOauthToken(remoteAccount.accessToken);
-            storeGoogleAdsToken(remoteAccount.accessToken);
-          }
-          if (remoteAccount?.refreshToken) {
-            storeGoogleAdsRefreshToken(remoteAccount.refreshToken);
-            setRefreshToken(remoteAccount.refreshToken);
+          // Earlier versions stored Google credentials in plaintext. Remove them once; users reconnect Google Ads.
+          if (typeof window !== 'undefined') {
+            const purgeKey = `adoptimize_ads_secrets_purged_${currentUser.uid}`;
+            if (localStorage.getItem(purgeKey) !== 'true') {
+              void purgeLegacyGoogleAdsSecrets(currentUser.uid).then(() => {
+                try { localStorage.setItem(purgeKey, 'true'); } catch {}
+              });
+            }
           }
 
           if (!isSubscribed) return;
@@ -1180,49 +1161,15 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       showToast('Refreshing Google Ads authorization in background...');
     }
     try {
-      const activeRefreshTok =
-        refreshToken ||
-        state.account?.refreshToken ||
-        getStoredGoogleAdsRefreshToken() ||
-        undefined;
-
-      // 1. First attempt: automated server-side token rotation via /api/google-ads/token/refresh
-      let refreshRes: Response | null = null;
-      if (activeRefreshTok) {
-        refreshRes = await fetch('/api/google-ads/token/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            refreshToken: activeRefreshTok,
-            customerId: state.account.clientCustomerId,
-            userEmail: user?.email || undefined,
-            userId: user?.uid || undefined,
-          }),
-        }).catch(() => null);
-      }
-
-      if (!activeRefreshTok) {
-        console.warn('[Session] No stored Google Ads refresh credential; automatic renewal is unavailable.');
-      }
-
+      if (!user) return null;
+      // Server-side rotation from the encrypted refresh token; the browser only receives an access token.
+      const refreshRes = await authenticatedFetch('/api/google-ads/token', { method: 'POST' }).catch(() => null);
       if (refreshRes && refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        if (refreshData.success && refreshData.accessToken) {
+        const refreshData = await refreshRes.json().catch(() => ({}));
+        if (refreshData.accessToken) {
           setOauthToken(refreshData.accessToken);
-          storeGoogleAdsToken(refreshData.accessToken);
+          storeGoogleAdsToken(refreshData.accessToken, undefined, refreshData.expiresAt);
           setIsTokenExpired(false);
-          if (refreshData.refreshToken) {
-            storeGoogleAdsRefreshToken(refreshData.refreshToken);
-            setRefreshToken(refreshData.refreshToken);
-          }
-          if (user) {
-            saveUserAccount(user.uid, {
-              ...state.account,
-              accessToken: refreshData.accessToken,
-              refreshToken: refreshData.refreshToken || activeRefreshTok,
-              isTokenExpired: false,
-            });
-          }
           if (!isSilent) {
             showToast('Google Ads session refreshed automatically.');
           }
@@ -1239,7 +1186,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         setIsSyncing(false);
       }
     }
-  }, [refreshToken, state.account, user, showToast]);
+  }, [user, showToast]);
 
   useEffect(() => {
     handleRefreshTokenRef.current = handleRefreshToken;
@@ -1247,31 +1194,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       handleRefreshTokenRef.current = null;
     };
   }, [handleRefreshToken]);
-
-  const handleSaveRefreshToken = async (newRefreshToken: string, clientSecret?: string): Promise<boolean> => {
-    if (!newRefreshToken || !newRefreshToken.trim()) return false;
-    const clean = newRefreshToken.trim();
-    storeGoogleAdsRefreshToken(clean);
-    setRefreshToken(clean);
-
-    const updatedAccount: GoogleAdsAccount = {
-      ...state.account,
-      refreshToken: clean,
-    };
-
-    setState((prev) => ({
-      ...prev,
-      account: updatedAccount,
-    }));
-
-    if (user) {
-      await saveUserAccount(user.uid, updatedAccount);
-    }
-
-    showToast('Saved Google Ads refresh token. Testing auto-renewal...');
-    const refreshed = await handleRefreshToken(false);
-    return Boolean(refreshed);
-  };
 
   const handleSync = async (force = false) => {
     if (!state.account.isConnected || !state.account.clientCustomerId || state.account.clientCustomerId === 'Not Connected') {
@@ -1662,13 +1584,11 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
 
     try {
       // Purge server-side query and token caches
-      fetch('/api/google-ads/disconnect', {
+      authenticatedFetch('/api/google-ads/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: state.account.clientCustomerId,
-          userId: user?.uid,
-          userEmail: user?.email,
         }),
       }).catch(() => null);
 
@@ -2058,7 +1978,6 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         handleSignOut,
         handleSync,
         handleRefreshToken,
-        handleSaveRefreshToken,
         handleConnectAccount,
         handleApplyRecommendation,
         handleToggleRule,

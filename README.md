@@ -179,16 +179,28 @@ Missing D1/configuration fails explicitly; `AI_STORE=memory` and
 2. Create an organization-scoped token with `checkouts:write`,
    `customer_sessions:write`, and `products:read`. Copy both product UUIDs and the
    organization UUID. Never put billing credentials in `NEXT_PUBLIC_*`.
-3. Configure the server environment from `.env.example`:
+3. Configure the server environment from `.env.example`. One flag,
+   `POLAR_ENVIRONMENT` (`sandbox` or `production`, default **sandbox**), selects the
+   whole credential set together: Polar API server, access token, organization,
+   product IDs and webhook secret. **Production uses the plain names; sandbox uses
+   the same names with a `_SANDBOX` suffix.** The sets are never mixed, and a
+   missing value fails closed instead of falling back to the other environment.
 
    ```dotenv
    APP_URL=http://localhost:3000
    POLAR_ENVIRONMENT=sandbox
-   POLAR_ACCESS_TOKEN=<sandbox-organization-token>
-   POLAR_WEBHOOK_SECRET=<exact-dashboard-webhook-secret>
-   POLAR_ORGANIZATION_ID=<sandbox-organization-uuid>
-   POLAR_PRODUCT_PRO_MONTHLY=<monthly-product-uuid>
-   POLAR_PRODUCT_PRO_YEARLY=<yearly-product-uuid>
+   # Sandbox set (used when POLAR_ENVIRONMENT is sandbox or unset)
+   POLAR_ACCESS_TOKEN_SANDBOX=<sandbox-organization-token>
+   POLAR_WEBHOOK_SECRET_SANDBOX=<exact-sandbox-webhook-secret>
+   POLAR_ORGANIZATION_ID_SANDBOX=<sandbox-organization-uuid>
+   POLAR_PRODUCT_PRO_MONTHLY_SANDBOX=<monthly-product-uuid>
+   POLAR_PRODUCT_PRO_YEARLY_SANDBOX=<yearly-product-uuid>
+   # Production set (used only when POLAR_ENVIRONMENT=production)
+   POLAR_ACCESS_TOKEN=
+   POLAR_WEBHOOK_SECRET=
+   POLAR_ORGANIZATION_ID=
+   POLAR_PRODUCT_PRO_MONTHLY=
+   POLAR_PRODUCT_PRO_YEARLY=
    ```
 
    `APP_URL` is required for secure sign-in, even before Polar is configured.
@@ -231,21 +243,54 @@ Missing D1/configuration fails explicitly; `AI_STORE=memory` and
    sign-in even if Polar payments have not been configured:
 
    ```powershell
-   npx wrangler secret put POLAR_ENVIRONMENT
-   npx wrangler secret put POLAR_ACCESS_TOKEN
-   npx wrangler secret put POLAR_WEBHOOK_SECRET
-   npx wrangler secret put POLAR_ORGANIZATION_ID
-   npx wrangler secret put POLAR_PRODUCT_PRO_MONTHLY
-   npx wrangler secret put POLAR_PRODUCT_PRO_YEARLY
+   npx wrangler secret put POLAR_ACCESS_TOKEN_SANDBOX
+   npx wrangler secret put POLAR_WEBHOOK_SECRET_SANDBOX
+   npx wrangler secret put POLAR_ORGANIZATION_ID_SANDBOX
+   npx wrangler secret put POLAR_PRODUCT_PRO_MONTHLY_SANDBOX
+   npx wrangler secret put POLAR_PRODUCT_PRO_YEARLY_SANDBOX
+   # Production credentials (plain names) are only used once POLAR_ENVIRONMENT=production.
+   npx wrangler secret put TOKEN_ENCRYPTION_KEY
    npm run db:migrate:billing
    npm run deploy
    ```
 
+   `TOKEN_ENCRYPTION_KEY` is 32 random bytes, base64 encoded
+   (`[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))`
+   or `openssl rand -base64 32`). It encrypts stored Google Ads credentials; keep it
+   secret and stable, because losing it means users must reconnect Google Ads.
+
    Start with sandbox values. Do not run these commands against a live deployment
-   until you intend to change its configuration. The billing migration is
-   additive and repeatable. For a brand-new remote database, run the full
+   until you intend to change its configuration. `db:migrate:billing` applies the
+   billing/session tables and the encrypted Google Ads token tables; both migrations
+   are additive and repeatable. For a brand-new remote database, run the full
    `npm run db:migrate` once instead. Existing installations must use the
    billing-only command to avoid replaying earlier ALTER TABLE migrations.
+
+### Sign-up, payment and routes
+
+| Route | Purpose |
+|---|---|
+| `/sign-up` | One page, four steps: **Account → Plan → Polar checkout → Success**. The step is derived from server-side state (signed in? active subscription?), so a returning user resumes correctly. Accepts `?plan=monthly\|yearly` and `?next=<app path>` (whitelisted). |
+| `/sign-in` | Email/password or Google sign-in, then returns to `?next=` (whitelisted) or the dashboard. |
+| `/billing` | Manage an existing subscription (status, portal, invoices) inside the app. |
+| `/billing/success` | Return page after checkout. It polls the verified server state; returning from checkout never grants access by itself. |
+
+Homepage and pricing CTAs send new visitors to `/sign-up` and send signed-in users
+straight to a server-created checkout. Visitors can continue with the free plan.
+Paid pages redirect unauthenticated or unpaid users to `/sign-up?next=<page>`.
+
+### Google Ads authorization
+
+Google sign-in requests only `openid`, `email` and `profile`. Google Ads access is a
+separate, incremental authorization-code flow (with PKCE and a single-use state)
+that starts only when the user clicks **Connect Google Ads**. The server exchanges the
+code, then stores the refresh and access tokens AES-256-GCM encrypted in D1
+(`TOKEN_ENCRYPTION_KEY`), each bound to its owner. The browser never receives a
+refresh token; it only receives short-lived access tokens minted by
+`POST /api/google-ads/token`. Credentials stored in plaintext by earlier versions are
+deleted automatically on the user's next load, and those users reconnect Google Ads.
+The OAuth redirect URI registered with Google must be
+`https://YOUR_DOMAIN/api/google-ads/oauth-callback`.
 
 Endpoints: authenticated `POST /api/billing/checkout` accepts only
 `{"interval":"monthly"}` or `{"interval":"yearly"}`; `POST /api/billing/portal`
@@ -258,10 +303,9 @@ and forwarded to checkout for country/tax detection; they are not logged.
 
 ### Verify and go live
 
-- Run `npx vitest run tests\billing.test.ts`, TypeScript, and lint. The focused
-  suite uses the real SDK signature verifier and an isolated real D1 instance.
-  Existing AI/report tests isolate the paid guard; the billing suite exercises
-  every actual premium API and server-page guard separately.
+- Run `npx vitest run`, TypeScript, and lint. The billing suite uses the real SDK
+  signature verifier and an isolated real D1 instance; the Google Ads suite covers
+  encryption at rest, single-use state, and credential isolation.
 - Complete sandbox checkout for **both** intervals. Confirm Pro stays locked
   before the webhook and unlocks afterward, including after reload/new sign-in.
   Verify the portal, monthly/yearly switching, invoices, duplicate deliveries,
@@ -276,9 +320,10 @@ and forwarded to checkout for country/tax detection; they are not logged.
   passing. Automated mocked-provider tests are not a real sandbox payment test.
 - Create equivalent **production** products/token/webhook and configure allowed
   portal plan changes between only the two Pro products. Keep multiple
-  subscriptions disabled. Replace **all** sandbox IDs/secrets, set
-  `POLAR_ENVIRONMENT=production` and the real HTTPS `APP_URL`, deploy, and verify
-  one controlled live purchase and webhook before launch.
+  subscriptions disabled. Set the plain-named production secrets, then set
+  `POLAR_ENVIRONMENT=production` (the one switch for API server, token,
+  organization, products and webhook secret) and the real HTTPS `APP_URL`, deploy,
+  and verify one controlled live purchase and webhook before launch.
 
 Official references:
 [TypeScript SDK](https://polar.sh/docs/integrate/sdk/typescript.md),

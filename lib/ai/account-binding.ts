@@ -18,12 +18,6 @@ export interface AccountBinding {
   isConnected: boolean;
 }
 
-export interface GoogleAdsCredentials {
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number;
-}
-
 type FirestoreValue = Record<string, unknown>;
 
 function decodeValue(value: FirestoreValue | undefined): unknown {
@@ -108,35 +102,6 @@ export async function resolveAccountBinding(
   };
 }
 
-/**
- * Resolve stored Google Ads OAuth credentials for this user.
- * The access token is refreshed by the caller when it is close to expiry.
- */
-export async function resolveGoogleAdsCredentials(
-  userId: string,
-  idToken: string
-): Promise<GoogleAdsCredentials | undefined> {
-  const tokenDoc = await readDocument(`users/${userId}/tokens/google_ads`, idToken);
-  if (tokenDoc?.accessToken) {
-    return {
-      accessToken: String(tokenDoc.accessToken),
-      refreshToken: tokenDoc.refreshToken ? String(tokenDoc.refreshToken) : undefined,
-      expiresAt: tokenDoc.expiresAt ? Number(tokenDoc.expiresAt) : undefined,
-    };
-  }
-
-  const account = await readDocument(`users/${userId}/accounts/primary`, idToken);
-  if (account?.accessToken) {
-    return {
-      accessToken: String(account.accessToken),
-      refreshToken: account.refreshToken ? String(account.refreshToken) : undefined,
-      expiresAt: account.expiresAt ? Number(account.expiresAt) : undefined,
-    };
-  }
-
-  return undefined;
-}
-
 export class AccountBindingError extends Error {
   readonly status = 403;
   constructor(message: string) {
@@ -163,23 +128,15 @@ export function assertProposalAccount(
 }
 
 /**
- * Resolve a usable Google Ads access token, refreshing it when it is about to
- * expire. Returns an error message instead of throwing so routes can respond
- * with a clear reconnect instruction.
+ * Resolve a usable Google Ads access token from the encrypted server-side vault, refreshing
+ * it when it is about to expire. Returns an error message instead of throwing so routes
+ * can respond with a clear reconnect instruction.
  */
 export async function resolveFreshAccessToken(
   userId: string,
-  idToken: string
+  _idToken?: string
 ): Promise<{ accessToken?: string; error?: string }> {
-  const credentials = await resolveGoogleAdsCredentials(userId, idToken);
-  if (!credentials) return { error: 'No Google Ads credentials are stored for this account. Reconnect Google Ads.' };
-
-  const expiresSoon =
-    typeof credentials.expiresAt === 'number' && credentials.expiresAt - Date.now() < 5 * 60 * 1000;
-  if (!expiresSoon || !credentials.refreshToken) return { accessToken: credentials.accessToken };
-
-  const { executeGoogleAdsTokenRefresh } = await import('@/lib/google-token-refresh');
-  const refreshed = await executeGoogleAdsTokenRefresh({ refreshToken: credentials.refreshToken });
-  if (refreshed.success && refreshed.accessToken) return { accessToken: refreshed.accessToken };
-  return { accessToken: credentials.accessToken };
+  const { freshAccessToken } = await import('@/lib/google-ads/vault');
+  const result = await freshAccessToken(userId);
+  return result.accessToken ? { accessToken: result.accessToken } : { error: result.error };
 }

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, ArrowRight } from 'lucide-react';
 import { SUBSCRIPTION_PLANS } from '@/lib/mock-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { PlanCta } from '@/components/billing/plan-cta';
 
 export const metadata: Metadata = {
   title: 'Pricing - AdOptimize | Transparent Google Ads AI Optimization Plans',
@@ -93,16 +94,20 @@ export default function PricingPage() {
                 </ul>
               </div>
 
-              <Link
-                href={plan.id === 'FREE' ? '/dashboard' : '/billing'}
-                className={`mt-8 w-full py-2.5 rounded-xl text-xs font-bold text-center block transition-all ${
-                  plan.popular
-                    ? 'bg-[#00d67d] text-slate-950 hover:bg-[#00c06f]'
-                    : 'bg-slate-900 hover:bg-slate-800 text-white'
-                }`}
-              >
-                Get Started
-              </Link>
+              {plan.id === 'FREE' ? (
+                <Link
+                  href="/sign-up"
+                  className="mt-8 w-full py-2.5 rounded-xl text-xs font-bold text-center block transition-all bg-slate-900 hover:bg-slate-800 text-white"
+                >
+                  Get Started
+                </Link>
+              ) : (
+                <PlanCta
+                  interval="monthly"
+                  label="Get Started"
+                  className="mt-8 w-full py-2.5 rounded-xl text-xs font-bold text-center block transition-all bg-[#00d67d] text-slate-950 hover:bg-[#00c06f]"
+                />
+              )}
             </div>
           ))}
         </div>

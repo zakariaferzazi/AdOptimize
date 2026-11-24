@@ -11,24 +11,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, customerId, accessToken, userEmail, accountName, currency, monthlySpendCap } = body;
 
-    // 1. Generate Google Ads OAuth 2.0 URL
+    // 1. Ads authorization is created only by the incremental flow at /api/google-ads/authorize.
     if (action === 'get_oauth_url') {
-      const clientId =
-        process.env.GOOGLE_ADS_CLIENT_ID ||
-        '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
-      const redirectUri = `${process.env.APP_URL || 'https://adoptimize.app'}/api/google-ads/oauth-callback`;
-      const scope = encodeURIComponent('https://www.googleapis.com/auth/adwords email profile');
-      const state = `oauth_state_${Date.now()}`;
-
-      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&scope=${scope}&state=${state}&prompt=select_account`;
-
-      return NextResponse.json({
-        url: oauthUrl,
-        state,
-        note: 'Google Ads OAuth endpoint configured for AdWords scope.',
-      });
+      return NextResponse.json({ error: 'Use /api/google-ads/authorize to connect Google Ads.' }, { status: 410 });
     }
 
     // 2. Auto-Connect & Account Discovery (Adspirer 1-click model)

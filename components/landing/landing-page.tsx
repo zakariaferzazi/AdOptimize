@@ -31,10 +31,12 @@ import {
 import { GoogleIcon } from '@/components/ui/google-icon';
 import { ModelDemoSimulator } from './model-demo-simulator';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { PlanCta } from '@/components/billing/plan-cta';
 
 interface LandingPageProps {
   onOpenApp: () => void;
   onConnectGoogleAds: () => void;
+  onSignIn?: () => void;
   onSignInWithGoogle?: () => void;
   user?: { displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
   onSignOut?: () => void;
@@ -43,6 +45,7 @@ interface LandingPageProps {
 export function LandingPage({
   onOpenApp,
   onConnectGoogleAds,
+  onSignIn,
   onSignInWithGoogle,
   user,
   onSignOut,
@@ -178,7 +181,7 @@ export function LandingPage({
             ) : (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={onOpenApp}
+                  onClick={onSignIn || onOpenApp}
                   className="px-3.5 py-2 text-slate-700 hover:text-slate-900 font-medium text-xs transition-colors cursor-pointer"
                 >
                   Log In
@@ -188,8 +191,8 @@ export function LandingPage({
                   onClick={onSignInWithGoogle || onConnectGoogleAds}
                   className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
-                  <span>Sign in with Google</span>
+                  <span>Get started</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </button>
               </div>
             )}
@@ -219,7 +222,7 @@ export function LandingPage({
               className="px-6 py-3.5 bg-slate-900 hover:bg-black text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-2.5 cursor-pointer hover:translate-y-[-1px]"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Sign in with Google</span>
+              <span>Start free with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </button>
 
@@ -515,16 +518,20 @@ export function LandingPage({
                   </div>
 
                   <div className="pt-6">
-                    <Link
-                      href={tier.popular ? '/billing' : '/dashboard'}
-                      className={`block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        tier.popular
-                          ? 'bg-slate-900 hover:bg-black text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                      }`}
-                    >
-                      {tier.cta}
-                    </Link>
+                    {tier.popular ? (
+                      <PlanCta
+                        interval={billingInterval === 'ANNUAL' ? 'yearly' : 'monthly'}
+                        label={tier.cta}
+                        className="block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-900 hover:bg-black text-white shadow-xs"
+                      />
+                    ) : (
+                      <Link
+                        href="/sign-up"
+                        className="block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-900"
+                      >
+                        {tier.cta}
+                      </Link>
+                    )}
                   </div>
                 </div>
               );
@@ -589,7 +596,7 @@ export function LandingPage({
               className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
             >
               <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Sign in with Google</span>
+              <span>Start free with Google</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </button>
             <button

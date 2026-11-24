@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdOptimizeProvider, useAdOptimize } from '@/context/adoptimize-context';
 import { LandingPage } from '@/components/landing/landing-page';
-import { AuthGate } from '@/components/auth/auth-gate';
 import { ConnectAccountsStep } from '@/components/onboarding/connect-accounts-step';
 import { DashboardClientView } from '@/app/dashboard/dashboard-client';
 
@@ -23,12 +22,10 @@ function AdOptimizeRootView() {
     user,
     authLoading,
     isInitialLoading,
-    handleSignInWithGoogle,
     handleSignOut,
     handleConnectAccount,
   } = useAdOptimize();
 
-  const [showAuthGate, setShowAuthGate] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('adoptimize_onboarding_completed') === 'true';
@@ -48,24 +45,13 @@ function AdOptimizeRootView() {
     );
   }
 
-  // 1. Unauthenticated: Show LandingPage by default, or AuthGate when clicked
+  // 1. Unauthenticated: public landing page. Sign-up and sign-in live on their own routes.
   if (!user) {
-    if (showAuthGate) {
-      return (
-        <AuthGate
-          onSignInSuccess={() => {
-            router.push('/dashboard');
-          }}
-          onBack={() => setShowAuthGate(false)}
-        />
-      );
-    }
-
     return (
       <LandingPage
         onOpenApp={() => router.push('/dashboard')}
-        onConnectGoogleAds={() => setShowAuthGate(true)}
-        onSignInWithGoogle={handleSignInWithGoogle}
+        onConnectGoogleAds={() => router.push('/sign-up')}
+        onSignIn={() => router.push('/sign-in')}
         user={user}
         onSignOut={handleSignOut}
       />

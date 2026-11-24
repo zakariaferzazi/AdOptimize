@@ -11,9 +11,8 @@ export class BillingError extends Error {
   }
 }
 
-// One flag selects the whole Polar environment. Unset means sandbox.
 export function billingEnvironment(): 'sandbox' | 'production' {
-  const value = process.env.POLAR_ENVIRONMENT?.trim() || 'sandbox';
+  const value = process.env.POLAR_ENVIRONMENT || 'sandbox';
   if (value !== 'sandbox' && value !== 'production') throw new BillingError(503, 'Billing configuration is unavailable.');
   return value;
 }
@@ -24,10 +23,10 @@ export function requiredEnv(name: string): string {
   return value;
 }
 
-// Production uses the unsuffixed names; sandbox uses the same names with _SANDBOX.
-// Never mix values across environments: the flag decides every Polar setting.
+// Production uses the plain names; sandbox uses the same names with a _SANDBOX suffix.
+// There is deliberately no fallback between the two sets of credentials.
 export function polarSetting(name: string): string {
-  return requiredEnv(billingEnvironment() === 'sandbox' ? `${name}_SANDBOX` : name);
+  return requiredEnv(billingEnvironment() === 'production' ? name : `${name}_SANDBOX`);
 }
 
 export function uuid(value: unknown): value is string {

@@ -86,19 +86,15 @@ function initAuth(): Auth {
 export const db: Firestore = initDb();
 export const auth: Auth = initAuth();
 
+// Sign-in requests only basic identity scopes. Google Ads access is requested separately,
+// and only when the user chooses "Connect Google Ads" (see lib/google-identity.ts).
 export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.addScope('openid');
 googleAuthProvider.addScope('email');
 googleAuthProvider.addScope('profile');
-googleAuthProvider.addScope('https://www.googleapis.com/auth/adwords');
 
 // Backwards-compatible alias for standard Google login/signup
 export const googleProvider = googleAuthProvider;
-
-// Dedicated provider specifically for Google Ads authorization (used ONLY when user clicks 'Connect My Google Ads Account')
-export const googleAdsProvider = new GoogleAuthProvider();
-googleAdsProvider.addScope('email');
-googleAdsProvider.addScope('profile');
-googleAdsProvider.addScope('https://www.googleapis.com/auth/adwords');
 
 export enum OperationType {
   CREATE = 'create',
@@ -240,13 +236,9 @@ export async function signInWithGoogle(): Promise<{
       googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, googleAuthProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken || null;
-      if (accessToken) {
-        storeGoogleAdsToken(accessToken);
-      }
       return {
         user: result.user,
-        accessToken,
+        accessToken: null,
         credential,
       };
     } catch (error: any) {
@@ -274,40 +266,6 @@ export async function signInWithGoogle(): Promise<{
   })();
 
   return activeSignInPromise;
-}
-
-export async function refreshGoogleAdsOAuthToken(emailHint?: string): Promise<string | null> {
-  try {
-    clearStoredGoogleAdsToken();
-
-    // 1. First attempt: Firebase Auth with dedicated googleAdsProvider (has AdWords scope)
-    try {
-      googleAdsProvider.setCustomParameters(
-        emailHint ? { prompt: 'select_account', login_hint: emailHint } : { prompt: 'select_account' }
-      );
-      const result = await signInWithPopup(auth, googleAdsProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        storeGoogleAdsToken(credential.accessToken);
-        return credential.accessToken;
-      }
-    } catch (firebaseErr: any) {
-      if (
-        firebaseErr?.code === 'auth/popup-closed-by-user' ||
-        firebaseErr?.code === 'auth/cancelled-popup-request'
-      ) {
-        throw new Error('Google authorization window was closed.');
-      }
-      console.warn('Firebase re-auth notice, trying identity service:', firebaseErr);
-    }
-
-    const { acquireGoogleAdsToken } = await import('@/lib/google-identity');
-    const token = await acquireGoogleAdsToken({ emailHint });
-    return token || null;
-  } catch (error) {
-    console.error('Error refreshing Google Ads OAuth token:', error);
-    throw error;
-  }
 }
 
 export async function signUpWithEmail(email: string, pass: string) {

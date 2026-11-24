@@ -6,6 +6,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   getDocs,
   getDocsFromServer,
@@ -307,6 +308,34 @@ export async function updateAuditLogStatus(userId: string, logId: string, status
   }
 }
 
+/**
+ * Google credentials are held only in the encrypted server-side vault. These fields must
+ * never be written to, or trusted from, the client-readable Firestore account document.
+ */
+const CREDENTIAL_FIELDS = ['accessToken', 'refreshToken', 'expiresAt'] as const;
+
+export function withoutCredentials<T extends object>(account: T): T {
+  const copy: Record<string, unknown> = { ...(account as Record<string, unknown>) };
+  for (const field of CREDENTIAL_FIELDS) delete copy[field];
+  return copy as T;
+}
+
+// One-time cleanup of credentials stored in plaintext by earlier versions. Users reconnect Google Ads.
+export async function purgeLegacyGoogleAdsSecrets(userId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'tokens', 'google_ads'));
+    const accountRef = doc(db, 'users', userId, 'accounts', 'primary');
+    const snap = await getDoc(accountRef);
+    if (snap.exists() && CREDENTIAL_FIELDS.some((field) => field in snap.data())) {
+      const patch: Record<string, unknown> = {};
+      for (const field of CREDENTIAL_FIELDS) patch[field] = deleteField();
+      await updateDoc(accountRef, patch);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+  }
+}
+
 // 9. Connected Account
 export async function fetchUserAccount(userId: string): Promise<GoogleAdsAccount | null> {
   const path = `users/${userId}/accounts/primary`;
@@ -314,7 +343,7 @@ export async function fetchUserAccount(userId: string): Promise<GoogleAdsAccount
     const docRef = doc(db, 'users', userId, 'accounts', 'primary');
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return snap.data() as GoogleAdsAccount;
+      return withoutCredentials(snap.data() as GoogleAdsAccount);
     }
     return null;
   } catch (error) {
@@ -327,7 +356,7 @@ export async function saveUserAccount(userId: string, account: GoogleAdsAccount)
   const path = `users/${userId}/accounts/primary`;
   try {
     const docRef = doc(db, 'users', userId, 'accounts', 'primary');
-    const sanitized = cleanForFirestore(account);
+    const sanitized = cleanForFirestore(withoutCredentials(account));
     await setDoc(docRef, sanitized, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -345,7 +374,7 @@ export function subscribeToUserAccount(
     docRef,
     (snap) => {
       if (snap.exists()) {
-        onUpdate(snap.data() as GoogleAdsAccount);
+        onUpdate(withoutCredentials(snap.data() as GoogleAdsAccount));
       } else {
         onUpdate(null);
       }
@@ -915,7 +944,7 @@ export async function persistGoogleAdsSyncSnapshot(
       await replaceCollectionDocs(userId, 'searchTerms', snapshot.searchTerms);
     }
     const accountRef = doc(db, 'users', userId, 'accounts', 'primary');
-    await setDoc(accountRef, cleanForFirestore(snapshot.accountPatch), { merge: true });
+    await setDoc(accountRef, cleanForFirestore(withoutCredentials(snapshot.accountPatch)), { merge: true });
     return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

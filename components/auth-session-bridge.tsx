@@ -15,7 +15,7 @@ export function AuthSessionBridge() {
       if (auth.currentUser?.uid !== user?.uid) return;
       void synchronizeServerSession(user).then(() => {
         if (active && auth.currentUser?.uid === user?.uid) { setError(false); router.refresh(); }
-      }).catch(() => { if (active && auth.currentUser?.uid === user?.uid) setError(true); });
+      }).catch(() => { if (user && active && auth.currentUser?.uid === user.uid) setError(true); });
     }, () => { if (active) setError(true); });
     const timer = setInterval(() => {
       if (auth.currentUser) void auth.currentUser.getIdToken().catch(() => { if (active) setError(true); });

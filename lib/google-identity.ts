@@ -1,351 +1,133 @@
 'use client';
 
 /**
- * Google Ads API OAuth 2.0 Identity Service
- * Uses official Google OAuth 2.0 Implicit Token Model (response_type=token)
- * targeting the approved OAuth Client ID (1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg)
- * and authorized redirect URI (https://adoptimize.app/api/google-ads/oauth-callback).
+ * Google Ads authorization (client side).
  *
- * NOTE: By utilizing response_type=token (client-side access token grant without offline refresh tokens),
- * this completely avoids Google Ads API's mandatory passkey requirement ("Create a passkey to continue").
+ * Signing in never grants Google Ads access. Ads access is a separate, incremental
+ * authorization-code flow that runs on the server: the browser only opens Google's consent
+ * screen, then receives short-lived access tokens. The refresh token stays encrypted on the server.
  */
 
-const GOOGLE_ADS_SCOPE = 'https://www.googleapis.com/auth/adwords';
-export const DEFAULT_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID ||
-  '1019046039336-lg3uvsnefcdjoa1brtp9jf12tru410bg.apps.googleusercontent.com';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
-const REDIRECT_URI = 'https://adoptimize.app/api/google-ads/oauth-callback';
+const TOKEN_KEYS = [
+  'google_ads_oauth_token',
+  'google_ads_oauth_token_timestamp',
+  'google_ads_token_expires_at',
+  'google_ads_oauth_token_broadcast',
+  'google_ads_refresh_token',
+  'google_ads_login_cid',
+  'google_ads_quota_reset_at',
+];
 
-let cachedClientId: string | null = null;
-
-export async function getGoogleAdsClientId(): Promise<string> {
-  if (cachedClientId) return cachedClientId;
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID) {
-    cachedClientId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CLIENT_ID;
-    return cachedClientId;
-  }
+function readStorage(key: string): string | null {
   try {
-    const res = await fetch('/api/google-ads/config');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.clientId) {
-        cachedClientId = data.clientId;
-        return data.clientId;
-      }
-    }
-  } catch {
-    // Fall back to default
-  }
-  cachedClientId = DEFAULT_CLIENT_ID;
-  return DEFAULT_CLIENT_ID;
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (response: {
-              access_token?: string;
-              error?: string;
-              error_description?: string;
-              expires_in?: number;
-              token_type?: string;
-            }) => void;
-            error_callback?: (err: any) => void;
-            prompt?: string;
-            hint?: string;
-          }) => {
-            requestAccessToken: (options?: { prompt?: string; hint?: string }) => void;
-          };
-        };
-      };
-    };
-  }
-}
-
-/**
- * Dynamically loads the official Google Identity Services script if not already present.
- */
-export function loadGoogleIdentityServices(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') return resolve();
-    if (window.google?.accounts?.oauth2) return resolve();
-
-    const existing = document.getElementById('google-identity-services-script');
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Failed to load Google Identity Services.')));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'google-identity-services-script';
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Google Identity Services SDK.'));
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Silently attempts to refresh or acquire an access token using GIS with prompt='' and hint.
- * If user has already granted consent, this succeeds silently without any popup window.
- * If silent acquisition is not possible, returns null instead of throwing or opening a popup.
- */
-export async function trySilentGoogleAdsTokenRefresh(emailHint?: string): Promise<string | null> {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    await loadGoogleIdentityServices();
-    if (!window.google?.accounts?.oauth2) return null;
-
-    const activeClientId = await getGoogleAdsClientId();
-
-    return new Promise((resolve) => {
-      let isSettled = false;
-      const timeout = setTimeout(() => {
-        if (!isSettled) {
-          isSettled = true;
-          resolve(null);
-        }
-      }, 3500);
-
-      try {
-        const client = window.google!.accounts.oauth2.initTokenClient({
-          client_id: activeClientId,
-          scope: `${GOOGLE_ADS_SCOPE} email profile`,
-          prompt: '',
-          hint: emailHint,
-          callback: (response) => {
-            if (isSettled) return;
-            isSettled = true;
-            clearTimeout(timeout);
-            if (response.access_token) {
-              storeGoogleAdsToken(response.access_token);
-              resolve(response.access_token);
-            } else {
-              resolve(null);
-            }
-          },
-          error_callback: () => {
-            if (isSettled) return;
-            isSettled = true;
-            clearTimeout(timeout);
-            resolve(null);
-          },
-        });
-
-        client.requestAccessToken({ prompt: '', hint: emailHint });
-      } catch {
-        if (!isSettled) {
-          isSettled = true;
-          clearTimeout(timeout);
-          resolve(null);
-        }
-      }
-    });
+    return sessionStorage.getItem(key) || localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
 /**
- * Requests an OAuth 2.0 Access Token using Google Identity Services (GIS) Token Model.
- * Works natively on registered origins (e.g. https://adoptimize.app).
+ * Helper to store a short-lived access token with expiration tracking.
  */
-export async function requestGoogleAdsAccessToken(emailHint?: string): Promise<string> {
-  if (typeof window === 'undefined') {
-    throw new Error('Google OAuth must be initiated from the browser.');
+export function storeGoogleAdsToken(token: string, expiresInSeconds = 3600, expiresAtMs?: number): void {
+  if (typeof window === 'undefined') return;
+  const now = Date.now();
+  const expiresAt = String(expiresAtMs || now + expiresInSeconds * 1000);
+  const values: Record<string, string> = {
+    google_ads_oauth_token: token,
+    google_ads_oauth_token_timestamp: String(now),
+    google_ads_token_expires_at: expiresAt,
+  };
+  for (const [key, value] of Object.entries(values)) {
+    try { sessionStorage.setItem(key, value); } catch {}
+    try { localStorage.setItem(key, value); } catch {}
   }
+}
 
-  await loadGoogleIdentityServices();
+export function isGoogleAdsTokenExpired(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = readStorage('google_ads_oauth_token');
+  if (!token || !token.trim()) return true;
 
-  if (!window.google?.accounts?.oauth2) {
-    throw new Error('Google Identity Services library could not be initialized.');
-  }
+  const expiresAt = Number(readStorage('google_ads_token_expires_at'));
+  if (!isNaN(expiresAt) && expiresAt > 0) return Date.now() >= expiresAt;
 
-  const activeClientId = await getGoogleAdsClientId();
-
-  return new Promise((resolve, reject) => {
-    try {
-      const client = window.google!.accounts.oauth2.initTokenClient({
-        client_id: activeClientId,
-        scope: `${GOOGLE_ADS_SCOPE} email profile`,
-        prompt: '',
-        callback: (response) => {
-          if (response.error) {
-            reject(new Error(response.error_description || response.error || 'Google authorization failed'));
-            return;
-          }
-          if (!response.access_token) {
-            reject(new Error('No access token returned by Google authorization.'));
-            return;
-          }
-
-          // Persist token in storage (both session and local)
-          storeGoogleAdsToken(response.access_token);
-          resolve(response.access_token);
-        },
-        error_callback: (err) => {
-          reject(new Error(err?.message || 'Google authorization window closed or encountered an error.'));
-        },
-      });
-
-      // Request token without forcing passkey upgrade
-      client.requestAccessToken(emailHint ? { hint: emailHint, prompt: '' } : { prompt: '' });
-    } catch (err: any) {
-      reject(err);
-    }
-  });
+  const issuedAt = Number(readStorage('google_ads_oauth_token_timestamp'));
+  if (!isNaN(issuedAt) && issuedAt > 0) return Date.now() >= issuedAt + 3600 * 1000;
+  return false;
 }
 
 /**
- * Requests an OAuth 2.0 Access Token via standard popup using the registered Redirect URI:
- * https://adoptimize.app/api/google-ads/oauth-callback
- *
- * This uses response_type=token (OAuth Implicit grant) with prompt=select_account:
- * 1. Bypasses origin_mismatch errors on any preview or custom domains.
- * 2. Strictly avoids requesting offline refresh tokens, completely bypassing Google Ads' mandatory passkey trap.
- * 3. Sends the acquired access token safely back to the opener via postMessage & storage events.
+ * True when the access token is within 5 minutes of expiring and should be renewed in the background.
  */
-export async function requestGoogleAdsAccessTokenViaPopup(emailHint?: string): Promise<string> {
-  if (typeof window === 'undefined') {
-    throw new Error('Google OAuth must be initiated from the browser.');
+export function isTokenEligibleForAutoRenewal(): boolean {
+  if (typeof window === 'undefined') return false;
+  const expiresAt = Number(readStorage('google_ads_token_expires_at'));
+  if (!isNaN(expiresAt) && expiresAt > 0) return expiresAt - Date.now() < 5 * 60 * 1000;
+
+  const issuedAt = Number(readStorage('google_ads_oauth_token_timestamp'));
+  if (isNaN(issuedAt) || issuedAt <= 0) return false;
+  return Date.now() - issuedAt > 50 * 60 * 1000;
+}
+
+export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean; expiresAt?: number } {
+  if (typeof window === 'undefined') return { token: null, isExpired: true };
+  const token = readStorage('google_ads_oauth_token');
+  if (!token || !token.trim()) return { token: null, isExpired: true };
+  const expiresAt = Number(readStorage('google_ads_token_expires_at'));
+  return {
+    token: token.trim(),
+    isExpired: isGoogleAdsTokenExpired(),
+    expiresAt: !isNaN(expiresAt) && expiresAt > 0 ? expiresAt : undefined,
+  };
+}
+
+// Refresh tokens are never held by the browser; these remain only so older callers compile.
+export function storeGoogleAdsRefreshToken(_refreshToken: string): void {}
+
+export function getStoredGoogleAdsRefreshToken(): string | null {
+  return null;
+}
+
+export function clearStoredGoogleAdsToken(): void {
+  if (typeof window === 'undefined') return;
+  for (const key of TOKEN_KEYS) {
+    try { sessionStorage.removeItem(key); } catch {}
+    try { localStorage.removeItem(key); } catch {}
+  }
+}
+
+async function fetchServerAccessToken(): Promise<string | null> {
+  const response = await authenticatedFetch('/api/google-ads/token', { method: 'POST' });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => ({}));
+  if (typeof data.accessToken !== 'string') return null;
+  storeGoogleAdsToken(data.accessToken, undefined, data.expiresAt);
+  return data.accessToken;
+}
+
+/**
+ * Opens Google's consent screen in a popup. The server completes the code exchange in the
+ * callback route and stores the credentials encrypted; the popup only reports success or failure.
+ */
+async function authorizeGoogleAdsViaPopup(): Promise<void> {
+  const start = await authenticatedFetch('/api/google-ads/authorize', { method: 'POST' });
+  const body = await start.json().catch(() => ({}));
+  if (!start.ok || typeof body.url !== 'string') {
+    throw new Error(body.error || 'Google Ads authorization could not be started.');
   }
 
-  const activeClientId = await getGoogleAdsClientId();
-  const scope = encodeURIComponent('https://www.googleapis.com/auth/adwords email profile');
-  const state = `adwords_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-  let oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${encodeURIComponent(
-    activeClientId
-  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}&prompt=select_account`;
-
-  if (emailHint) {
-    oauthUrl += `&login_hint=${encodeURIComponent(emailHint)}`;
-  }
-
-  return new Promise((resolve, reject) => {
-    // Center popup window on screen
+  await new Promise<void>((resolve, reject) => {
     const width = 520;
     const height = 650;
     const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
     const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
-
     const popup = window.open(
-      oauthUrl,
+      body.url,
       'google_ads_oauth_window',
-      `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`
-    );
-
-    if (!popup) {
-      reject(new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.'));
-      return;
-    }
-
-    let isResolved = false;
-
-    // Listener 1: postMessage from popup callback page
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'GOOGLE_ADS_OAUTH_SUCCESS' && event.data.token) {
-        cleanup();
-        const token = event.data.token;
-        storeGoogleAdsToken(token);
-        resolve(token);
-      } else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') {
-        cleanup();
-        reject(new Error(event.data.error || 'Google Ads authorization was not completed.'));
-      }
-    };
-
-    // Listener 2: localStorage cross-tab event (fallback if postMessage is blocked across origins)
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'google_ads_oauth_token_broadcast' && event.newValue) {
-        try {
-          const parsed = JSON.parse(event.newValue);
-          if (parsed.token && Date.now() - parsed.time < 30000) {
-            cleanup();
-            sessionStorage.setItem('google_ads_oauth_token', parsed.token);
-            sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-            resolve(parsed.token);
-          }
-        } catch {}
-      }
-    };
-
-    // Monitor popup closure
-    const checkClosedInterval = setInterval(() => {
-      try {
-        if (popup.closed) {
-          setTimeout(() => {
-            if (!isResolved) {
-              cleanup();
-              const stored = getStoredGoogleAdsToken();
-              if (stored.token && !stored.isExpired) {
-                resolve(stored.token);
-              } else {
-                reject(new Error('Google authorization window was closed.'));
-              }
-            }
-          }, 800);
-        }
-      } catch {
-        // Cross-origin access check error (ignore while active)
-      }
-    }, 500);
-
-    const cleanup = () => {
-      isResolved = true;
-      clearInterval(checkClosedInterval);
-      window.removeEventListener('message', handleMessage);
-      window.removeEventListener('storage', handleStorage);
-    };
-
-    window.addEventListener('message', handleMessage);
-    window.addEventListener('storage', handleStorage);
-  });
-}
-
-/**
- * Explicit connect-only OAuth flow. Unlike the implicit token flow above, this
- * exchanges an authorization code for a durable refresh token.
- */
-export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): Promise<string> {
-  if (typeof window === 'undefined') {
-    throw new Error('Google OAuth must be initiated from the browser.');
-  }
-
-  const activeClientId = await getGoogleAdsClientId();
-  const scope = encodeURIComponent(`${GOOGLE_ADS_SCOPE} email profile`);
-  const state = `adwords_code_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const verifierBytes = new Uint8Array(32);
-  crypto.getRandomValues(verifierBytes);
-  const codeVerifier = base64UrlEncode(verifierBytes);
-  const challengeBytes = new Uint8Array(await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(codeVerifier)
-  ));
-  const codeChallenge = base64UrlEncode(challengeBytes);
-  sessionStorage.setItem('google_ads_oauth_code_verifier', codeVerifier);
-  let oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&prompt=consent&client_id=${encodeURIComponent(
-    activeClientId
-  )}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${state}&code_challenge=${encodeURIComponent(
-    codeChallenge
-  )}&code_challenge_method=S256`;
-  if (emailHint) oauthUrl += `&login_hint=${encodeURIComponent(emailHint)}`;
-
-  return new Promise((resolve, reject) => {
-    const popup = window.open(
-      oauthUrl,
-      'google_ads_oauth_window',
-      'width=520,height=650,status=no,menubar=no,toolbar=no'
+      `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`,
     );
     if (!popup) {
       reject(new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.'));
@@ -353,245 +135,58 @@ export async function requestGoogleAdsCredentialsViaPopup(emailHint?: string): P
     }
 
     let settled = false;
-    const cleanup = () => {
+    const finish = (outcome?: Error) => {
       settled = true;
       clearInterval(closeCheck);
       window.removeEventListener('message', onMessage);
+      window.removeEventListener('storage', onStorage);
+      if (outcome) reject(outcome); else resolve();
     };
-    const onMessage = async (event: MessageEvent) => {
-      if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') {
-        cleanup();
-        reject(new Error(event.data.error || 'Google Ads authorization was not completed.'));
-        return;
-      }
-      if (event.data?.type !== 'GOOGLE_ADS_OAUTH_CODE' || !event.data.code) return;
-
-      try {
-        const response = await fetch('/api/google-ads/oauth-exchange', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            code: event.data.code,
-            codeVerifier: sessionStorage.getItem('google_ads_oauth_code_verifier'),
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success || !data.accessToken) {
-          throw new Error(data.error || 'Google authorization code exchange failed.');
-        }
-        storeGoogleAdsToken(data.accessToken, data.expiresIn || 3600, data.expiresAt);
-        if (data.refreshToken) storeGoogleAdsRefreshToken(data.refreshToken);
-        sessionStorage.removeItem('google_ads_oauth_code_verifier');
-        cleanup();
-        resolve(data.accessToken);
-      } catch (error) {
-        cleanup();
-        reject(error);
-      }
-
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== popup) return;
+      if (event.data?.type === 'GOOGLE_ADS_AUTHORIZED') finish();
+      else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') finish(new Error('Google Ads authorization was not completed.'));
+    };
+    // Google's consent pages may sever window.opener, so the callback also signals through storage.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'google_ads_authorized' && event.newValue && !settled) finish();
     };
     const closeCheck = setInterval(() => {
       if (popup.closed && !settled) {
-        cleanup();
-        reject(new Error('Google authorization window was closed.'));
+        // The popup may have succeeded without a message; the server is the source of truth.
+        setTimeout(() => {
+          if (settled) return;
+          void fetchServerAccessToken().then((token) => {
+            if (!settled) finish(token ? undefined : new Error('Google authorization window was closed.'));
+          }, () => { if (!settled) finish(new Error('Google authorization window was closed.')); });
+        }, 800);
       }
     }, 500);
     window.addEventListener('message', onMessage);
+    window.addEventListener('storage', onStorage);
   });
 }
 
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
 /**
- * Helper to store token in both sessionStorage and localStorage with expiration tracking
- */
-export function storeGoogleAdsToken(token: string, expiresInSeconds = 3600, expiresAtMs?: number): void {
-  if (typeof window === 'undefined') return;
-  const now = Date.now();
-  const computedExpiresAt = expiresAtMs ? String(expiresAtMs) : String(now + expiresInSeconds * 1000);
-  const nowStr = String(now);
-
-  sessionStorage.setItem('google_ads_oauth_token', token);
-  sessionStorage.setItem('google_ads_oauth_token_timestamp', nowStr);
-  sessionStorage.setItem('google_ads_token_expires_at', computedExpiresAt);
-  try {
-    localStorage.setItem('google_ads_oauth_token', token);
-    localStorage.setItem('google_ads_oauth_token_timestamp', nowStr);
-    localStorage.setItem('google_ads_token_expires_at', computedExpiresAt);
-    localStorage.setItem(
-      'google_ads_oauth_token_broadcast',
-      JSON.stringify({ token, time: now, expiresAt: Number(computedExpiresAt) })
-    );
-  } catch {}
-}
-
-/**
- * Determines whether the stored Google Ads OAuth 2.0 access token has been invalidated.
- * In AdOptimize, sessions with stored refresh tokens or active credentials remain uninterrupted
- * and are not artificially marked expired based on clock time.
- */
-export function isGoogleAdsTokenExpired(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  let token = sessionStorage.getItem('google_ads_oauth_token');
-  if (!token) {
-    try {
-      token = localStorage.getItem('google_ads_oauth_token');
-    } catch {}
-  }
-
-  if (!token || !token.trim()) return true;
-
-  // Implicit-flow access tokens last one hour. Checking that a token string
-  // merely exists causes every sync after that hour to reuse a dead token.
-  const expiresAtStr =
-    sessionStorage.getItem('google_ads_token_expires_at') ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
-  const expiresAt = expiresAtStr ? Number(expiresAtStr) : NaN;
-  if (!isNaN(expiresAt) && expiresAt > 0) {
-    return Date.now() >= expiresAt;
-  }
-
-  const issuedAtStr =
-    sessionStorage.getItem('google_ads_oauth_token_timestamp') ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
-  const issuedAt = issuedAtStr ? Number(issuedAtStr) : NaN;
-  if (!isNaN(issuedAt) && issuedAt > 0) {
-    return Date.now() >= issuedAt + 3600 * 1000;
-  }
-
-  return false;
-}
-
-/**
- * Checks whether the access token is older than 50 minutes and eligible for proactive background renewal.
- */
-export function isTokenEligibleForAutoRenewal(): boolean {
-  if (typeof window === 'undefined') return false;
-  const expiresAtStr =
-    sessionStorage.getItem('google_ads_token_expires_at') ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
-  if (expiresAtStr) {
-    const exp = Number(expiresAtStr);
-    if (!isNaN(exp) && exp > 0) {
-      // Within 5 minutes of expiring
-      return exp - Date.now() < 5 * 60 * 1000;
-    }
-  }
-
-  const tsStr =
-    sessionStorage.getItem('google_ads_oauth_token_timestamp') ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_oauth_token_timestamp') : null);
-  if (!tsStr) return false;
-  const ts = Number(tsStr);
-  if (isNaN(ts) || ts <= 0) return false;
-  return Date.now() - ts > 50 * 60 * 1000;
-}
-
-/**
- * Helper to retrieve stored token across localStorage and sessionStorage with real expiration status.
- */
-export function getStoredGoogleAdsToken(): { token: string | null; isExpired: boolean; expiresAt?: number } {
-  if (typeof window === 'undefined') return { token: null, isExpired: true };
-  let token = sessionStorage.getItem('google_ads_oauth_token');
-
-  // Fallback to localStorage for multi-session and multi-tab persistence
-  if (!token) {
-    try {
-      token = localStorage.getItem('google_ads_oauth_token');
-    } catch {}
-  }
-
-  if (!token || typeof token !== 'string' || !token.trim()) {
-    return { token: null, isExpired: true };
-  }
-
-  const expStr =
-    sessionStorage.getItem('google_ads_token_expires_at') ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('google_ads_token_expires_at') : null);
-  const expiresAt = expStr ? Number(expStr) : undefined;
-
-  const expired = isGoogleAdsTokenExpired();
-  return { token: token.trim(), isExpired: expired, expiresAt: expiresAt && !isNaN(expiresAt) ? expiresAt : undefined };
-}
-
-/**
- * Helper to store refresh token in both localStorage and sessionStorage
- */
-export function storeGoogleAdsRefreshToken(refreshToken: string): void {
-  if (typeof window === 'undefined' || !refreshToken) return;
-  const clean = refreshToken.trim();
-  try {
-    sessionStorage.setItem('google_ads_refresh_token', clean);
-    localStorage.setItem('google_ads_refresh_token', clean);
-  } catch {}
-}
-
-/**
- * Helper to retrieve stored refresh token across localStorage and sessionStorage
- */
-export function getStoredGoogleAdsRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const token =
-      sessionStorage.getItem('google_ads_refresh_token') ||
-      localStorage.getItem('google_ads_refresh_token');
-    return token && token.trim() ? token.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Clears stored Google Ads OAuth tokens from storage (only on explicit disconnect/sign-out).
- */
-export function clearStoredGoogleAdsToken(): void {
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('google_ads_oauth_token');
-    sessionStorage.removeItem('google_ads_oauth_token_timestamp');
-    sessionStorage.removeItem('google_ads_token_expires_at');
-    sessionStorage.removeItem('google_ads_refresh_token');
-    sessionStorage.removeItem('google_ads_login_cid');
-    try {
-      localStorage.removeItem('google_ads_oauth_token');
-      localStorage.removeItem('google_ads_oauth_token_timestamp');
-      localStorage.removeItem('google_ads_token_expires_at');
-      localStorage.removeItem('google_ads_oauth_token_broadcast');
-      localStorage.removeItem('google_ads_refresh_token');
-      localStorage.removeItem('google_ads_login_cid');
-      localStorage.removeItem('google_ads_quota_reset_at');
-    } catch {}
-  }
-}
-
-/**
- * Main Function: Acquire Google Ads OAuth token cleanly.
- * Automatically chooses the optimal flow without ever forcing passkey creation:
- * - Checks stored token first (user is asked only once!)
- * - Uses Firebase GoogleAuthProvider with AdWords scope (unified consent, no origin mismatch, no passkeys)
- * - If on https://adoptimize.app, can use GIS
- * - Otherwise falls back to approved redirect popup
+ * Returns a valid Google Ads access token. Reuses a live local token, then asks the server
+ * to mint one from the stored encrypted credentials, and only then opens consent.
  */
 export async function acquireGoogleAdsToken(options?: {
   emailHint?: string;
-  preferredMethod?: 'gis' | 'firebase';
-  forceFirebase?: boolean;
   forceFresh?: boolean;
 }): Promise<string> {
-  // 1. Reuse only a token that is still valid. Returning an expired implicit-flow
-  // token here made every reconnect/sync reuse dead credentials indefinitely.
   const stored = getStoredGoogleAdsToken();
-  if (stored.token && !stored.isExpired && !options?.forceFresh) {
-    return stored.token;
+  if (stored.token && !stored.isExpired && !options?.forceFresh) return stored.token;
+
+  if (!options?.forceFresh) {
+    const silent = await fetchServerAccessToken();
+    if (silent) return silent;
   }
 
-  // Interactive authorization is reached only from explicit connect/switch
-  // actions. Use the code flow so future background renewals are automatic.
-  return requestGoogleAdsCredentialsViaPopup(options?.emailHint);
+  await authorizeGoogleAdsViaPopup();
+  const token = await fetchServerAccessToken();
+  if (!token) throw new Error('Google Ads authorization did not complete. Please try again.');
+  return token;
 }
 
 /**

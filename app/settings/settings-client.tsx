@@ -14,8 +14,6 @@ export const SettingsClientView = withAdOptimize(function SettingsClientViewInne
     setShowConnectModal,
     handleResetData,
     showToast,
-    refreshToken,
-    handleSaveRefreshToken,
     handleRefreshToken,
     isSyncing,
   } = useAdOptimize();
@@ -36,8 +34,6 @@ export const SettingsClientView = withAdOptimize(function SettingsClientViewInne
         onClearData={handleResetData}
         onUpdateCurrency={handleUpdateCurrency}
         userEmail={user?.email}
-        refreshToken={refreshToken || state.account.refreshToken || null}
-        onSaveRefreshToken={handleSaveRefreshToken}
         onTestRefresh={async () => {
           await handleRefreshToken(false);
         }}

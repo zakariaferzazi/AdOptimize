@@ -64,11 +64,13 @@ import ReportsPage from '@/app/reports/page';
 import OptimizerPage from '@/app/optimizer/page';
 import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
-import { polarSetting } from '@/lib/billing/config';
 
 const organization = '11111111-1111-4111-8111-111111111111';
 const monthly = '22222222-2222-4222-8222-222222222222';
 const yearly = '33333333-3333-4333-8333-333333333333';
+const productionOrganization = '66666666-6666-4666-8666-666666666666';
+const productionMonthly = '77777777-7777-4777-8777-777777777777';
+const productionYearly = '88888888-8888-4888-8888-888888888888';
 const customerId = '44444444-4444-4444-8444-444444444444';
 const subscriptionId = '55555555-5555-4555-8555-555555555555';
 const signingKey = Buffer.from('local-billing-signature-test-key-only');
@@ -132,6 +134,12 @@ beforeEach(async () => {
   vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY_SANDBOX', yearly);
   vi.stubEnv('POLAR_WEBHOOK_SECRET_SANDBOX', secret);
   vi.stubEnv('POLAR_ACCESS_TOKEN_SANDBOX', 'unit-test-token-not-a-real-credential');
+  // Distinct production values prove the two credential sets are never mixed.
+  vi.stubEnv('POLAR_ORGANIZATION_ID', productionOrganization);
+  vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY', productionMonthly);
+  vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY', productionYearly);
+  vi.stubEnv('POLAR_WEBHOOK_SECRET', 'whsec_production-secret-not-used-by-sandbox-tests');
+  vi.stubEnv('POLAR_ACCESS_TOKEN', 'production-token-not-a-real-credential');
   mocks.db = db;
   mocks.cookie = undefined;
   await db.batch(['billing_customers', 'billing_subscriptions', 'billing_events', 'billing_payments', 'billing_rate_limits', 'app_sessions']
@@ -259,11 +267,7 @@ describe('verified Polar webhook lifecycle on real D1', () => {
     const mismatch = subscriptionEvent('subscription.updated', { customer_id: yearly, customer: { id: yearly, external_id: 'user-a', organization_id: organization } });
     expect((await webhook(signedRequest(mismatch))).status).toBe(409);
     vi.stubEnv('POLAR_ENVIRONMENT', 'production');
-    vi.stubEnv('POLAR_ORGANIZATION_ID', organization);
-    vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY', monthly);
-    vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY', yearly);
     expect(await subscription('user-a')).toBeNull();
-    vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
   });
 
   it('ignores future and checkout confirmation events without granting access', async () => {
@@ -279,6 +283,40 @@ describe('verified Polar webhook lifecycle on real D1', () => {
   });
 });
 
+describe('Polar environment switching', () => {
+  it('defaults to sandbox and never mixes sandbox and production credentials', async () => {
+    vi.stubEnv('POLAR_ENVIRONMENT', undefined);
+    expect((await checkout(request('/api/billing/checkout', { interval: 'monthly' }))).status).toBe(200);
+    expect(createPolar).toHaveBeenLastCalledWith(expect.objectContaining({
+      environment: 'sandbox', accessToken: 'unit-test-token-not-a-real-credential', organizationId: organization,
+    }));
+    expect(mocks.checkout).toHaveBeenLastCalledWith(expect.objectContaining({ products: [monthly] }));
+
+    vi.stubEnv('POLAR_ENVIRONMENT', 'production');
+    mocks.checkout.mockResolvedValue({ url: 'https://polar.sh/checkout/example' });
+    mocks.product.mockImplementation(async (id: string) => ({
+      id, organization_id: productionOrganization, is_archived: false, is_recurring: true,
+      recurring_interval: id === productionMonthly ? 'month' : 'year', recurring_interval_count: 1,
+      prices: [{ is_archived: false, amount_type: 'fixed', price_currency: 'usd', price_amount: id === productionMonthly ? 2900 : 9900 }],
+    }));
+    expect((await checkout(request('/api/billing/checkout', { interval: 'yearly' }))).status).toBe(200);
+    expect(createPolar).toHaveBeenLastCalledWith(expect.objectContaining({
+      environment: 'production', accessToken: 'production-token-not-a-real-credential', organizationId: productionOrganization,
+    }));
+    expect(mocks.checkout).toHaveBeenLastCalledWith(expect.objectContaining({ products: [productionYearly] }));
+  });
+
+  it('fails closed instead of falling back when the selected environment lacks credentials', async () => {
+    vi.stubEnv('POLAR_ACCESS_TOKEN_SANDBOX', undefined);
+    const response = await checkout(request('/api/billing/checkout', { interval: 'monthly' }));
+    expect(response.status).toBe(503);
+    expect(mocks.checkout).not.toHaveBeenCalled();
+    vi.stubEnv('POLAR_ENVIRONMENT', 'production');
+    vi.stubEnv('POLAR_WEBHOOK_SECRET', undefined);
+    expect((await webhook(signedRequest(subscriptionEvent()))).status).toBe(503);
+  });
+});
+
 describe('server-created checkout and portal', () => {
   it.each([['monthly', monthly], ['yearly', yearly]])('creates %s checkout with server-owned prices and Firebase identity', async (interval, id) => {
     const checkoutRequest = request('/api/billing/checkout', { interval });
@@ -287,7 +325,7 @@ describe('server-created checkout and portal', () => {
     expect(createPolar).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }));
     expect(mocks.checkout).toHaveBeenCalledWith(expect.objectContaining({
       products: [id], external_customer_id: 'user-a', allow_trial: false,
-      success_url: 'https://app.example.test/billing?checkout=complete', currency: 'usd',
+      success_url: 'https://app.example.test/billing/success', return_url: `https://app.example.test/sign-up?plan=${interval}`, currency: 'usd',
       customer_ip_address: '2001:db8::1',
     }));
     expect(await subscription('user-a')).toBeNull();
@@ -341,18 +379,6 @@ describe('server-created checkout and portal', () => {
   });
 });
 
-describe('one Polar environment flag, never mixed', () => {
-  it('reads only the selected environment and never falls back to the other one', () => {
-    vi.stubEnv('POLAR_ENVIRONMENT', 'production');
-    vi.stubEnv('POLAR_ACCESS_TOKEN', 'production-token-value');
-    expect(polarSetting('POLAR_ACCESS_TOKEN')).toBe('production-token-value');
-    vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
-    expect(polarSetting('POLAR_ACCESS_TOKEN')).toBe('unit-test-token-not-a-real-credential');
-    vi.stubEnv('POLAR_ACCESS_TOKEN_SANDBOX', '');
-    expect(() => polarSetting('POLAR_ACCESS_TOKEN')).toThrow();
-  });
-});
-
 describe('server-side Pro enforcement and opaque sessions', () => {
   const premium = [
     ['/api/ai/chat', chat], ['/api/ai/chat/approve', approve], ['/api/ai/chat/execute', execute],
@@ -361,7 +387,9 @@ describe('server-side Pro enforcement and opaque sessions', () => {
   it('creates and revokes sessions with the deployed origin before Polar is configured', async () => {
     vi.stubEnv('APP_URL', deploymentOrigin);
     for (const name of [
-      'POLAR_ENVIRONMENT', 'POLAR_ACCESS_TOKEN_SANDBOX', 'POLAR_WEBHOOK_SECRET_SANDBOX',
+      'POLAR_ENVIRONMENT', 'POLAR_ACCESS_TOKEN', 'POLAR_WEBHOOK_SECRET',
+      'POLAR_ORGANIZATION_ID', 'POLAR_PRODUCT_PRO_MONTHLY', 'POLAR_PRODUCT_PRO_YEARLY',
+      'POLAR_ACCESS_TOKEN_SANDBOX', 'POLAR_WEBHOOK_SECRET_SANDBOX',
       'POLAR_ORGANIZATION_ID_SANDBOX', 'POLAR_PRODUCT_PRO_MONTHLY_SANDBOX', 'POLAR_PRODUCT_PRO_YEARLY_SANDBOX',
     ]) vi.stubEnv(name, undefined);
     vi.mocked(createPolar).mockClear();
@@ -406,7 +434,7 @@ describe('server-side Pro enforcement and opaque sessions', () => {
 
   it('guards all premium server pages and stores only an expiring session hash', async () => {
     for (const [path, page] of [['/chat', ChatPage], ['/audit', AuditPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
-      await expect(page()).rejects.toThrow(`redirect:/billing?returnTo=${encodeURIComponent(path)}`);
+      await expect(page()).rejects.toThrow(`redirect:/sign-up?next=${encodeURIComponent(path)}`);
     }
     const response = await createSession(request('/api/auth/session', {}));
     expect(response.status).toBe(200);
@@ -419,14 +447,14 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     const stored = await db.prepare('SELECT token_hash, expires_at FROM app_sessions').first<{ token_hash: string; expires_at: number }>();
     expect(stored?.token_hash).toBe(hash(mocks.cookie));
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
-    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/billing');
+    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },
     });
     expect((await deleteSession(logout)).status).toBe(200);
-    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/billing');
+    await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     expect(hasPaidAccess(await subscription('user-a'))).toBe(true);
   });
 

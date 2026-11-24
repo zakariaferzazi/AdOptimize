@@ -1,165 +1,40 @@
 import { NextResponse } from 'next/server';
+import { appOrigin } from '@/lib/billing/config';
+import { clientIp } from '@/lib/billing/http';
+import { hash, rateLimit } from '@/lib/billing/store';
+import { completeAuthorization } from '@/lib/google-ads/vault';
 
-export async function GET() {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>AdOptimize - Google Ads Authorization</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #090d16;
-      color: #f8fafc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 24px;
-    }
-    .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 24px;
-      padding: 36px 32px;
-      max-width: 440px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-    }
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 3.5px solid #1f2937;
-      border-top-color: #00d67d;
-      border-radius: 50%;
-      animation: spin 0.75s linear infinite;
-      margin: 0 auto 20px;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
-    p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5; }
-    .status {
-      margin-top: 18px;
-      font-size: 12px;
-      color: #00d67d;
-      font-weight: 600;
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      background: rgba(0, 214, 125, 0.1);
-      border: 1px solid rgba(0, 214, 125, 0.2);
-    }
-    .error-box {
-      color: #fb7185;
-      background: rgba(244, 63, 94, 0.1);
-      border: 1px solid rgba(244, 63, 94, 0.2);
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="spinner" id="spinner"></div>
-    <h2 id="title">Connecting Google Ads</h2>
-    <p id="desc">Securely transferring authorization to AdOptimize. This window will close automatically...</p>
-    <div class="status" id="status">Verifying credentials...</div>
-  </div>
+export const dynamic = 'force-dynamic';
 
-  <script>
-    (function() {
-      var completed = false;
-
-      function completeOAuth() {
-        if (completed) return;
-        var statusEl = document.getElementById('status');
-        var descEl = document.getElementById('desc');
-        var titleEl = document.getElementById('title');
-        var spinner = document.getElementById('spinner');
-
-        var hash = window.location.hash.substring(1);
-        var hashParams = new URLSearchParams(hash);
-        var searchParams = new URLSearchParams(window.location.search);
-
-        var token = hashParams.get('access_token') || searchParams.get('access_token');
-        var code = searchParams.get('code');
-        var error = hashParams.get('error') || searchParams.get('error');
-        var errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
-        if (error || token || code) completed = true;
-
-        if (error) {
-          if (titleEl) titleEl.textContent = 'Authorization Failed';
-          if (descEl) descEl.textContent = errorDesc || error;
-          if (statusEl) {
-            statusEl.textContent = 'Error: ' + error;
-            statusEl.className = 'status error-box';
-          }
-          if (spinner) spinner.style.display = 'none';
-
-          if (window.opener && !window.opener.closed) {
-            try {
-              window.opener.postMessage({
-                type: 'GOOGLE_ADS_OAUTH_ERROR',
-                error: errorDesc || error
-              }, '*');
-            } catch (e) {}
-            setTimeout(function() { window.close(); }, 2500);
-          }
-          return;
-        }
-
-        if (token) {
-          if (statusEl) statusEl.textContent = 'Connected! Closing window...';
-          try {
-            sessionStorage.setItem('google_ads_oauth_token', token);
-            sessionStorage.setItem('google_ads_oauth_token_timestamp', String(Date.now()));
-            localStorage.setItem('google_ads_oauth_token_broadcast', JSON.stringify({ token: token, time: Date.now() }));
-          } catch (e) {}
-
-          if (window.opener && !window.opener.closed) {
-            try {
-              window.opener.postMessage({
-                type: 'GOOGLE_ADS_OAUTH_SUCCESS',
-                token: token
-              }, '*');
-            } catch (e) {}
-            setTimeout(function() { window.close(); }, 500);
-          } else {
-            setTimeout(function() {
-              window.location.href = '/';
-            }, 800);
-          }
-        } else if (code) {
-          if (statusEl) statusEl.textContent = 'Connected! Closing window...';
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage({
-              type: 'GOOGLE_ADS_OAUTH_CODE',
-              code: code
-            }, '*');
-            setTimeout(function() { window.close(); }, 500);
-          }
-        } else {
-          if (statusEl) statusEl.textContent = 'Waiting for authorization response...';
-        }
-      }
-
-      window.addEventListener('load', completeOAuth);
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        completeOAuth();
-      }
-    })();
-  </script>
-</body>
-</html>`;
-
-  return new NextResponse(html, {
+function page(success: boolean): NextResponse {
+  const message = success
+    ? 'Google Ads connected. You can close this window.'
+    : 'Google Ads could not be connected. Please close this window and try again.';
+  const type = success ? 'GOOGLE_ADS_AUTHORIZED' : 'GOOGLE_ADS_OAUTH_ERROR';
+  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Google Ads</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="font-family:system-ui,sans-serif;background:#0b0f17;color:#f8fafc;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><p>${message}</p>
+<script>(function(){${success ? "try{localStorage.setItem('google_ads_authorized',String(Date.now()));localStorage.removeItem('google_ads_authorized');}catch(e){}" : ''}try{if(window.opener){window.opener.postMessage({type:${JSON.stringify(type)}},${JSON.stringify(appOrigin())});}}catch(e){}setTimeout(function(){window.close();},${success ? 300 : 2500});})();</script></body></html>`;
+  return new NextResponse(body, {
+    status: success ? 200 : 400,
     headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
     },
   });
+}
+
+// Google redirects the popup here. The single-use state binds the code to the user who started the flow.
+export async function GET(request: Request) {
+  try {
+    const params = new URL(request.url).searchParams;
+    const ip = clientIp(request);
+    if (ip) await rateLimit(`ads-callback:${hash(ip)}`, 30, 600);
+    const code = params.get('code') || '';
+    if (params.get('error') || !code) return page(false);
+    await completeAuthorization(params.get('state') || '', code);
+    return page(true);
+  } catch {
+    console.error('[GoogleAds] Authorization callback failed.');
+    return page(false);
+  }
 }

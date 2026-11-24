@@ -19,7 +19,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
-import { BillingPanel } from '@/components/billing/billing-panel';
+import { SubscriptionManager } from '@/components/billing/subscription-manager';
 import { getCurrencySymbol } from '@/lib/metrics-calculator';
 
 export const SUPPORTED_CURRENCIES = [
@@ -46,8 +46,6 @@ interface SettingsViewProps {
   onClearData: () => void;
   onUpdateCurrency?: (currency: string) => void;
   userEmail?: string | null;
-  refreshToken?: string | null;
-  onSaveRefreshToken?: (token: string, clientSecret?: string) => Promise<boolean>;
   onTestRefresh?: () => Promise<void>;
   isSyncing?: boolean;
 }
@@ -58,8 +56,6 @@ export function SettingsView({
   onClearData,
   onUpdateCurrency,
   userEmail,
-  refreshToken,
-  onSaveRefreshToken,
   onTestRefresh,
   isSyncing = false,
 }: SettingsViewProps) {
@@ -67,9 +63,6 @@ export function SettingsView({
   const [minConfidence, setMinConfidence] = useState(90);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXX');
-  const [tokenInput, setTokenInput] = useState(refreshToken || account.refreshToken || '');
-  const [isSavingToken, setIsSavingToken] = useState(false);
-  const [showTokenInput, setShowTokenInput] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClear = async () => {
@@ -210,7 +203,7 @@ export function SettingsView({
             </div>
           </div>
 
-          {/* Continuous Session & Refresh Token Card */}
+          {/* Google Ads Authorization Card */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -218,14 +211,10 @@ export function SettingsView({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>Google OAuth Uninterrupted Session</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                      Continuous Auto-Renewal
-                    </span>
-                  </h4>
+                  <h4 className="text-sm font-bold text-slate-900">Google Ads authorization</h4>
                   <p className="text-xs text-slate-500">
-                    Automatically uses stored refresh tokens to generate new access tokens before the 60-minute cutoff with zero browser popups.
+                    Signing in with Google never grants Google Ads access. You authorize it separately, and the long-lived
+                    credential is encrypted on our servers and never sent to your browser.
                   </p>
                 </div>
               </div>
@@ -233,91 +222,27 @@ export function SettingsView({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowTokenInput(!showTokenInput)}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  onClick={onTestRefresh}
+                  disabled={isSyncing || !onTestRefresh}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {showTokenInput ? 'Close' : 'Manage Refresh Token'}
+                  Check connection
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenConnectModal}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {account.isConnected ? 'Reconnect Google Ads' : 'Connect Google Ads'}
                 </button>
               </div>
             </div>
-
-            {/* Token Status Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-[11px] text-slate-400 font-medium block">Stored Refresh Token</span>
-                <span className="font-mono font-bold text-slate-800 text-[11px] truncate block mt-0.5">
-                  {refreshToken || account.refreshToken
-                    ? `${(refreshToken || account.refreshToken)?.slice(0, 8)}••••••••••••`
-                    : 'System Default / Environment Active'}
-                </span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-[11px] text-slate-400 font-medium block">Token Lifetime</span>
-                <span className="font-semibold text-slate-800 text-[11px] block mt-0.5">
-                  3,600s (Rotates automatically at 45m)
-                </span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-[11px] text-slate-400 font-medium block">Session Status</span>
-                <span className="font-semibold text-emerald-600 text-[11px] flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Uninterrupted Session Enabled</span>
-                </span>
-              </div>
-            </div>
-
-            {showTokenInput && (
-              <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    Google Ads OAuth 2.0 Refresh Token
-                  </label>
-                  <p className="text-[11px] text-slate-500 mb-2">
-                    Paste your persistent refresh token (starts with 1//0...) to permanently anchor your session in secure storage without requiring popup logins.
-                  </p>
-                  <input
-                    type="password"
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="1//04..."
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenInput(false)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSavingToken || !tokenInput.trim()}
-                    onClick={async () => {
-                      if (onSaveRefreshToken) {
-                        setIsSavingToken(true);
-                        try {
-                          await onSaveRefreshToken(tokenInput.trim());
-                          setShowTokenInput(false);
-                        } finally {
-                          setIsSavingToken(false);
-                        }
-                      }
-                    }}
-                    className="px-4 py-1.5 bg-[#00d67d] hover:bg-[#00c070] disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-xs"
-                  >
-                    {isSavingToken ? 'Saving...' : 'Save & Verify Token'}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {/* TAB 2: BILLING & PLANS */}
-      {activeTab === 'billing' && <BillingPanel />}
+      {activeTab === 'billing' && <SubscriptionManager />}
 
       {/* TAB 3: OPTIMIZATION RULES */}
       {activeTab === 'ai_config' && (
