@@ -41,7 +41,7 @@ function ConnectionStep({ next }: { next: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5 space-y-3">
+      <div className="rounded-xl border border-[#dce2d6] bg-[#edf0e8]/60 p-5 space-y-3">
         <div className="flex items-center gap-3">
           <GoogleAdsLogo className="w-8 h-8" />
           <h2 className="text-lg font-bold text-slate-900">{connected ? 'Your workspace is ready' : 'Connect Google Ads'}</h2>
@@ -54,7 +54,7 @@ function ConnectionStep({ next }: { next: string }) {
       </div>
       {error && <p role="alert" className="flex items-start gap-2 text-sm text-rose-700"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{error}</p>}
       <button type="button" disabled={busy} onClick={() => { if (connected) void continueToApp(); else setOpen(true); }}
-        className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-6 py-3 text-sm font-semibold text-white inline-flex items-center justify-center gap-2">
+        className="w-full rounded-lg bg-[#234e40] hover:bg-[#193c30] disabled:opacity-60 px-6 py-3 text-sm font-semibold text-white inline-flex items-center justify-center gap-2">
         {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
         {connected ? 'Open your workspace' : 'Connect Google Ads'}
       </button>

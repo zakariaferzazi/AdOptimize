@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   RefreshCw,
   Sliders,
-  Sparkles,
   ArrowRight,
   LogIn,
 } from 'lucide-react';

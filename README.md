@@ -164,6 +164,9 @@ sign-up with an active subscription resumes it. It reuses the app's connection
 modal instead of a standalone pre-payment onboarding page. Google Ads consent
 still requires an explicit user click, separately from login. Users choosing the
 free plan go straight to their dashboard and can connect later in Settings.
+Auth screens include an illustrative weekly review, not customer data or promised
+performance results. Keep decorative sparkle icons out of the website UI;
+navigation and loading indicators use functional icons instead.
 
 **Only verified webhooks write subscription state.** Checkout creation, redirect
 parameters, and portal access cannot grant Pro. The SDK verifies the original raw

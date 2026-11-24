@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ShieldCheck,
   Zap,
-  Sparkles,
   HelpCircle,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
@@ -126,7 +125,6 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-12">
         <div className="space-y-4 text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             <span>{feature.badge}</span>
           </div>
 

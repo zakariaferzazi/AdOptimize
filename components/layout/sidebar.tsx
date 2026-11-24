@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Layers,
-  Sparkles,
+  ClipboardCheck,
   SlidersHorizontal,
   MessageSquare,
   History,
@@ -75,7 +75,7 @@ export function Sidebar({
       href: '/audit',
       matchPaths: ['/audit', '/insights'],
       label: 'AI Ads Audit',
-      icon: Sparkles,
+      icon: ClipboardCheck,
       badge: anomaliesCount > 0 ? anomaliesCount : undefined,
     },
     {

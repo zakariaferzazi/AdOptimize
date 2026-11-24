@@ -9,7 +9,6 @@ import {
   Check,
   X,
   Clock,
-  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 import { ChatConversation } from '@/types/adoptimize';

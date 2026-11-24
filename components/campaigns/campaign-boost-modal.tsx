@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Sparkles, TrendingUp, ShieldAlert, Target, DollarSign, CheckCircle2, Zap } from 'lucide-react';
+import { X, TrendingUp, ShieldAlert, Target, DollarSign, CheckCircle2, Zap } from 'lucide-react';
 import { Campaign } from '@/types/adoptimize';
 
 interface CampaignBoostModalProps {

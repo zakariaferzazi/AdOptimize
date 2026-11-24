@@ -23,7 +23,6 @@ import {
   Loader2,
   DollarSign,
   Target,
-  Sparkles,
 } from 'lucide-react';
 import { Campaign, CampaignType, CampaignStatus, DateRangePeriod } from '@/types/adoptimize';
 import { getCurrencySymbol, getCampaignPeriodMetrics } from '@/lib/metrics-calculator';

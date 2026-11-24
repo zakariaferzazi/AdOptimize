@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  Sparkles,
   Search,
   Filter,
   ArrowRight,

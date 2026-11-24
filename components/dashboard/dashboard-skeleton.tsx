@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 
 export function DashboardSkeleton() {
   return (
@@ -52,7 +52,7 @@ export function DashboardSkeleton() {
           </div>
           <div className="h-64 rounded-2xl bg-slate-50/80 flex items-center justify-center">
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-              <Sparkles className="w-4 h-4 animate-spin text-emerald-500" />
+              <LoaderCircle className="w-4 h-4 animate-spin text-emerald-500" />
               <span>Loading performance history...</span>
             </div>
           </div>

@@ -2,7 +2,6 @@
 
 import React from 'react';
 import {
-  Sparkles,
   AlertTriangle,
   TrendingDown,
   TrendingUp,
@@ -196,9 +195,6 @@ export function AiInsightsPanel({
       <div>
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-xs">
-              <Sparkles className="w-4 h-4 text-[#00d67d]" />
-            </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 tracking-tight">AI Insights</h3>
               <p className="text-[11px] text-slate-500">Actionable Google Ads findings</p>

@@ -7,7 +7,6 @@ import {
   CreditCard,
   Key,
   Bell,
-  Sparkles,
   ShieldCheck,
   CheckCircle2,
   ExternalLink,

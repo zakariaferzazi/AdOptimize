@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   RotateCw,
   Plus,
-  Sparkles,
 } from 'lucide-react';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 
@@ -526,7 +525,6 @@ export function ModelDemoSimulator({
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
                   {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool1State.name}</strong>
                 </span>
@@ -622,7 +620,6 @@ export function ModelDemoSimulator({
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-medium shadow-2xs ${theme.toolChipBg} ${theme.toolChipBorder} ${theme.toolChipText}`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
                   {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool2State.name}</strong>
                 </span>
