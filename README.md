@@ -84,3 +84,23 @@ Clearing cookies signs the user out; signing back into the same account restores
 server-saved chats. Older chats that only exist in a browser cache are not
 automatically uploaded; continuing such a chat recovers its transcript when the
 server has no messages for that conversation.
+
+## Google Ads audit
+
+The Audit page runs a read-only report against the signed-in user's connected
+Google Ads account, not the cached insights feed. Choose complete-day presets
+or custom dates (up to 366 days), with an equally long previous-period comparison.
+Dates use the Google Ads account time zone. Optional CPA and ROAS targets are
+audit benchmarks only; they never change bidding settings.
+
+Reports include campaign performance, non-converting reported search queries,
+current keyword Quality Scores, prioritized review steps and a CSV export.
+Checks are deterministic and disclose their thresholds, missing data and row
+limits. Zero conversions are not proof of waste, missing revenue is not zero
+ROAS, and overlapping campaign/query spend is not added into a savings claim.
+Keyword and query failures are shown as incomplete coverage, not passing checks.
+Campaign-level failures stop the report. Google Ads reads may use the shared
+60-second query cache.
+
+Automations is no longer an application page or navigation item. The AI
+Marketing Agent and its explicit proposal/approval workflow are unchanged.

@@ -2033,11 +2033,11 @@ export function AiChatView({
                 rows={1}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    void handleSendMessage(e.currentTarget.value);
-                  }
+                enterKeyHint="send"
+                onKeyDownCapture={(e) => {
+                  if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
+                  e.preventDefault();
+                  if (!e.repeat) e.currentTarget.form?.requestSubmit();
                 }}
                 placeholder="Ask about your campaigns, find wasted spend, or prepare a change..."
                 className="flex-1 px-2.5 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"

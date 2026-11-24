@@ -16,7 +16,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      { source: '/automation', destination: '/automations', permanent: true },
       { source: '/overview', destination: '/dashboard', permanent: true },
       { source: '/copilot', destination: '/chat', permanent: true },
       { source: '/insights', destination: '/audit', permanent: true },

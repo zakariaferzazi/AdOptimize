@@ -5,13 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'AI Google Ads Audit & Wasted Spend Scanner | AdOptimize',
-  description: 'Audit your Google Ads account in 60 seconds. Scan search terms, detect CPA runaway spikes, identify zero-conversion bleeding keywords, and eliminate wasted spend.',
+  description: 'Audit Google Ads for a selected reporting period. Compare performance, review non-converting search queries, and investigate evidence-led recommendations.',
   alternates: {
     canonical: 'https://adoptimize.app/audit',
   },
   openGraph: {
     title: 'AI Google Ads Audit & Wasted Spend Scanner | AdOptimize',
-    description: 'Instant Google Ads audit tool. Detect wasted ad spend, negative keyword opportunities, and budget bottlenecks.',
+    description: 'Period-specific Google Ads performance audit with previous-period comparisons, campaign evidence and search-query review.',
     url: 'https://adoptimize.app/audit',
     siteName: 'AdOptimize',
   },

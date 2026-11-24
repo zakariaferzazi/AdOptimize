@@ -87,9 +87,6 @@ export function Header({
         return 'AI Ads Audit';
       case 'optimizer':
         return 'Budget Optimizer';
-      case 'automations':
-      case 'automation':
-        return 'Automations';
       case 'chat':
       case 'copilot':
         return 'AI Marketing Agent';

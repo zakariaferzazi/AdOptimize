@@ -10,7 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/campaigns',
     '/audit',
     '/optimizer',
-    '/automations',
     '/chat',
     '/activity-log',
     '/settings',

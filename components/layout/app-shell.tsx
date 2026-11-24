@@ -84,7 +84,6 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
     if (pathname.includes('/campaigns')) return 'campaigns';
     if (pathname.includes('/audit') || pathname.includes('/insights')) return 'audit';
     if (pathname.includes('/optimizer')) return 'optimizer';
-    if (pathname.includes('/automations') || pathname.includes('/automation')) return 'automations';
     if (pathname.includes('/chat') || pathname.includes('/copilot')) return 'chat';
     if (pathname.includes('/activity-log')) return 'activity_log';
     if (pathname.includes('/reports')) return 'reports';
