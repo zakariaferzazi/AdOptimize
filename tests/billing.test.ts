@@ -219,6 +219,9 @@ describe('verified Polar webhook lifecycle on real D1', () => {
   it('keeps scheduled cancellation active only until its paid-through date', async () => {
     await deliver(subscriptionEvent('subscription.canceled', { cancel_at_period_end: true }));
     expect(hasPaidAccess(await subscription('user-a'))).toBe(true);
+    expect(await (await status(request('/api/billing/status'))).json()).toMatchObject({
+      status: 'active', cancelAtPeriodEnd: true, hasAccess: true,
+    });
     await deliver(subscriptionEvent('subscription.updated', { current_period_end: new Date(Date.now() - 1000).toISOString(), cancel_at_period_end: true }));
     expect(hasPaidAccess(await subscription('user-a'))).toBe(false);
   });

@@ -171,6 +171,10 @@ addresses, payment details, portal tokens, or SDK errors.
 Access requires an active allowlisted subscription with an unexpired paid-through
 date. Scheduled cancellation retains access until that date; revocation, pausing,
 and `past_due` suspend it. A newer active webhook restores recovered payments.
+Subscription management displays scheduled cancellations as canceled with access
+until period end, rather than simply active. It reloads webhook-backed status on
+tab focus/visibility and every 30 seconds while visible; no manual refresh is
+required. Status read failures remain visible and offer a retry.
 Order/refund events are recorded but do not independently change access: refunds
 follow the subscription's state. There is no invented `payment.failed` event;
 failed renewals arrive as `subscription.past_due`/subscription updates.
