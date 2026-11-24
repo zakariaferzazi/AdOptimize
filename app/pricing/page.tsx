@@ -94,7 +94,7 @@ export default function PricingPage() {
               </div>
 
               <Link
-                href={plan.id === 'FREE' ? '/dashboard' : '/settings?tab=billing'}
+                href={plan.id === 'FREE' ? '/dashboard' : '/billing'}
                 className={`mt-8 w-full py-2.5 rounded-xl text-xs font-bold text-center block transition-all ${
                   plan.popular
                     ? 'bg-[#00d67d] text-slate-950 hover:bg-[#00c06f]'

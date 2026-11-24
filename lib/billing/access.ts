@@ -23,10 +23,9 @@ export function withSubscription(handler: (request: NextRequest) => Promise<Resp
 }
 
 export async function requirePageSubscription(path: string): Promise<void> {
-  const upgrade = `/settings?tab=billing&returnTo=${encodeURIComponent(path)}`;
   const token = (await cookies()).get('adoptimize_session')?.value;
-  if (!token) redirect(upgrade);
+  if (!token) redirect(`/billing?returnTo=${encodeURIComponent(path)}`);
   const session = await (await billingDb()).prepare('SELECT user_id FROM app_sessions WHERE token_hash = ? AND expires_at > ?')
     .bind(hash(token), Math.floor(Date.now() / 1000)).first<{ user_id: string }>();
-  if (!session || !hasPaidAccess(await subscription(session.user_id))) redirect(upgrade);
+  if (!session || !hasPaidAccess(await subscription(session.user_id))) redirect(`/billing?returnTo=${encodeURIComponent(path)}`);
 }

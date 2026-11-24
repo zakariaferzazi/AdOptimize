@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const checkout = await polar.checkouts.create({
       products: [productId], external_customer_id: identity.uid,
       ...(identity.emailVerified && identity.email ? { customer_email: identity.email } : {}),
-      success_url: `${appOrigin()}/settings?tab=billing&checkout=complete`, return_url: `${appOrigin()}/settings?tab=billing`,
+      success_url: `${appOrigin()}/billing?checkout=complete`, return_url: `${appOrigin()}/billing`,
       currency: 'usd', allow_trial: false, allow_discount_codes: false,
       customer_ip_address: clientIp(request),
     });

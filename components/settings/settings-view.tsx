@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Settings,
@@ -64,10 +63,7 @@ export function SettingsView({
   onTestRefresh,
   isSyncing = false,
 }: SettingsViewProps) {
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>(
-    searchParams.get('tab') === 'billing' ? 'billing' : 'connections',
-  );
+  const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
   const [minConfidence, setMinConfidence] = useState(90);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXX');
