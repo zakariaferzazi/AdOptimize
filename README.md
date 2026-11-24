@@ -158,6 +158,12 @@ only the homepage **View Demo** link opens the anonymous dashboard preview at
 Subscription management is available in Settings and `/billing`, not a
 sidebar "Billing & Pro" button. Rebuild before deploying routing changes;
 deploying an existing `.open-next` bundle can publish stale UI.
+Paid signup follows Account -> Plan -> Polar payment -> Connect Google Ads.
+Only webhook-confirmed Pro access reveals the connection step; returning to
+sign-up with an active subscription resumes it. It reuses the app's connection
+modal instead of a standalone pre-payment onboarding page. Google Ads consent
+still requires an explicit user click, separately from login. Users choosing the
+free plan go straight to their dashboard and can connect later in Settings.
 
 **Only verified webhooks write subscription state.** Checkout creation, redirect
 parameters, and portal access cannot grant Pro. The SDK verifies the original raw

@@ -5,18 +5,20 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordResetEmail, updateProfile, type User } from 'firebase/auth';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Mail, RefreshCw, ShieldCheck, Sparkles, User as UserIcon,
+  AlertCircle, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck, Sparkles, Target, TrendingUp, User as UserIcon,
 } from 'lucide-react';
 import { auth, signInWithEmail, signInWithGoogle, signUpWithEmail } from '@/lib/firebase';
 import { GoogleIcon } from '@/components/ui/google-icon';
+import { AgentIcon } from '@/components/ui/ai-model-icons';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
 import { BillingClientError, fetchBillingStatus, startCheckout, type BillingStatus } from '@/lib/billing-client';
 import { synchronizeServerSession } from '@/lib/auth-session';
+import { PostPaymentConnect } from '@/components/billing/post-payment-connect';
 
 type Mode = 'sign-in' | 'sign-up';
-const STEPS = ['Account', 'Plan', 'Payment', 'Done'];
+const STEPS = ['Account', 'Plan', 'Payment', 'Connect'];
 
 function describeAuthError(error: unknown): string {
   const code = (error as { code?: string })?.code;
@@ -72,30 +74,24 @@ function ShowcasePanel() {
       <div className="absolute top-40 -left-24 w-[28rem] h-80 rounded-[56px] bg-indigo-400/40 -rotate-6" />
       <div className="absolute -bottom-32 -right-24 w-[34rem] h-96 rounded-[64px] bg-sky-400/60 rotate-12" />
       <div className="relative h-full flex flex-col justify-center gap-6">
-        <div className="self-start w-64 rounded-2xl bg-white p-5 shadow-xl">
-          <div className="flex items-center justify-between text-[11px] font-semibold">
-            <span className="text-emerald-600 flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI Marketing Agent</span>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">+18% ROAS</span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">4.8x</div>
-          <div className="text-[11px] text-slate-500">Return on ad spend this month</div>
-          <svg viewBox="0 0 200 50" className="mt-3 w-full h-12" fill="none">
-            <path d="M0 40 C25 38 30 18 55 22 S95 44 120 28 S165 6 200 10" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" />
-            <path d="M0 44 C30 46 40 34 70 36 S120 46 150 32 S185 26 200 24" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-          </svg>
+        <div className="space-y-3 text-white">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold"><Sparkles className="w-3.5 h-3.5" /> Your next growth move starts here</span>
+          <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight">Make every ad dollar<br />work harder.</h2>
+          <p className="max-w-sm text-sm leading-relaxed text-indigo-100">Turn campaign data into a clear plan with an AI marketing agent built for Google Ads.</p>
         </div>
-        <div className="self-end flex items-center gap-3">
-          <span className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center"><GoogleIcon className="w-6 h-6" /></span>
-          <span className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-indigo-600"><Sparkles className="w-6 h-6" /></span>
-        </div>
-        <div className="self-center w-80 rounded-2xl bg-white p-5 shadow-xl flex gap-4">
-          <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center"><KeyRound className="w-5 h-5" /></span>
-          <div>
-            <div className="text-sm font-bold text-slate-900">Your data, your rules</div>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-              Google Ads access is authorized separately, encrypted at rest, and the agent never changes a campaign without your approval.
-            </p>
+        <div className="rounded-2xl bg-white p-5 shadow-xl space-y-4">
+          <div className="flex items-center gap-3">
+            <AgentIcon className="w-9 h-9" />
+            <div className="flex-1"><div className="text-sm font-bold text-slate-900">Your AI Marketing Agent</div><div className="text-[11px] text-slate-400">A preview of your workspace</div></div>
           </div>
+          <div className="ml-6 rounded-2xl rounded-tr-sm bg-indigo-50 p-3 text-xs text-indigo-900">Where should I focus my Google Ads budget?</div>
+          <div className="rounded-2xl rounded-tl-sm bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">Start with a period-specific audit. Explore wasted spend, compare campaign performance, and review recommendations before making changes.</div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Clear insights. You stay in control.</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {([[Target, 'Spot waste'], [BarChart3, 'Find clarity'], [TrendingUp, 'Plan growth']] as const).map(([FeatureIcon, label]) => (
+            <div key={label} className="rounded-xl border border-white/20 bg-white/10 p-3 text-white"><FeatureIcon className="w-5 h-5 mb-2 text-indigo-100" /><span className="text-[11px] font-semibold">{label}</span></div>
+          ))}
         </div>
       </div>
     </div>
@@ -316,10 +312,10 @@ export function AuthFlow({ mode }: { mode: Mode }) {
   }, [user, status]);
 
   const heading = signUp
-    ? step === 0 ? 'Sign Up' : step === 1 ? 'Choose your plan' : 'You are all set'
+    ? step === 0 ? 'Sign Up' : step === 1 ? 'Choose your plan' : 'Bring your campaigns to life'
     : 'Sign In';
   const subtitle = signUp
-    ? step === 0 ? 'Create your account to launch your AI marketing agent' : step === 1 ? 'Unlock the full agent. Upgrade, downgrade, or cancel anytime.' : 'Pro is active on your account.'
+    ? step === 0 ? 'Create your account to launch your AI marketing agent' : step === 1 ? 'Unlock the full agent. Upgrade, downgrade, or cancel anytime.' : 'Pro is active. Connect Google Ads to get started.'
     : 'Welcome back. Pick up where your agent left off.';
 
   return (
@@ -355,12 +351,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                 </div>
               )
               : !status ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Checking your plan...</p>
-              : step === 3 ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-600">Your Pro subscription is verified. Continue to the app.</p>
-                  <Link href={next} className="inline-flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-3">Continue <ArrowRight className="w-4 h-4" /></Link>
-                </div>
-              )
+              : step === 3 ? <PostPaymentConnect next={next} />
               : <PlanStep user={user} status={status} initial={plan} next={next} />}
           </div>
         </section>
