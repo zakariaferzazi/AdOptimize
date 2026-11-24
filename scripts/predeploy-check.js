@@ -37,13 +37,12 @@ function main() {
   const dbBinding = bindings.find((entry) => entry && entry.binding === 'DB');
 
   if (!dbBinding) {
-    console.warn(
+    console.error(
       [
         '',
         '[predeploy] No D1 binding named "DB" is configured.',
         '',
-        'The AI agent will fall back to an in-memory store, which does not persist',
-        'conversations or proposals across requests. Approvals will fail closed.',
+        'Deployment requires durable storage for account conversations and proposals.',
         '',
         'To enable durable storage:',
         '  1. npm run db:create',
@@ -52,7 +51,7 @@ function main() {
         '',
       ].join('\n')
     );
-    return;
+    process.exit(1);
   }
 
   const id = String(dbBinding.database_id || '').trim();

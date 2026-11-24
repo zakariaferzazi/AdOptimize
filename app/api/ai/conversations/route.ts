@@ -45,8 +45,12 @@ export async function GET(req: NextRequest) {
     const conversationId = new URL(req.url).searchParams.get('conversationId');
 
     if (conversationId) {
-      const messages = await loadMessages(identity.uid, conversationId);
       const store = await getStore();
+      const conversation = await store.conversations.get(conversationId, identity.uid);
+      if (!conversation) {
+        return NextResponse.json({ error: 'Conversation not found.' }, { status: 404 });
+      }
+      const messages = await loadMessages(identity.uid, conversationId);
       const records = await store.proposals.listByConversation(conversationId, identity.uid);
       const messageFor = mapProposalsToMessages(messages);
       const proposals = records
@@ -82,12 +86,17 @@ export async function PATCH(req: NextRequest) {
     if (!conversationId || !title) {
       return NextResponse.json({ error: 'conversationId and title are required.' }, { status: 400 });
     }
+    const store = await getStore();
+    if (!(await store.conversations.get(conversationId, identity.uid))) {
+      return NextResponse.json({ error: 'Conversation not found.' }, { status: 404 });
+    }
     await renameConversation(identity.uid, conversationId, title);
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
+    console.error('[AI Conversations] Rename failed:', error);
     return NextResponse.json({ error: 'The conversation could not be renamed.' }, { status: 500 });
   }
 }
@@ -95,7 +104,13 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const identity = await requireIdentity(req);
-    const conversationId = new URL(req.url).searchParams.get('conversationId');
+    const params = new URL(req.url).searchParams;
+    const conversationId = params.get('conversationId');
+    if (params.get('all') === 'true') {
+      const conversations = await listConversations(identity.uid);
+      await Promise.all(conversations.map((conversation) => deleteConversation(identity.uid, conversation.id)));
+      return NextResponse.json({ success: true });
+    }
     if (!conversationId) {
       return NextResponse.json({ error: 'conversationId is required.' }, { status: 400 });
     }
@@ -105,6 +120,7 @@ export async function DELETE(req: NextRequest) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
+    console.error('[AI Conversations] Delete failed:', error);
     return NextResponse.json({ error: 'The conversation could not be deleted.' }, { status: 500 });
   }
 }

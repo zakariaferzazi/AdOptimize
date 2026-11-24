@@ -14,7 +14,7 @@ import {
 import { createProposal, expireStaleProposals, toProposalView } from '@/lib/ai/proposals';
 import { toClientProposal } from '@/lib/ai/proposal-client';
 import { recordProposalOutcome } from '@/lib/ai/agent-state';
-import { getStore, isDurableStore } from '@/lib/store';
+import { getStore } from '@/lib/store';
 import { syncProposalToFirestore } from '@/lib/store/firestore-fallback';
 import { newRequestStats, type GoogleAdsContext } from '@/lib/google-ads/gaql';
 import { OpenRouterError } from '@/lib/openrouter-service';

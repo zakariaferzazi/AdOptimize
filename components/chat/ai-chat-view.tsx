@@ -33,7 +33,14 @@ import {
 } from 'lucide-react';
 import { ChatMarkdown } from './markdown-renderer';
 import { auth } from '@/lib/firebase';
-import { mergeChatHistory } from '@/lib/ai/chat-history';
+import {
+  loadAccountChatSessions,
+  loadChatMessages,
+  mergeChatHistory,
+  normalizeModel,
+  type ActiveAiModel,
+  type ChatSession,
+} from '@/lib/ai/chat-history';
 import { AgentIcon, ClaudeIcon, ChatGPTIcon, GeminiIcon } from '@/components/ui/ai-model-icons';
 import { useClickOutside } from '@/hooks/use-click-outside';
 import {
@@ -50,28 +57,9 @@ import {
   ProposedAccountChange,
 } from '@/types/adoptimize';
 
-export type ActiveAiModel = 'claude' | 'chatgpt' | 'gemini';
-
-export function normalizeModel(model: string | undefined): ActiveAiModel {
-  if (model === 'fast') return 'gemini';
-  if (model === 'balanced') return 'chatgpt';
-  if (model === 'advanced' || model === 'analysis' || model === 'deepseek') return 'claude';
-  if (model === 'claude' || model === 'chatgpt' || model === 'gemini') return model;
-  return 'claude';
-}
-
 function isInterruptedErrorReply(content: string | undefined | null): boolean {
   if (!content) return false;
   return /stopped responding partway through this request/i.test(content);
-}
-
-interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  model: ActiveAiModel;
-  messages: ChatMessage[];
 }
 
 interface FailedAttempt {
@@ -121,6 +109,11 @@ export function AiChatView({
   const storageKey = useMemo(() => `adoptimize_chat_sessions_${userId || 'guest'}`, [userId]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>('default');
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isConversationLoading, setIsConversationLoading] = useState(false);
+  const [isHistoryMutating, setIsHistoryMutating] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyReload, setHistoryReload] = useState(0);
   const [showSessionsDrawer, setShowSessionsDrawer] = useState(false);
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
   const [confirmClearHistory, setConfirmClearHistory] = useState(false);
@@ -139,6 +132,7 @@ export function AiChatView({
   const [showMoreSuggestions, setShowMoreSuggestions] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const isHistoryBusy = isHistoryLoading || isConversationLoading || isHistoryMutating;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -170,104 +164,101 @@ export function AiChatView({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
-    const hydrate = async (sessionId: string) => {
+    const restore = async () => {
+      setIsHistoryLoading(true);
+      setHistoryError(null);
+      let cached: ChatSession[] = [];
       try {
-        const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
-        if (!idToken) return;
-        const response = await fetch(
-          `/api/ai/conversations?conversationId=${encodeURIComponent(sessionId)}`,
-          { headers: { Authorization: `Bearer ${idToken}` } }
-        );
-        if (!response.ok) throw new Error(`Conversation history request failed (${response.status}).`);
-        const data = await response.json();
-        const transcript = Array.isArray(data?.transcript) ? data.transcript : undefined;
-        const stored = transcript || (Array.isArray(data?.messages) ? data.messages : []);
-        if (cancelled || stored.length === 0) return;
-
-        const proposalsByMessage = new Map<string, ProposedAccountChange>();
-        for (const proposal of (Array.isArray(data?.proposals) ? data.proposals : []) as ProposedAccountChange[]) {
-          if (proposal.messageId) proposalsByMessage.set(proposal.messageId, proposal);
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed: ChatSession[] = JSON.parse(stored);
+          if (Array.isArray(parsed)) cached = parsed;
         }
+      } catch (error) {
+        console.warn('[AI Chat] Browser history cache could not be read:', error);
+      }
 
-        const hydrated: ChatMessage[] = stored
-          .filter(
-            (item: { role: string; content: string | null }) =>
-              item.role === 'user' ||
-              (item.role === 'assistant' && Boolean(item.content) && !isInterruptedErrorReply(item.content))
-          )
-          .map((item: { id: string; role: string; content: string | null; createdAt: string; model?: string | null }) => ({
-            id: item.id,
-            role: item.role as 'user' | 'assistant',
-            content: item.content || '',
-            ...(item.role === 'assistant' && item.model ? { modelUsed: item.model } : {}),
-            timestamp: new Date(item.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            ...(proposalsByMessage.has(item.id) ? { actionProposal: proposalsByMessage.get(item.id) } : {}),
-          }));
+      setSessions(cached);
+      try {
+        let restored = cached;
+        if (userId) {
+          if (auth.currentUser?.uid !== userId) throw new Error('Sign in again to restore your chat history.');
+          const idToken = await auth.currentUser.getIdToken();
+          restored = await loadAccountChatSessions(idToken, cached, controller.signal);
+        }
+        if (cancelled) return;
+        if (restored.length === 0) {
+          restored = [{
+            id: `session-${Date.now()}`,
+            title: 'New Conversation',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            model: 'claude',
+            messages: [],
+          }];
+        }
+        setSessions(restored);
+        setCurrentSessionId(restored[0].id);
+        setSelectedModel(normalizeModel(restored[0].model));
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(restored));
+        } catch (error) {
+          console.warn('[AI Chat] Browser history cache could not be saved:', error);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[AI Chat] Account history could not be restored:', error);
+        setHistoryError(error instanceof Error ? error.message : 'Account chat history could not be restored.');
+      } finally {
+        if (!cancelled) setIsHistoryLoading(false);
+      }
+    };
 
-        if (hydrated.length === 0) return;
+    void restore();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [storageKey, userId, historyReload]);
+
+  useEffect(() => {
+    if (!userId || isHistoryLoading || currentSessionId === 'default') return;
+    let cancelled = false;
+    const controller = new AbortController();
+    const restoreMessages = async () => {
+      setIsConversationLoading(true);
+      try {
+        if (auth.currentUser?.uid !== userId) throw new Error('Sign in again to restore your conversation.');
+        const idToken = await auth.currentUser.getIdToken();
+        const hydrated = await loadChatMessages(idToken, currentSessionId, controller.signal);
+        if (cancelled) return;
         setSessions((current) => {
-          const next = current.map((session) =>
-            session.id === sessionId
-              ? { ...session, messages: mergeChatHistory(session.messages, hydrated) }
-              : session
-          );
+          const next = current.map((session) => session.id === currentSessionId
+            ? { ...session, messages: mergeChatHistory(session.messages, hydrated) }
+            : session);
           try {
             localStorage.setItem(storageKey, JSON.stringify(next));
           } catch (error) {
-            console.error('[AI Chat] Restored history could not be saved locally:', error);
+            console.warn('[AI Chat] Restored messages could not be cached:', error);
           }
           return next;
         });
       } catch (error) {
-        console.warn('[AI Chat] Server history could not be restored; keeping the local conversation:', error);
+        if (cancelled) return;
+        console.error('[AI Chat] Conversation messages could not be restored:', error);
+        setHistoryError(error instanceof Error ? error.message : 'Conversation messages could not be restored.');
+      } finally {
+        if (!cancelled) setIsConversationLoading(false);
       }
     };
-
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed: ChatSession[] = JSON.parse(stored);
-        if (parsed.length > 0) {
-          setSessions(parsed);
-          setCurrentSessionId(parsed[0].id);
-          setSelectedModel(normalizeModel(parsed[0].model));
-          void hydrate(parsed[0].id);
-          return () => {
-            cancelled = true;
-          };
-        }
-      }
-    } catch {
-      // fallback
-    }
-
-    const initialSession: ChatSession = {
-      id: `session-${Date.now()}`,
-      title: 'Performance Analysis',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      model: 'claude',
-      messages: [
-        {
-          id: 'welcome-msg',
-          role: 'assistant',
-          content: WELCOME_TEXT,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          modelUsed: 'Google Ads Assistant',
-        },
-      ],
-    };
-
-    setSessions([initialSession]);
-    setCurrentSessionId(initialSession.id);
+    void restoreMessages();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [storageKey]);
+  }, [currentSessionId, userId, storageKey, isHistoryLoading, historyReload]);
 
   const saveSessions = (updatedSessions: ChatSession[]) => {
     setSessions(updatedSessions);
@@ -403,7 +394,7 @@ export function AiChatView({
     opts?: { isRetry?: boolean }
   ) => {
     const query = (textToSend ?? inputValue).trim();
-    if (!query || isLoading) return;
+    if (!query || isLoading || isHistoryBusy || historyError) return;
     const isRetry = Boolean(opts?.isRetry);
     const requestSessionId = currentSessionId;
 
@@ -578,7 +569,7 @@ export function AiChatView({
       updateSessions((current) =>
         current.map((s) =>
           s.id === requestSessionId || s.id === targetSessionId
-            ? { ...s, id: targetSessionId, messages: finalMessages, updatedAt: Date.now() }
+            ? { ...s, id: targetSessionId, messages: finalMessages, updatedAt: Date.now(), persisted: true }
             : s
         )
       );
@@ -641,7 +632,37 @@ export function AiChatView({
     void handleSendMessage(lastUserPrompt, { isRetry: true });
   };
 
-  const handleClearHistory = () => {
+  const mutateAccountHistory = async (method: 'PATCH' | 'DELETE', id?: string, title?: string) => {
+    if (!userId || auth.currentUser?.uid !== userId) {
+      throw new Error('Sign in again to update your account chat history.');
+    }
+    const idToken = await auth.currentUser.getIdToken();
+    const query = method === 'DELETE'
+      ? (id ? `?conversationId=${encodeURIComponent(id)}` : '?all=true')
+      : '';
+    const response = await fetch(`/api/ai/conversations${query}`, {
+      method,
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      ...(method === 'PATCH' ? { body: JSON.stringify({ conversationId: id, title }) } : {}),
+    });
+    if (!response.ok) {
+      const data: { error?: string } = await response.json();
+      throw new Error(data.error || 'Account chat history could not be updated.');
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (isLoading || isHistoryBusy) return;
+    setIsHistoryMutating(true);
+    try {
+      await mutateAccountHistory('DELETE');
+    } catch (error) {
+      console.error('[AI Chat] Clearing account history failed:', error);
+      setHistoryError(error instanceof Error ? error.message : 'Account history could not be cleared.');
+      return;
+    } finally {
+      setIsHistoryMutating(false);
+    }
     const freshSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'New Conversation',
@@ -684,6 +705,7 @@ export function AiChatView({
   };
 
   const handleNewConversation = () => {
+    if (isLoading || isHistoryBusy) return;
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'New Conversation',
@@ -707,8 +729,19 @@ export function AiChatView({
     setInputValue('');
   };
 
-  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isLoading || isHistoryBusy) return;
+    setIsHistoryMutating(true);
+    try {
+      await mutateAccountHistory('DELETE', id);
+    } catch (error) {
+      console.error('[AI Chat] Deleting account conversation failed:', error);
+      setHistoryError(error instanceof Error ? error.message : 'Conversation could not be deleted.');
+      return;
+    } finally {
+      setIsHistoryMutating(false);
+    }
     setFailedAttempt(null);
     const remaining = sessions.filter((s) => s.id !== id);
     const nextCurrentId = currentSessionId === id ? remaining[0]?.id : currentSessionId;
@@ -738,8 +771,21 @@ export function AiChatView({
     setCurrentSessionId(emptySession.id);
   };
 
-  const handleRenameSession = (id: string) => {
-    if (!editingSessionTitle.trim()) return;
+  const handleRenameSession = async (id: string) => {
+    if (!editingSessionTitle.trim() || isLoading || isHistoryBusy) return;
+    const session = sessions.find((item) => item.id === id);
+    if (session?.persisted || session?.messages.some((message) => message.role === 'user')) {
+      setIsHistoryMutating(true);
+      try {
+        await mutateAccountHistory('PATCH', id, editingSessionTitle.trim());
+      } catch (error) {
+        console.error('[AI Chat] Renaming account conversation failed:', error);
+        setHistoryError(error instanceof Error ? error.message : 'Conversation could not be renamed.');
+        return;
+      } finally {
+        setIsHistoryMutating(false);
+      }
+    }
     updateSessions((current) =>
       current.map((s) =>
         s.id === id ? { ...s, title: editingSessionTitle.trim() } : s
@@ -1050,8 +1096,9 @@ export function AiChatView({
             <div
               key={sess.id}
               onClick={() => {
-                if (!isEditing) {
+                if (!isEditing && !isLoading && !isHistoryBusy) {
                   setCurrentSessionId(sess.id);
+                  setSelectedModel(normalizeModel(sess.model));
                   setShowSessionsDrawer(false);
                   setFailedAttempt(null);
                   setSearchQuery('');
@@ -1313,6 +1360,21 @@ export function AiChatView({
           </div>
         </div>
 
+        {isHistoryBusy && (
+          <div className="px-4 py-2 text-xs text-slate-500" role="status">
+            {isHistoryMutating ? 'Saving account history...' : 'Loading account chat history...'}
+          </div>
+        )}
+        {historyError && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 text-amber-900 text-xs" role="alert">
+            <span>{historyError} Please retry before continuing.</span>
+            <button type="button" onClick={() => setHistoryReload((current) => current + 1)}
+              className="font-semibold underline shrink-0 cursor-pointer">
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* 2. Conversation Stream Viewport */}
         <div
           ref={chatScrollContainerRef}
@@ -1337,7 +1399,7 @@ export function AiChatView({
             )}
 
             {/* Empty / Initial Welcome Canvas */}
-            {isInitialState && !isLoading ? (
+            {isInitialState && !isLoading && !isHistoryBusy ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1557,7 +1619,7 @@ export function AiChatView({
                                       type="button"
                                       key={actIdx}
                                       onClick={() => void handleSendMessage(act.prompt)}
-                                      disabled={isLoading}
+                                      disabled={isLoading || isHistoryBusy || Boolean(historyError)}
                                       className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                                     >
                                       <Zap className="w-3 h-3 text-[#00a85e]" />
@@ -1958,7 +2020,7 @@ export function AiChatView({
               <button
                 type="button"
                 onClick={() => setShowQuickPrompts((p) => !p)}
-                disabled={isLoading}
+                disabled={isLoading || isHistoryBusy || Boolean(historyError)}
                 className="h-9 w-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-600 hover:text-slate-950 flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                 title="Quick marketing prompts"
                 aria-label="Open quick marketing prompts"
@@ -1979,7 +2041,7 @@ export function AiChatView({
                 }}
                 placeholder="Ask about your campaigns, find wasted spend, or prepare a change..."
                 className="flex-1 px-2.5 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none resize-none max-h-36 leading-relaxed"
-                disabled={isLoading}
+                disabled={isLoading || isHistoryBusy || Boolean(historyError)}
               />
 
               {isLoading ? (
@@ -1995,7 +2057,7 @@ export function AiChatView({
               ) : (
                 <button
                   type="submit"
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isHistoryBusy || Boolean(historyError)}
                   className="h-9 w-9 sm:w-auto sm:px-3.5 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
                   title="Send message (Enter)"
                 >

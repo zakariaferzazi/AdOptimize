@@ -5,15 +5,15 @@ import type { Store } from './types';
 /**
  * Resolves the active store.
  *
- * - `AI_STORE=memory` forces the in-memory implementation (tests, local dev).
+ * - `AI_STORE=memory` forces the in-memory implementation outside production.
  * - Otherwise the Cloudflare D1 binding named `DB` is used when present.
- * - When no binding exists (plain `next dev`), the in-memory store is used so
- *   the app still runs.
+ * - When no binding exists, local development can use memory; production fails
+ *   explicitly rather than accepting chats that will disappear.
  *
  * The in-memory store is NOT durable: proposals created in one request are not
  * visible to another isolate. In production that means approvals fail closed
  * with "proposal not found" rather than executing something unauthorised, but
- * the feature is unusable. `isDurableStore()` lets callers surface that clearly.
+ * the feature is unusable. Production therefore requires D1.
  */
 
 let cachedStore: Store | undefined;
@@ -42,8 +42,8 @@ function warnMemoryFallback(reason: string): void {
   warnedAboutMemory = true;
   const message =
     `[AI Store] Using the in-memory store (${reason}). Conversations and proposals ` +
-    'will NOT persist across requests. Create the D1 database and uncomment the ' +
-    'd1_databases binding in wrangler.jsonc.';
+    'will NOT persist across Worker instances or restarts. Configure the ' +
+    'D1 binding "DB" in wrangler.jsonc for durable storage.';
   if (process.env.NODE_ENV === 'production') {
     console.error(message);
   } else {
@@ -55,6 +55,9 @@ export async function getStore(): Promise<Store> {
   if (cachedStore) return cachedStore;
 
   if (process.env.AI_STORE === 'memory') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('AI_STORE=memory is not allowed in production. Configure the D1 binding "DB".');
+    }
     warnMemoryFallback('AI_STORE=memory');
     cachedStore = memoryStore;
     cachedDurable = false;
@@ -63,6 +66,9 @@ export async function getStore(): Promise<Store> {
 
   const db = await resolveD1();
   if (!db) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Account chat storage is unavailable. Configure the D1 binding "DB".');
+    }
     warnMemoryFallback('no DB binding');
     cachedStore = memoryStore;
     cachedDurable = false;
@@ -71,7 +77,9 @@ export async function getStore(): Promise<Store> {
 
   if (!schemaReady) {
     schemaReady = ensureD1Schema(db).catch((error) => {
+      schemaReady = undefined;
       console.error('[AI Store] D1 schema initialisation failed:', error);
+      throw error;
     });
   }
   await schemaReady;
@@ -81,9 +89,9 @@ export async function getStore(): Promise<Store> {
   return cachedStore;
 }
 
-/** True when the active store survives across requests (D1 or global memory). */
+/** True when the active store survives across Worker instances and restarts. */
 export function isDurableStore(): boolean {
-  return true;
+  return cachedDurable;
 }
 
 /** True only when a Cloudflare D1 binding is actively backing getStore(). */

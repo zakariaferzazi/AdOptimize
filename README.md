@@ -71,11 +71,16 @@ npm run deploy
 or still contains a placeholder id, it stops with the exact fix instead of letting
 Wrangler fail with error 10021.
 
-Without a D1 binding the agent still runs, but it falls back to an in-memory store.
-Conversations and proposals then do not survive across requests, and approvals fail
-closed with "proposal not found". The server logs a warning when this happens.
+Production requires the D1 binding; deployment and chat requests fail explicitly
+if durable storage is unavailable rather than silently saving to memory.
+Development and tests can still use `AI_STORE=memory`.
 
-The chat keeps a browser-local history cache and merges server history into it on
-refresh, preserving turns missing from an incomplete server response. This cache
-is specific to that browser; configure D1 for durable server-side conversations
-across Worker restarts and devices.
+Chat history belongs to the signed-in Firebase user and is stored in D1. After
+sign-in, the chat loads the account's conversation list and fetches messages when
+a conversation is opened, even if browser storage was cleared or a different device
+is used. Rename, delete and clear-history actions update the account's saved data.
+The browser cache is only a convenience, not the source of account history.
+Clearing cookies signs the user out; signing back into the same account restores
+server-saved chats. Older chats that only exist in a browser cache are not
+automatically uploaded; continuing such a chat recovers its transcript when the
+server has no messages for that conversation.

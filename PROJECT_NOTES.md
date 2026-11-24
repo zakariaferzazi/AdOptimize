@@ -88,7 +88,8 @@ compare-and-swap, applies the plan, reads back and verifies, and records
 - `MODEL_CLAUDE` selects the OpenRouter Claude model, defaulting to `anthropic/claude-haiku-5.5`.
   To set it as a Cloudflare Worker secret from PowerShell:
   `'anthropic/claude-haiku-5.5' | npx wrangler secret put MODEL_CLAUDE`.
-- `AI_STORE=memory` forces the in-memory store (tests, local dev without D1).
+- `AI_STORE=memory` forces the in-memory store in tests/local development only.
+  Production requires D1 and rejects missing storage instead of silently falling back.
 - `AI_PROPOSAL_EXPIRATION_MINUTES` defaults to 60.
 - D1 binding `DB` in `wrangler.jsonc`; schema in `migrations/0001_ai_agent.sql`,
   `0002_task_state.sql`, `0003_proposal_meta.sql` (also applied automatically at runtime).
@@ -105,3 +106,7 @@ skipped unless `OPENROUTER_API_KEY` and `MODEL_CHATGPT`/`MODEL_CLAUDE` are set.
 
 Wrangler validates the D1 `database_id` at deploy time. Create the database once, paste the id
 into `wrangler.jsonc`, then `npm run db:migrate` and deploy.
+The existing `adoptimize-ai` database is bound as `DB`. Chat startup loads the
+signed-in user's conversation list from D1 regardless of the browser cache, and
+selecting a conversation loads its messages. Rename/delete/clear actions are
+server-side as well.

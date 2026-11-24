@@ -31,9 +31,14 @@ import { POST as chatPost } from '@/app/api/ai/chat/route';
 import { POST as approvePost } from '@/app/api/ai/chat/approve/route';
 import { POST as executePost } from '@/app/api/ai/chat/execute/route';
 import { POST as cancelPost } from '@/app/api/ai/chat/cancel/route';
-import { GET as conversationsGet } from '@/app/api/ai/conversations/route';
+import {
+  GET as conversationsGet,
+  PATCH as conversationsPatch,
+  DELETE as conversationsDelete,
+} from '@/app/api/ai/conversations/route';
 import { memoryStore, resetMemoryStore } from '@/lib/store/memory';
-import { loadAgentState } from '@/lib/ai/conversations';
+import { ensureConversation, loadAgentState } from '@/lib/ai/conversations';
+import { loadAccountChatSessions, loadChatMessages } from '@/lib/ai/chat-history';
 import { invalidateGaqlCache } from '@/lib/google-ads/gaql';
 
 let scripted: ScriptedModel;
@@ -282,5 +287,55 @@ describe('model payload', () => {
     expect(data.transcript[1].model).toBe('Test Model');
     expect(data.proposals[0]).toMatchObject({ status: 'PENDING_APPROVAL', campaignName: 'Brand - Search' });
     expect(data.proposals[0].currentSettings).toMatch(/Daily budget: 50/);
+  });
+
+  it('restores account conversations and messages with an empty browser cache', async () => {
+    scripted.script(textResponse('First reply.'), textResponse('Second reply.'));
+    const first = await chatPost(jsonRequest('http://localhost/api/ai/chat', { message: 'First question' }));
+    const { conversationId } = await first.json();
+    await chatPost(jsonRequest('http://localhost/api/ai/chat', { message: 'Follow-up question', conversationId }));
+    await ensureConversation({ userId: 'other-user', accountId: 'other-account', model: 'claude', title: 'Private' });
+
+    vi.stubGlobal('fetch', async (url: string) => conversationsGet(getRequest(`http://localhost${url}`)));
+    const sessions = await loadAccountChatSessions('new-sign-in-token', []);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].id).toBe(conversationId);
+    const restored = await loadChatMessages('new-sign-in-token', sessions[0].id);
+    expect(restored.map((message) => message.content)).toEqual([
+      'First question', 'First reply.', 'Follow-up question', 'Second reply.',
+    ]);
+  });
+
+  it('persists renamed and deleted conversations without affecting another account', async () => {
+    const { conversationId } = await prepareProposal();
+    const other = await ensureConversation({ userId: 'other-user', accountId: 'other-account', model: 'claude' });
+    const renamed = await conversationsPatch(jsonRequest('http://localhost/api/ai/conversations', {
+      conversationId, title: 'My campaign audit',
+    }, 'PATCH'));
+    expect(renamed.status).toBe(200);
+    const listed = await conversationsGet(getRequest('http://localhost/api/ai/conversations'));
+    expect((await listed.json()).conversations[0].title).toBe('My campaign audit');
+
+    const forbidden = await conversationsGet(getRequest(`http://localhost/api/ai/conversations?conversationId=${other.id}`));
+    expect(forbidden.status).toBe(404);
+    const deleted = await conversationsDelete(jsonRequest(
+      `http://localhost/api/ai/conversations?conversationId=${conversationId}`, {}, 'DELETE'
+    ));
+    expect(deleted.status).toBe(200);
+    expect(await memoryStore.messages.list(conversationId, 'user-1')).toEqual([]);
+    expect((await conversationsGet(getRequest(
+      `http://localhost/api/ai/conversations?conversationId=${conversationId}`
+    ))).status).toBe(404);
+    expect(await memoryStore.conversations.get(other.id, 'other-user')).toBeDefined();
+  });
+
+  it('clears only the signed-in account history', async () => {
+    const { conversationId } = await prepareProposal();
+    const other = await ensureConversation({ userId: 'other-user', accountId: 'other-account', model: 'claude' });
+    const response = await conversationsDelete(jsonRequest('http://localhost/api/ai/conversations?all=true', {}, 'DELETE'));
+    expect(response.status).toBe(200);
+    expect(await memoryStore.conversations.list('user-1')).toEqual([]);
+    expect(await memoryStore.messages.list(conversationId, 'user-1')).toEqual([]);
+    expect(await memoryStore.conversations.get(other.id, 'other-user')).toBeDefined();
   });
 });

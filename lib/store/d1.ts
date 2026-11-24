@@ -129,7 +129,7 @@ export async function ensureD1Schema(db: D1Database): Promise<void> {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!/duplicate column|already exists/i.test(message)) {
-        console.warn('[AI Store] column check:', message);
+        throw error;
       }
     }
   }
@@ -177,7 +177,10 @@ function conversationRepository(db: D1Database): ConversationRepository {
         .run();
     },
     async delete(id, userId) {
-      await db.prepare('DELETE FROM conversations WHERE id = ? AND user_id = ?').bind(id, userId).run();
+      await db.batch([
+        db.prepare('DELETE FROM messages WHERE conversation_id = ? AND user_id = ?').bind(id, userId),
+        db.prepare('DELETE FROM conversations WHERE id = ? AND user_id = ?').bind(id, userId),
+      ]);
     },
   };
 }
