@@ -4,7 +4,7 @@
  * Wrangler rejects a deploy with `binding DB of type d1 must have a valid
  * database_id specified [code: 10021]` when the D1 binding is present but the
  * id is a placeholder. That message does not say what to do, so this script
- * checks the configuration first and prints the exact fix
+ * checks the configuration first and prints the exact fix.
  */
 
 const fs = require('fs');
