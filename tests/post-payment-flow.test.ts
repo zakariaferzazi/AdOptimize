@@ -62,7 +62,6 @@ describe('paid signup connection step', () => {
     expect(html).not.toContain('Post-payment Google Ads connection');
     expect(html).toContain('Choose your plan');
     expect(html).toContain('Continue with the free plan');
-    expect(html).toContain('The weekly check-in');
     expect(html).not.toContain('Your data, your rules');
   });
 

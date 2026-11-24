@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordResetEmail, updateProfile, type User } from 'firebase/auth';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck, User as UserIcon,
+  AlertCircle, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck, Target, TrendingUp, User as UserIcon,
 } from 'lucide-react';
 import { auth, signInWithEmail, signInWithGoogle, signUpWithEmail } from '@/lib/firebase';
 import { GoogleIcon } from '@/components/ui/google-icon';
+import { AgentIcon } from '@/components/ui/ai-model-icons';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
@@ -42,7 +43,7 @@ export function Stepper({ current }: { current: number }) {
         const active = index === current;
         return (
           <li key={label} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-emerald-700 text-white' : active ? 'bg-[#234e40] text-white' : 'bg-slate-100 text-slate-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-emerald-500 text-white' : active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
               {done ? <Check className="w-3 h-3" /> : index + 1}
             </span>
             <span className={active ? 'text-slate-900' : 'text-slate-400'}>{label}</span>
@@ -56,7 +57,7 @@ export function Stepper({ current }: { current: number }) {
 
 function Field({ icon, valid, children }: { icon: React.ReactNode; valid?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-b border-slate-200 focus-within:border-[#234e40] transition-colors py-2.5">
+    <div className="flex items-center gap-3 border-b border-slate-200 focus-within:border-indigo-500 transition-colors py-2.5">
       <span className="text-slate-400 shrink-0">{icon}</span>
       {children}
       {valid && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />}
@@ -68,46 +69,38 @@ const inputClass = 'flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeho
 
 function ShowcasePanel() {
   return (
-    <aside className="hidden lg:flex flex-col justify-between gap-10 bg-[#edf0e8] border-l border-[#dce2d6] p-10 xl:p-12">
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5f7063]">AdOptimize / Google Ads workspace</p>
-        <h2 className="mt-7 font-serif text-[38px] xl:text-[44px] leading-[1.12] tracking-tight text-[#253b30]">A clearer view of<br />your Google Ads.</h2>
-        <p className="mt-5 max-w-sm text-sm leading-7 text-[#59665b]">See where your budget goes, review the search terms behind it, and decide what to change. All in one place.</p>
-      </div>
-      <div className="relative py-2 px-1">
-        <div className="absolute inset-x-3 top-5 bottom-0 rounded-sm border border-[#d6ddcf] bg-[#e3e8dc] rotate-3" aria-hidden="true" />
-        <div className="relative -rotate-1 rounded-sm border border-[#d6ddcf] bg-[#fffefb] px-6 py-7 shadow-[0_8px_24px_rgba(37,59,48,0.06)]">
-          <div className="flex items-center justify-between border-b border-[#e6e8de] pb-4">
-            <span className="font-serif text-xl text-[#253b30]">The weekly check-in</span>
-            <span className="text-[9px] uppercase tracking-widest text-[#7e8779]">Sample</span>
+    <aside className="hidden lg:block relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 p-10">
+      <div className="absolute -top-24 -right-16 w-96 h-96 rounded-[56px] bg-indigo-800/60 rotate-12" aria-hidden="true" />
+      <div className="absolute top-40 -left-24 w-[28rem] h-80 rounded-[56px] bg-indigo-400/40 -rotate-6" aria-hidden="true" />
+      <div className="absolute -bottom-32 -right-24 w-[34rem] h-96 rounded-[64px] bg-sky-400/60 rotate-12" aria-hidden="true" />
+      <div className="relative h-full flex flex-col justify-center gap-6">
+        <div className="space-y-3 text-white">
+          <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight">Make every ad dollar<br />work harder.</h2>
+          <p className="max-w-sm text-sm leading-relaxed text-indigo-100">Put your AI Marketing Agent to work on the analysis that takes hours to do by hand.</p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-xl space-y-4">
+          <div className="flex items-center gap-3">
+            <AgentIcon className="w-9 h-9" />
+            <div className="flex-1"><div className="text-sm font-bold text-slate-900">AI Marketing Agent</div><div className="text-[11px] text-slate-400">Example conversation</div></div>
           </div>
-          <div className="divide-y divide-[#e6e8de]">
-            {[
-              ['01', 'Search terms', 'Which searches are spending without converting?'],
-              ['02', 'Campaign budgets', 'Where is the daily cap holding things back?'],
-              ['03', 'Next steps', 'A short list of changes worth reviewing.'],
-            ].map(([number, title, detail]) => (
-              <div key={number} className="flex gap-4 py-4">
-                <span className="pt-0.5 font-mono text-[10px] text-[#8b9586]">{number}</span>
-                <div><p className="text-xs font-semibold text-[#344536]">{title}</p><p className="mt-1 text-[11px] leading-5 text-[#788171]">{detail}</p></div>
-              </div>
-            ))}
+          <div className="ml-6 rounded-2xl rounded-tr-sm bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">Audit the last 30 days across my campaigns. Find wasted search terms and budget bottlenecks, then give me a prioritized fix plan. Don&apos;t change anything yet.</div>
+          <div className="rounded-2xl rounded-tl-sm bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 space-y-3">
+            <p className="font-semibold text-slate-900">Done. Your audit and action plan are ready.</p>
+            <ul className="space-y-2">
+              {['Flagged search terms spending without conversions', 'Identified campaigns limited by their daily budgets', 'Ranked the recommended fixes for your review'].map((item) => (
+                <li key={item} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-600 shrink-0" /><span>{item}</span></li>
+              ))}
+            </ul>
+            <p>No campaign changes made. Tell me which recommendation you want to explore first.</p>
           </div>
-          <div className="border-t border-[#e6e8de] py-4">
-            <div className="flex items-center justify-between text-[9px] text-[#788171]">
-              <span>A week, at a glance</span>
-              <span className="flex gap-3"><span className="border-b-2 border-[#758969]">Spend</span><span className="border-b-2 border-[#baa77f]">Conversions</span></span>
-            </div>
-            <svg viewBox="0 0 280 64" className="mt-3 h-16 w-full" fill="none" aria-hidden="true">
-              <path d="M0 16H280M0 40H280M0 63H280" stroke="#e6e8de" strokeDasharray="2 4" />
-              <path d="M4 44L48 33L92 37L136 19L180 29L224 16L276 24" stroke="#758969" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M4 52L48 45L92 49L136 37L180 40L224 29L276 31" stroke="#baa77f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <p className="border-t border-[#e6e8de] pt-4 font-serif text-base italic text-[#53664f]">Review first. Make changes when you are ready.</p>
+          <p className="text-[10px] leading-relaxed text-slate-400">Illustrative example. Findings depend on your connected account.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {([[Target, 'Spot waste'], [BarChart3, 'Find clarity'], [TrendingUp, 'Plan growth']] as const).map(([FeatureIcon, label]) => (
+            <div key={label} className="rounded-xl border border-white/20 bg-white/10 p-3 text-white"><FeatureIcon className="w-5 h-5 mb-2 text-indigo-100" /><span className="text-[11px] font-semibold">{label}</span></div>
+          ))}
         </div>
       </div>
-      <p className="border-t border-[#d6ddcf] pt-5 text-[11px] leading-5 text-[#697561]">Illustrative review. Your campaigns appear after you connect Google Ads.</p>
     </aside>
   );
 }
@@ -208,11 +201,11 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       )}
       {!signUp && (
         <div className="text-right">
-          <button type="button" onClick={reset} className="text-xs font-semibold text-[#234e40] hover:underline">Forgot password?</button>
+          <button type="button" onClick={reset} className="text-xs font-semibold text-indigo-600 hover:underline">Forgot password?</button>
         </div>
       )}
       <div className="flex items-center gap-4 pt-3">
-        <button type="submit" disabled={!canSubmit || busy} className="flex-1 sm:flex-none sm:min-w-[11rem] rounded-lg bg-[#234e40] hover:bg-[#193c30] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-3 flex items-center justify-between gap-4 transition-colors">
+        <button type="submit" disabled={!canSubmit || busy} className="flex-1 sm:flex-none sm:min-w-[11rem] rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-3 flex items-center justify-between gap-4 transition-colors">
           <span>{signUp ? 'Create account' : 'Sign in'}</span>
           {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
         </button>
@@ -223,7 +216,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       </div>
       <p className="pt-2 text-[11px] text-slate-400">
         {signUp ? 'Already a member? ' : 'New to AdOptimize? '}
-        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-[#234e40] hover:underline">
+        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-indigo-600 hover:underline">
           {signUp ? 'Sign in' : 'Create an account'}
         </Link>
         {' '}· By continuing you agree to our <Link href="/terms-of-service" className="underline">Terms</Link> and <Link href="/privacy-policy" className="underline">Privacy Policy</Link>.
@@ -261,7 +254,7 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
       <div role="radiogroup" aria-label="Billing interval" className="grid grid-cols-2 gap-3">
         {([['monthly', '$29', 'per month', null], ['yearly', '$99', 'per year', 'Save 72%']] as const).map(([value, price, unit, badge]) => (
           <button key={value} type="button" role="radio" aria-checked={interval === value} onClick={() => setInterval(value)}
-            className={`relative rounded-xl border p-4 text-left transition-all ${interval === value ? 'border-[#234e40] ring-2 ring-[#234e40]/10 bg-[#edf0e8]/50' : 'border-slate-200 hover:border-slate-300'}`}>
+            className={`relative rounded-2xl border p-4 text-left transition-all ${interval === value ? 'border-indigo-600 ring-2 ring-indigo-600/20 bg-indigo-50/40' : 'border-slate-200 hover:border-slate-300'}`}>
             {badge && <span className="absolute -top-2 right-3 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">{badge}</span>}
             <div className="text-xs font-semibold capitalize text-slate-500">{value}</div>
             <div className="mt-1 text-2xl font-bold text-slate-900">{price}</div>
@@ -272,7 +265,7 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
       <ul className="space-y-1.5 text-xs text-slate-600">
         {PRO_FEATURES.map((feature) => <li key={feature} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-600 shrink-0" />{feature}</li>)}
       </ul>
-      <button type="button" onClick={checkout} disabled={busy} className="w-full rounded-lg bg-[#234e40] hover:bg-[#193c30] disabled:opacity-60 text-white text-sm font-semibold px-6 py-3 flex items-center justify-center gap-2 transition-colors">
+      <button type="button" onClick={checkout} disabled={busy} className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-6 py-3 flex items-center justify-center gap-2 transition-colors">
         {busy ? <><RefreshCw className="w-4 h-4 animate-spin" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
@@ -333,15 +326,15 @@ export function AuthFlow({ mode }: { mode: Mode }) {
     : 'Welcome back. Pick up where your agent left off.';
 
   return (
-    <main className="min-h-screen bg-[#f5f3ee] p-3 sm:p-8 flex items-center justify-center font-sans">
-      <div className="w-full max-w-6xl min-h-[640px] rounded-2xl border border-[#e2e3da] bg-white shadow-[0_16px_60px_rgba(35,50,38,0.06)] overflow-hidden grid lg:grid-cols-[1.05fr_1fr]">
+    <main className="min-h-screen bg-[#a9bffc] p-3 sm:p-8 flex items-center justify-center font-sans">
+      <div className="w-full max-w-6xl min-h-[640px] rounded-[28px] bg-white shadow-2xl overflow-hidden grid lg:grid-cols-[1.05fr_1fr]">
         <section className="p-6 sm:p-12 flex flex-col">
           <div className="flex items-center justify-between">
             <Link href="/" aria-label="Back to home" className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50"><ArrowLeft className="w-4 h-4" /></Link>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <BrandLogoIcon size={20} className="w-5 h-5 rounded-md" />
               <span>{signUp ? 'Already member?' : 'New here?'}</span>
-              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-[#234e40] rounded-md bg-[#edf0e8] px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
+              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
             </div>
           </div>
 
@@ -359,7 +352,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                 <div className="space-y-3">
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>
                   <div className="flex gap-3">
-                    <button onClick={retry} className="rounded-lg bg-[#234e40] text-white text-xs font-semibold px-5 py-2.5">Try again</button>
+                    <button onClick={retry} className="rounded-full bg-indigo-600 text-white text-xs font-semibold px-5 py-2.5">Try again</button>
                     <Link href="/dashboard" className="rounded-full border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with the free plan</Link>
                   </div>
                 </div>
