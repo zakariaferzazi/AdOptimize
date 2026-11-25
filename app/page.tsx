@@ -1,28 +1,49 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/landing-page';
 
+export const dynamic = 'force-dynamic';
+
+const title = 'AdOptimize | AI Marketing Agent for Google Ads';
+const description = 'An AI agent that investigates your Google Ads account, builds campaigns, and executes budget, bidding and keyword changes after you approve them. Pro from $29/month.';
+
 export const metadata: Metadata = {
-  title: 'AdOptimize | AI Agent for Google Ads',
-  description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
-  alternates: {
-    canonical: '/',
-  },
+  title,
+  description,
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'AdOptimize | AI Agent for Google Ads',
-    description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
+    title,
+    description,
     url: '/',
     siteName: 'AdOptimize',
     type: 'website',
-    images: [{ url: '/auth_panel.png', alt: 'AdOptimize AI marketing workspace' }],
+    images: [{ url: '/auth_panel.png', alt: 'AdOptimize AI Marketing Agent workspace' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AdOptimize | AI Agent for Google Ads',
-    description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
+    title,
+    description,
     images: ['/auth_panel.png'],
   },
 };
 
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'AdOptimize',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description,
+  offers: [
+    { '@type': 'Offer', name: 'Pro Monthly', price: '29', priceCurrency: 'USD', description: 'Billed monthly' },
+    { '@type': 'Offer', name: 'Pro Yearly', price: '99', priceCurrency: 'USD', description: 'Billed yearly' },
+  ],
+};
+
 export default function AdOptimizeRootPage() {
-  return <LandingPage />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      <LandingPage />
+    </>
+  );
 }

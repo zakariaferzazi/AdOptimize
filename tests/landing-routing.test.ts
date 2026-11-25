@@ -8,17 +8,28 @@ vi.mock('@/components/billing/plan-cta', () => ({
 }));
 afterEach(() => vi.unstubAllGlobals());
 
-describe('homepage auth routing', () => {
-  it('offers the workspace and demo separately from the two Pro billing intervals', () => {
+describe('homepage', () => {
+  it('sells Pro through exactly the monthly and yearly checkout CTAs, with no free plan', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
-    expect(html).toMatch(/href="\/sign-in"[^>]*>Sign in<\/a>/);
-    expect(html.match(/href="\/sign-up"/g)?.length).toBeGreaterThanOrEqual(3);
-    expect(html).toContain('href="/dashboard?demo=true"');
-    expect(html.match(/href="\/dashboard\?demo=true"/g)).toHaveLength(1);
-    expect(html).toContain('data-interval="monthly"');
-    expect(html).toContain('data-interval="yearly"');
-    expect(html).not.toContain('PRO FREE');
-    expect(html).toContain('approve every change');
+    expect(html.match(/data-interval="monthly"/g)).toHaveLength(1);
+    expect(html.match(/data-interval="yearly"/g)).toHaveLength(1);
+    expect(html).toContain('$29');
+    expect(html).toContain('$99');
+    expect(html).not.toMatch(/free plan/i);
+  });
+
+  it('routes sign-in and account creation to the auth pages and renders one page heading', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(LandingPage));
+    expect(html).toMatch(/href="\/sign-in"/);
+    expect(html).toMatch(/href="\/sign-up"/);
+    expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+  });
+
+  it('does not claim unverified ratings or testimonials', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(LandingPage));
+    expect(html).not.toMatch(/aggregateRating|ratingValue|testimonial/i);
   });
 });
