@@ -13,12 +13,12 @@ export function FinalCta() {
           Connect your account, see what the agent finds, and approve only the changes you want.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href="#pricing" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-indigo-900 transition-colors hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-            Get Pro from $29/month <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </a>
-          <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full border border-indigo-300 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-            Create your account
+          <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-indigo-900 transition-colors hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            Get Started <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
+          <a href="#pricing" className="inline-flex items-center gap-2 rounded-full border border-indigo-300 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            See Pro pricing
+          </a>
         </div>
       </div>
     </section>

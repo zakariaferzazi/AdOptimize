@@ -27,9 +27,9 @@ export function LandingHeader() {
 
         <div className="flex items-center gap-2 sm:gap-4">
           <Link href="/sign-in" className="hidden text-sm font-semibold text-slate-700 hover:text-slate-950 sm:inline">Sign in</Link>
-          <a href="#pricing" className={`${landing.btnPrimary} !px-4 !py-2.5 !text-[13px]`}>
-            Get Pro <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
+          <Link href="/sign-up" className={`${landing.btnPrimary} !px-4 !py-2.5 !text-[13px]`}>
+            Get Started <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
           <details className="group relative md:hidden">
             <summary className="flex cursor-pointer list-none items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 marker:content-none">Menu</summary>
             <nav aria-label="Mobile navigation" className="absolute right-0 mt-3 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
