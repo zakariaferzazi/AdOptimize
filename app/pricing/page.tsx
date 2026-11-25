@@ -4,11 +4,11 @@ import { SiteFooter, SiteHeader } from '@/components/landing/site-chrome';
 
 export const metadata: Metadata = {
   title: 'Pricing | AdOptimize',
-  description: 'Start with free Google Ads campaign viewing or unlock Pro for $29 per month or $99 per year.',
+  description: 'Get the AI Marketing Agent and Google Ads optimization tools with Pro, from $29 per month or $99 per year.',
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing | AdOptimize',
-    description: 'Start with free Google Ads campaign viewing or unlock Pro for $29 per month or $99 per year.',
+    description: 'Get the AI Marketing Agent and Google Ads optimization tools with Pro, from $29 per month or $99 per year.',
     url: '/pricing',
     images: ['/auth_panel.png'],
   },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return <div className="site-page"><SiteHeader /><main className="site-container py-20">
-    <div className="text-center"><span className="site-label">SIMPLE PRICING</span><h1 className="site-heading">Start free. Grow with Pro.</h1><p className="site-intro">Choose the tools that fit the way you work.</p></div>
+    <div className="text-center"><span className="site-label">ONE POWERFUL WORKSPACE</span><h1 className="site-heading">Choose how you pay for Pro.</h1><p className="site-intro">Same agent. Same powerful tools. Pick the billing interval that works for you.</p></div>
     <PricingCards />
   </main><SiteFooter /></div>;
 }

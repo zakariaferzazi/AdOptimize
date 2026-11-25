@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/landing-page';
 
 export const metadata: Metadata = {
-  title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-  description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
+  title: 'AdOptimize | AI Agent for Google Ads',
+  description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-    description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
+    title: 'AdOptimize | AI Agent for Google Ads',
+    description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
     url: '/',
     siteName: 'AdOptimize',
     type: 'website',
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-    description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
+    title: 'AdOptimize | AI Agent for Google Ads',
+    description: 'Investigate Google Ads performance, build campaigns, and execute approved optimizations with your AI Marketing Agent.',
     images: ['/auth_panel.png'],
   },
 };

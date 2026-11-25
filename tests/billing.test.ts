@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPlatformProxy } from 'wrangler';
 import { NextRequest, NextResponse } from 'next/server';
@@ -44,6 +45,7 @@ vi.mock('@/app/chat/chat-client', () => ({ ChatClientView: () => null }));
 vi.mock('@/app/audit/audit-client', () => ({ AuditClientView: () => null }));
 vi.mock('@/app/reports/reports-client', () => ({ ReportsClientView: () => null }));
 vi.mock('@/app/optimizer/optimizer-client', () => ({ OptimizerClientView: () => null }));
+vi.mock('@/components/billing/pro-preview', () => ({ ProPreview: () => null }));
 
 import { createPolar } from '@polar-sh/sdk/2026-10';
 import { POST as webhook } from '@/app/api/billing/webhook/route';
@@ -62,6 +64,11 @@ import ChatPage from '@/app/chat/page';
 import AuditPage from '@/app/audit/page';
 import ReportsPage from '@/app/reports/page';
 import OptimizerPage from '@/app/optimizer/page';
+import { ProPreview } from '@/components/billing/pro-preview';
+import { ChatClientView } from '@/app/chat/chat-client';
+import { AuditClientView } from '@/app/audit/audit-client';
+import { ReportsClientView } from '@/app/reports/reports-client';
+import { OptimizerClientView } from '@/app/optimizer/optimizer-client';
 import { requirePageSession, requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
 
@@ -154,7 +161,7 @@ beforeEach(async () => {
   }));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
-afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 afterAll(async () => { await dispose?.(); });
 
 describe('verified Polar webhook lifecycle on real D1', () => {
@@ -461,9 +468,16 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     expect((await paid(request('/api/protected'))).status).toBe(200);
   });
 
-  it('guards all premium server pages and stores only an expiring session hash', async () => {
-    for (const [path, page] of [['/chat', ChatPage], ['/audit', AuditPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
-      await expect(page()).rejects.toThrow(`redirect:/sign-up?next=${encodeURIComponent(path)}`);
+  it('shows previews only to signed-in unpaid users and live pages only to Pro users', async () => {
+    vi.stubGlobal('React', React);
+    const pages = [
+      ['/chat', ChatPage, 'agent', ChatClientView],
+      ['/audit', AuditPage, 'audit', AuditClientView],
+      ['/reports', ReportsPage, 'reports', ReportsClientView],
+      ['/optimizer', OptimizerPage, 'optimizer', OptimizerClientView],
+    ] as const;
+    for (const [path, page] of pages) {
+      await expect(page()).rejects.toThrow(`redirect:/sign-in?next=${encodeURIComponent(path)}`);
     }
     const response = await createSession(request('/api/auth/session', {}));
     expect(response.status).toBe(200);
@@ -477,8 +491,14 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     expect(stored?.token_hash).toBe(hash(mocks.cookie));
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
     await expect(requirePageSession('/campaigns')).resolves.toBeUndefined();
+    for (const [, page, feature] of pages) {
+      expect(await page()).toMatchObject({ type: ProPreview, props: { feature } });
+    }
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     await deliver();
+    for (const [, page, , liveView] of pages) {
+      expect(await page()).toMatchObject({ type: liveView });
+    }
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },

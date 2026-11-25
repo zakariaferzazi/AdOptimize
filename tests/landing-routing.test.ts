@@ -1,24 +1,24 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '@/components/landing/landing-page';
 
-vi.mock('@/components/landing/model-demo-simulator', () => ({
-  ModelDemoSimulator: () => null,
-}));
 vi.mock('@/components/billing/plan-cta', () => ({
-  PlanCta: () => null,
+  PlanCta: ({ interval, label }: { interval: string; label: string }) => React.createElement('button', { 'data-interval': interval }, label),
 }));
+afterEach(() => vi.unstubAllGlobals());
 
 describe('homepage auth routing', () => {
-  it('links login and Google signup to auth pages, with a separate explicit demo link', () => {
-    const html = renderToStaticMarkup(React.createElement(LandingPage, {
-      onOpenApp: vi.fn(),
-      onConnectGoogleAds: vi.fn(),
-    }));
-    expect(html).toMatch(/href="\/sign-in"[^>]*>Log In<\/a>/);
+  it('offers the workspace and demo separately from the two Pro billing intervals', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(LandingPage));
+    expect(html).toMatch(/href="\/sign-in"[^>]*>Sign in<\/a>/);
     expect(html.match(/href="\/sign-up"/g)?.length).toBeGreaterThanOrEqual(3);
-    expect(html).toMatch(/href="\/dashboard\?demo=true"[^>]*><span>View Demo<\/span><\/a>/);
+    expect(html).toContain('href="/dashboard?demo=true"');
     expect(html.match(/href="\/dashboard\?demo=true"/g)).toHaveLength(1);
+    expect(html).toContain('data-interval="monthly"');
+    expect(html).toContain('data-interval="yearly"');
+    expect(html).not.toContain('PRO FREE');
+    expect(html).toContain('approve every change');
   });
 });

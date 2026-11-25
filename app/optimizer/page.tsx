@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { OptimizerClientView } from './optimizer-client';
-import { requirePageSubscription } from '@/lib/billing/access';
+import { hasPageSubscription } from '@/lib/billing/access';
+import { ProPreview } from '@/components/billing/pro-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,6 @@ export const metadata: Metadata = {
 };
 
 export default async function OptimizerPage() {
-  await requirePageSubscription('/optimizer');
+  if (!await hasPageSubscription('/optimizer')) return <ProPreview feature="optimizer" />;
   return <OptimizerClientView />;
 }

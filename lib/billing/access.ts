@@ -34,6 +34,12 @@ export async function requirePageSession(path: string): Promise<void> {
   if (!await pageSession()) redirect(`/sign-in?next=${encodeURIComponent(path)}`);
 }
 
+export async function hasPageSubscription(path: string): Promise<boolean> {
+  const userId = await pageSession();
+  if (!userId) redirect(`/sign-in?next=${encodeURIComponent(path)}`);
+  return hasPaidAccess(await subscription(userId));
+}
+
 export async function requirePageSubscription(path: string): Promise<void> {
   // The sign-up flow resumes at the right step: account for guests, plan for signed-in unpaid users.
   const userId = await pageSession();

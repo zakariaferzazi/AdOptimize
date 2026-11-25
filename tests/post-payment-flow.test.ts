@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   sync: vi.fn(),
   setState: vi.fn(),
   nullCalls: 0,
+  search: '',
+  replace: vi.fn(),
 }));
 vi.mock('react', async (importOriginal) => ({
   ...await importOriginal<typeof import('react')>(),
@@ -22,8 +24,8 @@ vi.mock('react', async (importOriginal) => ({
   useEffect: (effect: () => (() => void) | undefined) => { mocks.effects.push(effect); },
 }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: mocks.replace }),
+  useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 vi.mock('@/hooks/use-auth-user', () => ({ useAuthUser: () => ({ user: { uid: 'user-a' }, ready: true }) }));
 vi.mock('@/lib/firebase', () => ({ auth: {}, signInWithEmail: vi.fn(), signInWithGoogle: vi.fn(), signUpWithEmail: vi.fn() }));
@@ -44,6 +46,8 @@ beforeEach(() => {
   };
   mocks.effects = [];
   mocks.nullCalls = 0;
+  mocks.search = 'plan=monthly';
+  mocks.replace.mockReset();
   mocks.fetch.mockReset().mockImplementation(async () => mocks.status);
   mocks.sync.mockReset().mockResolvedValue(undefined);
   mocks.setState.mockReset();
@@ -71,8 +75,17 @@ describe('paid signup connection step', () => {
     const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
     expect(html).not.toContain('Post-payment Google Ads connection');
     expect(html).toContain('Choose your plan');
-    expect(html).toContain('Continue with the free plan');
+    expect(html).toContain('Explore the workspace first');
     expect(html).not.toContain('Your data, your rules');
+  });
+
+  it('opens the dashboard after synchronizing an account created without a selected plan', async () => {
+    mocks.search = '';
+    renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
+    mocks.effects.forEach(effect => effect());
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/dashboard'));
+    expect(mocks.sync).toHaveBeenCalledOnce();
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it('waits for stored entitlement and secure-session synchronization after checkout', async () => {
