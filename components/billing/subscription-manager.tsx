@@ -61,7 +61,7 @@ export function SubscriptionManager() {
 
   const label = status?.hasAccess
     ? `Pro ${status.interval === 'yearly' ? 'yearly' : 'monthly'}`
-    : 'Free';
+    : 'Limited dashboard access';
   const canceled = status?.status === 'canceled' || (status?.status === 'active' && status.cancelAtPeriodEnd);
   const statusLabel = canceled
     ? status?.hasAccess ? 'Canceled (access until period end)' : 'Canceled'

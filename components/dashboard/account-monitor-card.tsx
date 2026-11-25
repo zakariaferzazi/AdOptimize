@@ -41,12 +41,12 @@ export function AccountMonitorCard({
             alt="AdOptimize Logo"
             width={24}
             height={24}
-            className="w-6 h-6 rounded-lg object-contain shadow-xs shadow-[#00d67d]/20"
+            className="w-6 h-6 rounded-lg object-contain shadow-xs shadow-[#6D28D9]/20"
             referrerPolicy="no-referrer"
           />
           <div className="text-sm font-bold tracking-tight flex items-center">
             <span className="text-white">Ad</span>
-            <span className="text-[#00d67d]">Optimize</span>
+            <span className="text-[#6D28D9]">Optimize</span>
           </div>
         </div>
 
@@ -65,8 +65,8 @@ export function AccountMonitorCard({
             Active Workspace
           </span>
           {isConnected && (
-            <span className="text-[10px] text-[#00d67d] bg-[#00d67d]/10 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-[#00d67d]/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00d67d] animate-pulse" />
+            <span className="text-[10px] text-[#6D28D9] bg-[#6D28D9]/10 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-[#6D28D9]/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6D28D9] animate-pulse" />
               <span>Live Monitored</span>
             </span>
           )}
@@ -79,7 +79,7 @@ export function AccountMonitorCard({
           {isConnected ? (
             <>
               <span>•</span>
-              <span className="text-slate-300 font-medium">Automatic Optimization Active</span>
+              <span className="text-slate-300 font-medium">Google Ads Connection Active</span>
             </>
           ) : (
             <button
@@ -98,7 +98,7 @@ export function AccountMonitorCard({
           <div className="text-[11px] text-slate-400 font-medium">
             30-Day Tracked Ad Spend
           </div>
-          <div className="text-lg font-bold font-mono text-[#00d67d] mt-0.5">
+          <div className="text-lg font-bold font-mono text-[#6D28D9] mt-0.5">
             {getCurrencySymbol(account.currency)}{totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
@@ -108,7 +108,7 @@ export function AccountMonitorCard({
             onClick={onOpenOptimizer}
             className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <Sliders className="w-3 h-3 text-[#00d67d]" />
+            <Sliders className="w-3 h-3 text-[#6D28D9]" />
             <span>Optimizer</span>
           </button>
         </div>

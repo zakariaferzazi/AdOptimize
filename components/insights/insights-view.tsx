@@ -52,7 +52,7 @@ export function InsightsView({
       {/* Top Banner / Explanation */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Performance Diagnostics &amp; Analysis</span>
           </div>
@@ -74,7 +74,7 @@ export function InsightsView({
                 onClick={() => setCategoryFilter(c.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                   categoryFilter === c.id
-                    ? 'bg-[#00d67d] text-slate-950 shadow-xs'
+                    ? 'bg-[#6D28D9] text-white shadow-xs'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
@@ -153,7 +153,7 @@ export function InsightsView({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="text-xs font-mono font-bold px-2.5 py-1 bg-slate-950 text-[#00d67d] rounded-xl flex items-center gap-1.5 shadow-2xs">
+                    <div className="text-xs font-mono font-bold px-2.5 py-1 bg-[#2E1065] text-[#FBBF24] rounded-xl flex items-center gap-1.5 shadow-2xs">
                       <span>{item.confidence}% Confidence</span>
                     </div>
 
@@ -239,7 +239,7 @@ export function InsightsView({
                 {/* Recommended Action & Impact */}
                 <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4">
                   <div className="max-w-xl">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-[#00d67d]">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-[#6D28D9]">
                       Recommended Action
                     </div>
                     <div className="text-xs font-semibold text-white mt-1">
@@ -255,7 +255,7 @@ export function InsightsView({
                     {item.status !== 'APPLIED' && (
                       <button
                         onClick={() => onApplyInsight(item)}
-                        className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 rounded-xl text-xs font-bold transition-all shadow-md shadow-[#00d67d]/20 flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#6D28D9]/20 flex items-center gap-1.5 cursor-pointer"
                       >
                         <Zap className="w-3.5 h-3.5 fill-slate-950" />
                         <span>One-Click Apply</span>
@@ -281,7 +281,7 @@ export function InsightsView({
                     )}
 
                     {item.status === 'APPLIED' && (
-                      <div className="flex items-center gap-1.5 text-xs text-[#00d67d] font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                      <div className="flex items-center gap-1.5 text-xs text-[#6D28D9] font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
                         <Check className="w-4 h-4" />
                         <span>Applied to Account</span>
                       </div>

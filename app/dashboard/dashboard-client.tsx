@@ -292,7 +292,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
         {!isAccountConnected && (
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-5 sm:p-7 text-white shadow-lg border border-slate-700/60 relative overflow-hidden animate-in fade-in duration-200">
             <div className="relative z-10 max-w-3xl space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-bold">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-bold">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Production Environment</span>
               </div>
@@ -300,13 +300,13 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
                 Connect your active Google Ads account to start monitoring
               </h2>
               <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-                Link your Google Ads account to begin live negative keyword mining, automated CPA anomaly alerts, and continuous ROAS budget optimizations.
+                Link your Google Ads account to review live performance, investigate campaign issues, and prepare supported optimization proposals.
               </p>
               <div className="pt-2 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowConnectModal(true)}
-                  className="px-4 sm:px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-4 sm:px-5 py-2.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <span>Connect Google Ads (1-Click)</span>
                   <ArrowRight className="w-4 h-4" />

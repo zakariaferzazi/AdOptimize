@@ -102,7 +102,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
     <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center font-bold text-xs">
+          <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center font-bold text-xs">
             <Layers className="w-4 h-4" />
           </div>
           <h3 className="text-base font-bold text-slate-900">
@@ -134,7 +134,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
             placeholder="e.g. Search - Brand Core High Intent"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
           />
         </div>
 
@@ -146,7 +146,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
             <select
               value={type}
               onChange={(e) => setType(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
             >
               <option value="SEARCH">Search Ads</option>
               <option value="PERFORMANCE_MAX">Performance Max</option>
@@ -162,7 +162,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
             >
               <option value="ENABLED">Active (Enabled)</option>
               <option value="PAUSED">Paused</option>
@@ -182,7 +182,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
               required
               value={budgetDaily}
               onChange={(e) => setBudgetDaily(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
             />
           </div>
 
@@ -196,7 +196,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
               step="10"
               value={spend}
               onChange={(e) => setSpend(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
             />
           </div>
 
@@ -209,7 +209,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
               min="0"
               value={conversions}
               onChange={(e) => setConversions(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
             />
           </div>
         </div>
@@ -221,7 +221,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
           <select
             value={primaryGoal}
             onChange={(e) => setPrimaryGoal(e.target.value as any)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
           >
             <option value="TARGET_CPA">Target CPA (Cost Per Acquisition)</option>
             <option value="TARGET_ROAS">Target ROAS (Return On Ad Spend)</option>
@@ -242,7 +242,7 @@ function CampaignEditModalForm({ onClose, campaign, onSave, accountId }: FormInn
             disabled={isSubmitting}
             className="px-5 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
           >
-            <Check className="w-3.5 h-3.5 text-[#00d67d]" />
+            <Check className="w-3.5 h-3.5 text-[#6D28D9]" />
             <span>{isSubmitting ? 'Saving...' : campaign ? 'Save Changes' : 'Add Campaign'}</span>
           </button>
         </div>

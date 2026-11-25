@@ -79,7 +79,7 @@ export function SettingsView({
       {/* Top Banner */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
             <Settings className="w-3.5 h-3.5" />
             <span>Workspace Configuration</span>
           </div>
@@ -87,7 +87,7 @@ export function SettingsView({
             Settings & Account Controls
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Manage your Google Ads account connection, optimization thresholds, automated safeguards, and subscription plan.
+            Manage your Google Ads connection, workspace preferences, privacy controls, and subscription plan.
           </p>
         </div>
 
@@ -105,7 +105,7 @@ export function SettingsView({
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-[#00d67d] text-slate-950 shadow-xs'
+                  ? 'bg-[#6D28D9] text-white shadow-xs'
                   : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
             >
@@ -164,7 +164,7 @@ export function SettingsView({
                 <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/70 text-xs">
                   <span className="font-semibold text-slate-700">Account Currency:</span>
                   <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-800 font-bold font-mono">
-                    <span className="text-[#00c06f] font-extrabold">{getCurrencySymbol(account.currency)}</span>
+                    <span className="text-[#5B21B6] font-extrabold">{getCurrencySymbol(account.currency)}</span>
                     <span>{account.currency || 'USD'}</span>
                   </div>
                   {onUpdateCurrency && (
@@ -266,7 +266,7 @@ export function SettingsView({
                 max="99"
                 value={minConfidence}
                 onChange={(e) => setMinConfidence(parseInt(e.target.value))}
-                className="w-full accent-[#00d67d]"
+                className="w-full accent-[#6D28D9]"
               />
               <div className="text-[11px] text-slate-500 mt-1">
                 Recommendations with confidence lower than {minConfidence}% will require manual review before suggestion.
@@ -282,7 +282,7 @@ export function SettingsView({
           <div className="pb-4 border-b border-slate-100">
             <h3 className="text-base font-bold text-slate-900">Incident Alerts & Webhooks</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Get notified immediately when severe CPA spikes, ROAS drops, or budget exhausts occur.
+              Review available notification preferences for account findings and product activity.
             </p>
           </div>
 
@@ -298,7 +298,7 @@ export function SettingsView({
                 type="checkbox"
                 checked={emailAlerts}
                 onChange={(e) => setEmailAlerts(e.target.checked)}
-                className="w-4 h-4 accent-[#00d67d]"
+                className="w-4 h-4 accent-[#6D28D9]"
               />
             </div>
 
@@ -365,7 +365,7 @@ export function SettingsView({
                 <span>Google User Data Retention Schedule</span>
               </div>
               <p className="text-slate-600 text-[11px] leading-relaxed">
-                Google user data (Customer IDs, campaign metrics, keywords, and OAuth tokens) is retained only while your account is actively connected. Inactive or disconnected accounts have their data permanently purged within <strong>30 days</strong>. OAuth access tokens expire automatically every 60 minutes.
+                Google Ads data and connection credentials are retained as needed to provide the connected workspace and meet applicable obligations. Disconnect or request deletion in Settings; some provider or backup records may persist for a limited period. OAuth access tokens can expire and be refreshed while the connection remains active.
               </p>
 
               <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -402,7 +402,7 @@ export function SettingsView({
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
               <div className="font-bold text-slate-900">Compliance &amp; Limited Use</div>
               <div className="text-slate-600 mt-0.5 text-[11px] leading-relaxed">
-                AdOptimize adheres to the Google API Services User Data Policy, including the Limited Use requirements. Your advertising data is never sold, never disclosed to competitors, and never used to train public AI models.
+                Review our Privacy Policy for Google Ads permissions, AI processing providers, and data controls. Provider and Google policy obligations should be reviewed before launch and whenever integrations change.
               </div>
             </div>
           </div>

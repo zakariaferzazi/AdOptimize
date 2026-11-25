@@ -47,8 +47,8 @@ export function PricingSection() {
       </div>
 
       <p className="mx-auto mt-5 max-w-4xl text-center text-sm text-[#6B7280]">
-        14-day refund.{' '}
-        <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">See the refund policy.</Link>
+        All sales are final. Cancel to stop the next renewal.{' '}
+        <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">See the billing and cancellation policy.</Link>
       </p>
 
       <div className="mx-auto mt-10 grid max-w-4xl gap-8 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-8 sm:p-10 md:grid-cols-2">
@@ -68,7 +68,7 @@ export function PricingSection() {
             Free account: explore your dashboard and campaign data.
           </p>
           <p className="mt-6 text-sm leading-6 text-[#1F2937]">
-            Using the agent, audits, reports, the Budget Optimizer and campaign changes requires Pro. Prices are in USD; applicable taxes are calculated at checkout.
+            Pro unlocks AI-powered analysis, campaign creation and management, budgets, optimization, reports, and supported Google Ads changes. Prices are in USD; applicable taxes are calculated at checkout.
           </p>
         </div>
       </div>

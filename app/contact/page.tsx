@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900">
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -19,7 +19,7 @@ export default function ContactPage() {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Launch App
           </Link>
@@ -28,32 +28,32 @@ export default function ContactPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-16 space-y-8">
         <div className="space-y-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9]">
             Get In Touch
           </span>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
             Contact AdOptimize Team
           </h1>
           <p className="text-sm text-slate-600 leading-relaxed">
-            Have questions about Google Ads OAuth setup, custom agency automation rules, or enterprise billing? We are here to help.
+            Questions about Google Ads authorization, Pro billing, AI proposals, or account data? Contact AdOptimize support.
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-              <Mail className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+              <Mail className="w-5 h-5 text-[#6D28D9] shrink-0 mt-0.5" />
               <div>
                 <div className="font-bold text-slate-900 text-xs">Email Support</div>
                 <div className="text-xs text-slate-600 mt-0.5">support@adoptimize.app</div>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-              <MessageSquare className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+              <MessageSquare className="w-5 h-5 text-[#6D28D9] shrink-0 mt-0.5" />
               <div>
-                <div className="font-bold text-slate-900 text-xs">Live Marketing Copilot</div>
-                <div className="text-xs text-slate-600 mt-0.5">Available 24/7 inside the app</div>
+                <div className="font-bold text-slate-900 text-xs">In-App Agent</div>
+                <div className="text-xs text-slate-600 mt-0.5">Available to Pro users in the workspace</div>
               </div>
             </div>
           </div>
@@ -64,7 +64,7 @@ export default function ContactPage() {
               <input
                 type="text"
                 placeholder="Jay Rathod"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
               />
             </div>
 
@@ -73,7 +73,7 @@ export default function ContactPage() {
               <input
                 type="email"
                 placeholder="jay@company.com"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
               />
             </div>
 
@@ -81,8 +81,8 @@ export default function ContactPage() {
               <label className="block font-bold text-slate-700 mb-1">Message</label>
               <textarea
                 rows={4}
-                placeholder="Tell us about your Google Ads spend and optimization goals..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                placeholder="Tell us about your account, billing, or privacy question..."
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
               />
             </div>
 

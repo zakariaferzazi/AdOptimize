@@ -171,7 +171,7 @@ export function CampaignsTable({
               placeholder="Filter campaigns..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d] focus:bg-white w-40 sm:w-48 transition-all"
+              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6D28D9] focus:bg-white w-40 sm:w-48 transition-all"
             />
           </div>
 

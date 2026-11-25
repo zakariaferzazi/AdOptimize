@@ -124,7 +124,7 @@ export function KpiCustomizerModal({
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-xs">
-              <Sliders className="w-4 h-4 text-[#00d67d]" />
+              <Sliders className="w-4 h-4 text-[#6D28D9]" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 tracking-tight">Customize KPI Cards</h3>
@@ -254,7 +254,7 @@ export function KpiCustomizerModal({
               onClick={handleApply}
               className="px-5 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <Check className="w-3.5 h-3.5 text-[#00d67d]" />
+              <Check className="w-3.5 h-3.5 text-[#6D28D9]" />
               <span>Save &amp; Apply</span>
             </button>
           </div>

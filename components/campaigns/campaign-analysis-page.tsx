@@ -277,7 +277,7 @@ export function CampaignAnalysisPage({
                   isCritical
                     ? 'bg-rose-500 ring-4 ring-rose-100'
                     : isHealthy
-                    ? 'bg-[#00d67d] ring-4 ring-emerald-100'
+                    ? 'bg-[#6D28D9] ring-4 ring-emerald-100'
                     : 'bg-amber-500 ring-4 ring-amber-100'
                 }`}
               />
@@ -364,7 +364,7 @@ export function CampaignAnalysisPage({
         {/* AI Health Score & Strategy Callout */}
         <div className="p-4 bg-slate-950 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center font-mono font-black text-xl text-[#00d67d]">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center font-mono font-black text-xl text-[#6D28D9]">
               {campaign.healthScore || 85}
             </div>
             <div>
@@ -518,7 +518,7 @@ export function CampaignAnalysisPage({
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
             <span>ROAS Multiplier</span>
-            <Zap className="w-4 h-4 text-[#00d67d]" />
+            <Zap className="w-4 h-4 text-[#6D28D9]" />
           </div>
           <div className="text-xl font-black text-emerald-600 font-mono">
             {displayRoas.toFixed(2)}x
@@ -533,7 +533,7 @@ export function CampaignAnalysisPage({
       <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent p-6 rounded-3xl border border-emerald-200/80 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-slate-950 text-[#00d67d] flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-2xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center shadow-xs">
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
@@ -546,7 +546,7 @@ export function CampaignAnalysisPage({
             </div>
           </div>
 
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#00d67d] text-slate-950 shadow-2xs">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#6D28D9] text-white shadow-2xs">
             {campaignInsights.length} Available Action{campaignInsights.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -569,7 +569,7 @@ export function CampaignAnalysisPage({
                   Block Non-Converting Search Terms
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Automatically add irrelevant queries (e.g., &quot;free crack download&quot;) to your negative list to prevent wasting daily budget.
+                  Prepare irrelevant queries (e.g., &quot;free crack download&quot;) as negative-keyword changes for your review and approval.
                 </p>
                 <button
                   onClick={() => {
@@ -581,7 +581,7 @@ export function CampaignAnalysisPage({
                   }}
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <MinusCircle className="w-3.5 h-3.5 text-[#00d67d]" />
+                  <MinusCircle className="w-3.5 h-3.5 text-[#6D28D9]" />
                   <span>Review &amp; Add Negative Keywords</span>
                 </button>
               </div>
@@ -608,7 +608,7 @@ export function CampaignAnalysisPage({
                   }}
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <Sliders className="w-3.5 h-3.5 text-[#00d67d]" />
+                  <Sliders className="w-3.5 h-3.5 text-[#6D28D9]" />
                   <span>Optimize Keyword Bids &amp; Match Types</span>
                 </button>
               </div>
@@ -623,7 +623,7 @@ export function CampaignAnalysisPage({
                   <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
                     {String(ins.category || 'OPTIMIZATION').replace(/_/g, ' ')}
                   </span>
-                  <span className="text-xs font-mono font-bold text-[#00d67d] bg-slate-950 px-2.5 py-0.5 rounded-lg">
+                  <span className="text-xs font-mono font-bold text-[#FBBF24] bg-[#2E1065] px-2.5 py-0.5 rounded-lg">
                     {ins.confidence}% Confidence
                   </span>
                 </div>
@@ -643,7 +643,7 @@ export function CampaignAnalysisPage({
                     onClick={() => onApplyInsight(ins)}
                     className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
-                    <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                    <Zap className="w-3.5 h-3.5 text-[#6D28D9]" />
                     <span>Apply Recommendation</span>
                   </button>
                 )}
@@ -669,7 +669,7 @@ export function CampaignAnalysisPage({
               onClick={() => setActiveTab(tab.id)}
               className={`py-4 px-3 text-xs font-bold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                 activeTab === tab.id
-                  ? 'border-[#00d67d] text-slate-900'
+                  ? 'border-[#6D28D9] text-slate-900'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -1086,7 +1086,7 @@ export function CampaignAnalysisPage({
                       <span className="text-xs font-bold text-slate-900">
                         {String(ins.category || 'OPTIMIZATION').replace(/_/g, ' ')}
                       </span>
-                      <span className="text-xs font-mono font-bold text-[#00d67d] bg-slate-950 px-2.5 py-0.5 rounded-lg">
+                      <span className="text-xs font-mono font-bold text-[#FBBF24] bg-[#2E1065] px-2.5 py-0.5 rounded-lg">
                         {ins.confidence}% Confidence
                       </span>
                     </div>
@@ -1106,7 +1106,7 @@ export function CampaignAnalysisPage({
                         onClick={() => onApplyInsight(ins)}
                         className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                       >
-                        <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                        <Zap className="w-3.5 h-3.5 text-[#6D28D9]" />
                         <span>Apply Recommendation</span>
                       </button>
                     )}

@@ -151,7 +151,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-stretch bg-[#f6f8fa] text-slate-900 selection:bg-[#00d67d]/20 selection:text-slate-900 font-sans overflow-x-hidden">
+    <div className="min-h-screen flex items-stretch bg-[#F5F3FF] text-[#1F2937] selection:bg-[#DDD6FE] selection:text-[#2E1065] font-sans overflow-x-hidden">
       {/* 1. Sidebar Navigation (Desktop collapsible + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}
@@ -216,7 +216,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-950 text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-2.5 animate-in slide-in-from-bottom-5 duration-200">
-          <div className="w-2 h-2 rounded-full bg-[#00d67d] animate-ping" />
+          <div className="w-2 h-2 rounded-full bg-[#6D28D9] animate-ping" />
           <span>{toastMessage}</span>
         </div>
       )}

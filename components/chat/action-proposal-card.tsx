@@ -157,7 +157,7 @@ export function ActionProposalCard({
           <button
             onClick={() => onApprove(proposal, messageId)}
             disabled={isExecuting}
-            className="px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-2xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2.5 bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-50 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
           >
             {isExecuting ? (
               <AppLoader className="h-3.5 w-3.5" />

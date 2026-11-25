@@ -5,13 +5,13 @@ import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
   title: 'About Us - AdOptimize | Mission & Background',
-  description: 'Learn about the team and philosophy behind AdOptimize, the AI Marketing Manager built to eliminate wasted ad spend.',
+  description: 'Learn what AdOptimize does and how its AI marketing agent helps users analyze, create, and manage Google Ads campaigns.',
 };
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900">
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -19,7 +19,7 @@ export default function AboutPage() {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Launch App
           </Link>
@@ -28,31 +28,32 @@ export default function AboutPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-16 space-y-8">
         <div className="space-y-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9]">
             Our Mission
           </span>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Democratizing Enterprise-Grade Google Ads Optimization
+            A practical AI agent for Google Ads work
           </h1>
           <p className="text-sm text-slate-600 leading-relaxed">
-            Every year, billions of dollars are wasted on Google Ads through irrelevant search queries, neglected display placements, and misallocated campaign budgets.
+            AdOptimize connects Google Ads account data with an AI marketing agent so users can investigate performance, prepare campaigns, and manage approved changes in one workspace.
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
+        <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
           <h2 className="text-base font-bold text-slate-900">Why We Built AdOptimize</h2>
           <p>
-            Most small businesses, business owners, and growing ecommerce brands cannot afford dedicated $10,000/month performance marketing agencies. Meanwhile, generic dashboards simply present raw numbers without actionable guidance.
+            Google Ads accounts generate detailed performance and configuration data, but finding the cause of a change and turning that finding into a reviewed action can require switching between reports and campaign settings.
           </p>
           <p>
-            AdOptimize bridges this gap: continuously monitoring your campaigns, surfacing exact root causes with concrete data evidence, and proposing mathematically grounded capital reallocations that save real budget every single week.
+            AdOptimize is designed for in-house marketers, freelancers, and agencies who want help understanding campaign, keyword, search-term, conversion, and bidding data—and, with approval, applying supported account changes. AdOptimize offers limited dashboard access plus Pro Monthly and Pro Yearly subscriptions for its advanced agent and management features.
           </p>
+          <p>The agent can explain account performance, create supported Search or App campaigns, and prepare changes to budgets, bidding, status, dates, networks, locations, keywords, negatives, tracking, and conversion goals. Results are not guaranteed, and users review and approve each proposed change before it is executed in Google Ads.</p>
         </div>
 
         <div className="text-center pt-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-950 text-[#00d67d] font-bold text-xs rounded-xl shadow-lg hover:bg-slate-900 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#2E1065] text-[#FBBF24] font-bold text-xs rounded-xl shadow-lg hover:bg-slate-900 transition-colors"
           >
             <span>Experience AdOptimize Live</span>
             <ArrowRight className="w-4 h-4" />

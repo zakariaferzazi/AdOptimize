@@ -11,9 +11,9 @@ export default function GlobalError({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#f6f8fa] flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto font-bold text-xl">
+      <body className="min-h-screen bg-[#F5F3FF] flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white rounded-xl p-8 border border-slate-200 shadow-xl space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto font-bold text-xl">
             !
           </div>
           <h2 className="text-xl font-bold text-slate-900">Application Error</h2>

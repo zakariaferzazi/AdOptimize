@@ -76,14 +76,14 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       {/* Top Header */}
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -98,7 +98,7 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
             </Link>
             <Link
               href="/dashboard"
-              className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+              className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
             >
               Open Live App
             </Link>
@@ -124,11 +124,11 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
       {/* Hero Section */}
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-12">
         <div className="space-y-4 text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#F5F3FF] text-[#5B21B6] text-xs font-bold border border-[#DDD6FE]">
             <span>{feature.badge}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#2E1065]">
             {feature.headline}
           </h1>
 
@@ -139,14 +139,14 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/dashboard"
-              className="px-6 py-3 bg-slate-950 hover:bg-black text-white text-sm font-bold rounded-2xl shadow-md transition-all flex items-center gap-2"
+              className="px-6 py-3 bg-[#2E1065] hover:bg-black text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2"
             >
               <span>Launch {feature.title}</span>
-              <ArrowRight className="w-4 h-4 text-[#00d67d]" />
+              <ArrowRight className="w-4 h-4 text-[#6D28D9]" />
             </Link>
             <Link
               href="/pricing"
-              className="px-6 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-2xl transition-all"
+              className="px-6 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl transition-all"
             >
               View Pricing & Plans
             </Link>
@@ -154,14 +154,14 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
         </div>
 
         {/* Benefits Grid */}
-        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs space-y-6">
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">
             Key Value &amp; Performance Protection
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {feature.benefits.map((benefit, idx) => (
-              <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div key={idx} className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50/70 border border-slate-100">
+                <CheckCircle2 className="w-5 h-5 text-[#6D28D9] shrink-0 mt-0.5" />
                 <span className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
                   {benefit}
                 </span>
@@ -179,10 +179,10 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
             {feature.capabilities.map((cap, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-2.5 flex flex-col justify-between"
+                className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-2.5 flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center font-bold text-xs mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center font-bold text-xs mb-3">
                     0{idx + 1}
                   </div>
                   <h3 className="text-base font-bold text-slate-900">{cap.title}</h3>
@@ -196,9 +196,9 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
         </div>
 
         {/* FAQs */}
-        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-lg">
-            <HelpCircle className="w-5 h-5 text-emerald-600" />
+            <HelpCircle className="w-5 h-5 text-[#6D28D9]" />
             <span>Frequently Asked Questions</span>
           </div>
 
@@ -213,19 +213,19 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-slate-950 text-white rounded-3xl p-8 sm:p-12 text-center space-y-4 relative overflow-hidden shadow-xl border border-slate-800">
+        <div className="bg-[#2E1065] text-white rounded-xl p-8 sm:p-12 text-center space-y-4 relative overflow-hidden shadow-xl border border-slate-800">
           <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Ready to optimize your Google Ads campaigns?
           </h3>
           <p className="text-slate-300 text-xs sm:text-sm max-w-xl mx-auto">
-            Connect your Google Ads account securely via OAuth. Eliminate wasted spend and scale high-ROAS volume in minutes.
+            Connect your Google Ads account securely via Google authorization. The agent can analyze your data and prepare supported changes for your approval.
           </p>
           <div className="pt-2">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-sm rounded-2xl shadow-lg transition-transform hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-sm rounded-xl shadow-lg transition-transform hover:scale-105"
             >
-              <span>Get Started Free</span>
+              <span>Create account</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

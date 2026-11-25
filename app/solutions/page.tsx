@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 
 export default function SolutionsDirectoryPage() {
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -20,7 +20,7 @@ export default function SolutionsDirectoryPage() {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Launch App
           </Link>
@@ -29,7 +29,7 @@ export default function SolutionsDirectoryPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-16 space-y-12">
         <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center justify-center gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9] flex items-center justify-center gap-1.5">
             <Layers className="w-4 h-4" />
             <span>Vertical Solutions</span>
           </span>
@@ -46,19 +46,19 @@ export default function SolutionsDirectoryPage() {
             <Link
               key={sol.slug}
               href={`/solutions/${sol.slug}`}
-              className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs hover:border-emerald-400 hover:shadow-md transition-all flex flex-col justify-between group space-y-5"
+              className="bg-white rounded-xl p-7 border border-slate-200/80 shadow-xs hover:border-[#6D28D9] hover:shadow-md transition-all flex flex-col justify-between group space-y-5"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                  <span className="font-bold text-[#5B21B6] bg-[#F5F3FF] px-2.5 py-1 rounded-full border border-[#DDD6FE]">
                     {sol.industry}
                   </span>
                   <span className="text-slate-400 font-mono text-[11px]">
-                    Avg CPA: {sol.avgCpa}
+                    CPA: {sol.avgCpa}
                   </span>
                 </div>
 
-                <h2 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                <h2 className="text-lg font-bold text-slate-900 group-hover:text-[#5B21B6] transition-colors">
                   {sol.headline}
                 </h2>
 
@@ -77,7 +77,7 @@ export default function SolutionsDirectoryPage() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-900 group-hover:text-emerald-700">
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-900 group-hover:text-[#5B21B6]">
                 <span>View {sol.industry} Playbook</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>

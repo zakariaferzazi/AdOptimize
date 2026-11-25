@@ -120,7 +120,7 @@ export function CreateCampaignModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Summer Promo - High Intent Search"
               required
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00d67d]/40 focus:bg-white transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/40 focus:bg-white transition-all"
             />
           </div>
 
@@ -166,7 +166,7 @@ export function CreateCampaignModal({
                 onChange={(e) => setBudgetDaily(e.target.value)}
                 placeholder="50"
                 required
-                className="w-full pl-8 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#00d67d]/40 focus:bg-white transition-all"
+                className="w-full pl-8 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/40 focus:bg-white transition-all"
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
                 / day

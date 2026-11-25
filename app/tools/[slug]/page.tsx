@@ -105,13 +105,13 @@ export default async function ToolDetailPage({ params }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -119,7 +119,7 @@ export default async function ToolDetailPage({ params }: Props) {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Launch Full App
           </Link>
@@ -140,8 +140,8 @@ export default async function ToolDetailPage({ params }: Props) {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Tool Header */}
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5F3FF] text-[#5B21B6] border border-[#DDD6FE] text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#6D28D9]" />
             <span>Interactive PPC Utility</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
@@ -156,12 +156,12 @@ export default async function ToolDetailPage({ params }: Props) {
         <ToolInteractiveWidget tool={tool} />
 
         {/* Key Benefits */}
-        <div className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
           <h2 className="text-base font-bold text-slate-900">Why Use This Tool?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {tool.keyBenefits.map((benefit, i) => (
               <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-[#6D28D9] shrink-0 mt-0.5" />
                 <span>{benefit}</span>
               </div>
             ))}
@@ -173,9 +173,9 @@ export default async function ToolDetailPage({ params }: Props) {
           <h2 className="text-base font-bold text-slate-900">Industry Performance Benchmarks</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {tool.benchmarks.map((b, i) => (
-              <div key={i} className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-1">
+              <div key={i} className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs space-y-1">
                 <div className="text-xs font-medium text-slate-500">{b.label}</div>
-                <div className="text-2xl font-bold font-mono text-emerald-600">{b.value}</div>
+                <div className="text-2xl font-bold font-mono text-[#6D28D9]">{b.value}</div>
                 <div className="text-[11px] text-slate-400">{b.hint}</div>
               </div>
             ))}
@@ -185,12 +185,12 @@ export default async function ToolDetailPage({ params }: Props) {
         {/* Frequently Asked Questions */}
         <div className="space-y-4 pt-4 border-t border-slate-200/60">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-emerald-600" />
+            <HelpCircle className="w-5 h-5 text-[#6D28D9]" />
             <span>Frequently Asked Questions</span>
           </h2>
           <div className="space-y-3">
             {tool.faqs.map((faq, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-2">
+              <div key={i} className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-2">
                 <h3 className="text-sm font-bold text-slate-900">{faq.q}</h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{faq.a}</p>
               </div>
@@ -199,15 +199,15 @@ export default async function ToolDetailPage({ params }: Props) {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-slate-950 text-white rounded-3xl p-8 text-center space-y-4 shadow-xl">
+        <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
           <h2 className="text-2xl font-bold">Ready to Automate Your Google Ads Optimization?</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Connect your account in 60 seconds. Continuous 15-minute anomaly detection, grounded budget rebalancing, and zero unauthorized changes.
+            Connect your account with Google authorization. Use AI-assisted analysis and review every supported change before approval.
           </p>
           <div className="pt-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
               <span>Launch Live AdOptimize Workspace</span>
               <ArrowRight className="w-4 h-4" />

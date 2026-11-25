@@ -60,7 +60,7 @@ export function CampaignBoostModal({
       icon: ShieldAlert,
       badge: 'Budget Saver',
       badgeColor: 'bg-amber-100 text-amber-800',
-      description: 'Isolate queries with spend > $50 and 0 conversions. Redirect capital immediately to high-intent converting phrases.',
+      description: 'Review queries with spend and no conversions, then prepare supported keyword or budget proposals.',
       expectedOutcome: 'Recovers an estimated $140/week in non-converting budget leakage.',
       compute: () => ({
         description: 'Pruned zero-converting queries and redirected saved funds into core phrase match keywords.',
@@ -88,12 +88,12 @@ export function CampaignBoostModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center font-bold text-sm">
               <Zap className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Boost Campaign Performance</h3>
-              <p className="text-xs text-slate-500">Autonomous Google Ads Optimization</p>
+              <p className="text-xs text-slate-500">Approval-Controlled Google Ads Optimization</p>
             </div>
           </div>
 
@@ -140,10 +140,10 @@ export function CampaignBoostModal({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Icon className={`w-4 h-4 ${isSelected ? 'text-[#00d67d]' : 'text-slate-700'}`} />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-[#6D28D9]' : 'text-slate-700'}`} />
                       <span className="text-xs font-bold">{opt.title}</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? 'bg-slate-800 text-[#00d67d]' : opt.badgeColor}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? 'bg-slate-800 text-[#6D28D9]' : opt.badgeColor}`}>
                       {opt.badge}
                     </span>
                   </div>
@@ -178,7 +178,7 @@ export function CampaignBoostModal({
             onClick={handleExecute}
             className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+            <Zap className="w-3.5 h-3.5 text-[#6D28D9]" />
             <span>{isSubmitting ? 'Applying Optimization...' : 'Apply Optimization'}</span>
           </button>
         </div>

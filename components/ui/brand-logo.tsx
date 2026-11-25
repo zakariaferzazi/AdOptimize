@@ -58,10 +58,10 @@ export function BrandLogo({
         <span
           className={`font-bold tracking-tight ${
             textClassName ||
-            (theme === 'dark' ? 'text-white' : 'text-slate-900') + ' ' + sizeClasses.text
+            (theme === 'dark' ? 'text-white' : 'text-white') + ' ' + sizeClasses.text
           }`}
         >
-          Ad<span className="text-[#00d67d]">optimize</span>
+          Ad<span className={theme === 'light' ? 'text-[#6D28D9]' : 'text-[#FBBF24]'}>Optimize</span>
         </span>
       )}
     </div>

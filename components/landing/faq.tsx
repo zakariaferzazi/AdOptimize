@@ -15,8 +15,8 @@ const faqs = [
     a: 'Yes. Create an account to open your dashboard and see your campaign and account data. Pro is needed to use the agent, audits, reports, the Budget Optimizer and to approve campaign changes.',
   },
   {
-    q: 'How do I cancel or request a refund?',
-    a: 'You can cancel anytime from your billing page. Refund eligibility follows our refund policy, which sets out the conditions for the 14-day refund window.',
+    q: 'How do cancellation and billing work?',
+    a: 'Pro renews monthly or yearly until you cancel in the billing portal. Cancellation stops the next renewal, and AdOptimize follows a strict no-refund policy for charges already made.',
   },
   {
     q: 'How is my Google Ads access handled?',

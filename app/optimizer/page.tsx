@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Google Ads Budget & Bid Optimizer | AdOptimize',
-    description: 'Autonomous budget reallocations and bid optimization for Google Ads with safety guardrails.',
+    description: 'Review AI-assisted Google Ads budget and bid optimization proposals before approving supported changes.',
     url: 'https://adoptimize.app/optimizer',
     siteName: 'AdOptimize',
   },

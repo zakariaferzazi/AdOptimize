@@ -90,15 +90,15 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
       : '+67% to +100% CPC penalty';
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+    <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center font-bold text-xs">
+          <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center font-bold text-xs">
             ⚡
           </div>
           <span className="font-bold text-slate-900 text-sm">Interactive {tool.title}</span>
         </div>
-        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+        <span className="text-xs font-semibold text-[#5B21B6] bg-[#F5F3FF] px-2.5 py-1 rounded-full">
           Instant Live Calculation
         </span>
       </div>
@@ -116,12 +116,12 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
                 placeholder="e.g. 842-194-0291 or mycompany.com"
                 value={auditInput}
                 onChange={(e) => setAuditInput(e.target.value)}
-                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00d67d]"
+                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
               />
               <button
                 type="submit"
                 disabled={auditRunning}
-                className="px-6 py-3 bg-slate-950 hover:bg-slate-900 text-[#00d67d] font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+                className="px-6 py-3 bg-[#2E1065] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
               >
                 {auditRunning ? 'Scanning Logs...' : 'Run 60-Sec Audit'}
               </button>
@@ -129,7 +129,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
           </form>
 
           {auditResult && (
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100">
                   3 Critical Issues Detected
@@ -152,7 +152,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
               </div>
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+                className="inline-flex items-center gap-2 text-xs font-bold text-[#5B21B6] hover:text-[#5B21B6]"
               >
                 <span>Open Full AdOptimize Dashboard to resolve these issues</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -173,12 +173,12 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
               onClick={handleCopy}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition-colors cursor-pointer"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-[#6D28D9]" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copied to Clipboard!' : 'Copy All'}</span>
             </button>
           </div>
 
-          <div className="bg-slate-950 text-slate-200 p-4 rounded-2xl font-mono text-xs max-h-48 overflow-y-auto space-y-1">
+          <div className="bg-[#2E1065] text-slate-200 p-4 rounded-xl font-mono text-xs max-h-48 overflow-y-auto space-y-1">
             {sampleNegatives.map((neg, i) => (
               <div key={i} className="text-rose-400">
                 -[{neg}]
@@ -186,7 +186,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
             ))}
           </div>
           <p className="text-xs text-slate-500">
-            AdOptimize syncs negative keywords automatically into your Google Ads account with 1 click.
+            AdOptimize can prepare supported negative-keyword changes for your review and approval.
           </p>
         </div>
       )}
@@ -226,12 +226,12 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
             </div>
           </div>
 
-          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 bg-[#F5F3FF] rounded-xl border border-[#DDD6FE] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <div className="text-xs font-semibold text-emerald-800">Calculated Cost Per Acquisition (CPA)</div>
-              <div className="text-2xl font-bold font-mono text-emerald-950">${calculatedCpa}</div>
+              <div className="text-xs font-semibold text-[#5B21B6]">Calculated Cost Per Acquisition (CPA)</div>
+              <div className="text-2xl font-bold font-mono text-[#2E1065]">${calculatedCpa}</div>
             </div>
-            <div className="text-xs text-emerald-800 text-right">
+            <div className="text-xs text-[#5B21B6] text-right">
               Projected <strong>{estimatedConversions} conversions</strong> from {estimatedClicks.toLocaleString()} clicks
             </div>
           </div>
@@ -271,10 +271,10 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 bg-slate-900 text-white rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <div className="text-xs text-slate-400">Target ROAS (Multiplier)</div>
-              <div className="text-2xl font-bold font-mono text-[#00d67d]">{calculatedRoas}% ({((targetRevenue / (monthlySpend || 1))).toFixed(2)}x)</div>
+              <div className="text-2xl font-bold font-mono text-[#6D28D9]">{calculatedRoas}% ({((targetRevenue / (monthlySpend || 1))).toFixed(2)}x)</div>
             </div>
             <div className="text-xs text-slate-300">
               Break-Even ROAS Threshold: <strong className="text-white">{breakEvenRoas}%</strong>
@@ -289,7 +289,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
           <div>
             <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-2">
               <span>Your Monthly Google Ads Spend:</span>
-              <span className="font-mono text-sm text-emerald-700">${monthlySpend.toLocaleString()} / mo</span>
+              <span className="font-mono text-sm text-[#5B21B6]">${monthlySpend.toLocaleString()} / mo</span>
             </div>
             <input
               type="range"
@@ -302,7 +302,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
             />
           </div>
 
-          <div className="p-5 bg-rose-50 rounded-2xl border border-rose-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-5 bg-rose-50 rounded-xl border border-rose-100 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <div className="text-xs font-bold text-rose-700 uppercase tracking-wider">Estimated Monthly Wasted Spend:</div>
               <div className="text-3xl font-extrabold font-mono text-rose-900">${wastedEstimate.toLocaleString()} / mo</div>
@@ -320,7 +320,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
           <div>
             <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-2">
               <span>Target Keyword Quality Score (1 to 10):</span>
-              <span className="font-mono text-sm text-emerald-700">{qualityScore} / 10</span>
+              <span className="font-mono text-sm text-[#5B21B6]">{qualityScore} / 10</span>
             </div>
             <input
               type="range"
@@ -333,10 +333,10 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
             />
           </div>
 
-          <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between">
+          <div className="p-4 bg-slate-900 text-white rounded-xl flex items-center justify-between">
             <div>
               <div className="text-xs text-slate-400">Impact on Your Cost Per Click:</div>
-              <div className="text-lg font-bold font-mono text-[#00d67d]">{qsDelta}</div>
+              <div className="text-lg font-bold font-mono text-[#6D28D9]">{qsDelta}</div>
             </div>
             <div className="text-xs text-slate-300">
               Score ≥ 7 gives CPC auction discounts.

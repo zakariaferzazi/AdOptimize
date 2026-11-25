@@ -40,7 +40,7 @@ export function BudgetOptimizerView({
       {/* Hero Header */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Cross-Campaign Capital Allocator</span>
           </div>
@@ -55,8 +55,8 @@ export function BudgetOptimizerView({
         {/* Safeguard Assurance */}
         <div className="relative z-10 mt-6 pt-5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#00d67d]" />
-            <span>Safeguard: Guardrail limit ±15%–30% · Audit log recorded</span>
+            <ShieldCheck className="w-4 h-4 text-[#6D28D9]" />
+            <span>Review the proposed daily budget and account impact before approval</span>
           </div>
           <div className="text-slate-400">
             {pendingRecs.length} pending reallocation proposals
@@ -177,7 +177,7 @@ export function BudgetOptimizerView({
 
                 {/* Arrow / Shift Badge */}
                 <div className="flex flex-col items-center shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-[#00d67d] text-slate-950 flex items-center justify-center font-bold shadow-md shadow-[#00d67d]/20">
+                  <div className="w-10 h-10 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold shadow-md shadow-[#6D28D9]/20">
                     <ArrowRight className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-700 mt-1">
@@ -267,7 +267,7 @@ export function BudgetOptimizerView({
 
                   <button
                     onClick={() => onApproveRecommendation(rec)}
-                    className="px-5 py-2 bg-slate-950 hover:bg-slate-900 text-[#00d67d] font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5"
+                    className="px-5 py-2 bg-[#2E1065] hover:bg-[#5B21B6] text-[#FBBF24] font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Approve & Update Google Ads</span>

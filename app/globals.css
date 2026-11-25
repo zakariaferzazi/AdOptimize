@@ -1,5 +1,57 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --color-brand: #6d28d9;
+  --color-brand-hover: #5b21b6;
+  --color-brand-deep: #2e1065;
+  --color-brand-tint: #f5f3ff;
+  --color-brand-border: #ddd6fe;
+  --color-brand-gold: #fbbf24;
+}
+
+@layer base {
+  html {
+    background: #ffffff;
+  }
+
+  body {
+    background: #ffffff;
+    color: #1f2937;
+  }
+
+  ::selection {
+    background: #ddd6fe;
+    color: #2e1065;
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid #6d28d9;
+    outline-offset: 2px;
+  }
+
+  :where(input, select, textarea) {
+    border-color: #ddd6fe;
+  }
+
+  :where(input, select, textarea)::placeholder {
+    color: #6b7280;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @keyframes loading-bar {
   0% {
     transform: translateX(-100%);

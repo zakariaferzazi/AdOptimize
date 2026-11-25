@@ -306,12 +306,12 @@ export function AiInsightsPanel({
 
       {/* Footer link to Optimizer */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 mt-2">
-        <span className="text-[11px]">Continuous auction monitor</span>
+        <span className="text-[11px]">Account analysis</span>
         <button
           onClick={onOpenOptimizer}
           className="text-[11px] font-bold text-slate-900 hover:text-emerald-600 flex items-center gap-1 transition-colors cursor-pointer"
         >
-          <Sliders className="w-3 h-3 text-[#00d67d]" />
+          <Sliders className="w-3 h-3 text-[#6D28D9]" />
           <span>Budget Optimizer</span>
         </button>
       </div>

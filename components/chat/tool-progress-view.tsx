@@ -236,14 +236,14 @@ interface ToolProgressLiveProps {
 export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiveProps) {
   return (
     <div className="flex gap-3 max-w-2xl mr-auto animate-in fade-in slide-in-from-bottom-1 duration-200">
-      <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] border border-slate-800 flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+      <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] border border-slate-800 flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
         <AppLoader className="h-4 w-4" />
       </div>
 
       <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-xs text-xs text-slate-700 space-y-2.5 max-w-md">
         <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
           <div className="font-bold text-slate-900 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#6D28D9] animate-pulse" />
             <span>Working on your request...</span>
           </div>
           {onCancel && (
@@ -258,7 +258,7 @@ export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiv
 
         <div className="space-y-1.5 text-[11px] text-slate-600">
           <div className="flex items-center gap-2 text-[#00a85e] font-semibold">
-            <span className="w-2 h-2 rounded-full bg-[#00d67d] animate-ping ml-0.5 mr-1" />
+            <span className="w-2 h-2 rounded-full bg-[#6D28D9] animate-ping ml-0.5 mr-1" />
             <span>Reading your account and preparing the answer...</span>
           </div>
         </div>
@@ -294,7 +294,7 @@ export function ToolAnalysisDetails({ toolCalls }: ToolAnalysisDetailsProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
       >
-        <CheckCircle2 className="w-3.5 h-3.5 text-[#00c06f]" />
+        <CheckCircle2 className="w-3.5 h-3.5 text-[#5B21B6]" />
         <span>
           {count} {count === 1 ? 'account source examined' : 'account sources examined'}
         </span>
@@ -318,7 +318,7 @@ export function ToolAnalysisDetails({ toolCalls }: ToolAnalysisDetailsProps) {
                   key={tc.id || idx}
                   className="flex items-start gap-2 text-[11px] text-slate-700 font-medium"
                 >
-                  <span className="text-[#00c06f] font-bold mt-0.5">✓</span>
+                  <span className="text-[#5B21B6] font-bold mt-0.5">✓</span>
                   <span>{friendly}</span>
                 </li>
               );

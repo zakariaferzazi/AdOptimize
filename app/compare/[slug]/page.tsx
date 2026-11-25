@@ -102,13 +102,13 @@ export default async function ComparisonDetailPage({ params }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -116,7 +116,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Open App
           </Link>
@@ -137,7 +137,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Header */}
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5F3FF] text-[#5B21B6] border border-[#DDD6FE] text-xs font-bold">
             <span>Competitive Audit & Breakdown</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
@@ -149,17 +149,17 @@ export default async function ComparisonDetailPage({ params }: Props) {
         </div>
 
         {/* Head-to-Head Comparison Table */}
-        <div className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-md">
-          <div className="grid grid-cols-3 bg-slate-950 text-white p-5 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white rounded-xl overflow-hidden border border-slate-200/80 shadow-md">
+          <div className="grid grid-cols-3 bg-[#2E1065] text-white p-5 text-xs font-bold uppercase tracking-wider">
             <div>Feature / Dimension</div>
-            <div className="text-[#00d67d]">AdOptimize</div>
+            <div className="text-[#6D28D9]">AdOptimize</div>
             <div className="text-slate-400">{comp.competitorName}</div>
           </div>
           <div className="divide-y divide-slate-100 text-xs sm:text-sm">
             {comp.comparisonPoints.map((row, i) => (
               <div key={i} className="grid grid-cols-3 p-5 items-center gap-3">
                 <div className="font-bold text-slate-900">{row.feature}</div>
-                <div className="text-emerald-700 font-semibold">{row.adoptimize}</div>
+                <div className="text-[#5B21B6] font-semibold">{row.adoptimize}</div>
                 <div className="text-slate-500">{row.competitor}</div>
               </div>
             ))}
@@ -167,8 +167,8 @@ export default async function ComparisonDetailPage({ params }: Props) {
         </div>
 
         {/* Verdict Box */}
-        <div className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+        <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#6D28D9] flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4" />
             <span>The Verdict</span>
           </div>
@@ -181,12 +181,12 @@ export default async function ComparisonDetailPage({ params }: Props) {
         {/* FAQs */}
         <div className="space-y-4 pt-4 border-t border-slate-200/60">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-emerald-600" />
+            <HelpCircle className="w-5 h-5 text-[#6D28D9]" />
             <span>Frequently Asked Questions</span>
           </h2>
           <div className="space-y-3">
             {comp.faqs.map((faq, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-2">
+              <div key={i} className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-2">
                 <h3 className="text-sm font-bold text-slate-900">{faq.q}</h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{faq.a}</p>
               </div>
@@ -195,17 +195,17 @@ export default async function ComparisonDetailPage({ params }: Props) {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-slate-950 text-white rounded-3xl p-8 text-center space-y-4 shadow-xl">
+        <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
           <h2 className="text-2xl font-bold">Experience the AdOptimize Difference Today</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            14-day money-back guarantee. No long-term lock-in contract. Set up your Google Ads audit in 60 seconds.
+            Pro Monthly at $29 or Pro Yearly at $99. Cancel anytime to stop the next renewal; all sales are final.
           </p>
           <div className="pt-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              <span>Get Started Risk-Free</span>
+              <span>Create an account</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

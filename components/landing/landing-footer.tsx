@@ -27,7 +27,7 @@ const columns = [
       { href: '/privacy-policy', label: 'Privacy policy' },
       { href: '/terms-of-service', label: 'Terms of service' },
       { href: '/cookie-policy', label: 'Cookie policy' },
-      { href: '/refund-policy', label: 'Refund policy' },
+      { href: '/refund-policy', label: 'Billing & cancellation policy' },
     ],
   },
 ];

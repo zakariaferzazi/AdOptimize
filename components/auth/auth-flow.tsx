@@ -47,7 +47,7 @@ export function Stepper({ current }: { current: number }) {
         const active = index === current;
         return (
           <li key={label} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-emerald-500 text-white' : active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-emerald-500 text-white' : active ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-400'}`}>
               {done ? <Check className="w-3 h-3" /> : index + 1}
             </span>
             <span className={active ? 'text-slate-900' : 'text-slate-400'}>{label}</span>
@@ -61,7 +61,7 @@ export function Stepper({ current }: { current: number }) {
 
 function Field({ icon, valid, children }: { icon: React.ReactNode; valid?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-b border-slate-200 focus-within:border-indigo-500 transition-colors py-2.5">
+    <div className="flex items-center gap-3 border-b border-[#DDD6FE] focus-within:border-[#6D28D9] transition-colors py-2.5">
       <span className="text-slate-400 shrink-0">{icon}</span>
       {children}
       {valid && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />}
@@ -73,14 +73,14 @@ const inputClass = 'flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeho
 
 function ShowcasePanel() {
   return (
-    <aside className="hidden lg:block relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 p-10">
-      <div className="absolute -top-24 -right-16 w-96 h-96 rounded-[56px] bg-indigo-800/60 rotate-12" aria-hidden="true" />
-      <div className="absolute top-40 -left-24 w-[28rem] h-80 rounded-[56px] bg-indigo-400/40 -rotate-6" aria-hidden="true" />
-      <div className="absolute -bottom-32 -right-24 w-[34rem] h-96 rounded-[64px] bg-sky-400/60 rotate-12" aria-hidden="true" />
+    <aside className="hidden lg:block relative overflow-hidden bg-gradient-to-br from-[#6D28D9] via-[#5B21B6] to-[#2E1065] p-10">
+      <div className="absolute -top-24 -right-16 w-96 h-96 rounded-[56px] bg-[#2E1065]/60 rotate-12" aria-hidden="true" />
+      <div className="absolute top-40 -left-24 w-[28rem] h-80 rounded-[56px] bg-[#DDD6FE]/40 -rotate-6" aria-hidden="true" />
+      <div className="absolute -bottom-32 -right-24 w-[34rem] h-96 rounded-[64px] bg-[#FBBF24]/20 rotate-12" aria-hidden="true" />
       <div className="relative h-full flex flex-col justify-center gap-5">
         <div className="space-y-3 text-white">
           <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight">Make every ad dollar<br />work harder.</h2>
-          <p className="max-w-sm text-sm leading-relaxed text-indigo-100">Your AI Marketing Agent, ready for the heavy lifting.</p>
+          <p className="max-w-sm text-sm leading-relaxed text-[#DDD6FE]">Your AI Marketing Agent, ready for the heavy lifting.</p>
         </div>
         <div className="relative aspect-[5/3] w-full max-h-[220px]">
           <Image src="/auth_panel.png" alt="" fill priority sizes="(min-width: 1280px) 480px, 400px" className="object-contain" />
@@ -90,7 +90,7 @@ function ShowcasePanel() {
             <AgentIcon className="w-7 h-7" />
             <div className="flex-1"><div className="text-xs font-bold text-slate-900">AI Marketing Agent</div><div className="text-[10px] text-slate-400">Example conversation</div></div>
           </div>
-          <div className="ml-4 rounded-xl rounded-tr-sm bg-indigo-50 p-2.5 text-[11px] leading-relaxed text-indigo-900">Audit all my campaigns for the last 30 days. Find wasted spend and prioritize the fixes.</div>
+          <div className="ml-4 rounded-xl rounded-tr-sm bg-[#F5F3FF] p-2.5 text-[11px] leading-relaxed text-[#2E1065]">Audit all my campaigns for the last 30 days. Find wasted spend and prioritize the fixes.</div>
           <div className="rounded-xl rounded-tl-sm bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
             <p><strong className="text-slate-900">Done.</strong> Wasted search terms flagged, budget bottlenecks identified, and your action plan is ready. No changes made.</p>
           </div>
@@ -197,11 +197,11 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       )}
       {!signUp && (
         <div className="text-right">
-          <button type="button" onClick={reset} className="text-xs font-semibold text-indigo-600 hover:underline">Forgot password?</button>
+          <button type="button" onClick={reset} className="text-xs font-semibold text-[#6D28D9] hover:underline">Forgot password?</button>
         </div>
       )}
       <div className="flex items-center gap-4 pt-3">
-        <button type="submit" disabled={!canSubmit || busy} className="flex-1 sm:flex-none sm:min-w-[11rem] rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-3 flex items-center justify-between gap-4 transition-colors">
+        <button type="submit" disabled={!canSubmit || busy} className="flex-1 sm:flex-none sm:min-w-[11rem] rounded-xl bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-3 flex items-center justify-between gap-4 transition-colors">
           <span>{signUp ? 'Create account' : 'Sign in'}</span>
           {busy ? <AppLoader className="h-4 w-4" /> : <ArrowRight className="w-4 h-4" />}
         </button>
@@ -212,7 +212,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       </div>
       <p className="pt-2 text-[11px] text-slate-400">
         {signUp ? 'Already a member? ' : 'New to AdOptimize? '}
-        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-indigo-600 hover:underline">
+        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-[#6D28D9] hover:underline">
           {signUp ? 'Sign in' : 'Create an account'}
         </Link>
         {' '}· By continuing you agree to our <Link href="/terms-of-service" className="underline">Terms</Link> and <Link href="/privacy-policy" className="underline">Privacy Policy</Link>.
@@ -222,7 +222,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
 }
 
 const PRO_FEATURES = ['AI Marketing Agent', 'Ads Account Audit', 'Budget Optimizer'];
-// Paid pages would just bounce an unpaid user back here, so the free plan only continues to free ones.
+// Limited non-Pro access can continue to supported workspace pages.
 const FREE_PATHS = ['/dashboard', '/campaigns', '/activity-log', '/settings', '/billing'];
 
 function PlanStep({ user, status, initial, next }: { user: User; status: BillingStatus; initial: PlanInterval; next: string }) {
@@ -250,8 +250,8 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
       <div role="radiogroup" aria-label="Billing interval" className="grid grid-cols-2 gap-3">
         {([['monthly', '$29', 'per month', null], ['yearly', '$99', 'per year', 'Save 72%']] as const).map(([value, price, unit, badge]) => (
           <button key={value} type="button" role="radio" aria-checked={interval === value} onClick={() => setInterval(value)}
-            className={`relative rounded-2xl border p-4 text-left transition-all ${interval === value ? 'border-indigo-600 ring-2 ring-indigo-600/20 bg-indigo-50/40' : 'border-slate-200 hover:border-slate-300'}`}>
-            {badge && <span className="absolute -top-2 right-3 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">{badge}</span>}
+            className={`relative rounded-xl border p-4 text-left transition-all ${interval === value ? 'border-[#6D28D9] ring-2 ring-[#6D28D9]/20 bg-[#F5F3FF]' : 'border-slate-200 hover:border-[#DDD6FE]'}`}>
+            {badge && <span className="absolute -top-2 right-3 rounded-full bg-[#FBBF24] px-2 py-0.5 text-[10px] font-bold text-[#2E1065]">{badge}</span>}
             <div className="text-xs font-semibold capitalize text-slate-500">{value}</div>
             <div className="mt-1 text-2xl font-bold text-slate-900">{price}</div>
             <div className="text-[11px] text-slate-500">{unit}</div>
@@ -261,12 +261,12 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
       <ul className="space-y-1.5 text-xs text-slate-600">
         {PRO_FEATURES.map((feature) => <li key={feature} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-600 shrink-0" />{feature}</li>)}
       </ul>
-      <button type="button" onClick={checkout} disabled={busy} className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-6 py-3 flex items-center justify-center gap-2 transition-colors">
+      <button type="button" onClick={checkout} disabled={busy} className="w-full rounded-xl bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-60 text-white text-sm font-semibold px-6 py-3 flex items-center justify-center gap-2 transition-colors">
         {busy ? <><AppLoader className="h-4 w-4" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
       <button type="button" onClick={() => router.replace(FREE_PATHS.includes(next) ? next : '/dashboard')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline">
-        Continue with the free plan
+        Continue with limited dashboard access
       </button>
     </div>
   );
@@ -330,7 +330,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <BrandLogoIcon size={20} className="w-5 h-5 rounded-md" />
               <span>{signUp ? 'Already member?' : 'New here?'}</span>
-              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
+              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-[#6D28D9] rounded-md bg-[#F5F3FF] px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
             </div>
           </div>
 
@@ -348,8 +348,8 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                 <div className="space-y-3">
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>
                   <div className="flex gap-3">
-                    <button onClick={retry} className="rounded-full bg-indigo-600 text-white text-xs font-semibold px-5 py-2.5">Try again</button>
-                    <Link href="/dashboard" className="rounded-full border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with the free plan</Link>
+                    <button onClick={retry} className="rounded-xl bg-[#6D28D9] text-white text-xs font-semibold px-5 py-2.5">Try again</button>
+                    <Link href="/dashboard" className="rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with limited dashboard access</Link>
                   </div>
                 </div>
               )

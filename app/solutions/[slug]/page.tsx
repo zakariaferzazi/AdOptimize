@@ -102,13 +102,13 @@ export default async function SolutionDetailPage({ params }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+      <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/">
             <BrandLogo />
@@ -116,7 +116,7 @@ export default async function SolutionDetailPage({ params }: Props) {
 
           <Link
             href="/"
-            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
             Open App
           </Link>
@@ -137,7 +137,7 @@ export default async function SolutionDetailPage({ params }: Props) {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Header */}
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5F3FF] text-[#5B21B6] border border-[#DDD6FE] text-xs font-bold">
             <span>Industry Playbook: {sol.industry}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
@@ -150,25 +150,25 @@ export default async function SolutionDetailPage({ params }: Props) {
 
         {/* Benchmarks strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
-            <div className="text-xs text-slate-500">Target Benchmark CPA</div>
-            <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">{sol.avgCpa}</div>
-            <div className="text-[11px] text-slate-400">Industry average for {sol.industry}</div>
+          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs">
+            <div className="text-xs text-slate-500">CPA for your account</div>
+            <div className="text-2xl font-bold font-mono text-[#6D28D9] mt-1">{sol.avgCpa}</div>
+            <div className="text-[11px] text-slate-400">Calculated from connected account data</div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
-            <div className="text-xs text-slate-500">Target Benchmark ROAS</div>
-            <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">{sol.avgRoas}</div>
-            <div className="text-[11px] text-slate-400">Blended across search & PMax</div>
+          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs">
+            <div className="text-xs text-slate-500">ROAS for your account</div>
+            <div className="text-2xl font-bold font-mono text-[#6D28D9] mt-1">{sol.avgRoas}</div>
+            <div className="text-[11px] text-slate-400">Available where conversion value is reported</div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
-            <div className="text-xs text-slate-500">Expected Search CTR</div>
-            <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">{sol.avgCtr}</div>
-            <div className="text-[11px] text-slate-400">High-intent exact & phrase match</div>
+          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs">
+            <div className="text-xs text-slate-500">CTR for your account</div>
+            <div className="text-2xl font-bold font-mono text-[#6D28D9] mt-1">{sol.avgCtr}</div>
+            <div className="text-[11px] text-slate-400">Depends on account and campaign mix</div>
           </div>
         </div>
 
         {/* Common Bleeds */}
-        <div className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-500" />
             <span>Top Ad Spend Bleeds in {sol.industry}</span>
@@ -184,15 +184,15 @@ export default async function SolutionDetailPage({ params }: Props) {
         </div>
 
         {/* Recommended Safeguards */}
-        <div className="bg-white rounded-3xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            <ShieldCheck className="w-5 h-5 text-[#6D28D9]" />
             <span>Recommended Optimization Safeguards</span>
           </h2>
           <div className="space-y-2.5">
             {sol.recommendedRules.map((rule, i) => (
               <div key={i} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-2.5 text-xs sm:text-sm text-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-[#6D28D9] shrink-0 mt-0.5" />
                 <span>{rule}</span>
               </div>
             ))}
@@ -204,7 +204,7 @@ export default async function SolutionDetailPage({ params }: Props) {
           <h2 className="text-xl font-bold text-slate-900">Optimization Strategies That Work</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {sol.keyStrategies.map((strat, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-2">
+              <div key={i} className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-2">
                 <h3 className="text-sm font-bold text-slate-900">{strat.title}</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">{strat.description}</p>
               </div>
@@ -215,12 +215,12 @@ export default async function SolutionDetailPage({ params }: Props) {
         {/* FAQs */}
         <div className="space-y-4 pt-4 border-t border-slate-200/60">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-emerald-600" />
+            <HelpCircle className="w-5 h-5 text-[#6D28D9]" />
             <span>Frequently Asked Questions</span>
           </h2>
           <div className="space-y-3">
             {sol.faqs.map((faq, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-2">
+              <div key={i} className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-2">
                 <h3 className="text-sm font-bold text-slate-900">{faq.q}</h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{faq.a}</p>
               </div>
@@ -229,17 +229,17 @@ export default async function SolutionDetailPage({ params }: Props) {
         </div>
 
         {/* Bottom CTA */}
-        <div className="bg-slate-950 text-white rounded-3xl p-8 text-center space-y-4 shadow-xl">
-          <h2 className="text-2xl font-bold">Audit Your {sol.industry} Account in 60 Seconds</h2>
+        <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
+          <h2 className="text-2xl font-bold">Explore Your {sol.industry} Account with AdOptimize</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
             Connect your Google Ads account to uncover immediate negative keyword leaks and shift capital to top-performing campaigns.
           </p>
           <div className="pt-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              <span>Start Free 14-Day Audit</span>
+              <span>Explore limited dashboard access</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

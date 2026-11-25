@@ -5,8 +5,8 @@ import { requirePageSubscription } from '@/lib/billing/access';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'AI Marketing Agent | Autonomous Google Ads Optimization | AdOptimize',
-  description: 'Collaborate with your autonomous Google Ads AI Marketing Agent. Diagnose auction shifts, evaluate Quality Scores, draft ad copy, and review campaign performance.',
+  title: 'AI Marketing Agent | Google Ads Analysis and Management | AdOptimize',
+  description: 'Use the AdOptimize AI Marketing Agent to analyze Google Ads performance, prepare campaigns, and review proposed account changes before execution.',
   alternates: {
     canonical: 'https://adoptimize.app/chat',
   },

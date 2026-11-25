@@ -313,7 +313,7 @@ export function PerformanceChart({
           {/* Legend dots */}
           <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00d67d]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6D28D9]" />
               <span>Current</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -471,9 +471,9 @@ export function PerformanceChart({
             >
               <defs>
                 <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d67d" stopOpacity="0.10" />
-                  <stop offset="70%" stopColor="#00d67d" stopOpacity="0.02" />
-                  <stop offset="100%" stopColor="#00d67d" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#6D28D9" stopOpacity="0.10" />
+                  <stop offset="70%" stopColor="#6D28D9" stopOpacity="0.02" />
+                  <stop offset="100%" stopColor="#6D28D9" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
@@ -495,7 +495,7 @@ export function PerformanceChart({
               <path
                 d={primaryPath}
                 fill="none"
-                stroke="#00d67d"
+                stroke="#6D28D9"
                 strokeWidth="1.6"
                 strokeLinecap="round"
               />
@@ -530,7 +530,7 @@ export function PerformanceChart({
                     cy={hoveredPoint.y}
                     r={3}
                     fill="#ffffff"
-                    stroke="#00d67d"
+                    stroke="#6D28D9"
                     strokeWidth={1.75}
                   />
                 </g>

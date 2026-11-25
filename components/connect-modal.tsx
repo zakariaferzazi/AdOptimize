@@ -72,7 +72,7 @@ export function ConnectModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center text-[#00d67d] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#2E1065] flex items-center justify-center text-[#FBBF24] shadow-sm">
               <GoogleIcon className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -180,7 +180,7 @@ export function ConnectModal({
                 onClick={() => handleOneClickConnect(currentAccount.clientCustomerId)}
                 className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#00d67d]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#6D28D9]" />
                 <span>Reconnect Account</span>
               </button>
             </div>
@@ -217,7 +217,7 @@ export function ConnectModal({
                       G
                     </div>
                     <span>Connect Google Ads with Google</span>
-                    <ArrowRight className="w-4 h-4 text-[#00d67d] group-hover:translate-x-0.5 transition-transform" />
+                    <ArrowRight className="w-4 h-4 text-[#6D28D9] group-hover:translate-x-0.5 transition-transform" />
                   </>
                 )}
               </button>

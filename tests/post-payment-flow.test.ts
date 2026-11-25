@@ -71,7 +71,7 @@ describe('paid signup connection step', () => {
     const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
     expect(html).not.toContain('Post-payment Google Ads connection');
     expect(html).toContain('Choose your plan');
-    expect(html).toContain('Continue with the free plan');
+    expect(html).toContain('Continue with limited dashboard access');
     expect(html).not.toContain('Your data, your rules');
   });
 

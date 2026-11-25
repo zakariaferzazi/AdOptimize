@@ -112,7 +112,7 @@ export function CampaignDetailDrawer({
                 isCritical
                   ? 'bg-rose-500 ring-4 ring-rose-100'
                   : isHealthy
-                  ? 'bg-[#00d67d] ring-4 ring-emerald-100'
+                  ? 'bg-[#6D28D9] ring-4 ring-emerald-100'
                   : 'bg-amber-500 ring-4 ring-amber-100'
               }`}
             />
@@ -243,7 +243,7 @@ export function CampaignDetailDrawer({
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-3 text-xs font-bold whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-[#00d67d] text-slate-900'
+                  ? 'border-[#6D28D9] text-slate-900'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -302,7 +302,7 @@ export function CampaignDetailDrawer({
                     <span>{campaign.healthScore || 85}/100</span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded font-sans font-semibold ${
-                        isHealthy ? 'bg-emerald-500/20 text-[#00d67d]' : 'bg-rose-500/20 text-rose-300'
+                        isHealthy ? 'bg-emerald-500/20 text-[#6D28D9]' : 'bg-rose-500/20 text-rose-300'
                       }`}
                     >
                       {campaign.healthStatus || 'HEALTHY'}
@@ -313,7 +313,7 @@ export function CampaignDetailDrawer({
                 {campaign.previousPeriod ? (
                   <div className="text-right text-xs text-slate-400">
                     <div>Previous period CPA: {sym}{Number(campaign.previousPeriod.cpa || 0).toFixed(2)}</div>
-                    <div className="text-[#00d67d] font-semibold mt-0.5">
+                    <div className="text-[#6D28D9] font-semibold mt-0.5">
                       {Number(campaign.cpa || 0) < Number(campaign.previousPeriod.cpa || 0) ? 'Efficiency improving' : 'CPA rising'}
                     </div>
                   </div>
@@ -635,7 +635,7 @@ export function CampaignDetailDrawer({
                       <span className="text-xs font-bold text-slate-900">
                         {String(ins.category || 'Optimization').replace(/_/g, ' ')}
                       </span>
-                      <span className="text-xs font-mono font-bold text-[#00d67d] bg-slate-950 px-2 py-0.5 rounded">
+                      <span className="text-xs font-mono font-bold text-[#FBBF24] bg-[#2E1065] px-2 py-0.5 rounded">
                         {ins.confidence}% Confidence
                       </span>
                     </div>
@@ -655,7 +655,7 @@ export function CampaignDetailDrawer({
                         onClick={() => onApplyInsight(ins)}
                         className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                       >
-                        <Zap className="w-3.5 h-3.5 text-[#00d67d]" />
+                        <Zap className="w-3.5 h-3.5 text-[#6D28D9]" />
                         <span>Apply Recommendation</span>
                       </button>
                     )}

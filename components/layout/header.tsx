@@ -126,7 +126,7 @@ export function Header({
             title={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isDesktopSidebarCollapsed ? (
-              <PanelLeftOpen className="w-5 h-5 text-slate-700 hover:text-[#00d67d]" />
+              <PanelLeftOpen className="w-5 h-5 text-slate-700 hover:text-[#6D28D9]" />
             ) : (
               <PanelLeftClose className="w-5 h-5" />
             )}

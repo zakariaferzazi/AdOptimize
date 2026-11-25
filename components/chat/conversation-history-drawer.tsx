@@ -64,7 +64,7 @@ export function ConversationHistoryDrawer({
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-              <MessageSquare className="w-4 h-4 text-[#00d67d]" />
+              <MessageSquare className="w-4 h-4 text-[#6D28D9]" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-950">Chat History</h3>
@@ -91,7 +91,7 @@ export function ConversationHistoryDrawer({
             }}
             className="w-full py-2.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-[#00d67d]" />
+            <Plus className="w-4 h-4 text-[#6D28D9]" />
             <span>Start New Conversation</span>
           </button>
         </div>
@@ -164,7 +164,7 @@ export function ConversationHistoryDrawer({
                             {conv.title}
                           </span>
                           {isActive && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#00c06f] shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#5B21B6] shrink-0" />
                           )}
                         </div>
 

@@ -44,7 +44,7 @@ export function MetricCard({
         <div
           className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
             isDark
-              ? 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
+              ? 'bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30'
               : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
           }`}
         >

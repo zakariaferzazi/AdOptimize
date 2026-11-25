@@ -10,8 +10,7 @@ import {
   AutomationRule,
   AuditLog,
   BreakdownItem,
-  PerformanceMetric,
-  SubscriptionPlan
+  PerformanceMetric
 } from '@/types/adoptimize';
 
 export const INITIAL_ACCOUNT: GoogleAdsAccount = {
@@ -488,7 +487,7 @@ export const MOCK_ADS: AdCreative[] = [
     campaignId: 'camp-01',
     headline1: 'Fast PostgreSQL Performance',
     headline2: 'Detect Slow Queries in Seconds',
-    headline3: 'Start Free 14-Day Trial',
+    headline3: 'Explore limited dashboard access',
     description1: 'Continuously track database health, query latency, and resource bottlenecks.',
     description2: 'Over 1,200 DevOps teams trust CloudScale. Setup in under 5 minutes.',
     finalUrl: 'https://cloudscale.io/database-monitoring',
@@ -526,7 +525,7 @@ export const MOCK_ADS: AdCreative[] = [
     headline2: 'Powering Global Databases',
     headline3: 'Explore CloudScale',
     description1: 'Transform how your engineering department provisions and monitors cloud workloads.',
-    description2: 'Enterprise-grade security and SOC2 compliance built-in.',
+    description2: 'Security-focused controls and connected account visibility.',
     finalUrl: 'https://cloudscale.io/enterprise',
     adStrength: 'AVERAGE',
     impressions: 110000,
@@ -909,41 +908,6 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     status: 'EXECUTED',
     canRevert: true,
   }
-];
-
-export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: 'FREE',
-    name: 'Free',
-    description: 'Basic visibility into your connected Google Ads account.',
-    monthlyPrice: 0,
-    annualPriceMonthly: 0,
-    accountLimit: '1 Google Ads Account',
-    spendLimit: 'Basic viewing',
-    features: [
-      'Dashboard and campaign viewing',
-      'Google Ads account connection',
-      'Account settings and activity history',
-    ],
-  },
-  {
-    id: 'PRO',
-    name: 'Pro',
-    description: 'Evidence-led auditing, reporting, and assisted optimization.',
-    monthlyPrice: 29,
-    annualPriceMonthly: 8.25,
-    badge: 'MOST POPULAR',
-    popular: true,
-    accountLimit: 'Your connected Google Ads account',
-    spendLimit: '$29 monthly or $99 yearly',
-    features: [
-      'AI Marketing Agent with account history',
-      'Period-specific Google Ads audits',
-      'Performance reports with CSV and print exports',
-      'Budget Optimizer',
-      'Google Ads campaign changes',
-    ],
-  },
 ];
 
 export function computeAccountMetrics(

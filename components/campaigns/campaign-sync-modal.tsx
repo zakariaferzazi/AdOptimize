@@ -33,7 +33,7 @@ export function CampaignSyncModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center font-bold text-sm">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div>
@@ -102,7 +102,7 @@ export function CampaignSyncModal({
             onClick={handleExecuteSync}
             className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
-            {isSyncing ? <AppLoader className="h-3.5 w-3.5" /> : <RefreshCw className="w-3.5 h-3.5 text-[#00d67d]" />}
+            {isSyncing ? <AppLoader className="h-3.5 w-3.5" /> : <RefreshCw className="w-3.5 h-3.5 text-[#6D28D9]" />}
             <span>{isSyncing ? 'Synchronizing with Google Ads...' : 'Sync Real Campaigns Now'}</span>
           </button>
         </div>

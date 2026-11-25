@@ -51,7 +51,7 @@ describe('subscription management', () => {
     mocks.status = { ...mocks.status!, status: 'canceled', hasAccess: false, cancelAtPeriodEnd: false };
     const html = renderToStaticMarkup(React.createElement(SubscriptionManager));
     expect(html).toContain('Canceled');
-    expect(html).toContain('Free');
+    expect(html).toContain('Limited dashboard access');
     expect(html).not.toContain('Renews');
     expect(html).not.toContain('access until period end');
   });

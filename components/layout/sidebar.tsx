@@ -129,12 +129,12 @@ export function Sidebar({
               alt="AdOptimize Logo"
               width={32}
               height={32}
-              className="w-8 h-8 rounded-xl shadow-lg shadow-[#00d67d]/20 object-contain group-hover:scale-105 transition-transform"
+              className="w-8 h-8 rounded-xl shadow-lg shadow-[#6D28D9]/20 object-contain group-hover:scale-105 transition-transform"
               referrerPolicy="no-referrer"
             />
             <div className="flex items-baseline tracking-tight font-bold text-xl">
               <span className="text-white">Ad</span>
-              <span className="text-[#00d67d]">Optimize</span>
+              <span className="text-[#FBBF24]">Optimize</span>
             </div>
           </Link>
         </div>
@@ -155,14 +155,14 @@ export function Sidebar({
                 }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-150 cursor-pointer ${
                   isActive
-                    ? 'bg-[#00d67d] text-slate-950 font-semibold shadow-md shadow-[#00d67d]/15'
+                    ? 'bg-[#6D28D9] text-white font-semibold shadow-md shadow-[#6D28D9]/15'
                     : 'text-slate-300 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <Icon
                     className={`w-4 h-4 shrink-0 stroke-[2] ${
-                      isActive ? 'text-slate-950' : 'text-slate-400'
+                      isActive ? 'text-white' : 'text-slate-400'
                     }`}
                   />
                   <span className="truncate">{item.label}</span>
@@ -172,8 +172,8 @@ export function Sidebar({
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                       isActive
-                        ? 'bg-slate-950 text-[#00d67d]'
-                        : 'bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30'
+                        ? 'bg-[#2E1065] text-[#FBBF24]'
+                        : 'bg-[#DDD6FE] text-[#2E1065] border border-[#6D28D9]/30'
                     }`}
                   >
                     {item.badge}
@@ -186,7 +186,7 @@ export function Sidebar({
       </div>
 
       {/* Bottom Section: Activity, Reports, Settings in horizontal dock, Divider line below, and Legal Pages at bottom */}
-      <div className="shrink-0 mt-auto p-3.5 sm:p-4 flex flex-col gap-2.5 border-t border-slate-800/70 bg-[#0d1117]">
+      <div className="shrink-0 mt-auto p-3.5 sm:p-4 flex flex-col gap-2.5 border-t border-slate-800/70 bg-[#2E1065]">
         {/* Horizontal 3-button dock as originally styled */}
         <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800/80">
           <Link
@@ -198,7 +198,7 @@ export function Sidebar({
             title="Activity Log"
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/activity-log' || currentTab === 'activity_log'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                ? 'bg-[#6D28D9] text-white font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -215,7 +215,7 @@ export function Sidebar({
             title="Reports"
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/reports' || currentTab === 'reports'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                ? 'bg-[#6D28D9] text-white font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -232,7 +232,7 @@ export function Sidebar({
             title="Settings"
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               pathname === '/settings' || currentTab === 'settings'
-                ? 'bg-[#00d67d] text-slate-950 font-bold shadow-xs'
+                ? 'bg-[#6D28D9] text-white font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -286,7 +286,7 @@ export function Sidebar({
     <>
       {/* 1. Desktop Persistent Sidebar - Completely fixed to viewport so it does not scroll with page */}
       <aside
-        className={`hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 h-screen max-h-screen select-none border-r border-slate-800/60 z-30 bg-[#0d1117] text-slate-300 overflow-hidden transition-transform duration-300 ease-in-out ${
+        className={`hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 h-screen max-h-screen select-none border-r border-slate-800/60 z-30 bg-[#2E1065] text-slate-300 overflow-hidden transition-transform duration-300 ease-in-out ${
           isDesktopCollapsed
             ? '-translate-x-full border-r-0 pointer-events-none'
             : 'translate-x-0'
@@ -308,7 +308,7 @@ export function Sidebar({
           />
 
           {/* Drawer Panel */}
-          <aside className="relative flex flex-col justify-between w-72 max-w-[85vw] bg-[#0d1117] text-slate-300 h-full min-h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 select-none border-r border-slate-800/80 overflow-y-auto">
+          <aside className="relative flex flex-col justify-between w-72 max-w-[85vw] bg-[#2E1065] text-slate-300 h-full min-h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200 select-none border-r border-slate-800/80 overflow-y-auto">
             {renderNavContent(true)}
           </aside>
         </div>
