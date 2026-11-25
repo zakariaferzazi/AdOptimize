@@ -6,7 +6,7 @@ import { useAuthUser } from '@/hooks/use-auth-user';
 import type { PlanInterval } from '@/lib/auth-redirect';
 import { BillingClientError, fetchBillingStatus, startCheckout } from '@/lib/billing-client';
 
-// New visitors go to sign-up; signed-in users go straight to a server-created checkout.
+// New visitors go to sign-up; signed-in users go straight to a server-created checkout
 export function PlanCta({ interval, label, className }: { interval: PlanInterval; label: string; className: string }) {
   const router = useRouter();
   const { user, ready } = useAuthUser();
