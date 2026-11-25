@@ -149,25 +149,21 @@ SHA-256 hash is stored, and it expires no later than its Firebase token.
 Token refresh rotates the session; logout invalidates it. Clearing cookies does
 not delete subscriptions or account history.
 
-The homepage always remains public, including for signed-in users. Sign in opens
-`/sign-in`; Get started opens `/sign-up`. Sign-in synchronizes the secure server
-session before navigating to the workspace. Workspace pages verify that session
-on the server; anonymous visits go to sign-in. The agent, audit, optimizer and
-reports show a clearly labelled, non-interactive example to signed-in users
-without Pro; their live views and APIs still require verified Pro access.
+The homepage always remains public, including for signed-in users. Log In opens
+`/sign-in`; Get started and the Google signup CTAs open `/sign-up`, where Google
+authentication is initiated. Sign-in synchronizes the secure server session
+before navigating to the workspace. Anonymous workspace visits go to sign-in;
 only the homepage **View Demo** link opens the anonymous dashboard preview at
 `/dashboard?demo=true`. That flag never bypasses API authentication or Pro access.
 Subscription management is available in Settings and `/billing`, not a
 sidebar "Billing & Pro" button. Rebuild before deploying routing changes;
 deploying an existing `.open-next` bundle can publish stale UI.
-Signup without a selected Pro interval opens the dashboard after synchronizing
-the server session. Choosing a Pro interval follows Account -> Plan -> Polar
-payment -> Connect Google Ads.
+Paid signup follows Account -> Plan -> Polar payment -> Connect Google Ads.
 Only webhook-confirmed Pro access reveals the connection step; returning to
 sign-up with an active subscription resumes it. It reuses the app's connection
 modal instead of a standalone pre-payment onboarding page. Google Ads consent
 still requires an explicit user click, separately from login. Users choosing the
-workspace first can connect later in Settings.
+free plan go straight to their dashboard and can connect later in Settings.
 The post-payment Connect button opens Google authorization directly, without a
 second confirmation dialog. If multiple accounts are found, selection appears
 inline and reuses the completed authorization. The Google Ads logo is the official

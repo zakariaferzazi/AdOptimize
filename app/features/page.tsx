@@ -1,48 +1,92 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, BarChart3, ClipboardCheck, Layers3, Search, ShieldCheck, Target } from 'lucide-react';
-import { SiteFooter, SiteHeader } from '@/components/landing/site-chrome';
+import { ArrowLeft, SlidersHorizontal, ShieldCheck, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = {
-  title: 'Features | AdOptimize',
-  description: 'Explore the AI Marketing Agent, Google Ads audit, budget optimizer, and reports.',
-  alternates: { canonical: '/features' },
+  title: 'Features - Google Ads Audit & Budget Optimization | AdOptimize',
+  description: 'Explore AdOptimize features: continuous Google Ads audit, negative keyword discovery, CPA spike detection, and 1-click budget rebalancing.',
 };
 
-const features = [
-  { icon: Search, title: 'Investigate your Google Ads account', text: 'Ask the agent to analyze live campaigns, search terms, keywords, conversion setup, and performance across periods. It can investigate across multiple account resources before explaining what it found.' },
-  { icon: Layers3, title: 'Build and manage campaigns', text: 'Describe a Search or App campaign for the agent to prepare. It can also propose supported changes to campaign status, budgets, bidding, dates, locations, and conversion goals.' },
-  { icon: Target, title: 'Work with keywords and ad groups', text: 'Ask the agent to create a Search ad group, add positive or negative keywords, or adjust supported keyword and ad group settings.' },
-  { icon: ShieldCheck, title: 'Approve before execution', text: 'Review the proposed change on its approval card. After your approval, the agent can execute supported changes in Google Ads and report the recorded outcome.' },
-  { icon: ClipboardCheck, title: 'Run an account audit', text: 'Choose a reporting period and review campaign comparisons, non-converting search queries, keyword quality, and prioritized evidence-led findings. Export the findings as CSV.' },
-  { icon: BarChart3, title: 'Optimize budgets and report performance', text: 'Review budget recommendations and create period-specific reports with previous-period comparisons, campaign breakdowns, CSV exports, and print-ready views.' },
-];
-
 export default function FeaturesPage() {
+  const capabilities = [
+    {
+      icon: CheckCircle2,
+      title: 'Continuous Google Ads Audit',
+      desc: 'Scans your Search, Performance Max (PMax), and Display campaigns every 15 minutes. Uncovers non-converting queries, budget caps, and negative keyword leaks.',
+    },
+    {
+      icon: SlidersHorizontal,
+      title: 'Budget Rebalancer & Margin Scaling',
+      desc: 'Identifies high-ROAS winning campaigns hitting daily spend ceilings. Reallocates capital away from dying ad groups with 1-click verification.',
+    },
+    {
+      icon: ShieldCheck,
+      title: 'CPA & ROAS Anomaly Detection',
+      desc: 'Detects sudden cost per conversion spikes before they drain weekly budgets. Delivers exact data evidence citing query logs and competitor auction pressure.',
+    },
+    {
+      icon: Zap,
+      title: 'Negative Keyword Automation',
+      desc: 'Automatically isolates career, student, crack, and login queries from your search traffic. Protects broad match campaigns from wasting click spend.',
+    },
+  ];
+
   return (
-    <div className="site-page">
-      <SiteHeader />
-      <main className="site-container py-20">
-        <div className="max-w-3xl">
-          <span className="site-label">THE PRO WORKSPACE</span>
-          <h1 className="site-heading">An AI marketing agent built to act.</h1>
-          <p className="site-intro">From investigating an account to executing an approved change, AdOptimize brings the work together. Explore the dashboard and preview Pro before subscribing.</p>
+    <div className="min-h-screen bg-[#f6f8fa] text-slate-900 font-sans">
+      <header className="bg-[#0d1117] text-white px-6 py-4 border-b border-slate-800">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link href="/">
+            <BrandLogo />
+          </Link>
+
+          <Link
+            href="/"
+            className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors"
+          >
+            Open Workspace
+          </Link>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {features.map(({ icon: Icon, title, text }) => (
-            <article key={title} className="site-card">
-              <div className="site-icon"><Icon className="h-5 w-5" aria-hidden="true" /></div>
-              <h2 className="mt-6 text-lg font-bold text-slate-950">{title}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{text}</p>
-            </article>
-          ))}
+      </header>
+
+      <main className="max-w-5xl mx-auto px-6 py-16 space-y-12">
+        <div className="space-y-3 text-center max-w-2xl mx-auto">
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+            Platform Capabilities
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            Everything You Need to Cut CPA & Scale ROAS
+          </h1>
+          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+            Eliminate wasted ad spend, stop bleeding budgets, and optimize Google Ads accounts with zero agency retainers.
+          </p>
         </div>
-        <div className="mt-10 flex flex-wrap gap-3">
-          <Link href="/sign-up" className="site-button">Explore the workspace <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
-          <Link href="/pricing" className="site-button-secondary">See Pro pricing</Link>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {capabilities.map((cap, i) => {
+            const Icon = cap.icon;
+            return (
+              <div key={i} className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{cap.title}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">{cap.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="text-center pt-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3.5 bg-slate-950 text-[#00d67d] font-bold text-xs rounded-xl shadow-xl hover:bg-slate-900 transition-colors"
+          >
+            <span>Launch Live AdOptimize Workspace</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </main>
-      <SiteFooter />
     </div>
   );
 }

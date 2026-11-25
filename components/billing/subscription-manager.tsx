@@ -60,7 +60,7 @@ export function SubscriptionManager() {
 
   const label = status?.hasAccess
     ? `Pro ${status.interval === 'yearly' ? 'yearly' : 'monthly'}`
-    : 'Dashboard access';
+    : 'Free';
   const canceled = status?.status === 'canceled' || (status?.status === 'active' && status.cancelAtPeriodEnd);
   const statusLabel = canceled
     ? status?.hasAccess ? 'Canceled (access until period end)' : 'Canceled'
@@ -90,7 +90,7 @@ export function SubscriptionManager() {
           </div>
           <div className="flex flex-wrap gap-3">
             {!status.hasAccess && status.status !== 'past_due' && (
-              <Link href="/sign-up?plan=monthly" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">Upgrade to Pro</Link>
+              <Link href="/sign-up" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">Upgrade to Pro</Link>
             )}
             {status.hasCustomer && (
               <button disabled={busy} onClick={() => { void portal(); }} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold disabled:opacity-50">

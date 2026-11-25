@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { SettingsClientView } from './settings-client';
-import { requirePageSession } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SettingsPage() {
-  await requirePageSession('/settings');
+export default function SettingsPage() {
   return <SettingsClientView />;
 }

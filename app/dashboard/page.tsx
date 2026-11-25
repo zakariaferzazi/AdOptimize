@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { DashboardClientView } from './dashboard-client';
-import { requirePageSession } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ demo?: string | string[] }> }) {
-  if ((await searchParams).demo !== 'true') await requirePageSession('/dashboard');
+export default function DashboardPage() {
   return <DashboardClientView />;
 }

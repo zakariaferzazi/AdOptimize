@@ -294,13 +294,13 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
             <div className="relative z-10 max-w-3xl space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#00d67d] border border-emerald-500/30 text-xs font-bold">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Your Google Ads workspace</span>
+                <span>Production Environment</span>
               </div>
               <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-white">
-                Explore what your AI agent can do
+                Connect your active Google Ads account to start monitoring
               </h2>
               <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-                Preview the agent, audit, optimizer, and reports. Connect Google Ads to bring your account into the workspace; Pro unlocks the tools and approved changes.
+                Link your Google Ads account to begin live negative keyword mining, automated CPA anomaly alerts, and continuous ROAS budget optimizations.
               </p>
               <div className="pt-2 flex flex-wrap items-center gap-3">
                 <button
@@ -308,10 +308,12 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
                   onClick={() => setShowConnectModal(true)}
                   className="px-4 sm:px-5 py-2.5 bg-[#00d67d] hover:bg-[#00c06f] text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Connect Google Ads</span>
+                  <span>Connect Google Ads (1-Click)</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                <a href="/chat" className="text-sm font-semibold text-white underline underline-offset-4">Preview the AI agent</a>
+                <span className="text-xs text-slate-400">
+                  Standard Google OAuth · Read &amp; Optimize permissions
+                </span>
               </div>
             </div>
           </div>
@@ -471,10 +473,10 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
           <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-sm flex flex-col justify-between">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-emerald-300">AI Marketing Agent</div>
-              <h2 className="mt-3 text-xl font-bold">An agent that can do the work.</h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">Investigate your account, build campaigns, and prepare changes the agent can execute after your approval.</p>
+              <h2 className="mt-3 text-xl font-bold">Ask your AI marketing agent anything.</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">Get clear answers about campaign performance, wasted spend and your next best optimization.</p>
             </div>
-            <a href="/chat" className="mt-6 inline-flex w-fit items-center rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-300">Explore AI Marketing Agent</a>
+            <a href="/chat" className="mt-6 inline-flex w-fit items-center rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-300">Open AI Marketing Agent</a>
           </div>
         </div>
 

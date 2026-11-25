@@ -61,7 +61,7 @@ export function BrandLogo({
             (theme === 'dark' ? 'text-white' : 'text-slate-900') + ' ' + sizeClasses.text
           }`}
         >
-          Ad<span className={theme === 'dark' ? 'text-indigo-300' : 'text-indigo-600'}>optimize</span>
+          Ad<span className="text-[#00d67d]">optimize</span>
         </span>
       )}
     </div>

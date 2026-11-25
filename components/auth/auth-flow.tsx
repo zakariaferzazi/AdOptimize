@@ -13,7 +13,7 @@ import { GoogleIcon } from '@/components/ui/google-icon';
 import { AgentIcon } from '@/components/ui/ai-model-icons';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { useAuthUser } from '@/hooks/use-auth-user';
-import { authFlowLink, parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
+import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
 import { BillingClientError, fetchBillingStatus, startCheckout, type BillingStatus } from '@/lib/billing-client';
 import { synchronizeServerSession } from '@/lib/auth-session';
 import { PostPaymentConnect } from '@/components/billing/post-payment-connect';
@@ -91,7 +91,7 @@ function ShowcasePanel() {
           </div>
           <div className="ml-4 rounded-xl rounded-tr-sm bg-indigo-50 p-2.5 text-[11px] leading-relaxed text-indigo-900">Audit all my campaigns for the last 30 days. Find wasted spend and prioritize the fixes.</div>
           <div className="rounded-xl rounded-tl-sm bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
-            <p><strong className="text-slate-900">Ready for review.</strong> I can prepare a campaign change for your approval, then execute it in Google Ads.</p>
+            <p><strong className="text-slate-900">Done.</strong> Wasted search terms flagged, budget bottlenecks identified, and your action plan is ready. No changes made.</p>
           </div>
           <p className="text-[9px] leading-relaxed text-slate-400">Illustrative example. Findings depend on your account.</p>
         </div>
@@ -106,7 +106,7 @@ const PASSWORD_RULES = [
   { label: 'Lowercase (a-z) and uppercase (A-Z)', test: (value: string) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
 ];
 
-function AccountForm({ mode, switchHref, onDone }: { mode: Mode; switchHref: string; onDone: (user: User) => void }) {
+function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone: (user: User) => void }) {
   const signUp = mode === 'sign-up';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -211,7 +211,7 @@ function AccountForm({ mode, switchHref, onDone }: { mode: Mode; switchHref: str
       </div>
       <p className="pt-2 text-[11px] text-slate-400">
         {signUp ? 'Already a member? ' : 'New to AdOptimize? '}
-        <Link href={switchHref} className="font-semibold text-indigo-600 hover:underline">
+        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-indigo-600 hover:underline">
           {signUp ? 'Sign in' : 'Create an account'}
         </Link>
         {' '}· By continuing you agree to our <Link href="/terms-of-service" className="underline">Terms</Link> and <Link href="/privacy-policy" className="underline">Privacy Policy</Link>.
@@ -220,7 +220,9 @@ function AccountForm({ mode, switchHref, onDone }: { mode: Mode; switchHref: str
   );
 }
 
-const PRO_FEATURES = ['AI agent: investigate and execute approved Google Ads changes', 'Create and optimize campaigns, budgets, targeting, and keywords', 'Account audit, Budget Optimizer, reports, and exports'];
+const PRO_FEATURES = ['AI Marketing Agent', 'Ads Account Audit', 'Budget Optimizer'];
+// Paid pages would just bounce an unpaid user back here, so the free plan only continues to free ones.
+const FREE_PATHS = ['/dashboard', '/campaigns', '/activity-log', '/settings', '/billing'];
 
 function PlanStep({ user, status, initial, next }: { user: User; status: BillingStatus; initial: PlanInterval; next: string }) {
   const router = useRouter();
@@ -236,18 +238,6 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
     } catch (failure) {
       if (failure instanceof BillingClientError && failure.status === 409) { router.replace('/billing'); return; }
       setError(failure instanceof Error ? failure.message : 'Unable to open checkout.');
-      setBusy(false);
-    }
-  };
-
-  const explore = async () => {
-    if (busy) return;
-    setBusy(true); setError(null);
-    try {
-      await synchronizeServerSession(user);
-      router.replace(next);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Unable to open your workspace.');
       setBusy(false);
     }
   };
@@ -274,8 +264,8 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
         {busy ? <><RefreshCw className="w-4 h-4 animate-spin" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
-      <button type="button" disabled={busy} onClick={() => { void explore(); }} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline disabled:opacity-50">
-        Explore the workspace first
+      <button type="button" onClick={() => router.replace(FREE_PATHS.includes(next) ? next : '/dashboard')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline">
+        Continue with the free plan
       </button>
     </div>
   );
@@ -286,9 +276,6 @@ export function AuthFlow({ mode }: { mode: Mode }) {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
   const plan = parseInterval(params.get('plan'));
-  const selectedPlan = params.get('plan');
-  const hasSelectedPlan = selectedPlan === 'monthly' || selectedPlan === 'yearly';
-  const switchHref = authFlowLink(mode === 'sign-up' ? 'sign-in' : 'sign-up', next, selectedPlan);
   const { user, ready } = useAuthUser();
   const [loaded, setLoaded] = useState<{ uid: string; status?: BillingStatus; error?: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -296,24 +283,24 @@ export function AuthFlow({ mode }: { mode: Mode }) {
 
   // The step is derived from server-side truth, so a returning user resumes exactly where they left off.
   useEffect(() => {
-    if (!ready || !user || !signUp || !hasSelectedPlan) return;
+    if (!ready || !user || !signUp) return;
     let active = true;
     fetchBillingStatus(user).then(
       (status) => { if (active) setLoaded({ uid: user.uid, status }); },
       (failure) => { if (active) setLoaded({ uid: user.uid, error: failure instanceof Error ? failure.message : 'Unable to load your plan.' }); },
     );
     return () => { active = false; };
-  }, [ready, user, signUp, hasSelectedPlan, attempt]);
+  }, [ready, user, signUp, attempt]);
 
   useEffect(() => {
-    if (!ready || !user || (signUp && hasSelectedPlan)) return;
+    if (!ready || !user || signUp) return;
     let active = true;
     synchronizeServerSession(user).then(
-      () => { if (active) router.replace(!signUp && hasSelectedPlan ? authFlowLink('sign-up', next, selectedPlan) : next); },
+      () => { if (active) router.replace(next); },
       (failure) => { if (active) setLoaded({ uid: user.uid, error: failure instanceof Error ? failure.message : 'Unable to synchronize your secure session.' }); },
     );
     return () => { active = false; };
-  }, [ready, user, signUp, next, router, attempt, selectedPlan, hasSelectedPlan]);
+  }, [ready, user, signUp, next, router, attempt]);
 
   const current = user && loaded?.uid === user.uid ? loaded : null;
   const status = current?.status ?? null;
@@ -327,10 +314,10 @@ export function AuthFlow({ mode }: { mode: Mode }) {
   }, [user, status]);
 
   const heading = signUp
-    ? !hasSelectedPlan ? 'Create your account' : step === 0 ? 'Sign Up' : step === 1 ? 'Choose your plan' : 'Bring your campaigns to life'
+    ? step === 0 ? 'Sign Up' : step === 1 ? 'Choose your plan' : 'Bring your campaigns to life'
     : 'Sign In';
   const subtitle = signUp
-    ? !hasSelectedPlan ? 'Explore your workspace and preview Pro before subscribing.' : step === 0 ? 'Create your account to launch your AI marketing agent' : step === 1 ? 'Unlock the full agent. Upgrade, downgrade, or cancel anytime.' : 'Pro is active. Connect Google Ads to get started.'
+    ? step === 0 ? 'Create your account to launch your AI marketing agent' : step === 1 ? 'Unlock the full agent. Upgrade, downgrade, or cancel anytime.' : 'Pro is active. Connect Google Ads to get started.'
     : 'Welcome back. Pick up where your agent left off.';
 
   return (
@@ -342,26 +329,26 @@ export function AuthFlow({ mode }: { mode: Mode }) {
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <BrandLogoIcon size={20} className="w-5 h-5 rounded-md" />
               <span>{signUp ? 'Already member?' : 'New here?'}</span>
-              <Link href={switchHref} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
+              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
             </div>
           </div>
 
           <div className="mt-10 sm:mt-14 max-w-md w-full space-y-6 flex-1">
-            {signUp && hasSelectedPlan && <Stepper current={step} />}
+            {signUp && <Stepper current={step} />}
             <div>
               <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">{heading}</h1>
               <p className="mt-1.5 text-xs sm:text-sm text-slate-400">{subtitle}</p>
             </div>
 
             {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</p>
-              : !user ? <AccountForm mode={mode} switchHref={switchHref} onDone={() => {}} />
-              : !signUp || !hasSelectedPlan ? statusError ? <div role="alert" className="space-y-3 text-sm text-rose-700"><p>{statusError}</p><button type="button" onClick={retry} className="font-semibold underline">Retry</button></div> : <p role="status" className="text-sm text-slate-500">Preparing your workspace...</p>
+              : !user ? <AccountForm mode={mode} next={next} onDone={() => {}} />
+              : !signUp ? statusError ? <div role="alert" className="space-y-3 text-sm text-rose-700"><p>{statusError}</p><button type="button" onClick={retry} className="font-semibold underline">Retry sign-in</button></div> : <p role="status" className="text-sm text-slate-500">Synchronizing secure sign-in...</p>
               : statusError ? (
                 <div className="space-y-3">
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>
                   <div className="flex gap-3">
                     <button onClick={retry} className="rounded-full bg-indigo-600 text-white text-xs font-semibold px-5 py-2.5">Try again</button>
-                    <Link href="/dashboard" className="rounded-full border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2.5">Explore the dashboard</Link>
+                    <Link href="/dashboard" className="rounded-full border border-slate-200 text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with the free plan</Link>
                   </div>
                 </div>
               )

@@ -84,13 +84,13 @@ interface AiChatViewProps {
   onSelectCampaignByName?: (name: string) => void;
 }
 
-const WELCOME_TEXT = `Your AI Marketing Agent
+const WELCOME_TEXT = `Your Google Ads Assistant
 
-I can investigate your Google Ads account, build Search or App campaigns, and prepare changes to budgets, bidding, targeting, keywords, and campaign status.
+Hi! I can help you understand your campaign performance, find wasted spend, and identify opportunities to improve your results.
 
-I'll show you a proposal to review. After you approve it, I can execute supported changes in Google Ads and report the outcome.
+Ask a question, investigate a campaign, or get recommendations for your advertising budget.
 
-What would you like to work on?`;
+What would you like to investigate?`;
 
 export function AiChatView({
   account,

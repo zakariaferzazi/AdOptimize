@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { ChatClientView } from './chat-client';
-import { hasPageSubscription } from '@/lib/billing/access';
-import { ProPreview } from '@/components/billing/pro-preview';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +19,6 @@ export const metadata: Metadata = {
 };
 
 export default async function ChatPage() {
-  if (!await hasPageSubscription('/chat')) return <ProPreview feature="agent" />;
+  await requirePageSubscription('/chat');
   return <ChatClientView />;
 }

@@ -17,7 +17,7 @@ export default function ErrorBoundary({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-[#f7f8ff] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-[#f6f8fa] flex flex-col items-center justify-center p-6 text-center">
       <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mb-6 shadow-sm">
         <AlertCircle className="w-8 h-8" />
       </div>
@@ -25,12 +25,14 @@ export default function ErrorBoundary({
         Something went wrong
       </h1>
       <p className="text-slate-600 max-w-md mb-8 text-sm sm:text-base leading-relaxed">
-        An unexpected application error occurred. You can retry or return to the homepage.
+        {error?.message && !error.message.includes('fetch')
+          ? error.message
+          : 'An unexpected application error occurred. You can retry the action or return to the main dashboard.'}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={() => reset()}
-          className="site-button"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Try Again</span>
@@ -40,7 +42,7 @@ export default function ErrorBoundary({
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors shadow-sm"
         >
           <Home className="w-4 h-4" />
-          <span>Go home</span>
+          <span>Go to Dashboard</span>
         </Link>
       </div>
     </div>

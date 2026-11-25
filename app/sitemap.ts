@@ -6,6 +6,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticRoutes = [
     '',
+    '/dashboard',
+    '/campaigns',
+    '/audit',
+    '/optimizer',
+    '/chat',
+    '/activity-log',
+    '/settings',
+    '/reports',
     '/features',
     '/pricing',
     '/about',
@@ -26,7 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: route === '' ? 'daily' : 'weekly',
-    priority: route === '' ? 1.0 : route.startsWith('/tools') || route.startsWith('/pricing') ? 0.9 : 0.8,
+    priority: route === '' ? 1.0 : route.startsWith('/tools') || route.startsWith('/pricing') || route.startsWith('/dashboard') ? 0.9 : 0.8,
   }));
 
   // Add Programmatic SEO Features routes

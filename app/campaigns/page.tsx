@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { CampaignsClientView } from './campaigns-client';
-import { requirePageSession } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function CampaignsPage() {
-  await requirePageSession('/campaigns');
+export default function CampaignsPage() {
   return <CampaignsClientView />;
 }
