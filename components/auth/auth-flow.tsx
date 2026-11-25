@@ -13,7 +13,7 @@ import { GoogleIcon } from '@/components/ui/google-icon';
 import { AgentIcon } from '@/components/ui/ai-model-icons';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { useAuthUser } from '@/hooks/use-auth-user';
-import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
+import { authFlowLink, parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect';
 import { BillingClientError, fetchBillingStatus, startCheckout, type BillingStatus } from '@/lib/billing-client';
 import { synchronizeServerSession } from '@/lib/auth-session';
 import { PostPaymentConnect } from '@/components/billing/post-payment-connect';
@@ -106,7 +106,7 @@ const PASSWORD_RULES = [
   { label: 'Lowercase (a-z) and uppercase (A-Z)', test: (value: string) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
 ];
 
-function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone: (user: User) => void }) {
+function AccountForm({ mode, switchHref, onDone }: { mode: Mode; switchHref: string; onDone: (user: User) => void }) {
   const signUp = mode === 'sign-up';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -211,7 +211,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       </div>
       <p className="pt-2 text-[11px] text-slate-400">
         {signUp ? 'Already a member? ' : 'New to AdOptimize? '}
-        <Link href={`${signUp ? '/sign-in' : '/sign-up'}${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-indigo-600 hover:underline">
+        <Link href={switchHref} className="font-semibold text-indigo-600 hover:underline">
           {signUp ? 'Sign in' : 'Create an account'}
         </Link>
         {' '}· By continuing you agree to our <Link href="/terms-of-service" className="underline">Terms</Link> and <Link href="/privacy-policy" className="underline">Privacy Policy</Link>.
@@ -276,6 +276,8 @@ export function AuthFlow({ mode }: { mode: Mode }) {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
   const plan = parseInterval(params.get('plan'));
+  const selectedPlan = params.get('plan');
+  const switchHref = authFlowLink(mode === 'sign-up' ? 'sign-in' : 'sign-up', next, selectedPlan);
   const { user, ready } = useAuthUser();
   const [loaded, setLoaded] = useState<{ uid: string; status?: BillingStatus; error?: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -296,11 +298,11 @@ export function AuthFlow({ mode }: { mode: Mode }) {
     if (!ready || !user || signUp) return;
     let active = true;
     synchronizeServerSession(user).then(
-      () => { if (active) router.replace(next); },
+      () => { if (active) router.replace(selectedPlan === 'monthly' || selectedPlan === 'yearly' ? authFlowLink('sign-up', next, selectedPlan) : next); },
       (failure) => { if (active) setLoaded({ uid: user.uid, error: failure instanceof Error ? failure.message : 'Unable to synchronize your secure session.' }); },
     );
     return () => { active = false; };
-  }, [ready, user, signUp, next, router, attempt]);
+  }, [ready, user, signUp, next, router, attempt, selectedPlan]);
 
   const current = user && loaded?.uid === user.uid ? loaded : null;
   const status = current?.status ?? null;
@@ -329,7 +331,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <BrandLogoIcon size={20} className="w-5 h-5 rounded-md" />
               <span>{signUp ? 'Already member?' : 'New here?'}</span>
-              <Link href={signUp ? '/sign-in' : '/sign-up'} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
+              <Link href={switchHref} className="font-semibold text-indigo-600 rounded-md bg-indigo-50 px-2 py-1">{signUp ? 'Sign in' : 'Sign up'}</Link>
             </div>
           </div>
 
@@ -341,7 +343,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
             </div>
 
             {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</p>
-              : !user ? <AccountForm mode={mode} next={next} onDone={() => {}} />
+              : !user ? <AccountForm mode={mode} switchHref={switchHref} onDone={() => {}} />
               : !signUp ? statusError ? <div role="alert" className="space-y-3 text-sm text-rose-700"><p>{statusError}</p><button type="button" onClick={retry} className="font-semibold underline">Retry sign-in</button></div> : <p role="status" className="text-sm text-slate-500">Synchronizing secure sign-in...</p>
               : statusError ? (
                 <div className="space-y-3">

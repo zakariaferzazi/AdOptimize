@@ -18,11 +18,11 @@ export default function GlobalError({
           </div>
           <h2 className="text-xl font-bold text-slate-900">Application Error</h2>
           <p className="text-sm text-slate-500 leading-relaxed">
-            {error?.message || 'A critical error occurred while rendering the page.'}
+            A critical error occurred while rendering the page. Please try again.
           </p>
           <button
             onClick={() => reset()}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors cursor-pointer"
+            className="w-full py-3 bg-indigo-600 text-white rounded-full font-semibold text-sm hover:bg-indigo-700 transition-colors cursor-pointer"
           >
             Reload Application
           </button>

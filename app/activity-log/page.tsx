@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ActivityLogClientView } from './activity-log-client';
+import { requirePageSession } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ActivityLogPage() {
+export default async function ActivityLogPage() {
+  await requirePageSession('/activity-log');
   return <ActivityLogClientView />;
 }

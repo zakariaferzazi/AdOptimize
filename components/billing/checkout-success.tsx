@@ -49,7 +49,7 @@ export function CheckoutSuccess() {
           : !user ? (
             <div className="space-y-3">
               <h1 className="text-2xl font-extrabold text-slate-900">Sign in to confirm your payment</h1>
-              <Link href="/sign-up" className="inline-block rounded-full bg-indigo-600 text-white text-sm font-semibold px-6 py-3">Sign in to continue setup</Link>
+              <Link href="/sign-in?next=%2Fbilling%2Fsuccess" className="inline-block rounded-full bg-indigo-600 text-white text-sm font-semibold px-6 py-3">Sign in to continue setup</Link>
             </div>
           ) : phase === 'active' ? (
             <div className="space-y-4">

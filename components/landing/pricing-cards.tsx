@@ -1,0 +1,10 @@
+import Link from 'next/link';
+import { Check } from 'lucide-react';
+import { PlanCta } from '@/components/billing/plan-cta';
+
+export function PricingCards() {
+  return <div className="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
+    <article className="site-card flex flex-col"><h3 className="text-xl font-bold">Free</h3><p className="mt-2 text-sm text-slate-600">Get a clear view of your campaigns.</p><p className="mt-6 text-4xl font-extrabold">$0 <span className="text-sm font-normal text-slate-500">/ month</span></p><ul className="my-7 flex-1 space-y-3 text-sm text-slate-600">{['Dashboard and campaign viewing', 'Google Ads account connection', 'Settings and activity history'].map(item => <li key={item} className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-indigo-600" />{item}</li>)}</ul><Link href="/sign-up" className="site-button-secondary w-full">Start free</Link></article>
+    <article className="site-card flex flex-col border-indigo-300 shadow-xl shadow-indigo-100"><div className="flex items-center justify-between"><h3 className="text-xl font-bold">Pro</h3><span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">MORE INSIGHT</span></div><p className="mt-2 text-sm text-slate-600">Go deeper with assisted optimization.</p><p className="mt-6 text-4xl font-extrabold">$29 <span className="text-sm font-normal text-slate-500">/ month</span></p><p className="mt-2 text-sm text-slate-500">Or $99 / year. USD; applicable taxes extra.</p><ul className="my-7 flex-1 space-y-3 text-sm text-slate-600">{['AI Marketing Agent', 'Account audit and reports', 'Budget Optimizer', 'Google Ads campaign changes'].map(item => <li key={item} className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-indigo-600" />{item}</li>)}</ul><PlanCta interval="monthly" label="Get Pro monthly" className="site-button w-full" /><PlanCta interval="yearly" label="Choose yearly billing" className="mt-3 w-full text-center text-sm font-semibold text-indigo-700 hover:underline" /></article>
+  </div>;
+}

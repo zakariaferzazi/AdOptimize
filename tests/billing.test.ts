@@ -62,7 +62,7 @@ import ChatPage from '@/app/chat/page';
 import AuditPage from '@/app/audit/page';
 import ReportsPage from '@/app/reports/page';
 import OptimizerPage from '@/app/optimizer/page';
-import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
+import { requirePageSession, requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
 
 const organization = '11111111-1111-4111-8111-111111111111';
@@ -476,6 +476,7 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     const stored = await db.prepare('SELECT token_hash, expires_at FROM app_sessions').first<{ token_hash: string; expires_at: number }>();
     expect(stored?.token_hash).toBe(hash(mocks.cookie));
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
+    await expect(requirePageSession('/campaigns')).resolves.toBeUndefined();
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
@@ -483,8 +484,19 @@ describe('server-side Pro enforcement and opaque sessions', () => {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },
     });
     expect((await deleteSession(logout)).status).toBe(200);
+    await expect(requirePageSession('/campaigns')).rejects.toThrow('redirect:/sign-in?next=%2Fcampaigns');
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     expect(hasPaidAccess(await subscription('user-a'))).toBe(true);
+  });
+
+  it('rejects missing, forged, and expired page sessions', async () => {
+    await expect(requirePageSession('/settings')).rejects.toThrow('redirect:/sign-in?next=%2Fsettings');
+    mocks.cookie = 'not-a-session';
+    await expect(requirePageSession('/settings')).rejects.toThrow('redirect:/sign-in?next=%2Fsettings');
+    mocks.cookie = 'a'.repeat(64);
+    await db.prepare('INSERT INTO app_sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+      .bind(hash(mocks.cookie), 'user-a', Math.floor(Date.now() / 1000) - 1).run();
+    await expect(requirePageSession('/settings')).rejects.toThrow('redirect:/sign-in?next=%2Fsettings');
   });
 
   it('fails closed without durable storage, never falling back to browser or memory state', async () => {

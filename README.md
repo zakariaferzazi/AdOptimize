@@ -149,10 +149,10 @@ SHA-256 hash is stored, and it expires no later than its Firebase token.
 Token refresh rotates the session; logout invalidates it. Clearing cookies does
 not delete subscriptions or account history.
 
-The homepage always remains public, including for signed-in users. Log In opens
-`/sign-in`; Get started and the Google signup CTAs open `/sign-up`, where Google
-authentication is initiated. Sign-in synchronizes the secure server session
-before navigating to the workspace. Anonymous workspace visits go to sign-in;
+The homepage always remains public, including for signed-in users. Sign in opens
+`/sign-in`; Get started opens `/sign-up`. Sign-in synchronizes the secure server
+session before navigating to the workspace. Workspace pages verify that session
+on the server; anonymous visits go to sign-in. Paid pages also verify Pro access;
 only the homepage **View Demo** link opens the anonymous dashboard preview at
 `/dashboard?demo=true`. That flag never bypasses API authentication or Pro access.
 Subscription management is available in Settings and `/billing`, not a

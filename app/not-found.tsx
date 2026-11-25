@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#f6f8fa] flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-slate-900 text-[#00d67d] flex items-center justify-center font-bold text-2xl mb-6 shadow-lg shadow-slate-900/10">
+    <div className="min-h-screen bg-[#f7f8ff] flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-2xl mb-6 shadow-lg shadow-indigo-200">
         404
       </div>
       <h1 className="text-3xl font-black text-slate-900 tracking-tight sm:text-4xl mb-3">
@@ -14,9 +14,9 @@ export default function NotFound() {
       </p>
       <Link
         href="/"
-        className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors shadow-sm"
+        className="site-button"
       >
-        Return to Dashboard
+        Return home
       </Link>
     </div>
   );

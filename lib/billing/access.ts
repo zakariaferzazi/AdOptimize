@@ -22,12 +22,20 @@ export function withSubscription(handler: (request: NextRequest) => Promise<Resp
   };
 }
 
-export async function requirePageSubscription(path: string): Promise<void> {
-  // The sign-up flow resumes at the right step: account for guests, plan for signed-in unpaid users.
-  const paywall = `/sign-up?next=${encodeURIComponent(path)}`;
+async function pageSession(): Promise<string | null> {
   const token = (await cookies()).get('adoptimize_session')?.value;
-  if (!token) redirect(paywall);
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const session = await (await billingDb()).prepare('SELECT user_id FROM app_sessions WHERE token_hash = ? AND expires_at > ?')
     .bind(hash(token), Math.floor(Date.now() / 1000)).first<{ user_id: string }>();
-  if (!session || !hasPaidAccess(await subscription(session.user_id))) redirect(paywall);
+  return session?.user_id ?? null;
+}
+
+export async function requirePageSession(path: string): Promise<void> {
+  if (!await pageSession()) redirect(`/sign-in?next=${encodeURIComponent(path)}`);
+}
+
+export async function requirePageSubscription(path: string): Promise<void> {
+  // The sign-up flow resumes at the right step: account for guests, plan for signed-in unpaid users.
+  const userId = await pageSession();
+  if (!userId || !hasPaidAccess(await subscription(userId))) redirect(`/sign-up?next=${encodeURIComponent(path)}`);
 }

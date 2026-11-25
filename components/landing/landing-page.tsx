@@ -1,640 +1,85 @@
-'use client';
-
-import React, { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import {
-  TrendingUp,
-  ShieldCheck,
-  Zap,
-  ArrowRight,
-  CheckCircle2,
-  ChevronDown,
-  Layers,
-  Search,
-  DollarSign,
-  Lock,
-  ChevronRight,
-  AlertTriangle,
-  RotateCcw,
-  BarChart3,
-  Sliders,
-  Clock,
-  Shield,
-  Check,
-  ExternalLink,
-  Target,
-  FileText,
-  SlidersHorizontal,
-  ArrowUpRight,
-  Info
-} from 'lucide-react';
-import { GoogleIcon } from '@/components/ui/google-icon';
-import { ModelDemoSimulator } from './model-demo-simulator';
-import { BrandLogo } from '@/components/ui/brand-logo';
-import { PlanCta } from '@/components/billing/plan-cta';
+import { ArrowRight, BarChart3, ClipboardCheck, MessageSquareText, ShieldCheck, Sparkles, Target } from 'lucide-react';
+import { PricingCards } from '@/components/landing/pricing-cards';
+import { SiteFooter, SiteHeader } from '@/components/landing/site-chrome';
+import { faqs } from '@/components/landing/faq-data';
 
-interface LandingPageProps {
-  onOpenApp: () => void;
-  onConnectGoogleAds: () => void;
-  user?: { displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
-  onSignOut?: () => void;
-}
+const features = [
+  { icon: ClipboardCheck, title: 'Find the opportunities', text: 'Review campaign performance and search terms to uncover areas worth a closer look.' },
+  { icon: Sparkles, title: 'Get an action plan', text: 'Ask the AI Marketing Agent questions and turn account data into actionable recommendations.' },
+  { icon: Target, title: 'Put budget to work', text: 'Compare campaign performance and explore budget recommendations with your goals in mind.' },
+  { icon: BarChart3, title: 'See the bigger picture', text: 'Bring campaign metrics, reports, and account activity together in one workspace.' },
+];
 
-export function LandingPage({
-  onOpenApp,
-  onConnectGoogleAds,
-  user,
-  onSignOut,
-}: LandingPageProps) {
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-
-  const pricingTiers = [
-    {
-      name: 'Free',
-      priceMonthly: 0,
-      priceAnnual: 0,
-      description: 'Basic visibility into your connected Google Ads account.',
-      popular: false,
-      spendLimit: 'Basic campaign viewing',
-      features: [
-        'Dashboard and campaign viewing',
-        'Google Ads account connection',
-        'Settings and activity history',
-      ],
-      cta: 'Open free dashboard',
-    },
-    {
-      name: 'Pro',
-      priceMonthly: 29,
-      priceAnnual: 99,
-      description: 'Evidence-led auditing, reporting, and assisted optimization.',
-      popular: true,
-      spendLimit: '$29 monthly or $99 yearly',
-      features: [
-        'AI Marketing Agent',
-        'Account Ads Audit',
-        'Clean CSV and print exports',
-        'Budget Optimizer',
-        'Google Ads campaign changes',
-      ],
-      cta: 'Get Pro',
-    },
-  ];
-
-  const comparisons = [
-    {
-      slug: 'optmyzr-alternative',
-      name: 'Optmyzr Alternative',
-      tagline: 'Why pay $249+/mo plus spend penalty fees? Clean, accessible PPC optimization with zero scripts.',
-      highlight: 'Flat pricing vs $249+/mo tier fees',
-    },
-    {
-      slug: 'adspirer-alternative',
-      name: 'Adspirer Alternative',
-      tagline: 'Deep Google Ads search query intelligence, negative keyword mining, and guarded execution.',
-      highlight: 'Specialized Google Ads vs general chat',
-    },
-    {
-      slug: 'wordstream-alternative',
-      name: 'WordStream Alternative',
-      tagline: 'Modern Performance Max and Smart Bidding diagnostics built for today’s auction dynamics.',
-      highlight: 'Built for PMax & Smart Bidding',
-    },
-    {
-      slug: 'google-ads-agency-vs-software',
-      name: 'Agency vs Software',
-      tagline: 'Continuous 15-minute health monitoring without paying $3,000–$10,000/mo retainer fees.',
-      highlight: '24/7 audit without retainer overhead',
-    },
-  ];
-
-  const faqs = [
-    {
-      q: 'How does AdOptimize connect to my Google Ads account?',
-      a: 'AdOptimize connects securely through Google OAuth with direct Google authorization. You simply click Connect and approve access in the official Google popup. We never ask for passwords, secret keys, or developer tokens.',
-    },
-    {
-      q: 'Will AdOptimize make changes to my campaigns without my permission?',
-      a: 'Never. AdOptimize operates strictly with human-in-the-loop verification. Every suggested negative keyword, budget shift, or campaign pause requires your explicit 1-click confirmation before being dispatched to Google Ads.',
-    },
-    {
-      q: 'Can I revert any changes made through AdOptimize?',
-      a: 'Yes. Every optimization action is recorded in an immutable audit trail with an instant 1-click Rollback button. Reverting restores previous budgets, bids, or negative keywords in Google Ads immediately.',
-    },
-    {
-      q: 'How is AdOptimize different from expensive enterprise platforms like Optmyzr?',
-      a: 'Optmyzr costs $249+/month and charges additional percentage fees as your ad spend grows, requiring complex multi-screen scripts. AdOptimize starts at $29/mo flat, connects in 30 seconds, and delivers instant, plain-English optimizations with zero setup scripts.',
-    },
-    {
-      q: 'How is AdOptimize different from conversational tools like Adspirer?',
-      a: 'While general conversational tools answer broad questions across multiple platforms, AdOptimize is deeply specialized for Google Ads: analyzing live search queries, diagnosing Performance Max asset groups, detecting CPA anomalies in real time, and optimizing ROAS.',
-    },
-    {
-      q: 'Is there a contract or cancellation penalty?',
-      a: 'None. All subscriptions are month-to-month and can be cancelled at any time with a single click. Every plan includes an unconditional 14-day money-back guarantee.',
-    },
-  ];
-
+export function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-slate-900 selection:bg-emerald-100 selection:text-slate-900 font-sans antialiased">
-      {/* 1. TOP NAVIGATION */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="cursor-pointer">
-            <BrandLogo theme="light" />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
-            <a href="#simulator" className="hover:text-slate-900 transition-colors">Audit Simulator</a>
-            <Link href="/compare" className="hover:text-slate-900 transition-colors">
-              Comparisons
-            </Link>
-            <a href="#features" className="hover:text-slate-900 transition-colors">Capabilities</a>
-            <a href="#pricing" className="hover:text-slate-900 transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={onOpenApp}
-                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Open Dashboard</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                {onSignOut && (
-                  <button
-                    onClick={onSignOut}
-                    className="px-3 py-2 text-slate-500 hover:text-slate-800 text-xs transition-colors cursor-pointer"
-                  >
-                    Sign Out
-                  </button>
-                )}
+    <div className="site-page">
+      <SiteHeader />
+      <main>
+        <section className="site-container grid items-center gap-12 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16 lg:py-28">
+          <div>
+            <span className="site-eyebrow"><Sparkles className="h-4 w-4" aria-hidden="true" /> Your AI-powered Google Ads workspace</span>
+            <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-950 sm:text-5xl xl:text-6xl">Make every ad dollar <span className="text-indigo-600">work harder.</span></h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">Understand your Google Ads performance, find opportunities, and move from data to decisions with an AI marketing agent by your side.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link className="site-button" href="/sign-up">Get started free <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+              <a className="site-button-secondary" href="#how-it-works">See how it works</a>
+            </div>
+            <p className="mt-5 text-sm text-slate-500">Start free. Connect with Google. You approve changes. <Link href="/dashboard?demo=true" className="font-semibold text-indigo-700 underline">View demo</Link></p>
+          </div>
+          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-700 via-indigo-500 to-sky-400 p-6 shadow-2xl shadow-indigo-300/40 sm:p-9">
+            <div className="absolute -right-12 -top-20 h-56 w-56 rotate-12 rounded-[3rem] bg-indigo-900/30" aria-hidden="true" />
+            <div className="relative rounded-3xl bg-white p-5 shadow-xl sm:p-6">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600"><Sparkles className="h-5 w-5" /></span>
+                <div><p className="font-bold text-slate-900">AI Marketing Agent</p><p className="text-xs text-slate-500">Your account, in focus</p></div>
+                <span className="ml-auto rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Example</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/sign-in"
-                  className="px-3.5 py-2 text-slate-700 hover:text-slate-900 font-medium text-xs transition-colors cursor-pointer"
-                >
-                  Log In
-                </Link>
-
-                <Link
-                  href="/sign-up"
-                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <span>Get started</span>
-                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                </Link>
+              <div className="mt-5 space-y-4 text-sm">
+                <p className="ml-8 rounded-2xl rounded-tr-sm bg-indigo-50 p-4 leading-relaxed text-indigo-950">Where should I focus my Google Ads budget?</p>
+                <div className="mr-5 rounded-2xl rounded-tl-sm bg-slate-50 p-4 leading-relaxed text-slate-600"><p className="font-semibold text-slate-900">Let&apos;s take a closer look.</p><p className="mt-1">I&apos;ll review your campaign performance and surface opportunities for you to consider.</p></div>
               </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 2. HERO SECTION */}
-      <section className="pt-20 pb-16 px-6 bg-gradient-to-b from-slate-50/70 to-white border-b border-slate-100">
-        <div className="max-w-5xl mx-auto text-center space-y-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-            Google Ads Optimization Software
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 max-w-3xl mx-auto leading-[1.14]">
-            Stop wasted Google Ads spend. Rebalance budget to what converts.
-          </h1>
-
-          <p className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            AdOptimize scans your search queries in real time, mines negative keywords before money is wasted, and alerts you to budget bottlenecks. You approve every change in one click.
-          </p>
-
-          {/* Action CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
-            <Link
-              href="/sign-up"
-              className="px-6 py-3.5 bg-slate-900 hover:bg-black text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-2.5 cursor-pointer hover:translate-y-[-1px]"
-            >
-              <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Start free with Google</span>
-              <ArrowRight className="w-4 h-4 ml-0.5" />
-            </Link>
-
-            <Link
-              href="/dashboard?demo=true"
-              className="px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <span>View Demo</span>
-            </Link>
-          </div>
-
-          {/* Quiet Unboxed Proof Line */}
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-xs text-slate-500 font-normal">
-            <span>Instant Google OAuth connect</span>
-            <span aria-hidden="true" className="text-slate-300">·</span>
-            <span>Connect Google Ads in next step</span>
-            <span aria-hidden="true" className="text-slate-300">·</span>
-            <span>1-click rollback on all actions</span>
-          </div>
-
-          {/* Interactive Multi-Model Agent Simulation */}
-          <div id="simulator" className="pt-8 sm:pt-12 scroll-mt-24">
-            <ModelDemoSimulator
-              onConnectGoogleAds={onConnectGoogleAds}
-              onOpenApp={onOpenApp}
-            />
-          </div>
-        </div>
-      </section>
-
-
-
-      {/* 4. THREE SIMPLE STEPS (Human Editorial Layout) */}
-      <section id="how-it-works" className="py-20 px-6 border-b border-slate-100">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="text-center space-y-2 max-w-xl mx-auto">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-              Straightforward Workflow
+              <div className="mt-5 flex items-center gap-2 text-xs text-slate-500"><ShieldCheck className="h-4 w-4 text-indigo-600" /> Illustrative example; results depend on your account.</div>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              How AdOptimize works
-            </h2>
-            <p className="text-sm text-slate-600">
-              No developer required, no complex setup scripts. Start in under a minute.
-            </p>
+            <Image src="/auth_panel.png" alt="" width={560} height={300} className="relative mx-auto mt-5 max-h-40 w-auto object-contain" />
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="space-y-3">
-              <div className="text-xs font-mono font-bold text-emerald-600">
-                01.
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">
-                Connect your Google Ads account
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Authorize via official Google OAuth in one click. We never ask for Customer IDs, developer tokens, or passwords. Initial scan completes in 30 seconds.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="text-xs font-mono font-bold text-emerald-600">
-                02.
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">
-                Automated continuous auditing
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                AdOptimize inspects search query streams, checks for runaway CPC spikes, and calculates whether daily budgets are constricting your best campaigns.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="text-xs font-mono font-bold text-emerald-600">
-                03.
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">
-                Approve changes with 1 click
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Review plain-English recommendations with exact dollar impacts. Approve changes individually with 100% control, protected by instant 1-click rollback.
-              </p>
-            </div>
+        <section className="border-y border-indigo-100 bg-white">
+          <div className="site-container grid gap-5 py-7 text-sm font-semibold text-slate-600 sm:grid-cols-3">
+            <p className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-indigo-600" /> Connect through Google</p>
+            <p className="flex items-center gap-3"><ClipboardCheck className="h-5 w-5 text-indigo-600" /> Review before changes</p>
+            <p className="flex items-center gap-3"><MessageSquareText className="h-5 w-5 text-indigo-600" /> Insights in plain language</p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 5. CAPABILITIES GRID */}
-      <section id="features" className="py-20 px-6 bg-slate-50/50 border-b border-slate-100">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="text-center space-y-2 max-w-xl mx-auto">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-              Core Capabilities
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Built to protect your return on ad spend
-            </h2>
-            <p className="text-sm text-slate-600">
-              Everything needed to manage search queries, protect ad spend, and scale ROAS.
-            </p>
+        <section id="features" className="site-container scroll-mt-32 py-20 sm:py-28">
+          <div className="max-w-2xl"><span className="site-label">THE WORKSPACE</span><h2 className="site-heading">Less digging. More doing.</h2><p className="site-intro">The tools you need to understand your account and decide what to do next, all in one place.</p></div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {features.map(({ icon: Icon, title, text }) => <article key={title} className="site-card"><div className="site-icon"><Icon className="h-5 w-5" aria-hidden="true" /></div><h3 className="mt-6 text-lg font-bold text-slate-900">{title}</h3><p className="mt-3 text-sm leading-6 text-slate-600">{text}</p></article>)}
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <Search className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Negative Keyword Harvester
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Detects search terms burning budget with zero conversions across both standard Search and Performance Max campaigns. Add negatives in one click to stop immediate bleed.
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Guarded Budget Rebalancer
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Identifies high-ROAS campaigns capped by daily budget and simulates moving capital from underperforming campaigns, strictly within safe ±15% adjustment thresholds.
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">
-                15-Minute Anomaly Sentinel
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Alerts you immediately when CPC jumps dramatically, conversion pixels fail, or impressions suddenly flatline, catching issues before weekend spend is wasted.
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <RotateCcw className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Audit Trail &amp; 1-Click Rollback
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Every action taken through AdOptimize is logged in a complete audit history showing exact before/after metrics, with an instant rollback button to restore original settings.
-              </p>
-            </div>
+        <section id="how-it-works" className="scroll-mt-32 bg-white py-20 sm:py-28">
+          <div className="site-container"><div className="max-w-2xl"><span className="site-label">HOW IT WORKS</span><h2 className="site-heading">From connection to clarity.</h2><p className="site-intro">A straightforward workflow, built around your decisions.</p></div>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">{[
+              ['01', 'Connect your account', 'Create an account and authorize your Google Ads connection.'],
+              ['02', 'Explore your performance', 'Review campaigns, ask questions, and identify opportunities.'],
+              ['03', 'Decide what comes next', 'Review recommendations and approve the changes you want to make.'],
+            ].map(([number, title, text]) => <div key={number} className="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-7"><span className="text-sm font-bold text-indigo-600">{number}</span><h3 className="mt-5 text-lg font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></div>)}</div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 6. COMPARISONS SECTION (As requested by user) */}
-      <section id="comparisons" className="py-20 px-6 border-b border-slate-100">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-                Platform Comparisons
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-                See how AdOptimize compares
-              </h2>
-              <p className="text-sm text-slate-600">
-                Transparent flat pricing, zero complex scripting, and built for modern Google Ads.
-              </p>
-            </div>
+        <section id="pricing" className="site-container scroll-mt-32 py-20 sm:py-28">
+          <div className="text-center"><span className="site-label">SIMPLE PRICING</span><h2 className="site-heading">Start free. Grow with Pro.</h2><p className="site-intro">Choose the tools that fit the way you work.</p></div>
+          <PricingCards />
+        </section>
 
-            <Link
-              href="/compare"
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors"
-            >
-              <span>View all comparison pages</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {comparisons.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/compare/${c.slug}`}
-                className="group p-6 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all bg-white flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                      {c.name}
-                    </span>
-                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-800 transition-colors" />
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {c.tagline}
-                  </p>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 text-[11px] font-medium text-slate-500">
-                  {c.highlight}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 7. TRANSPARENT PRICING */}
-      <section id="pricing" className="py-20 px-6 bg-slate-50/50 border-b border-slate-100">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="text-center space-y-4 max-w-xl mx-auto">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-              Transparent Pricing
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Priced for the work, not the size of your budget
-            </h2>
-            <p className="text-sm text-slate-600">
-              No spend penalties. No percentage fees. Switch or cancel anytime.
-            </p>
-
-            {/* Billing Switcher */}
-            <div className="inline-flex items-center gap-1 p-1 bg-slate-200/70 rounded-lg text-xs font-medium">
-              <button
-                onClick={() => setBillingInterval('MONTHLY')}
-                className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                  billingInterval === 'MONTHLY'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Monthly billing
-              </button>
-              <button
-                onClick={() => setBillingInterval('ANNUAL')}
-                className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                  billingInterval === 'ANNUAL'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Annual billing ($99 for Pro)
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            {pricingTiers.map((tier) => {
-              const price = billingInterval === 'ANNUAL' ? tier.priceAnnual : tier.priceMonthly;
-              return (
-                <div
-                  key={tier.name}
-                  className={`bg-white rounded-xl p-6 flex flex-col justify-between border transition-all ${
-                    tier.popular
-                      ? 'border-slate-900 shadow-md ring-1 ring-slate-900'
-                      : 'border-slate-200 shadow-xs'
-                  }`}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-sm">{tier.name}</span>
-                      {tier.popular && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                          Popular
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
-                          ${price}
-                        </span>
-                        <span className="text-xs text-slate-500 font-medium">/ {billingInterval === 'ANNUAL' ? 'year' : 'month'}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        {tier.spendLimit}
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-3">
-                      {tier.description}
-                    </p>
-
-                    <ul className="space-y-2 text-xs text-slate-600 border-t border-slate-100 pt-3">
-                      {tier.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="pt-6">
-                    {tier.popular ? (
-                      <PlanCta
-                        interval={billingInterval === 'ANNUAL' ? 'yearly' : 'monthly'}
-                        label={tier.cta}
-                        className="block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-900 hover:bg-black text-white shadow-xs"
-                      />
-                    ) : (
-                      <Link
-                        href="/sign-up"
-                        className="block text-center w-full py-2.5 px-4 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-900"
-                      >
-                        {tier.cta}
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 8. FAQ SECTION */}
-      <section id="faq" className="py-20 px-6 border-b border-slate-100">
-        <div className="max-w-3xl mx-auto space-y-8">
-          <div className="text-center space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-              Common Questions
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Frequently asked questions
-            </h2>
-          </div>
-
-          <div className="divide-y divide-slate-200 border-y border-slate-200">
-            {faqs.map((faq, idx) => {
-              const isOpen = openFaq === idx;
-              return (
-                <div key={idx} className="py-4">
-                  <button
-                    onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full flex items-center justify-between text-left text-sm font-semibold text-slate-900 gap-4 cursor-pointer"
-                  >
-                    <span>{faq.q}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${
-                        isOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="mt-2 text-xs text-slate-600 leading-relaxed pr-8">
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 9. BOTTOM ACTION BANNER */}
-      <section className="py-20 px-6 bg-slate-900 text-white">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
-            Ready to find wasted spend in your Google Ads account?
-          </h2>
-          <p className="text-slate-400 text-sm max-w-xl mx-auto leading-relaxed">
-            Connect your account in 30 seconds via official Google OAuth. Run a full search query and budget audit with zero commitment.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Link
-              href="/sign-up"
-              className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-            >
-              <GoogleIcon className="w-4 h-4 shrink-0" />
-              <span>Start free with Google</span>
-              <ArrowRight className="w-4 h-4 ml-0.5" />
-            </Link>
-            <button
-              onClick={onOpenApp}
-              className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors cursor-pointer"
-            >
-              <span>Go to Workspace</span>
-            </button>
-          </div>
-
-          <div className="pt-2 text-xs text-slate-500">
-            Instant Google OAuth connection · 14-day money-back guarantee
-          </div>
-        </div>
-      </section>
-
-      {/* 10. CLEAN FOOTER */}
-      <footer className="py-12 px-6 bg-white border-t border-slate-200 text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <Link href="/" className="cursor-pointer">
-              <BrandLogo iconSize={22} iconClassName="w-5 h-5 rounded-lg" textClassName="text-sm font-bold" theme="light" />
-            </Link>
-            <p className="text-slate-500 text-[11px]">
-              Continuous search query intelligence and guarded budget protection for Google Ads.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-slate-600 font-medium">
-            <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
-            <Link href="/compare" className="hover:text-slate-900 transition-colors">Comparisons</Link>
-            <Link href="/compare/optmyzr-alternative" className="hover:text-slate-900 transition-colors">vs Optmyzr</Link>
-            <Link href="/compare/adspirer-alternative" className="hover:text-slate-900 transition-colors">vs Adspirer</Link>
-            <a href="#pricing" className="hover:text-slate-900 transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
-          </div>
-
-          <div className="text-[11px] text-slate-400">
-            © {new Date().getFullYear()} AdOptimize. All rights reserved.
-          </div>
-        </div>
-      </footer>
+        <section id="faq" className="scroll-mt-32 bg-white py-20 sm:py-28"><div className="site-container grid gap-10 lg:grid-cols-[1fr_1.5fr]"><div><span className="site-label">GOOD TO KNOW</span><h2 className="site-heading">Questions? Answered.</h2><p className="site-intro">Need more help? <Link href="/contact" className="font-semibold text-indigo-700 underline">Get in touch</Link>.</p></div><div className="divide-y divide-slate-200">{faqs.map(item => <details key={item.question} className="group py-5"><summary className="cursor-pointer list-none pr-6 font-bold text-slate-900 marker:content-none">{item.question}<span className="float-right text-indigo-600 group-open:rotate-45" aria-hidden="true">+</span></summary><p className="mt-3 text-sm leading-6 text-slate-600">{item.answer}</p></details>)}</div></div></section>
+        <section className="site-container py-20"><div className="rounded-[2rem] bg-gradient-to-br from-indigo-700 via-indigo-600 to-sky-500 px-7 py-14 text-center text-white sm:px-12"><h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Ready to put your data to work?</h2><p className="mx-auto mt-4 max-w-xl leading-relaxed text-indigo-100">Connect your Google Ads account and find your next opportunity with AdOptimize.</p><Link href="/sign-up" className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50">Get started free <ArrowRight className="h-4 w-4" /></Link></div></section>
+      </main>
+      <SiteFooter />
     </div>
   );
 }
