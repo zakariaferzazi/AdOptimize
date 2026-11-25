@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   X,
   TrendingUp,
@@ -201,7 +202,7 @@ export function CampaignDetailDrawer({
               >
                 {isTogglingStatus ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <AppLoader className="h-3.5 w-3.5" />
                     <span>Updating...</span>
                   </>
                 ) : campaign.status === 'ENABLED' ? (

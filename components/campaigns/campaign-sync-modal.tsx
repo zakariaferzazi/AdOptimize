@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import { X, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 
@@ -101,7 +102,7 @@ export function CampaignSyncModal({
             onClick={handleExecuteSync}
             className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#00d67d] ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? <AppLoader className="h-3.5 w-3.5" /> : <RefreshCw className="w-3.5 h-3.5 text-[#00d67d]" />}
             <span>{isSyncing ? 'Synchronizing with Google Ads...' : 'Sync Real Campaigns Now'}</span>
           </button>
         </div>

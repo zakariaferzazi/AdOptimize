@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   Search,
   Layers,
@@ -323,7 +324,7 @@ export function CampaignsTable({
                             title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign`}
                           >
                             {togglingId === camp.id ? (
-                              <Loader2 className="w-2.5 h-2.5 animate-spin text-emerald-600" />
+                              <AppLoader className="h-2.5 w-2.5" />
                             ) : isEnabled ? (
                               <>
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

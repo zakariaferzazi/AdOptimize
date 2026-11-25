@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   CheckCircle2,
   ChevronDown,
@@ -236,7 +237,7 @@ export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiv
   return (
     <div className="flex gap-3 max-w-2xl mr-auto animate-in fade-in slide-in-from-bottom-1 duration-200">
       <div className="w-8 h-8 rounded-xl bg-slate-950 text-[#00d67d] border border-slate-800 flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
-        <RefreshCw className="w-4 h-4 animate-spin text-[#00d67d]" />
+        <AppLoader className="h-4 w-4" />
       </div>
 
       <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-xs text-xs text-slate-700 space-y-2.5 max-w-md">

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   X,
   Plus,
@@ -224,7 +225,7 @@ export function CreateCampaignModal({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <AppLoader className="h-3.5 w-3.5" />
                   <span>Creating in Google Ads...</span>
                 </>
               ) : (

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   Layers,
   Search,
@@ -410,7 +411,7 @@ export function CampaignsFullView({
                           title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign in Google Ads`}
                         >
                           {isMutatingThis ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                            <AppLoader className="h-3.5 w-3.5" />
                           ) : isEnabled ? (
                             <Play className="w-3 h-3 fill-emerald-600" />
                           ) : (
@@ -458,7 +459,7 @@ export function CampaignsFullView({
                               className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer"
                               title="Save budget"
                             >
-                              {isSavingBudget ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                              {isSavingBudget ? <AppLoader className="h-3 w-3" /> : <Check className="w-3 h-3" />}
                             </button>
                             <button
                               type="button"

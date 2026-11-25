@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import {
   Settings,
@@ -193,7 +194,7 @@ export function SettingsView({
                 className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {isClearing ? (
-                  <RefreshCw className="w-3 h-3 text-rose-500 animate-spin" />
+                  <AppLoader className="h-3 w-3" />
                 ) : (
                   <Trash2 className="w-3 h-3 text-rose-500" />
                 )}

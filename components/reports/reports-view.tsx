@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { ArrowRight, Download, FileText, Loader2, Printer } from 'lucide-react';
 import { auth } from '@/lib/firebase';
@@ -104,7 +105,7 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
           <label className="w-full sm:w-auto text-xs font-medium text-slate-700">End date<input className={inputClass} type="date" required min={startDate || undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         </>}
         <button disabled={loading || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50">
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading ? 'Generating...' : 'Generate report'}
+          {loading && <AppLoader className="h-5 w-5" />}{loading ? 'Generating...' : 'Generate report'}
         </button>
       </fieldset>
       {!userId || !connected ? <p className="mt-4 text-sm text-amber-800">{!userId ? 'Sign in' : 'Connect a Google Ads account'} to generate reports. <Link className="underline" href="/settings">Open settings</Link></p> : null}

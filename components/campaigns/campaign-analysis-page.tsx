@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import {
   ArrowLeft,
   TrendingUp,
@@ -236,7 +237,7 @@ export function CampaignAnalysisPage({
             >
               {isTogglingStatus ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <AppLoader className="h-3.5 w-3.5" />
                   <span>Updating...</span>
                 </>
               ) : isEnabled ? (

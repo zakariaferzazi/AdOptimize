@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { AdOptimizeProvider, useAdOptimize } from '@/context/adoptimize-context';
@@ -39,7 +40,7 @@ function ConnectionStep({ next }: { next: string }) {
   const pending = busy || Boolean(loadingState);
 
   if (authLoading || isInitialLoading) {
-    return <p role="status" className="flex items-center gap-2 text-sm text-slate-500"><RefreshCw className="w-4 h-4 animate-spin" /> Preparing your workspace...</p>;
+    return <p role="status" className="flex items-center gap-2 text-sm text-slate-500"><AppLoader className="h-4 w-4" /> Preparing your workspace...</p>;
   }
   if (!user) return <p role="alert" className="text-sm text-rose-700">Please sign in again to connect your Google Ads account.</p>;
 
@@ -66,7 +67,7 @@ function ConnectionStep({ next }: { next: string }) {
         </div>
       ) : <button type="button" disabled={pending} onClick={() => { if (connected) void continueToApp(); else void connect(); }}
         className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 px-6 py-3 text-sm font-semibold text-white inline-flex items-center justify-center gap-2">
-        {pending ? <RefreshCw className="w-4 h-4 animate-spin" /> : connected ? <ArrowRight className="w-4 h-4" /> : <GoogleAdsLogo className="w-5 h-5" />}
+        {pending ? <AppLoader className="h-4 w-4" /> : connected ? <ArrowRight className="w-4 h-4" /> : <GoogleAdsLogo className="w-5 h-5" />}
         {loadingState || (connected ? 'Open your workspace' : 'Connect Google Ads')}
       </button>}
       {!connected && <button type="button" disabled={pending} onClick={() => { void continueToApp(); }} className="text-xs font-semibold text-slate-500 underline">Connect later in Settings</button>}

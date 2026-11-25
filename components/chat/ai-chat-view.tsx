@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Send,
@@ -1752,7 +1753,7 @@ export function AiChatView({
                                   className="px-4 py-2 bg-[#00d67d] hover:bg-[#00c06f] disabled:opacity-50 text-slate-950 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
                                 >
                                   {executingProposalId === message.actionProposal.id ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                                    <AppLoader className="h-4 w-4" />
                                   ) : (
                                     <Check className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
                                   )}
@@ -1828,25 +1829,7 @@ export function AiChatView({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <AgentIcon className="w-6 h-6 rounded-lg shrink-0" />
-                      {/* Smooth 3-bar harmonic equalizer */}
-                      <div className="flex items-center gap-0.5 h-3.5 px-1" aria-hidden="true">
-                        {[0, 0.16, 0.32].map((delay, idx) => (
-                          <motion.span
-                            key={idx}
-                            className="w-[3px] h-full rounded-full bg-[#00d67d] origin-center"
-                            animate={{
-                              scaleY: [0.35, 1, 0.45],
-                              opacity: [0.55, 1, 0.55],
-                            }}
-                            transition={{
-                              duration: 0.9,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                              delay,
-                            }}
-                          />
-                        ))}
-                      </div>
+<AppLoader className="h-6 w-6" />
                       <span className="text-xs font-semibold text-slate-900 truncate">
                         {loadingStageLabel}
                       </span>

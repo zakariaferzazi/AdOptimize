@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useState, useEffect, useRef } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar, NavTab } from '@/components/layout/sidebar';
@@ -24,7 +25,7 @@ interface AppShellProps {
 }
 
 export function AppShell(props: AppShellProps) {
-  return <Suspense fallback={<p role="status">Loading workspace...</p>}><AppShellInner {...props} /></Suspense>;
+  return <Suspense fallback={<p role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><AppLoader className="h-5 w-5" /> Loading workspace...</p>}><AppShellInner {...props} /></Suspense>;
 }
 
 function AppShellInner({ children, title, headerExtra }: AppShellProps) {
@@ -146,7 +147,7 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   const currentTab = getCurrentTab();
 
   if (authLoading || (!user && !isDemo)) {
-    return <p role="status" className="p-8 text-sm text-slate-500">Loading your workspace...</p>;
+    return <p role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><AppLoader className="h-5 w-5" /> Loading your workspace...</p>;
   }
 
   return (

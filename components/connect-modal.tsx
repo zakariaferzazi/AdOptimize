@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import {
   X,
@@ -207,7 +208,7 @@ export function ConnectModal({
               >
                 {loadingState ? (
                   <>
-                    <RefreshCw className="w-4 h-4 text-[#00d67d] animate-spin" />
+                    <AppLoader className="h-4 w-4" />
                     <span>{loadingState}</span>
                   </>
                 ) : (

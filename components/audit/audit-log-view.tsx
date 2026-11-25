@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Download, History, Loader2, RefreshCw } from 'lucide-react';
 import { auth } from '@/lib/firebase';
@@ -143,7 +144,7 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h3 className="font-semibold text-slate-900">Account activity</h3><p className="mt-1 text-xs text-slate-500">Newest first. Search and filters apply to loaded records. Times and date filters use your browser&apos;s local time.</p></div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={refresh} disabled={loading || loadingMore} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
+            <button type="button" onClick={refresh} disabled={loading || loadingMore} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50">{loading ? <AppLoader className="h-4 w-4" /> : <RefreshCw className="w-4 h-4" />} Refresh</button>
             <button type="button" onClick={exportCsv} disabled={loading || !entries.length} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><Download className="w-4 h-4" /> Export filtered CSV</button>
           </div>
         </div>
@@ -158,7 +159,7 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
         {invalidDates && <p role="alert" className="text-sm text-rose-700">End date must not be before start date.</p>}
         {!durable && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">AI workflow storage is running in local memory. These events will not survive a server restart. Production requires Cloudflare D1.</p>}
         {errors.map((error, index) => <p role="alert" key={`${index}:${error}`} className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{error}</p>)}
-        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading saved activity...</div> : <>
+        {loading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><AppLoader className="h-5 w-5" /> Loading saved activity...</div> : <>
           <p className="text-xs text-slate-500">{entries.length} of {all.length} loaded events match. Load older AI events below to search further.</p>
           <div className="space-y-3">
             {entries.map((entry) => <details key={entry.id} className="group rounded-xl border border-slate-200">
@@ -184,7 +185,7 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
             </details>)}
             {!entries.length && <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">{errors.length ? 'History is incomplete. Refresh to retry unavailable sources.' : all.length ? 'No loaded activity matches these filters.' : 'No recorded AdOptimize activity for this account yet. Proposals, approvals and executions will appear here as you use the AI Marketing Agent.'}</div>}
           </div>
-          {nextCursor && <div className="pt-2 text-center"><button type="button" onClick={loadMore} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50">{loadingMore && <Loader2 className="w-4 h-4 animate-spin" />} Load older AI events</button></div>}
+          {nextCursor && <div className="pt-2 text-center"><button type="button" onClick={loadMore} disabled={loadingMore} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50">{loadingMore && <AppLoader className="h-4 w-4" />} Load older AI events</button></div>}
         </>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 text-xs leading-5 text-slate-500">

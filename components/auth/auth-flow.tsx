@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordResetEmail, updateProfile, type User } from 'firebase/auth';
@@ -202,7 +203,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
       <div className="flex items-center gap-4 pt-3">
         <button type="submit" disabled={!canSubmit || busy} className="flex-1 sm:flex-none sm:min-w-[11rem] rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-3 flex items-center justify-between gap-4 transition-colors">
           <span>{signUp ? 'Create account' : 'Sign in'}</span>
-          {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+          {busy ? <AppLoader className="h-4 w-4" /> : <ArrowRight className="w-4 h-4" />}
         </button>
         <span className="text-xs text-slate-400">Or</span>
         <button type="button" onClick={google} disabled={busy} aria-label="Continue with Google" className="w-11 h-11 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-50 flex items-center justify-center transition-colors">
@@ -261,7 +262,7 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
         {PRO_FEATURES.map((feature) => <li key={feature} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-600 shrink-0" />{feature}</li>)}
       </ul>
       <button type="button" onClick={checkout} disabled={busy} className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-6 py-3 flex items-center justify-center gap-2 transition-colors">
-        {busy ? <><RefreshCw className="w-4 h-4 animate-spin" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
+        {busy ? <><AppLoader className="h-4 w-4" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
       <button type="button" onClick={() => router.replace(FREE_PATHS.includes(next) ? next : '/dashboard')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline">
@@ -340,7 +341,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
               <p className="mt-1.5 text-xs sm:text-sm text-slate-400">{subtitle}</p>
             </div>
 
-            {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</p>
+            {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><AppLoader className="h-4 w-4" /> Loading...</p>
               : !user ? <AccountForm mode={mode} next={next} onDone={() => {}} />
               : !signUp ? statusError ? <div role="alert" className="space-y-3 text-sm text-rose-700"><p>{statusError}</p><button type="button" onClick={retry} className="font-semibold underline">Retry sign-in</button></div> : <p role="status" className="text-sm text-slate-500">Synchronizing secure sign-in...</p>
               : statusError ? (
@@ -352,7 +353,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                   </div>
                 </div>
               )
-              : !status ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Checking your plan...</p>
+              : !status ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><AppLoader className="h-4 w-4" /> Checking your plan...</p>
               : step === 3 ? <PostPaymentConnect next={next} />
               : <PlanStep user={user} status={status} initial={plan} next={next} />}
           </div>

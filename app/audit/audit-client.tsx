@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, CheckCircle2, Download, Loader2, SearchCheck, ShieldCheck } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
@@ -148,7 +149,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           <p className="text-xs text-slate-500">Targets are audit benchmarks, not changes to your bidding settings.</p>
           <button type="submit" disabled={loading || !connected || !userId}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SearchCheck className="w-4 h-4" />}
+            {loading ? <AppLoader className="h-4 w-4" /> : <SearchCheck className="w-4 h-4" />}
             {loading ? 'Auditing account...' : 'Run audit'}
           </button>
         </div>

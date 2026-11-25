@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
-import { CheckCircle2, RefreshCw } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { Stepper } from '@/components/auth/auth-flow';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { synchronizeServerSession } from '@/lib/auth-session';
@@ -60,7 +61,7 @@ export function CheckoutSuccess() {
             </div>
           ) : phase === 'waiting' ? (
             <div className="space-y-3" role="status">
-              <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+              <AppLoader className="h-12 w-12" />
               <h1 className="text-2xl font-extrabold text-slate-900">Confirming your payment</h1>
               <p className="text-sm text-slate-600">This usually takes a few seconds. Pro unlocks as soon as Polar confirms the payment to our servers.</p>
             </div>

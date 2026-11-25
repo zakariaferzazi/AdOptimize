@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuthUser } from '@/hooks/use-auth-user';
@@ -76,11 +77,11 @@ export function SubscriptionManager() {
       {error && <p role="alert" className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-800"><AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}</p>}
       {current?.error && <button type="button" onClick={load} className="text-sm font-semibold underline">Retry</button>}
 
-      {!ready ? <p role="status" className="text-sm text-slate-500">Loading...</p>
+      {!ready ? <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><AppLoader className="h-4 w-4" /> Loading...</p>
         : !user ? <p className="text-sm text-slate-600">
           <Link href="/sign-in?next=/billing" className="font-semibold text-indigo-600 underline">Sign in</Link> to manage your subscription.
         </p>
-        : !status ? error ? null : <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading your subscription...</p>
+        : !status ? error ? null : <p role="status" className="text-sm text-slate-500 flex items-center gap-2"><AppLoader className="h-4 w-4" /> Loading your subscription...</p>
         : <div className="space-y-5">
           <div className="rounded-xl bg-slate-50 p-4 text-sm space-y-1.5">
             <p><span className="text-slate-500">Plan:</span> <strong>{label}</strong></p>
