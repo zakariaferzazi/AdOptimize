@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import {
   X,
@@ -13,10 +13,9 @@ import {
   Check,
 } from 'lucide-react';
 import {
-  acquireGoogleAdsToken,
-  getStoredGoogleAdsToken,
   clearStoredGoogleAdsToken,
 } from '@/lib/google-identity';
+import { useGoogleAdsConnection } from '@/hooks/use-google-ads-connection';
 import { GoogleAdsAccount, Campaign } from '@/types/adoptimize';
 import { GoogleIcon } from '@/components/ui/google-icon';
 
@@ -52,117 +51,17 @@ export function ConnectModal({
   onApiError,
   userEmail,
 }: ConnectModalProps) {
-  const [loadingState, setLoadingState] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [discoveredAccounts, setDiscoveredAccounts] = useState<string[]>([]);
+  const { connect: handleOneClickConnect, loadingState, errorMessage, discoveredAccounts } = useGoogleAdsConnection({
+    currentAccount, userEmail, onApiError,
+    onConnectAccount: (...args) => { onConnectAccount(...args); onClose(); },
+  });
 
   if (!isOpen) return null;
 
   const isConnected = currentAccount.isConnected && currentAccount.clientCustomerId !== 'Not Connected';
 
-  // 1-Click Auto Connect (Adspirer Model)
-  // Connects Google Ads and automatically discovers accounts without asking for CID
-  const handleOneClickConnect = async (selectedCid?: string) => {
-    setErrorMessage(null);
-    setLoadingState('Connecting to Google...');
-
-    try {
-      // 1. Acquire Google Ads OAuth token
-      const token = await acquireGoogleAdsToken({
-        emailHint: userEmail || undefined,
-        forceFresh: true,
-      });
-
-      if (!token) {
-        setLoadingState(null);
-        setErrorMessage('Google authorization was cancelled.');
-        return;
-      }
-
-      setLoadingState('Discovering your Google Ads accounts...');
-
-      // 2. Call auto_connect endpoint
-      const res = await fetch('/api/google-ads/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'auto_connect',
-          accessToken: token,
-          customerId: selectedCid || undefined,
-          userEmail: userEmail || undefined,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setLoadingState(null);
-        const errMsg = data.error || data.message || 'Could not connect to Google Ads account.';
-        setErrorMessage(errMsg);
-
-        if (Array.isArray(data.accessibleCustomers) && data.accessibleCustomers.length > 0) {
-          setDiscoveredAccounts(data.accessibleCustomers);
-        }
-
-        if (onApiError) {
-          onApiError({
-            message: errMsg,
-            cid: selectedCid || currentAccount.clientCustomerId,
-            timestamp: new Date().toLocaleTimeString(),
-            severity: 'error',
-            statusCode: data.statusCode || res.status,
-            details: data.details,
-            accessibleCustomers: data.accessibleCustomers,
-          });
-        }
-        return;
-      }
-
-      // 3. If multiple accounts were discovered, prompt user to select with 1 click
-      if (data.requiresSelection && Array.isArray(data.customers) && data.customers.length > 1) {
-        setLoadingState(null);
-        setDiscoveredAccounts(data.customers);
-        return;
-      }
-
-      // 4. Single account auto-connected successfully!
-      setLoadingState(null);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('adoptimize_onboarding_completed', 'true');
-          if (data.account) {
-            localStorage.setItem('adoptimize_connected_account', JSON.stringify(data.account));
-          }
-          if (data.loginCustomerIdUsed) {
-            sessionStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
-            localStorage.setItem('google_ads_login_cid', data.loginCustomerIdUsed);
-          }
-        } catch {}
-      }
-
-      onConnectAccount(
-        data.account,
-        data.campaigns || [],
-        token,
-        data.keywords || [],
-        data.searchTerms || []
-      );
-      onClose();
-    } catch (err: any) {
-      setLoadingState(null);
-      const isClosed = err?.message?.includes('closed') || err?.code === 'auth/popup-closed-by-user';
-      setErrorMessage(
-        isClosed
-          ? 'Google authorization window was closed.'
-          : err?.message || 'Failed to connect to Google Ads.'
-      );
-    }
-  };
-
   const handleSwitchAccount = async () => {
     clearStoredGoogleAdsToken();
-    setDiscoveredAccounts([]);
-    setErrorMessage(null);
     await handleOneClickConnect();
   };
 

@@ -72,8 +72,8 @@ export function LandingPage({
       popular: true,
       spendLimit: '$29 monthly or $99 yearly',
       features: [
-        'AI Marketing Agent with account history',
-        'Period-specific Ads Audit and Reports',
+        'AI Marketing Agent',
+        'Account Ads Audit',
         'Clean CSV and print exports',
         'Budget Optimizer',
         'Google Ads campaign changes',

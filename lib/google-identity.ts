@@ -113,58 +113,61 @@ async function fetchServerAccessToken(): Promise<string | null> {
  * callback route and stores the credentials encrypted; the popup only reports success or failure.
  */
 async function authorizeGoogleAdsViaPopup(): Promise<void> {
-  const start = await authenticatedFetch('/api/google-ads/authorize', { method: 'POST' });
-  const body = await start.json().catch(() => ({}));
-  if (!start.ok || typeof body.url !== 'string') {
-    throw new Error(body.error || 'Google Ads authorization could not be started.');
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const width = 520;
-    const height = 650;
-    const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
-    const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
-    const popup = window.open(
-      body.url,
-      'google_ads_oauth_window',
-      `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`,
-    );
-    if (!popup) {
-      reject(new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.'));
-      return;
+  const width = 520;
+  const height = 650;
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  // Open within the click gesture, before the server request can consume browser activation.
+  const popup = window.open(
+    'about:blank', 'google_ads_oauth_window',
+    `width=${width},height=${height},left=${left},top=${top},status=no,menubar=no,toolbar=no`,
+  );
+  if (!popup) throw new Error('Popup window was blocked by your browser. Please allow popups for this site and try again.');
+  try {
+    const start = await authenticatedFetch('/api/google-ads/authorize', { method: 'POST' });
+    const body = await start.json().catch(() => ({}));
+    if (!start.ok || typeof body.url !== 'string') {
+      throw new Error(body.error || 'Google Ads authorization could not be started.');
     }
 
-    let settled = false;
-    const finish = (outcome?: Error) => {
-      settled = true;
-      clearInterval(closeCheck);
-      window.removeEventListener('message', onMessage);
-      window.removeEventListener('storage', onStorage);
-      if (outcome) reject(outcome); else resolve();
-    };
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.source !== popup) return;
-      if (event.data?.type === 'GOOGLE_ADS_AUTHORIZED') finish();
-      else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') finish(new Error('Google Ads authorization was not completed.'));
-    };
-    // Google's consent pages may sever window.opener, so the callback also signals through storage.
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === 'google_ads_authorized' && event.newValue && !settled) finish();
-    };
-    const closeCheck = setInterval(() => {
-      if (popup.closed && !settled) {
-        // The popup may have succeeded without a message; the server is the source of truth.
-        setTimeout(() => {
-          if (settled) return;
-          void fetchServerAccessToken().then((token) => {
-            if (!settled) finish(token ? undefined : new Error('Google authorization window was closed.'));
-          }, () => { if (!settled) finish(new Error('Google authorization window was closed.')); });
-        }, 800);
-      }
-    }, 500);
-    window.addEventListener('message', onMessage);
-    window.addEventListener('storage', onStorage);
-  });
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (outcome?: Error) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(closeCheck);
+        window.removeEventListener('message', onMessage);
+        window.removeEventListener('storage', onStorage);
+        if (outcome) reject(outcome); else resolve();
+      };
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin || event.source !== popup) return;
+        if (event.data?.type === 'GOOGLE_ADS_AUTHORIZED') finish();
+        else if (event.data?.type === 'GOOGLE_ADS_OAUTH_ERROR') finish(new Error('Google Ads authorization was not completed.'));
+      };
+      // Google's consent pages may sever window.opener, so the callback also signals through storage.
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === 'google_ads_authorized' && event.newValue && !settled) finish();
+      };
+      const closeCheck = setInterval(() => {
+        if (popup.closed && !settled) {
+          clearInterval(closeCheck);
+          // The popup may have succeeded without a message; the server is the source of truth.
+          setTimeout(() => {
+            if (settled) return;
+            void fetchServerAccessToken().then((token) => {
+              if (!settled) finish(token ? undefined : new Error('Google authorization window was closed.'));
+            }, () => { if (!settled) finish(new Error('Google authorization window was closed.')); });
+          }, 800);
+        }
+      }, 500);
+      window.addEventListener('message', onMessage);
+      window.addEventListener('storage', onStorage);
+      popup.location.replace(body.url);
+    });
+  } finally {
+    popup.close();
+  }
 }
 
 /**

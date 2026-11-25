@@ -220,7 +220,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
   );
 }
 
-const PRO_FEATURES = ['AI Marketing Agent with saved chat history', 'Period-specific Ads Audit and Reports', 'Budget Optimizer and approved campaign changes'];
+const PRO_FEATURES = ['AI Marketing Agent', 'Ads Account Audit', 'Budget Optimizer'];
 // Paid pages would just bounce an unpaid user back here, so the free plan only continues to free ones.
 const FREE_PATHS = ['/dashboard', '/campaigns', '/activity-log', '/settings', '/billing'];
 

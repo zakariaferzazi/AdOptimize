@@ -55,7 +55,7 @@ export function CheckoutSuccess() {
             <div className="space-y-4">
               <CheckCircle2 className="w-10 h-10 text-emerald-500" />
               <h1 className="text-2xl font-extrabold text-slate-900">Welcome to Pro</h1>
-              <p className="text-sm text-slate-600">Your payment is confirmed. Your AI Marketing Agent, Ads Audit, Reports, and Budget Optimizer are unlocked.</p>
+              <p className="text-sm text-slate-600">Your payment is confirmed.</p>
               <PostPaymentConnect />
             </div>
           ) : phase === 'waiting' ? (

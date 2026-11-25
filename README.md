@@ -164,6 +164,10 @@ sign-up with an active subscription resumes it. It reuses the app's connection
 modal instead of a standalone pre-payment onboarding page. Google Ads consent
 still requires an explicit user click, separately from login. Users choosing the
 free plan go straight to their dashboard and can connect later in Settings.
+The post-payment Connect button opens Google authorization directly, without a
+second confirmation dialog. If multiple accounts are found, selection appears
+inline and reuses the completed authorization. The Google Ads logo is the official
+asset from `www.gstatic.com`, served locally.
 Auth screens include an illustrative AI Marketing Agent conversation, not customer
 data or promised performance results. Keep decorative sparkle icons out of the website UI;
 navigation and loading indicators use functional icons instead.
