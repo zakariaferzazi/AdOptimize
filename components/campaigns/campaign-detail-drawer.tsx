@@ -112,7 +112,7 @@ export function CampaignDetailDrawer({
                 isCritical
                   ? 'bg-rose-500 ring-4 ring-rose-100'
                   : isHealthy
-                  ? 'bg-[#6D28D9] ring-4 ring-emerald-100'
+                  ? 'bg-[#6D28D9] ring-4 ring-[#FEF3C7]'
                   : 'bg-amber-500 ring-4 ring-amber-100'
               }`}
             />
@@ -127,7 +127,7 @@ export function CampaignDetailDrawer({
               </div>
               <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                 {isEditingBudget ? (
-                  <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-emerald-400">
+                  <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-[#FBBF24]">
                     <span className="font-bold text-slate-700">{sym}</span>
                     <input
                       type="number"
@@ -142,7 +142,7 @@ export function CampaignDetailDrawer({
                       type="button"
                       disabled={isSavingBudget}
                       onClick={handleSaveBudget}
-                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                      className="px-1.5 py-0.5 bg-[#D97706] hover:bg-[#92400E] text-white rounded text-[10px] font-bold cursor-pointer"
                     >
                       {isSavingBudget ? '...' : 'Save'}
                     </button>
@@ -164,11 +164,11 @@ export function CampaignDetailDrawer({
                       setBudgetValue(String(campaign.budgetDaily || 50));
                       setIsEditingBudget(true);
                     }}
-                    className="hover:text-emerald-700 hover:underline flex items-center gap-1 text-slate-600 font-medium cursor-pointer"
+                    className="hover:text-[#B45309] hover:underline flex items-center gap-1 text-slate-600 font-medium cursor-pointer"
                     title="Click to edit daily budget"
                   >
                     <span>Daily Budget: {sym}{Number(campaign.budgetDaily || 0).toFixed(2)}/day</span>
-                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 py-0.2 rounded">Edit</span>
+                    <span className="text-[10px] text-[#B45309] font-bold bg-[#FFFBEB] px-1 py-0.2 rounded">Edit</span>
                   </button>
                 )}
                 <span>·</span>
@@ -197,7 +197,7 @@ export function CampaignDetailDrawer({
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   campaign.status === 'ENABLED'
                     ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                    : 'bg-[#FFFBEB] text-[#92400E] hover:bg-[#FEF3C7]'
                 }`}
               >
                 {isTogglingStatus ? (
@@ -287,7 +287,7 @@ export function CampaignDetailDrawer({
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                   <div className="text-[11px] font-medium text-slate-500">ROAS (7d)</div>
-                  <div className="text-lg font-bold text-emerald-600 mt-1 font-mono">
+                  <div className="text-lg font-bold text-[#B45309] mt-1 font-mono">
                     {Number(campaign.roas || 0).toFixed(2)}x
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">Value: {sym}{Number(campaign.conversionValue || 0).toLocaleString()}</div>
@@ -302,7 +302,7 @@ export function CampaignDetailDrawer({
                     <span>{campaign.healthScore || 85}/100</span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded font-sans font-semibold ${
-                        isHealthy ? 'bg-emerald-500/20 text-[#6D28D9]' : 'bg-rose-500/20 text-rose-300'
+                        isHealthy ? 'bg-[#FBBF24]/20 text-[#6D28D9]' : 'bg-rose-500/20 text-rose-300'
                       }`}
                     >
                       {campaign.healthStatus || 'HEALTHY'}
@@ -320,7 +320,7 @@ export function CampaignDetailDrawer({
                 ) : (
                   <div className="text-right text-xs text-slate-400">
                     <div>All-time Spend: {sym}{Number(campaign.allTimeSpend || campaign.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                    <div className="text-emerald-400 font-semibold mt-0.5">7-day active performance</div>
+                    <div className="text-[#FBBF24] font-semibold mt-0.5">7-day active performance</div>
                   </div>
                 )}
               </div>
@@ -349,7 +349,7 @@ export function CampaignDetailDrawer({
                             <td className="py-2 px-3 text-right">{sym}{Number(day.spend || 0).toFixed(2)}</td>
                             <td className="py-2 px-3 text-right font-bold text-slate-900">{day.conversions || 0}</td>
                             <td className="py-2 px-3 text-right">{sym}{Number(day.cpa || 0).toFixed(2)}</td>
-                            <td className="py-2 px-3 text-right text-emerald-600 font-bold">{Number(day.roas || 0).toFixed(1)}x</td>
+                            <td className="py-2 px-3 text-right text-[#B45309] font-bold">{Number(day.roas || 0).toFixed(1)}x</td>
                           </tr>
                         ))
                       ) : (
@@ -394,7 +394,7 @@ export function CampaignDetailDrawer({
                           <div className="flex items-center gap-2">
                             <span>{kw.keyword}</span>
                             {kw.flag === 'TOP_PERFORMER' && (
-                              <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded">
+                              <span className="text-[9px] bg-[#FFFBEB] text-[#B45309] font-bold px-1.5 py-0.5 rounded">
                                 Winner
                               </span>
                             )}
@@ -418,7 +418,7 @@ export function CampaignDetailDrawer({
                           <span
                             className={`font-mono text-xs px-1.5 py-0.5 rounded font-bold ${
                               kw.qualityScore >= 8
-                                ? 'bg-emerald-50 text-emerald-700'
+                                ? 'bg-[#FFFBEB] text-[#B45309]'
                                 : kw.qualityScore <= 4
                                 ? 'bg-rose-50 text-rose-700'
                                 : 'bg-slate-100 text-slate-700'
@@ -472,7 +472,7 @@ export function CampaignDetailDrawer({
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               st.intentRelevance === 'LOW'
                                 ? 'bg-rose-50 text-rose-700'
-                                : 'bg-emerald-50 text-emerald-700'
+                                : 'bg-[#FFFBEB] text-[#B45309]'
                             }`}
                           >
                             {st.intentRelevance}
@@ -509,7 +509,7 @@ export function CampaignDetailDrawer({
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                         ad.adStrength === 'EXCELLENT'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#FEF3C7] text-[#92400E]'
                           : 'bg-rose-100 text-rose-800'
                       }`}
                     >
@@ -519,7 +519,7 @@ export function CampaignDetailDrawer({
 
                   {/* Ad Preview Simulation */}
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs">
-                    <div className="text-xs text-emerald-700 font-medium">Ad · {ad.finalUrl}</div>
+                    <div className="text-xs text-[#B45309] font-medium">Ad · {ad.finalUrl}</div>
                     <div className="text-sm font-bold text-blue-700 hover:underline cursor-pointer mt-0.5">
                       {ad.headline1} | {ad.headline2} | {ad.headline3}
                     </div>
@@ -530,7 +530,7 @@ export function CampaignDetailDrawer({
 
                   {/* Copy Recommendation */}
                   <div className="text-xs text-slate-600 bg-white/60 p-2.5 rounded-xl border border-slate-100 flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-slate-800">Copy Recommendation: </span>
                       {ad.aiCritique}
@@ -577,7 +577,7 @@ export function CampaignDetailDrawer({
                           <td className="py-2.5 px-3 text-right">{sym}{dev.spend.toLocaleString()}</td>
                           <td className="py-2.5 px-3 text-right font-bold text-slate-900">{dev.conversions}</td>
                           <td className="py-2.5 px-3 text-right">{sym}{dev.cpa.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right text-emerald-600 font-bold">{dev.roas.toFixed(1)}x</td>
+                          <td className="py-2.5 px-3 text-right text-[#B45309] font-bold">{dev.roas.toFixed(1)}x</td>
                         </tr>
                       ))}
                     </tbody>
@@ -622,7 +622,7 @@ export function CampaignDetailDrawer({
             <div className="space-y-4">
               {campaignInsights.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                  <CheckCircle2 className="w-8 h-8 text-[#D97706] mx-auto mb-2" />
                   No open issues for this campaign.
                 </div>
               ) : (
@@ -647,7 +647,7 @@ export function CampaignDetailDrawer({
                     <div className="p-3 bg-white rounded-xl border border-slate-200/60 text-xs text-slate-600">
                       <div className="font-bold text-slate-800">Recommended Fix:</div>
                       <div className="mt-0.5">{ins.recommendedAction}</div>
-                      <div className="mt-1 text-emerald-700 font-medium">Impact: {ins.expectedImpact}</div>
+                      <div className="mt-1 text-[#B45309] font-medium">Impact: {ins.expectedImpact}</div>
                     </div>
 
                     {ins.actionPayload && onApplyInsight && (

@@ -59,7 +59,7 @@ export function ActionProposalCard({
             isPending
               ? 'bg-amber-100 text-amber-900 border border-amber-300'
               : isExecuted
-              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+              ? 'bg-[#FEF3C7] text-[#78350F] border border-[#FCD34D]'
               : isDeclined
               ? 'bg-slate-100 text-slate-700'
               : 'bg-rose-100 text-rose-900 border border-rose-300'
@@ -97,7 +97,7 @@ export function ActionProposalCard({
             </span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-[#00a85e] uppercase tracking-wider block mb-0.5">
+            <span className="text-[10px] font-bold text-[#92400E] uppercase tracking-wider block mb-0.5">
               Change to Apply
             </span>
             <span className="font-mono text-slate-950 font-bold text-xs">
@@ -134,14 +134,14 @@ export function ActionProposalCard({
         <div
           className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
             isExecuted
-              ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
+              ? 'bg-[#FFFBEB] text-[#2E1065] border border-[#FCD34D]'
               : isDeclined
               ? 'bg-slate-100 text-slate-700 border border-slate-200'
               : 'bg-rose-50 text-rose-950 border border-rose-300'
           }`}
         >
           {isExecuted ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-[#B45309] shrink-0" />
           ) : isDeclined ? (
             <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
           ) : (

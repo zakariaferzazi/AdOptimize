@@ -232,7 +232,7 @@ export function CampaignAnalysisPage({
               className={`px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
                 isEnabled
                   ? 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                  : 'bg-[#FFFBEB] text-[#92400E] hover:bg-[#FEF3C7] border border-[#FDE68A]'
               }`}
             >
               {isTogglingStatus ? (
@@ -277,7 +277,7 @@ export function CampaignAnalysisPage({
                   isCritical
                     ? 'bg-rose-500 ring-4 ring-rose-100'
                     : isHealthy
-                    ? 'bg-[#6D28D9] ring-4 ring-emerald-100'
+                    ? 'bg-[#6D28D9] ring-4 ring-[#FEF3C7]'
                     : 'bg-amber-500 ring-4 ring-amber-100'
                 }`}
               />
@@ -288,7 +288,7 @@ export function CampaignAnalysisPage({
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                   isEnabled
-                    ? 'bg-emerald-100 text-emerald-800'
+                    ? 'bg-[#FEF3C7] text-[#92400E]'
                     : 'bg-slate-200 text-slate-700'
                 }`}
               >
@@ -388,7 +388,7 @@ export function CampaignAnalysisPage({
             <div className="w-px h-8 bg-slate-800" />
             <div className="text-right">
               <div className="text-slate-400">Lifetime ROAS</div>
-              <div className="font-mono font-bold text-emerald-400 text-sm">
+              <div className="font-mono font-bold text-[#FBBF24] text-sm">
                 {Number(campaign.allTimeRoas ?? campaign.roas ?? 0).toFixed(2)}x
               </div>
             </div>
@@ -402,7 +402,7 @@ export function CampaignAnalysisPage({
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
             <span>Ad Spend ({selectedPeriod === '7D' ? '7d' : 'Lifetime'})</span>
-            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <DollarSign className="w-4 h-4 text-[#B45309]" />
           </div>
           <div className="text-xl font-black text-slate-900 font-mono">
             ${displaySpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -449,7 +449,7 @@ export function CampaignAnalysisPage({
           <div className="text-xl font-black text-slate-900 font-mono">
             {displayCtr.toFixed(2)}%
           </div>
-          <div className="text-[11px] font-semibold text-emerald-600">
+          <div className="text-[11px] font-semibold text-[#B45309]">
             {displayCtr >= 3.0 ? '✓ Above 3% benchmark' : 'Industry avg benchmark'}
           </div>
         </div>
@@ -470,7 +470,7 @@ export function CampaignAnalysisPage({
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
             <span>Conversions</span>
-            <Target className="w-4 h-4 text-emerald-600" />
+            <Target className="w-4 h-4 text-[#B45309]" />
           </div>
           <div className="text-xl font-black text-slate-900 font-mono">
             {displayConversions.toLocaleString()}
@@ -506,7 +506,7 @@ export function CampaignAnalysisPage({
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
             <span>Conversion Value</span>
-            <Award className="w-4 h-4 text-emerald-600" />
+            <Award className="w-4 h-4 text-[#B45309]" />
           </div>
           <div className="text-xl font-black text-slate-900 font-mono">
             ${displayConvValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -520,17 +520,17 @@ export function CampaignAnalysisPage({
             <span>ROAS Multiplier</span>
             <Zap className="w-4 h-4 text-[#6D28D9]" />
           </div>
-          <div className="text-xl font-black text-emerald-600 font-mono">
+          <div className="text-xl font-black text-[#B45309] font-mono">
             {displayRoas.toFixed(2)}x
           </div>
-          <div className="text-[11px] font-semibold text-emerald-700">
+          <div className="text-[11px] font-semibold text-[#B45309]">
             {displayRoas >= 3.0 ? 'High capital return' : 'Baseline return yield'}
           </div>
         </div>
       </div>
 
       {/* CORE VALUE SECTION: Actionable Improvements & AI Engine */}
-      <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent p-6 rounded-3xl border border-emerald-200/80 shadow-xs space-y-4">
+      <div className="bg-gradient-to-r from-[#FBBF24]/10 via-teal-500/10 to-transparent p-6 rounded-3xl border border-[#FDE68A]/80 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-[#2E1065] text-[#FBBF24] flex items-center justify-center shadow-xs">
@@ -561,7 +561,7 @@ export function CampaignAnalysisPage({
                   <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg">
                     Negative Keyword Protection
                   </span>
-                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono font-bold text-[#B45309] bg-[#FFFBEB] px-2 py-0.5 rounded">
                     +18% Efficiency
                   </span>
                 </div>
@@ -592,7 +592,7 @@ export function CampaignAnalysisPage({
                   <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
                     Bid Strategy Calibration
                   </span>
-                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono font-bold text-[#B45309] bg-[#FFFBEB] px-2 py-0.5 rounded">
                     +24% Lead Yield
                   </span>
                 </div>
@@ -635,7 +635,7 @@ export function CampaignAnalysisPage({
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
                   <div className="font-bold text-slate-900">Recommended Fix:</div>
                   <div className="text-slate-600 leading-relaxed">{ins.recommendedAction}</div>
-                  <div className="text-emerald-700 font-bold pt-0.5">Impact: {ins.expectedImpact}</div>
+                  <div className="text-[#B45309] font-bold pt-0.5">Impact: {ins.expectedImpact}</div>
                 </div>
 
                 {onApplyInsight && (
@@ -736,7 +736,7 @@ export function CampaignAnalysisPage({
                           style={{ height: `${heightPct}%` }}
                           className={`w-full max-w-[48px] rounded-t-lg transition-all ${
                             selectedChartMetric === 'roas' || selectedChartMetric === 'conversions'
-                              ? 'bg-emerald-500 group-hover:bg-emerald-600'
+                              ? 'bg-[#FFFBEB]0 group-hover:bg-[#D97706]'
                               : 'bg-slate-800 group-hover:bg-slate-950'
                           }`}
                         />
@@ -776,7 +776,7 @@ export function CampaignAnalysisPage({
                           </td>
                           <td className="py-3 px-4 text-right font-bold text-slate-900">{day.conversions || 0}</td>
                           <td className="py-3 px-4 text-right">${Number(day.cpa || 0).toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right text-emerald-600 font-bold">{Number(day.roas || 0).toFixed(1)}x</td>
+                          <td className="py-3 px-4 text-right text-[#B45309] font-bold">{Number(day.roas || 0).toFixed(1)}x</td>
                         </tr>
                       ))}
                     </tbody>
@@ -826,7 +826,7 @@ export function CampaignAnalysisPage({
                             <div className="flex items-center gap-2">
                               <span>{kw.keyword}</span>
                               {kw.flag === 'TOP_PERFORMER' && (
-                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded font-sans">
+                                <span className="text-[10px] bg-[#FFFBEB] text-[#B45309] font-bold px-1.5 py-0.5 rounded font-sans">
                                   Top Winner
                                 </span>
                               )}
@@ -850,7 +850,7 @@ export function CampaignAnalysisPage({
                             <span
                               className={`px-2 py-0.5 rounded text-xs font-bold ${
                                 kw.qualityScore >= 8
-                                  ? 'bg-emerald-50 text-emerald-700'
+                                  ? 'bg-[#FFFBEB] text-[#B45309]'
                                   : kw.qualityScore <= 4
                                   ? 'bg-rose-50 text-rose-700'
                                   : 'bg-slate-100 text-slate-700'
@@ -860,7 +860,7 @@ export function CampaignAnalysisPage({
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-right">
-                            <span className="text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                            <span className="text-[11px] font-sans font-semibold text-[#B45309] bg-[#FFFBEB] px-2 py-0.5 rounded">
                               {kw.status || 'ENABLED'}
                             </span>
                           </td>
@@ -917,7 +917,7 @@ export function CampaignAnalysisPage({
                               className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                                 st.intentRelevance === 'LOW'
                                   ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]'
                               }`}
                             >
                               {st.intentRelevance === 'LOW' ? 'Wasteful / Low Intent' : 'High Purchase Intent'}
@@ -960,7 +960,7 @@ export function CampaignAnalysisPage({
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                         ad.adStrength === 'EXCELLENT'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#FEF3C7] text-[#92400E]'
                           : 'bg-amber-100 text-amber-800'
                       }`}
                     >
@@ -970,7 +970,7 @@ export function CampaignAnalysisPage({
 
                   {/* Ad Preview Simulation */}
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-1">
-                    <div className="text-xs text-emerald-700 font-semibold">Ad · {ad.finalUrl}</div>
+                    <div className="text-xs text-[#B45309] font-semibold">Ad · {ad.finalUrl}</div>
                     <div className="text-sm font-bold text-blue-700 hover:underline cursor-pointer">
                       {ad.headline1} | {ad.headline2} | {ad.headline3}
                     </div>
@@ -981,7 +981,7 @@ export function CampaignAnalysisPage({
 
                   {/* Copy Recommendation */}
                   <div className="text-xs text-slate-600 bg-white/70 p-3 rounded-xl border border-slate-200/60 flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-slate-800">Copy Recommendation: </span>
                       {ad.aiCritique}
@@ -1027,7 +1027,7 @@ export function CampaignAnalysisPage({
                           <td className="py-3 px-3 font-sans font-semibold text-slate-800">{dev.name}</td>
                           <td className="py-3 px-3 text-right">${dev.spend.toLocaleString()}</td>
                           <td className="py-3 px-3 text-right font-bold text-slate-900">{dev.conversions}</td>
-                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">{dev.roas.toFixed(1)}x</td>
+                          <td className="py-3 px-3 text-right text-[#B45309] font-bold">{dev.roas.toFixed(1)}x</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1072,7 +1072,7 @@ export function CampaignAnalysisPage({
             <div className="space-y-4">
               {campaignInsights.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-500">
-                  <CheckCircle2 className="w-9 h-9 text-emerald-500 mx-auto mb-2" />
+                  <CheckCircle2 className="w-9 h-9 text-[#D97706] mx-auto mb-2" />
                   <div className="font-bold text-sm text-slate-900">Campaign Operating at Peak Efficiency</div>
                   <p className="mt-1">All verified health checks passed. No critical anomalies detected.</p>
                 </div>
@@ -1098,7 +1098,7 @@ export function CampaignAnalysisPage({
                     <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-600">
                       <div className="font-bold text-slate-900">Recommended Action:</div>
                       <div className="mt-0.5">{ins.recommendedAction}</div>
-                      <div className="mt-1 text-emerald-700 font-bold">Impact: {ins.expectedImpact}</div>
+                      <div className="mt-1 text-[#B45309] font-bold">Impact: {ins.expectedImpact}</div>
                     </div>
 
                     {onApplyInsight && (

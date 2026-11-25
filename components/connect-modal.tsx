@@ -120,10 +120,10 @@ export function ConnectModal({
                   type="button"
                   onClick={() => handleOneClickConnect(cid)}
                   disabled={Boolean(loadingState)}
-                  className="w-full p-3.5 bg-slate-50 hover:bg-emerald-50/80 border border-slate-200 hover:border-emerald-300 rounded-2xl flex items-center justify-between text-left transition-all cursor-pointer group disabled:opacity-50"
+                  className="w-full p-3.5 bg-slate-50 hover:bg-[#FFFBEB] border border-slate-200 hover:border-[#FCD34D] rounded-2xl flex items-center justify-between text-left transition-all cursor-pointer group disabled:opacity-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700 group-hover:border-emerald-300">
+                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700 group-hover:border-[#FCD34D]">
                       G
                     </div>
                     <div>
@@ -131,7 +131,7 @@ export function ConnectModal({
                       <span className="text-[10px] text-slate-500">Google Ads Customer Account</span>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-emerald-700 bg-white group-hover:bg-emerald-500 group-hover:text-slate-950 px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1">
+                  <span className="text-xs font-bold text-[#B45309] bg-white group-hover:bg-[#FBBF24] group-hover:text-slate-950 px-3 py-1.5 rounded-xl border border-[#FDE68A] transition-colors flex items-center gap-1">
                     <span>Connect</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
@@ -142,13 +142,13 @@ export function ConnectModal({
         ) : isConnected && !loadingState ? (
           /* State B: Already connected account summary */
           <div className="space-y-4">
-            <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2">
+            <div className="p-4 bg-[#FFFBEB]/80 border border-[#FDE68A] rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-[#2E1065] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#B45309]" />
                   <span>Active Google Ads Account</span>
                 </span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-[10px] font-bold text-[#B45309] bg-white px-2 py-0.5 rounded-full border border-[#FDE68A]">
                   Connected ✓
                 </span>
               </div>

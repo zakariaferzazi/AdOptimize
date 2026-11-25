@@ -85,7 +85,7 @@ export function CreateCampaignModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7] flex items-center justify-center">
               <Plus className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
@@ -140,7 +140,7 @@ export function CreateCampaignModal({
                   onClick={() => setChannelType(t.id)}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     channelType === t.id
-                      ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-500/20'
+                      ? 'bg-[#FFFBEB]/70 border-[#FBBF24] ring-2 ring-[#FBBF24]/20'
                       : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
                   }`}
                 >
@@ -186,11 +186,11 @@ export function CreateCampaignModal({
                 onClick={() => setStatus('ENABLED')}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   status === 'ENABLED'
-                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900 ring-1 ring-emerald-400'
+                    ? 'bg-[#FFFBEB] border-[#FBBF24] text-[#78350F] ring-1 ring-[#FBBF24]'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="w-2 h-2 rounded-full bg-[#FFFBEB]0" />
                 <span>Enabled (Active)</span>
               </button>
               <button

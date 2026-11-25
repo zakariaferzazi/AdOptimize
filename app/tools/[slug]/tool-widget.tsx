@@ -298,7 +298,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
               step="500"
               value={monthlySpend}
               onChange={(e) => setMonthlySpend(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className="w-full accent-[#6D28D9] cursor-pointer"
             />
           </div>
 
@@ -329,7 +329,7 @@ export function ToolInteractiveWidget({ tool }: ToolInteractiveWidgetProps) {
               step="1"
               value={qualityScore}
               onChange={(e) => setQualityScore(Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className="w-full accent-[#6D28D9] cursor-pointer"
             />
           </div>
 

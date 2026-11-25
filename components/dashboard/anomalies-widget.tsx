@@ -52,7 +52,7 @@ export function AnomaliesWidget({
         </div>
         <button
           onClick={onViewAll}
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors cursor-pointer"
+          className="text-xs font-semibold text-[#B45309] hover:text-[#92400E] flex items-center gap-1 transition-colors cursor-pointer"
         >
           <span>View All</span>
           <ChevronRight className="w-3.5 h-3.5" />
@@ -63,7 +63,7 @@ export function AnomaliesWidget({
       <div className="divide-y divide-slate-100 mt-2">
         {unresolved.length === 0 ? (
           <div className="py-8 text-center space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mx-auto">
+            <div className="w-10 h-10 rounded-2xl bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7] flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="text-xs font-bold text-slate-900">No Active Performance Alerts</div>
@@ -96,7 +96,7 @@ export function AnomaliesWidget({
                       isCritical
                         ? 'bg-rose-50 text-rose-600 border border-rose-100'
                         : isOpportunity
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        ? 'bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7]'
                         : 'bg-amber-50 text-amber-600 border border-amber-100'
                     }`}
                   >
@@ -111,7 +111,7 @@ export function AnomaliesWidget({
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-600 transition-colors">
+                      <div className="text-xs font-bold text-slate-900 truncate group-hover:text-[#B45309] transition-colors">
                         {item.title}
                       </div>
                       <span
@@ -139,7 +139,7 @@ export function AnomaliesWidget({
                       isCritical
                         ? 'bg-rose-50 text-rose-700 border border-rose-100'
                         : isOpportunity
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        ? 'bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7]'
                         : 'bg-amber-50 text-amber-700 border border-amber-100'
                     }`}
                   >

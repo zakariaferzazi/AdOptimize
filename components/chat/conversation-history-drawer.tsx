@@ -114,7 +114,7 @@ export function ConversationHistoryDrawer({
                   key={conv.id}
                   className={`group relative p-3 rounded-2xl border transition-all ${
                     isActive
-                      ? 'bg-emerald-50/60 border-emerald-300 shadow-2xs'
+                      ? 'bg-[#FFFBEB]/60 border-[#FCD34D] shadow-2xs'
                       : 'bg-white hover:bg-slate-50 border-slate-200/80'
                   }`}
                 >
@@ -129,11 +129,11 @@ export function ConversationHistoryDrawer({
                           if (e.key === 'Escape') setEditingId(null);
                         }}
                         autoFocus
-                        className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#6D28D9]"
                       />
                       <button
                         onClick={() => handleSaveRename(conv.id)}
-                        className="p-1 text-emerald-600 hover:bg-emerald-100 rounded-md cursor-pointer"
+                        className="p-1 text-[#B45309] hover:bg-[#FEF3C7] rounded-md cursor-pointer"
                         title="Save"
                       >
                         <Check className="w-3.5 h-3.5" />

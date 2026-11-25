@@ -52,7 +52,7 @@ export function InsightsView({
       {/* Top Banner / Explanation */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FBBF24]/20 text-[#6D28D9] border border-[#FBBF24]/30 text-xs font-semibold mb-3">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Performance Diagnostics &amp; Analysis</span>
           </div>
@@ -106,7 +106,7 @@ export function InsightsView({
       <div className="space-y-4">
         {filtered.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+            <CheckCircle2 className="w-10 h-10 text-[#D97706] mx-auto mb-3" />
             <h3 className="text-base font-bold text-slate-900">No Insights Match Your Filter</h3>
             <p className="text-xs text-slate-500 mt-1">
               Switch filters to view all active recommendations or force refresh campaign data.
@@ -122,7 +122,7 @@ export function InsightsView({
                 key={item.id}
                 className={`bg-white rounded-3xl p-6 sm:p-7 border transition-all duration-200 shadow-xs space-y-5 ${
                   isApplied
-                    ? 'border-emerald-200 bg-emerald-50/20'
+                    ? 'border-[#FDE68A] bg-[#FFFBEB]/20'
                     : isDismissed
                     ? 'border-slate-200 opacity-60'
                     : 'border-slate-200/80 hover:border-slate-300'
@@ -136,7 +136,7 @@ export function InsightsView({
                         item.category === 'CRITICAL_ISSUE'
                           ? 'bg-rose-50 text-rose-700 border border-rose-100'
                           : item.category === 'BUDGET_OPPORTUNITY'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                          ? 'bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7]'
                           : item.category === 'WASTED_SPEND'
                           ? 'bg-amber-50 text-amber-800 border border-amber-100'
                           : 'bg-slate-100 text-slate-800'
@@ -160,7 +160,7 @@ export function InsightsView({
                     <span
                       className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                         item.status === 'APPLIED'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#FEF3C7] text-[#92400E]'
                           : item.status === 'DISMISSED'
                           ? 'bg-slate-200 text-slate-700'
                           : item.status === 'REVIEWED'
@@ -207,13 +207,13 @@ export function InsightsView({
                   const changePercent = isObj ? ev.changePercent : 'Audited';
 
                   return (
-                    <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex flex-wrap items-center justify-between gap-4">
+                    <div className="p-4 bg-[#FFFBEB]/50 rounded-2xl border border-[#FEF3C7] flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                          <Info className="w-3.5 h-3.5 text-emerald-700" />
+                        <div className="text-xs font-bold text-[#78350F] uppercase tracking-wider flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-[#B45309]" />
                           <span>Performance Evidence · {metric}</span>
                         </div>
-                        <div className="text-xs text-emerald-800 mt-1">
+                        <div className="text-xs text-[#92400E] mt-1">
                           {context}
                         </div>
                       </div>
@@ -223,12 +223,12 @@ export function InsightsView({
                           <div className="text-[10px] text-slate-400 font-sans uppercase">Previous</div>
                           <div className="text-slate-700">{beforeVal}</div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <ArrowRight className="w-4 h-4 text-[#B45309] shrink-0" />
                         <div className="text-left">
                           <div className="text-[10px] text-slate-400 font-sans uppercase">Current</div>
                           <div className="text-slate-900">{currentVal}</div>
                         </div>
-                        <div className="px-2.5 py-1 bg-white rounded-xl border border-emerald-200 text-emerald-800 shadow-2xs">
+                        <div className="px-2.5 py-1 bg-white rounded-xl border border-[#FDE68A] text-[#92400E] shadow-2xs">
                           {changePercent}
                         </div>
                       </div>
@@ -281,7 +281,7 @@ export function InsightsView({
                     )}
 
                     {item.status === 'APPLIED' && (
-                      <div className="flex items-center gap-1.5 text-xs text-[#6D28D9] font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                      <div className="flex items-center gap-1.5 text-xs text-[#6D28D9] font-bold px-3 py-1.5 rounded-xl bg-[#FBBF24]/20 border border-[#FBBF24]/30">
                         <Check className="w-4 h-4" />
                         <span>Applied to Account</span>
                       </div>

@@ -38,7 +38,7 @@ export function RecommendationCard({
               isWastedSpend
                 ? 'bg-rose-50 text-rose-600 border border-rose-200'
                 : isBudgetOpportunity
-                ? 'bg-emerald-50 text-[#00a85e] border border-emerald-200'
+                ? 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]'
                 : 'bg-amber-50 text-amber-600 border border-amber-200'
             }`}
           >
@@ -56,7 +56,7 @@ export function RecommendationCard({
                 isWastedSpend
                   ? 'bg-rose-100 text-rose-800'
                   : isBudgetOpportunity
-                  ? 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-[#FEF3C7] text-[#92400E]'
                   : 'bg-amber-100 text-amber-800'
               }`}
             >

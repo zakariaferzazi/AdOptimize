@@ -84,11 +84,11 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
       if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
       return (key === 'cpa' ? a - b : b - a) || left.name.localeCompare(right.name);
     });
-  const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500';
+  const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]';
 
   return <div className="space-y-6 max-w-7xl mx-auto">
     <section className="rounded-3xl bg-slate-950 p-6 sm:p-8 text-white print:hidden">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300"><FileText className="w-4 h-4" /> Performance reports</p>
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#FDE68A]"><FileText className="w-4 h-4" /> Performance reports</p>
       <h2 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">A clear view of what your ad spend delivered.</h2>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Build a report for your chosen dates, compare the previous period, and share campaign results. Direct Google Ads reporting, not estimates from a cached dashboard.</p>
     </section>
@@ -104,7 +104,7 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
           <label className="w-full sm:w-auto text-xs font-medium text-slate-700">Start date<input className={inputClass} type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
           <label className="w-full sm:w-auto text-xs font-medium text-slate-700">End date<input className={inputClass} type="date" required min={startDate || undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         </>}
-        <button disabled={loading || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50">
+        <button disabled={loading || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50">
           {loading && <AppLoader className="h-5 w-5" />}{loading ? 'Generating...' : 'Generate report'}
         </button>
       </fieldset>
@@ -118,7 +118,7 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
     {report && <article data-print-report className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7 print:border-0 print:p-0">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">AdOptimize / Google Ads performance</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#B45309]">AdOptimize / Google Ads performance</p>
           <h3 className="mt-2 text-xl font-semibold text-slate-950 break-words">{report.account.name}</h3>
           <p className="mt-1 text-sm text-slate-700">{report.dateRange.startDate} to {report.dateRange.endDate}</p>
           <p className="mt-1 text-xs text-slate-500">Compared with {report.previousRange.startDate} to {report.previousRange.endDate}.</p>
@@ -179,7 +179,7 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
       <section className="border-t border-slate-100 pt-5">
         <h4 className="font-semibold text-slate-900">Reporting notes</h4>
         <ul className="mt-2 space-y-2 text-xs leading-5 text-slate-500">{report.warnings.map((warning) => <li key={warning}>- {warning}</li>)}</ul>
-        <Link href="/audit" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 print:hidden">Find evidence-led next steps in Ads Audit <ArrowRight className="w-4 h-4" /></Link>
+        <Link href="/audit" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#B45309] print:hidden">Find evidence-led next steps in Ads Audit <ArrowRight className="w-4 h-4" /></Link>
       </section>
     </article>}
     <style>{`@media print {

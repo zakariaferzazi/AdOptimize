@@ -277,7 +277,7 @@ export function PerformanceChart({
             <h2 className="text-base font-bold text-slate-900 tracking-tight">
               Performance Overview
             </h2>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+            <span className="text-xs font-bold text-[#B45309] bg-[#FFFBEB] px-2 py-0.5 rounded-full border border-[#FDE68A]/60">
               {getMetricTitle(activeMetric)}
             </span>
           </div>
@@ -354,7 +354,7 @@ export function PerformanceChart({
                     }}
                     className={`w-full text-left px-3 py-2 text-xs font-medium rounded-xl transition-colors cursor-pointer ${
                       selectedPeriod === item.id
-                        ? 'bg-emerald-50 text-emerald-900 font-bold'
+                        ? 'bg-[#FFFBEB] text-[#78350F] font-bold'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
@@ -370,7 +370,7 @@ export function PerformanceChart({
       {/* SVG Canvas Area */}
       {daysData.length === 0 ? (
         <div className="h-[240px] flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 mt-4">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#FFFBEB] text-[#B45309] flex items-center justify-center mb-3">
             <TrendingUp className="w-5 h-5 stroke-[2.2]" />
           </div>
           <h4 className="text-sm font-bold text-slate-800">No Campaign Activity in this Period</h4>
@@ -387,7 +387,7 @@ export function PerformanceChart({
                 <span className="font-bold text-slate-800 text-xs">
                   {hoveredData.dateFull}
                 </span>
-                <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-200 font-semibold">
+                <span className="text-[10px] font-mono text-[#92400E] bg-[#FEF3C7]/70 px-1.5 py-0.5 rounded border border-[#FDE68A] font-semibold">
                   {hoveredData.label}
                 </span>
               </div>
@@ -395,7 +395,7 @@ export function PerformanceChart({
               <div className="flex items-center gap-3.5 text-xs">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-slate-500 text-[11px] font-medium">{getMetricTitle(activeMetric)}:</span>
-                  <span className="font-mono font-bold text-slate-950 text-sm text-emerald-600">
+                  <span className="font-mono font-bold text-slate-950 text-sm text-[#B45309]">
                     {formatMetricVal(Number(hoveredData.current[activeMetric] || 0), activeMetric)}
                   </span>
                 </div>
@@ -408,7 +408,7 @@ export function PerformanceChart({
                   const isGood = (activeMetric === 'cpa' || activeMetric === 'cpc') ? !isPositiveChange : isPositiveChange;
                   return (
                     <div className={`flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      isGood ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'
+                      isGood ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]' : 'bg-rose-100 text-rose-800 border border-rose-200'
                     }`}>
                       {isPositiveChange ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                       <span>{isPositiveChange ? '+' : ''}{diffPercent.toFixed(1)}% vs prev</span>

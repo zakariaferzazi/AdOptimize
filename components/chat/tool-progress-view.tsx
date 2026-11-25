@@ -257,7 +257,7 @@ export function ToolProgressLive({ onCancel, activeModelLabel }: ToolProgressLiv
         </div>
 
         <div className="space-y-1.5 text-[11px] text-slate-600">
-          <div className="flex items-center gap-2 text-[#00a85e] font-semibold">
+          <div className="flex items-center gap-2 text-[#92400E] font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#6D28D9] animate-ping ml-0.5 mr-1" />
             <span>Reading your account and preparing the answer...</span>
           </div>

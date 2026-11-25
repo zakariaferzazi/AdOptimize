@@ -158,7 +158,7 @@ export function CampaignsFullView({
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FBBF24]/20 text-[#6D28D9] border border-[#FBBF24]/30 text-xs font-semibold mb-3">
               <Layers className="w-3.5 h-3.5" />
               <span>Google Ads Execution & Campaign Management</span>
             </div>
@@ -176,7 +176,7 @@ export function CampaignsFullView({
               <button
                 type="button"
                 onClick={onCreateCampaignClick}
-                className="px-4 py-2.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-[#FBBF24]/20 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>Create Campaign</span>
@@ -239,7 +239,7 @@ export function CampaignsFullView({
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value as any)}
-              className="px-3 py-1.5 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs text-[#6D28D9] font-bold focus:outline-none"
+              className="px-3 py-1.5 bg-slate-900 border border-[#FBBF24]/40 rounded-xl text-xs text-[#6D28D9] font-bold focus:outline-none"
             >
               <option value="LAST_30_DAYS">Last 30 Days</option>
               <option value="LAST_14_DAYS">Last 14 Days</option>
@@ -273,7 +273,7 @@ export function CampaignsFullView({
           <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Campaigns</div>
           <div className="text-xl font-bold text-slate-900 mt-1 flex items-center gap-2">
             <span>{campaigns.length}</span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309]">
               {aggregateStats.enabledCount} active
             </span>
           </div>
@@ -306,7 +306,7 @@ export function CampaignsFullView({
 
         <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
           <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Blended ROAS</div>
-          <div className="text-xl font-bold font-mono text-emerald-600 mt-1">
+          <div className="text-xl font-bold font-mono text-[#B45309] mt-1">
             {aggregateStats.totalSpend > 0 ? `${aggregateStats.blendedRoas.toFixed(2)}x` : '—'}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">Return on ad spend</div>
@@ -405,7 +405,7 @@ export function CampaignsFullView({
                           }}
                           className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                             isEnabled
-                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80'
+                              ? 'text-[#B45309] bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FDE68A]/80'
                               : 'text-slate-400 bg-slate-100 hover:bg-slate-200 border border-slate-200/80'
                           }`}
                           title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign in Google Ads`}
@@ -413,7 +413,7 @@ export function CampaignsFullView({
                           {isMutatingThis ? (
                             <AppLoader className="h-3.5 w-3.5" />
                           ) : isEnabled ? (
-                            <Play className="w-3 h-3 fill-emerald-600" />
+                            <Play className="w-3 h-3 fill-[#D97706]" />
                           ) : (
                             <Pause className="w-3 h-3 fill-slate-400" />
                           )}
@@ -422,9 +422,9 @@ export function CampaignsFullView({
 
                       {/* Campaign Name */}
                       <td className="py-3.5 px-3">
-                        <div className="font-bold text-slate-900 group-hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+                        <div className="font-bold text-slate-900 group-hover:text-[#B45309] transition-colors flex items-center gap-1.5">
                           <span>{c.name}</span>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEnabled ? 'bg-[#FFFBEB]0' : 'bg-slate-400'}`} />
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
                           {c.keywordsCount || 0} keywords · {c.activeAdsCount || 0} ads
@@ -449,14 +449,14 @@ export function CampaignsFullView({
                               step="1"
                               value={editingBudgetValue}
                               onChange={(e) => setEditingBudgetValue(e.target.value)}
-                              className="w-16 px-1.5 py-0.5 bg-white border border-emerald-500 rounded text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                              className="w-16 px-1.5 py-0.5 bg-white border border-[#FBBF24] rounded text-xs font-mono font-bold text-slate-900 focus:outline-none"
                               autoFocus
                             />
                             <button
                               type="button"
                               disabled={isSavingBudget}
                               onClick={(e) => saveEditBudget(e, c)}
-                              className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer"
+                              className="p-1 rounded bg-[#FFFBEB] hover:bg-[#FEF3C7] text-[#B45309] cursor-pointer"
                               title="Save budget"
                             >
                               {isSavingBudget ? <AppLoader className="h-3 w-3" /> : <Check className="w-3 h-3" />}
@@ -473,7 +473,7 @@ export function CampaignsFullView({
                         ) : (
                           <div
                             onClick={(e) => startEditBudget(e, c)}
-                            className="inline-flex items-center gap-1.5 font-medium text-slate-700 hover:text-emerald-700 hover:bg-slate-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            className="inline-flex items-center gap-1.5 font-medium text-slate-700 hover:text-[#B45309] hover:bg-slate-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
                             title="Click to edit daily budget"
                           >
                             <span>{sym}{Number(c.budgetDaily || 0).toFixed(2)}/d</span>
@@ -504,7 +504,7 @@ export function CampaignsFullView({
                         <span
                           className={`px-2 py-0.5 rounded ${
                             Number(m.roas || 0) >= 4.0
-                              ? 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-[#FFFBEB] text-[#B45309]'
                               : Number(m.roas || 0) >= 2.0
                               ? 'bg-slate-100 text-slate-800'
                               : 'bg-rose-50 text-rose-700'
@@ -519,7 +519,7 @@ export function CampaignsFullView({
                         <span
                           className={`font-mono text-xs font-bold px-2 py-0.5 rounded-full ${
                             isHealthy
-                              ? 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-[#FFFBEB] text-[#B45309]'
                               : isCritical
                               ? 'bg-rose-50 text-rose-700'
                               : 'bg-amber-50 text-amber-700'

@@ -69,21 +69,21 @@ export function CampaignSyncModal({
           )}
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
             <span className="text-slate-500 font-medium">Connection:</span>
-            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+            <span className="text-[#B45309] font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Direct Google Ads Connection</span>
             </span>
           </div>
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
             <span className="text-slate-500 font-medium">Status:</span>
-            <span className="text-emerald-700 font-semibold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[#B45309] font-semibold flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#FFFBEB]0 animate-pulse"></span>
               <span>Connected &amp; Authorized</span>
             </span>
           </div>
         </div>
 
-        <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 leading-relaxed">
+        <div className="p-4 bg-[#FFFBEB]/70 border border-[#FDE68A]/80 rounded-2xl text-xs text-[#78350F] leading-relaxed">
           AdOptimize will synchronize your active Search, Performance Max, Display, and Video campaigns with current spend, clicks, conversions, and performance metrics.
         </div>
 

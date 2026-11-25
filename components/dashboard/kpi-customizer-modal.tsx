@@ -150,7 +150,7 @@ export function KpiCustomizerModal({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-[#B45309] hover:text-[#92400E] transition-colors cursor-pointer"
             >
               Select All
             </button>
@@ -197,7 +197,7 @@ export function KpiCustomizerModal({
                   </button>
 
                   <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
-                    <Icon className="w-4 h-4 text-emerald-600" />
+                    <Icon className="w-4 h-4 text-[#B45309]" />
                   </div>
 
                   <div className="min-w-0">

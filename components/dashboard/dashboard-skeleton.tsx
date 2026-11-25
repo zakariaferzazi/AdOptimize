@@ -9,7 +9,7 @@ export function DashboardSkeleton() {
       {/* Minimal Top Loading Status Bar */}
       <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#FFFBEB]0 animate-ping" />
           <div className="h-4 w-48 bg-slate-200 rounded-lg" />
         </div>
         <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export function DashboardSkeleton() {
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100" />
+              <div className="w-8 h-8 rounded-xl bg-[#FEF3C7]" />
               <div className="h-4 w-28 bg-slate-200 rounded" />
             </div>
             <div className="h-4 w-14 bg-slate-100 rounded" />

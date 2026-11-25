@@ -191,11 +191,11 @@ export function CampaignsTable({
               onClick={() => setStatusFilter('ENABLED')}
               className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                 statusFilter === 'ENABLED'
-                  ? 'bg-white text-emerald-700 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-emerald-700'
+                  ? 'bg-white text-[#B45309] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-[#B45309]'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FFFBEB]0" />
               <span>Enabled ({enabledCount})</span>
             </button>
             <button
@@ -214,7 +214,7 @@ export function CampaignsTable({
           {onViewAll && (
             <button
               onClick={onViewAll}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors ml-1 cursor-pointer"
+              className="text-xs font-semibold text-[#B45309] hover:text-[#92400E] flex items-center gap-1 transition-colors ml-1 cursor-pointer"
             >
               <span>View All</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -318,7 +318,7 @@ export function CampaignsTable({
                             }}
                             className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                               isEnabled
-                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60'
+                                ? 'bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7] border border-[#FDE68A]/60'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
                             }`}
                             title={`Click to ${isEnabled ? 'Pause' : 'Enable'} campaign`}
@@ -327,7 +327,7 @@ export function CampaignsTable({
                               <AppLoader className="h-2.5 w-2.5" />
                             ) : isEnabled ? (
                               <>
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#FFFBEB]0" />
                                 <span>ENABLED</span>
                               </>
                             ) : (
@@ -341,13 +341,13 @@ export function CampaignsTable({
                           <span
                             className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
                               isEnabled
-                                ? 'bg-emerald-50 text-emerald-700'
+                                ? 'bg-[#FFFBEB] text-[#B45309]'
                                 : 'bg-slate-100 text-slate-500'
                             }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
-                                isEnabled ? 'bg-emerald-500' : 'bg-slate-400'
+                                isEnabled ? 'bg-[#FFFBEB]0' : 'bg-slate-400'
                               }`}
                             />
                             <span>{camp.status}</span>
@@ -361,7 +361,7 @@ export function CampaignsTable({
                       <button
                         type="button"
                         onClick={() => onSelectCampaign(camp)}
-                        className="text-left font-bold text-slate-900 hover:text-emerald-600 transition-colors cursor-pointer group-hover:underline flex items-center gap-1.5 max-w-xs sm:max-w-md truncate"
+                        className="text-left font-bold text-slate-900 hover:text-[#B45309] transition-colors cursor-pointer group-hover:underline flex items-center gap-1.5 max-w-xs sm:max-w-md truncate"
                       >
                         <span className="truncate">{camp.name}</span>
                         <span className="text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded shrink-0">
@@ -395,7 +395,7 @@ export function CampaignsTable({
                       <span
                         className={
                           camp.displayRoas >= 3.5
-                            ? 'text-emerald-600'
+                            ? 'text-[#B45309]'
                             : camp.displayRoas >= 2.0
                             ? 'text-slate-800'
                             : 'text-rose-600'

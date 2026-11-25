@@ -51,7 +51,7 @@ export function AccountMonitorCard({
         </div>
 
         <div className="flex items-center gap-1.5 text-slate-400">
-          <Wifi className={`w-4 h-4 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-600'}`} />
+          <Wifi className={`w-4 h-4 ${isConnected ? 'text-[#FBBF24] animate-pulse' : 'text-slate-600'}`} />
           <span className="text-[11px] font-mono font-medium text-slate-400">
             {account.currency || 'USD'}
           </span>

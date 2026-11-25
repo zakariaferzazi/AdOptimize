@@ -126,11 +126,11 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
       entry.actor, entry.summary, entry.message || '', entry.proposalId || '',
     ]),
   ]), `adoptimize-activity-${accountId}.csv`);
-  const inputClass = 'min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500';
+  const inputClass = 'min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]';
 
   return <div className="space-y-6 max-w-7xl mx-auto">
     <section className="rounded-3xl bg-slate-950 p-6 sm:p-8 text-white">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300"><History className="w-4 h-4" /> AdOptimize activity</p>
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#FDE68A]"><History className="w-4 h-4" /> AdOptimize activity</p>
       <h2 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">Know what was proposed, approved and actually verified.</h2>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Review saved AI workflow events and account-linked app records. An approval is not an execution, and an accepted request is not a verified outcome.</p>
       <p className="mt-4 text-xs text-slate-400">{accountName} {accountId && `/ ${accountId}`} / Changes made outside AdOptimize are not included.</p>
@@ -170,7 +170,7 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
                   <p className="mt-1 break-words text-sm text-slate-600">{entry.target}</p>
                   <p className="mt-1 text-xs text-slate-400">Expand for details</p>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${entry.outcome === 'verified' ? 'bg-emerald-50 text-emerald-800' : entry.outcome === 'failed' ? 'bg-rose-50 text-rose-800' : entry.outcome === 'unverified' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>{activityOutcomes[entry.outcome]}</span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${entry.outcome === 'verified' ? 'bg-[#FFFBEB] text-[#92400E]' : entry.outcome === 'failed' ? 'bg-rose-50 text-rose-800' : entry.outcome === 'unverified' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>{activityOutcomes[entry.outcome]}</span>
               </summary>
               <div className="space-y-3 border-t border-slate-100 p-4 text-sm text-slate-600">
                 <p className="break-words">{entry.summary}</p>
@@ -192,7 +192,7 @@ export function AuditLogView({ userId, accountId, accountName }: { userId?: stri
         <p className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> This is a read-only history, not a rollback tool. To undo a change, ask the agent to read the current state and prepare a new proposal for your approval.</p>
         <p className="mt-2">Verified means the AI execution was confirmed by a Google Ads read-back at that time, not that the account is unchanged now. App records are not read-back verified. Proposal details describe the recorded proposal, not current live settings.</p>
         <p className="mt-2">Older app records without an account ID are excluded to avoid mixing account histories. Up to 200 account-linked app records are shown; use Load older AI events for earlier AI workflow history.</p>
-        <Link href="/chat" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">Open AI Marketing Agent <ArrowRight className="w-4 h-4" /></Link>
+        <Link href="/chat" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#B45309]">Open AI Marketing Agent <ArrowRight className="w-4 h-4" /></Link>
       </section>
     </>}
   </div>;

@@ -54,7 +54,7 @@ export function CheckoutSuccess() {
             </div>
           ) : phase === 'active' ? (
             <div className="space-y-4">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              <CheckCircle2 className="w-10 h-10 text-[#D97706]" />
               <h1 className="text-2xl font-extrabold text-slate-900">Welcome to Pro</h1>
               <p className="text-sm text-slate-600">Your payment is confirmed.</p>
               <PostPaymentConnect />

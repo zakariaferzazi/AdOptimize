@@ -50,7 +50,7 @@ export function ChatMarkdown({ content }: ChatMarkdownProps) {
             <em className="italic text-slate-700">{children}</em>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc pl-5 space-y-1.5 my-2.5 text-[13.5px] text-slate-700 marker:text-emerald-600">
+            <ul className="list-disc pl-5 space-y-1.5 my-2.5 text-[13.5px] text-slate-700 marker:text-[#B45309]">
               {children}
             </ul>
           ),
@@ -115,7 +115,7 @@ export function ChatMarkdown({ content }: ChatMarkdownProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-600 hover:text-emerald-700 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+              className="text-[#B45309] hover:text-[#B45309] font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
             >
               {children}
             </a>

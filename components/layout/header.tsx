@@ -161,7 +161,7 @@ export function Header({
               className={`w-2 h-2 rounded-full shrink-0 ${
                 !account.isConnected || account.clientCustomerId === 'Not Connected'
                   ? 'bg-amber-400'
-                  : 'bg-emerald-500 animate-pulse'
+                  : 'bg-[#FFFBEB]0 animate-pulse'
               }`}
             />
             <span className="font-semibold text-slate-900 max-w-[120px] sm:max-w-[170px] truncate">
@@ -170,7 +170,7 @@ export function Header({
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden sm:inline ${
               !account.isConnected || account.clientCustomerId === 'Not Connected'
                 ? 'bg-slate-100 text-slate-600'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                : 'bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]/60'
             }`}>
               {!account.isConnected || account.clientCustomerId === 'Not Connected'
                 ? 'Offline'
@@ -215,7 +215,7 @@ export function Header({
                 <span className="text-xs font-bold text-slate-900">
                   Detected Anomalies ({unresolvedAnomalies.length})
                 </span>
-                <span className="text-[11px] text-emerald-600 font-medium">Real-time</span>
+                <span className="text-[11px] text-[#B45309] font-medium">Real-time</span>
               </div>
 
               <div className="py-2 space-y-2 max-h-80 overflow-y-auto">
@@ -240,7 +240,7 @@ export function Header({
                               ? 'bg-rose-500'
                               : anom.severity === 'WARNING'
                               ? 'bg-amber-500'
-                              : 'bg-emerald-500'
+                              : 'bg-[#FFFBEB]0'
                           }`}
                         />
                         <div className="min-w-0 flex-1">

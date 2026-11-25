@@ -32,7 +32,7 @@ export function CampaignBoostModal({
       title: 'Auto-Scale High-ROAS Performance',
       icon: TrendingUp,
       badge: 'Recommended',
-      badgeColor: 'bg-emerald-100 text-emerald-800',
+      badgeColor: 'bg-[#FEF3C7] text-[#92400E]',
       description: `Increase daily budget by +15% ($${(campaign.budgetDaily * 1.15).toFixed(2)}/day) and allocate +20% bid adjustment during high-converting search hours.`,
       expectedOutcome: `+18% projected conversions, aiming for ${(campaign.roas * 1.08).toFixed(2)}x ROAS.`,
       compute: () => ({
@@ -113,7 +113,7 @@ export function CampaignBoostModal({
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-slate-600">${campaign.budgetDaily}/day</span>
-            <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
+            <span className="font-bold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded text-[11px]">
               {campaign.roas}x ROAS
             </span>
           </div>
@@ -151,7 +151,7 @@ export function CampaignBoostModal({
                     {opt.description}
                   </p>
                   <div className={`mt-2.5 pt-2 border-t text-[11px] font-medium flex items-center gap-1.5 ${
-                    isSelected ? 'border-slate-800 text-emerald-400' : 'border-slate-100 text-emerald-600'
+                    isSelected ? 'border-slate-800 text-[#FBBF24]' : 'border-slate-100 text-[#B45309]'
                   }`}>
                     <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                     <span>{opt.expectedOutcome}</span>

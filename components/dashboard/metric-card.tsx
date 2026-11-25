@@ -44,8 +44,8 @@ export function MetricCard({
         <div
           className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
             isDark
-              ? 'bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30'
-              : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+              ? 'bg-[#FBBF24]/20 text-[#6D28D9] border border-[#FBBF24]/30'
+              : 'bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7]'
           }`}
         >
           <Icon className="w-5 h-5 stroke-[2.2]" />
@@ -73,13 +73,13 @@ export function MetricCard({
             {isPositiveChange ? (
               <TrendingUp
                 className={`w-3.5 h-3.5 ${
-                  isNegativeBad ? 'text-rose-500' : 'text-emerald-600'
+                  isNegativeBad ? 'text-rose-500' : 'text-[#B45309]'
                 }`}
               />
             ) : (
               <TrendingDown
                 className={`w-3.5 h-3.5 ${
-                  isNegativeBad ? 'text-emerald-600' : 'text-rose-500'
+                  isNegativeBad ? 'text-[#B45309]' : 'text-rose-500'
                 }`}
               />
             )}
@@ -88,9 +88,9 @@ export function MetricCard({
                 isPositiveChange
                   ? isNegativeBad
                     ? 'text-rose-600'
-                    : 'text-emerald-600'
+                    : 'text-[#B45309]'
                   : isNegativeBad
-                  ? 'text-emerald-600'
+                  ? 'text-[#B45309]'
                   : 'text-rose-600'
               }
             >

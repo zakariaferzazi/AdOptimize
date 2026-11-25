@@ -195,9 +195,9 @@ const ADOPTIMIZE_THEME: ModelThemeConfig = {
   assistantBubbleBg: 'bg-white',
   assistantBubbleBorder: 'border-slate-200/90',
   assistantText: 'text-slate-900',
-  toolChipBg: 'bg-emerald-50/90',
-  toolChipBorder: 'border-emerald-200/80',
-  toolChipText: 'text-emerald-900',
+  toolChipBg: 'bg-[#FFFBEB]/90',
+  toolChipBorder: 'border-[#FDE68A]/80',
+  toolChipText: 'text-[#78350F]',
   toolPrefix: 'AdOptimize Action',
   fontClass: 'font-sans',
   sendBtnBg: 'bg-slate-900',
@@ -452,8 +452,8 @@ export function ModelDemoSimulator({
         <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-slate-200/80 border border-slate-200/90 select-none">
           <BrandLogoIcon size={20} className="w-5 h-5 rounded-md shrink-0 shadow-2xs" />
           <span className="text-sm font-semibold text-slate-900 tracking-tight">AdOptimize</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FFFBEB]0 animate-pulse" />
+          <span className="text-[11px] font-medium text-[#B45309] bg-[#FFFBEB] px-2.5 py-0.5 rounded-full border border-[#FDE68A]/60">
             AI Marketing Agent
           </span>
         </div>
@@ -529,9 +529,9 @@ export function ModelDemoSimulator({
                   {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool1State.name}</strong>
                 </span>
                 {tool1State.isRunning ? (
-                  <div className="w-2.5 h-2.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                  <div className="w-2.5 h-2.5 border-2 border-[#D97706] border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
                 ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-1 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#B45309] ml-1 shrink-0" />
                 )}
               </div>
             </div>
@@ -572,13 +572,13 @@ export function ModelDemoSimulator({
                     <ul className="space-y-1 text-xs text-slate-700 pl-1">
                       {ai1CompletedChecks.map((check, idx) => (
                         <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                          <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                          <span className="text-[#B45309] font-bold shrink-0">✓</span>
                           <span>{check}</span>
                         </li>
                       ))}
                       {ai1CurrentCheck && (
                         <li className="flex items-start gap-2 leading-relaxed">
-                          <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                          <span className="text-[#B45309] font-bold shrink-0">✓</span>
                           <span>
                             {ai1CurrentCheck}
                             <span className="inline-block w-[1.5px] h-3 ml-0.5 align-middle bg-slate-900 animate-pulse" />
@@ -624,9 +624,9 @@ export function ModelDemoSimulator({
                   {theme.toolPrefix}: <strong className="font-semibold text-slate-900">{tool2State.name}</strong>
                 </span>
                 {tool2State.isRunning ? (
-                  <div className="w-2.5 h-2.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
+                  <div className="w-2.5 h-2.5 border-2 border-[#D97706] border-t-transparent rounded-full animate-spin ml-1 opacity-70" />
                 ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-1 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#B45309] ml-1 shrink-0" />
                 )}
               </div>
             </div>
@@ -651,7 +651,7 @@ export function ModelDemoSimulator({
                 </h4>
 
                 {ai2ShowStatus && (
-                  <div className="text-xs text-emerald-800 font-mono bg-emerald-50 border border-emerald-200/60 rounded-md px-2.5 py-1.5 inline-block font-medium animate-in fade-in duration-200">
+                  <div className="text-xs text-[#92400E] font-mono bg-[#FFFBEB] border border-[#FDE68A]/60 rounded-md px-2.5 py-1.5 inline-block font-medium animate-in fade-in duration-200">
                     {scenario.assistantMessage2.statusLine}
                   </div>
                 )}
@@ -679,7 +679,7 @@ export function ModelDemoSimulator({
               {typedInputField ? (
                 <div className="text-slate-900 font-normal truncate">
                   <span>{typedInputField}</span>
-                  <span className="inline-block w-[1.5px] h-3.5 ml-0.5 align-middle bg-emerald-600 animate-pulse" />
+                  <span className="inline-block w-[1.5px] h-3.5 ml-0.5 align-middle bg-[#D97706] animate-pulse" />
                 </div>
               ) : (
                 <span className="text-slate-400 truncate">
@@ -702,7 +702,7 @@ export function ModelDemoSimulator({
                   theme.sendBtnBg
                 } ${theme.sendBtnText} ${
                   isSendPressed
-                    ? 'scale-85 ring-4 ring-emerald-500/30 shadow-md'
+                    ? 'scale-85 ring-4 ring-[#FBBF24]/30 shadow-md'
                     : typedInputField
                     ? 'opacity-100 shadow-2xs'
                     : 'opacity-70 shadow-2xs'

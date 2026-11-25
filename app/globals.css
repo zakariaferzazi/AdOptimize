@@ -18,6 +18,21 @@
   body {
     background: #ffffff;
     color: #1f2937;
+    overflow-x: hidden;
+  }
+
+  main,
+  section,
+  article,
+  aside,
+  form {
+    min-width: 0;
+  }
+
+  img,
+  video,
+  canvas {
+    max-width: 100%;
   }
 
   ::selection {
@@ -36,6 +51,19 @@
 
   :where(input, select, textarea)::placeholder {
     color: #6b7280;
+  }
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  a {
+    overflow-wrap: anywhere;
   }
 }
 

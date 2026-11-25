@@ -203,7 +203,7 @@ export function AiInsightsPanel({
 
           <button
             onClick={onOpenAudit}
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5 transition-colors cursor-pointer"
+            className="text-xs font-semibold text-[#B45309] hover:text-[#92400E] flex items-center gap-0.5 transition-colors cursor-pointer"
           >
             <span>Full Audit</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -214,7 +214,7 @@ export function AiInsightsPanel({
         <div className="mt-3.5 space-y-3">
           {insights.length === 0 ? (
             <div className="py-7 text-center space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mx-auto">
+              <div className="w-10 h-10 rounded-2xl bg-[#FFFBEB] text-[#B45309] border border-[#FEF3C7] flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div className="text-xs font-bold text-slate-900">All Campaigns Operating Within Target</div>
@@ -234,7 +234,7 @@ export function AiInsightsPanel({
                     isCrit
                       ? 'bg-rose-50/50 border-rose-100/90'
                       : isOpp
-                      ? 'bg-emerald-50/40 border-emerald-100/80'
+                      ? 'bg-[#FFFBEB]/40 border-[#FDE68A]/80'
                       : 'bg-amber-50/40 border-amber-100/80'
                   }`}
                 >
@@ -243,7 +243,7 @@ export function AiInsightsPanel({
                       {isCrit ? (
                         <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                       ) : isOpp ? (
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <TrendingUp className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
                       ) : (
                         <TrendingDown className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       )}
@@ -255,7 +255,7 @@ export function AiInsightsPanel({
                         isCrit
                           ? 'bg-rose-100 text-rose-700'
                           : isOpp
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#FEF3C7] text-[#92400E]'
                           : 'bg-amber-100 text-amber-800'
                       }`}
                     >
@@ -289,7 +289,7 @@ export function AiInsightsPanel({
                         isCrit
                           ? 'text-rose-700 hover:text-rose-900'
                           : isOpp
-                          ? 'text-emerald-700 hover:text-emerald-900'
+                          ? 'text-[#B45309] hover:text-[#78350F]'
                           : 'text-amber-800 hover:text-amber-950'
                       }`}
                     >
@@ -309,7 +309,7 @@ export function AiInsightsPanel({
         <span className="text-[11px]">Account analysis</span>
         <button
           onClick={onOpenOptimizer}
-          className="text-[11px] font-bold text-slate-900 hover:text-emerald-600 flex items-center gap-1 transition-colors cursor-pointer"
+          className="text-[11px] font-bold text-slate-900 hover:text-[#B45309] flex items-center gap-1 transition-colors cursor-pointer"
         >
           <Sliders className="w-3 h-3 text-[#6D28D9]" />
           <span>Budget Optimizer</span>

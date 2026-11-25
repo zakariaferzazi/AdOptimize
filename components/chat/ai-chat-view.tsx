@@ -1130,7 +1130,7 @@ export function AiChatView({
                   <button
                     type="button"
                     onClick={() => handleRenameSession(sess.id)}
-                    className="p-1 text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                    className="p-1 text-[#B45309] hover:text-[#B45309] cursor-pointer"
                     aria-label="Save title"
                   >
                     <Check className="w-3.5 h-3.5" />
@@ -1242,7 +1242,7 @@ export function AiChatView({
                 <span className="text-slate-300 hidden sm:inline">·</span>
                 <span className="text-xs text-slate-500 font-medium truncate max-w-[170px] sm:max-w-[240px]">
                   {account?.accountName || 'Google Ads Account'} ·{' '}
-                  <span className={isConnectedAccount ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                  <span className={isConnectedAccount ? 'text-[#B45309] font-semibold' : 'text-amber-700 font-semibold'}>
                     {isConnectedAccount ? 'Connected' : 'Offline'}
                   </span>
                 </span>
@@ -1309,13 +1309,13 @@ export function AiChatView({
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2.5 ${
                           isSelected
-                            ? 'bg-emerald-50/90 text-slate-950 font-semibold'
+                            ? 'bg-[#FFFBEB]/90 text-slate-950 font-semibold'
                             : 'hover:bg-slate-50 text-slate-700'
                         }`}
                       >
                         <Icon className="w-4 h-4 shrink-0" />
                         <span className="text-xs flex-1">{meta.label}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#00a85e] shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#92400E] shrink-0" />}
                       </button>
                     );
                   })}
@@ -1392,7 +1392,7 @@ export function AiChatView({
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                  className="text-[#B45309] hover:text-[#92400E] font-semibold cursor-pointer"
                 >
                   Clear filter
                 </button>
@@ -1425,7 +1425,7 @@ export function AiChatView({
                     <button
                       type="button"
                       onClick={() => setShowMoreSuggestions((p) => !p)}
-                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                      className="text-xs text-[#B45309] hover:text-[#92400E] font-semibold cursor-pointer"
                     >
                       {showMoreSuggestions ? 'Show fewer' : 'More prompts'}
                     </button>
@@ -1441,7 +1441,7 @@ export function AiChatView({
                           onClick={() => void handleSendMessage(item.prompt)}
                           className="p-4 bg-white hover:border-[#6D28D9] border border-slate-200/85 rounded-2xl text-left transition-all cursor-pointer group flex items-start gap-3 shadow-[0_1px_4px_rgba(15,23,42,0.03)]"
                         >
-                          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 group-hover:bg-[#6D28D9] group-hover:text-white transition-colors shrink-0">
+                          <div className="p-2 rounded-xl bg-[#FFFBEB] text-[#B45309] group-hover:bg-[#6D28D9] group-hover:text-white transition-colors shrink-0">
                             <Icon className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
@@ -1575,7 +1575,7 @@ export function AiChatView({
                                         <button
                                           type="button"
                                           onClick={() => handleCampaignClick(rec.campaignName)}
-                                          className="text-slate-900 hover:text-emerald-700 underline font-bold cursor-pointer inline-flex items-center gap-0.5"
+                                          className="text-slate-900 hover:text-[#B45309] underline font-bold cursor-pointer inline-flex items-center gap-0.5"
                                         >
                                           <span>{rec.campaignName}</span>
                                           <ExternalLink className="w-2.5 h-2.5" />
@@ -1623,7 +1623,7 @@ export function AiChatView({
                                       disabled={isLoading || isHistoryBusy || Boolean(historyError)}
                                       className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                                     >
-                                      <Zap className="w-3 h-3 text-[#00a85e]" />
+                                      <Zap className="w-3 h-3 text-[#92400E]" />
                                       <span>{act.label}</span>
                                     </button>
                                   ))}
@@ -1656,7 +1656,7 @@ export function AiChatView({
                                   message.actionProposal.status === 'PENDING_APPROVAL'
                                     ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                     : message.actionProposal.status === 'EXECUTED'
-                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    ? 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]'
                                     : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
                                     ? 'bg-amber-50 text-amber-900 border border-amber-300'
                                     : message.actionProposal.status === 'APPROVED'
@@ -1700,7 +1700,7 @@ export function AiChatView({
                                   </span>
                                 </div>
                                 <div>
-                                  <span className="text-[11px] font-semibold text-[#00a85e] block mb-0.5">
+                                  <span className="text-[11px] font-semibold text-[#92400E] block mb-0.5">
                                     Change to Apply
                                   </span>
                                   <span className="font-mono text-slate-950 font-semibold whitespace-pre-line">
@@ -1721,7 +1721,7 @@ export function AiChatView({
                               <div
                                 className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
                                   message.actionProposal.status === 'EXECUTED'
-                                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-300'
+                                    ? 'bg-[#FFFBEB] text-[#2E1065] border border-[#FCD34D]'
                                     : message.actionProposal.status === 'EXECUTED_UNVERIFIED'
                                     ? 'bg-amber-50 text-amber-950 border border-amber-300'
                                     : message.actionProposal.status === 'DECLINED' ||
@@ -1732,7 +1732,7 @@ export function AiChatView({
                                 }`}
                               >
                                 {message.actionProposal.status === 'EXECUTED' ? (
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <CheckCircle2 className="w-4 h-4 text-[#B45309] shrink-0" />
                                 ) : message.actionProposal.status === 'DECLINED' ||
                                   message.actionProposal.status === 'SUPERSEDED' ||
                                   message.actionProposal.status === 'EXPIRED' ? (
@@ -1797,8 +1797,8 @@ export function AiChatView({
                             >
                               {copiedMessageId === message.id ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                  <span className="text-emerald-700">Copied</span>
+                                  <Check className="w-3 h-3 text-[#B45309]" />
+                                  <span className="text-[#B45309]">Copied</span>
                                 </>
                               ) : (
                                 <>
@@ -1853,7 +1853,7 @@ export function AiChatView({
                         className={`h-2 rounded-full bg-slate-100 overflow-hidden relative ${widthClass}`}
                       >
                         <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-200/60 to-transparent"
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FDE68A]/60 to-transparent"
                           animate={{ x: ['-100%', '100%'] }}
                           transition={{
                             duration: 1.4,
@@ -1981,7 +1981,7 @@ export function AiChatView({
                         }}
                         className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-2.5"
                       >
-                        <Icon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <Icon className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
                         <span className="text-xs font-medium text-slate-800 truncate flex-1">
                           {item.label}
                         </span>
@@ -2008,7 +2008,7 @@ export function AiChatView({
                 title="Quick marketing prompts"
                 aria-label="Open quick marketing prompts"
               >
-                <Zap className="w-4 h-4 text-emerald-700" />
+                <Zap className="w-4 h-4 text-[#B45309]" />
               </button>
 
               <textarea

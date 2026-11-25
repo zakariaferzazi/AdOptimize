@@ -96,7 +96,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
   ];
   const findings = report?.findings.filter((finding) => category === 'All' || finding.category === category) || [];
   const categories = ['All', ...new Set(report?.findings.map((finding) => finding.category) || [])];
-  const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500';
+  const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]';
 
   const downloadReport = () => {
     if (!report) return;
@@ -106,7 +106,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <section className="rounded-3xl bg-slate-950 p-6 sm:p-8 text-white">
-        <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-[#FDE68A] text-xs font-semibold uppercase tracking-wider">
           <SearchCheck className="w-4 h-4" /> Google Ads performance audit
         </div>
         <h2 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">Know where your ad spend needs attention.</h2>
@@ -115,7 +115,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           and get evidence-led next steps. No estimated health scores, invented savings, or automatic changes.
         </p>
         <div className="mt-5 flex items-center gap-2 text-xs text-slate-300">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" /> Read-only analysis. You stay in control of every change.
+          <ShieldCheck className="w-4 h-4 text-[#FBBF24]" /> Read-only analysis. You stay in control of every change.
         </div>
       </section>
 
@@ -148,7 +148,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <p className="text-xs text-slate-500">Targets are audit benchmarks, not changes to your bidding settings.</p>
           <button type="submit" disabled={loading || !connected || !userId}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="inline-flex items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? <AppLoader className="h-4 w-4" /> : <SearchCheck className="w-4 h-4" />}
             {loading ? 'Auditing account...' : 'Run audit'}
           </button>
@@ -272,7 +272,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           <p className="mt-2 text-sm text-slate-600">Completed: campaign efficiency and budget checks{report.keywords ? ', keyword quality checks' : ''}{report.searchTerms ? ', search-query checks' : ''}.
             Not assessed: landing-page content, ad policies, attribution accuracy or tracking implementation. Budget visibility is flagged at 20% lost Search impression share; low Quality Score means 4/10 or below.</p>
           <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-500">{report.warnings.map((warning) => <li key={warning}>- {warning}</li>)}</ul>
-          <Link href="/chat" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">Investigate with the AI Marketing Agent <ArrowRight className="w-4 h-4" /></Link>
+          <Link href="/chat" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#B45309]">Investigate with the AI Marketing Agent <ArrowRight className="w-4 h-4" /></Link>
         </section>
       </>}
     </div>

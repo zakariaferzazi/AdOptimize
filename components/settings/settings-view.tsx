@@ -1,44 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
-import {
-  Settings,
-  CreditCard,
-  Key,
-  Bell,
-  ShieldCheck,
-  CheckCircle2,
-  ExternalLink,
-  RefreshCw,
-  Trash2,
-  RotateCcw,
-  Zap,
-  Lock,
-  Clock,
-} from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { AppLoader } from '@/components/ui/app-loader';
+import { auth } from '@/lib/firebase';
 import { GoogleAdsAccount } from '@/types/adoptimize';
 import { SubscriptionManager } from '@/components/billing/subscription-manager';
-import { getCurrencySymbol } from '@/lib/metrics-calculator';
-
-export const SUPPORTED_CURRENCIES = [
-  { code: 'USD', label: 'USD ($) - US Dollar' },
-  { code: 'EUR', label: 'EUR (€) - Euro' },
-  { code: 'GBP', label: 'GBP (£) - British Pound' },
-  { code: 'SEK', label: 'SEK (kr) - Swedish Krona' },
-  { code: 'NOK', label: 'NOK (kr) - Norwegian Krone' },
-  { code: 'DKK', label: 'DKK (kr.) - Danish Krone' },
-  { code: 'CHF', label: 'CHF - Swiss Franc' },
-  { code: 'CAD', label: 'CAD (CA$) - Canadian Dollar' },
-  { code: 'AUD', label: 'AUD (A$) - Australian Dollar' },
-  { code: 'JPY', label: 'JPY (¥) - Japanese Yen' },
-  { code: 'INR', label: 'INR (₹) - Indian Rupee' },
-  { code: 'BRL', label: 'BRL (R$) - Brazilian Real' },
-  { code: 'PLN', label: 'PLN (zł) - Polish Zloty' },
-  { code: 'SGD', label: 'SGD (S$) - Singapore Dollar' },
-  { code: 'AED', label: 'AED - UAE Dirham' },
-];
+import {
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  KeyRound,
+  Link2,
+  Mail,
+  Settings,
+  ShieldCheck,
+  Unplug,
+} from 'lucide-react';
 
 interface SettingsViewProps {
   account: GoogleAdsAccount;
@@ -54,18 +33,17 @@ export function SettingsView({
   account,
   onOpenConnectModal,
   onClearData,
-  onUpdateCurrency,
   userEmail,
-  onTestRefresh,
-  isSyncing = false,
 }: SettingsViewProps) {
-  const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'ai_config' | 'notifications' | 'security'>('connections');
-  const [minConfidence, setMinConfidence] = useState(90);
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXX');
+  const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'security'>('connections');
   const [isClearing, setIsClearing] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const connected = account.isConnected && account.clientCustomerId !== 'Not Connected';
+  const hasPasswordProvider = auth.currentUser?.providerData.some((provider) => provider.providerId === 'password') ?? false;
 
-  const handleClear = async () => {
+  const disconnect = async () => {
     setIsClearing(true);
     try {
       await onClearData();
@@ -74,339 +52,160 @@ export function SettingsView({
     }
   };
 
+  const resetPassword = async () => {
+    if (!userEmail || passwordBusy) return;
+    setPasswordBusy(true);
+    setPasswordError('');
+    setPasswordMessage('');
+    try {
+      await sendPasswordResetEmail(auth, userEmail);
+      setPasswordMessage('Password reset email sent. Check your inbox.');
+    } catch {
+      setPasswordError('The password reset email could not be sent. Please try again or contact support@adoptimize.app.');
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
-            <Settings className="w-3.5 h-3.5" />
-            <span>Workspace Configuration</span>
+      <div className="overflow-hidden rounded-xl border border-[#2E1065] bg-[#2E1065] p-5 text-white shadow-sm sm:p-8">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#FBBF24] px-3 py-1 text-xs font-semibold text-[#2E1065]">
+            <Settings className="h-3.5 w-3.5" />
+            Workspace settings
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">
-            Settings & Account Controls
-          </h2>
-          <p className="text-slate-300 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Manage your Google Ads connection, workspace preferences, privacy controls, and subscription plan.
+          <h2 className="mt-4 text-2xl font-bold tracking-tight">Account controls</h2>
+          <p className="mt-2 text-xs leading-relaxed text-[#DDD6FE] sm:text-sm">
+            Manage your Google Ads connection, subscription, password, privacy links, and support contact.
           </p>
         </div>
 
-        {/* Tab Strip */}
-        <div className="relative z-10 mt-6 pt-5 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto">
+        <div className="mt-6 flex gap-2 overflow-x-auto border-t border-white/15 pt-5">
           {[
-            { id: 'connections' as const, label: 'Google Ads Connections' },
-            { id: 'billing' as const, label: 'Subscription & Plans' },
-            { id: 'ai_config' as const, label: 'Optimization Rules' },
-            { id: 'notifications' as const, label: 'Alerts & Webhooks' },
-            { id: 'security' as const, label: 'Security & Privacy' },
-          ].map((tab) => (
+            { id: 'connections' as const, label: 'Google Ads', icon: Link2 },
+            { id: 'billing' as const, label: 'Subscription', icon: CreditCard },
+            { id: 'security' as const, label: 'Security & Privacy', icon: ShieldCheck },
+          ].map(({ id, label, icon: Icon }) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-[#6D28D9] text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                activeTab === id
+                  ? 'bg-[#FBBF24] text-[#2E1065]'
+                  : 'text-white hover:bg-white/10'
               }`}
             >
-              {tab.label}
+              <Icon className="h-4 w-4" />
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* TAB 1: GOOGLE ADS CONNECTIONS */}
       {activeTab === 'connections' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Connected Google Ads Accounts</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                OAuth 2.0 authorization with read/write advertising campaign scopes.
-              </p>
-            </div>
-            <button
-              onClick={onOpenConnectModal}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
-            >
-              + Connect New Account
-            </button>
+        <section className="rounded-xl border border-[#DDD6FE] bg-white p-5 shadow-sm sm:p-8">
+          <div className="max-w-xl">
+            <h3 className="text-base font-bold text-[#2E1065]">Google Ads connection</h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Google sign-in and Google Ads authorization are separate. Connect the account you want AdOptimize to read and, after approval, manage.
+            </p>
           </div>
 
-          {/* Account Card */}
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-900 shadow-2xs">
-                G
-              </div>
+          <div className="mt-6 flex flex-col gap-4 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${connected ? 'bg-[#FBBF24] text-[#2E1065]' : 'bg-white text-slate-500'} border border-[#DDD6FE]`}>
+                {connected ? <CheckCircle2 className="h-5 w-5" /> : <Unplug className="h-5 w-5" />}
+              </span>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 text-sm">{account.accountName}</span>
-                  {account.isConnected && account.clientCustomerId !== 'Not Connected' ? (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                      {account.verifiedLive ? 'Direct Account Verified' : 'Workspace Active'}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
-                      Not Connected
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-500 mt-1 font-mono">
-                  Client Customer ID: {account.clientCustomerId} · {account.timezone}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {account.isConnected && account.clientCustomerId !== 'Not Connected'
-                    ? `Last Synced: ${new Date(account.lastSyncAt).toLocaleTimeString()} · Status: Active monitoring`
-                    : 'Status: No active account linked. Click below to connect Google Ads or initialize workspace.'}
-                </div>
-
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/70 text-xs">
-                  <span className="font-semibold text-slate-700">Account Currency:</span>
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-800 font-bold font-mono">
-                    <span className="text-[#5B21B6] font-extrabold">{getCurrencySymbol(account.currency)}</span>
-                    <span>{account.currency || 'USD'}</span>
-                  </div>
-                  {onUpdateCurrency && (
-                    <select
-                      value={account.currency || 'USD'}
-                      onChange={(e) => onUpdateCurrency(e.target.value)}
-                      className="text-xs bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-slate-700 cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
-                      title="Override or change Google Ads display currency"
-                    >
-                      {SUPPORTED_CURRENCIES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                <p className="text-sm font-bold text-[#2E1065]">{connected ? 'Google Ads is connected' : 'Google Ads is not connected'}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{connected ? 'Disconnecting removes the stored AdOptimize connection and cached account data.' : 'Authorize access through Google to connect an account.'}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {connected ? (
               <button
                 type="button"
-                onClick={handleClear}
+                onClick={() => void disconnect()}
                 disabled={isClearing}
-                title="Disconnect Google Ads account and clear cached sessions"
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 sm:w-auto"
               >
-                {isClearing ? (
-                  <AppLoader className="h-3 w-3" />
-                ) : (
-                  <Trash2 className="w-3 h-3 text-rose-500" />
-                )}
-                <span>{isClearing ? 'Clearing...' : 'Disconnect & Clear Cache'}</span>
+                {isClearing ? <AppLoader className="h-4 w-4" /> : <Unplug className="h-4 w-4" />}
+                {isClearing ? 'Disconnecting...' : 'Disconnect Google Ads'}
               </button>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenConnectModal}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#6D28D9] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5B21B6] sm:w-auto"
+              >
+                <Link2 className="h-4 w-4" />
+                Connect Google Ads
+              </button>
+            )}
           </div>
-
-          {/* Google Ads Authorization Card */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/60">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Google Ads authorization</h4>
-                  <p className="text-xs text-slate-500">
-                    Signing in with Google never grants Google Ads access. You authorize it separately, and the long-lived
-                    credential is encrypted on our servers and never sent to your browser.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onTestRefresh}
-                  disabled={isSyncing || !onTestRefresh}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Check connection
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenConnectModal}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  {account.isConnected ? 'Reconnect Google Ads' : 'Connect Google Ads'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
       )}
 
-      {/* TAB 2: BILLING & PLANS */}
       {activeTab === 'billing' && <SubscriptionManager />}
 
-      {/* TAB 3: OPTIMIZATION RULES */}
-      {activeTab === 'ai_config' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="pb-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900">Optimization Rules &amp; Quality Thresholds</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Control the minimum confidence and performance thresholds required before recommendations are generated.
-            </p>
-          </div>
-
-          <div className="space-y-4 max-w-xl text-xs">
-            <div>
-              <div className="flex items-center justify-between mb-1 font-bold text-slate-800">
-                <span>Minimum Confidence Threshold for Auto-Recommendations</span>
-                <span className="font-mono text-emerald-700">{minConfidence}%</span>
-              </div>
-              <input
-                type="range"
-                min="70"
-                max="99"
-                value={minConfidence}
-                onChange={(e) => setMinConfidence(parseInt(e.target.value))}
-                className="w-full accent-[#6D28D9]"
-              />
-              <div className="text-[11px] text-slate-500 mt-1">
-                Recommendations with confidence lower than {minConfidence}% will require manual review before suggestion.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: NOTIFICATIONS */}
-      {activeTab === 'notifications' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="pb-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900">Incident Alerts & Webhooks</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Review available notification preferences for account findings and product activity.
-            </p>
-          </div>
-
-          <div className="space-y-4 max-w-xl text-xs">
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <div>
-                <div className="font-bold text-slate-900">Critical Anomaly Email Notifications</div>
-                <div className="text-[11px] text-slate-500">
-                  Send instant alert to {userEmail || 'support@adoptimize.app'}
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={emailAlerts}
-                onChange={(e) => setEmailAlerts(e.target.checked)}
-                className="w-4 h-4 accent-[#6D28D9]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-800 mb-1">Slack Incoming Webhook URL</label>
-              <input
-                type="text"
-                value={slackWebhook}
-                onChange={(e) => setSlackWebhook(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: SECURITY & PRIVACY */}
       {activeTab === 'security' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Security &amp; Data Protection</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Encrypted connections and strict compliance with Google Ads data policies.
-              </p>
-            </div>
-            <Link
-              href="/privacy-policy"
-              className="text-xs text-emerald-700 font-bold hover:underline inline-flex items-center gap-1 shrink-0"
-            >
-              <span>View Full Privacy Policy</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="space-y-4 text-xs text-slate-700">
-            {/* Protection mechanisms */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-100 flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-emerald-950">Secure Google Authorization</div>
-                  <div className="text-emerald-800 mt-0.5 leading-relaxed text-[11px]">
-                    All Google Ads authorizations are managed securely. Your credentials remain private and can be disconnected at any time.
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-start gap-3">
-                <Lock className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-slate-900">End-to-End Encryption</div>
-                  <div className="text-slate-600 mt-0.5 leading-relaxed text-[11px]">
-                    All data communications are encrypted over modern HTTPS protocols and stored in secure cloud infrastructure.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Retention and Deletion Card */}
-            <div className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span>Google User Data Retention Schedule</span>
-              </div>
-              <p className="text-slate-600 text-[11px] leading-relaxed">
-                Google Ads data and connection credentials are retained as needed to provide the connected workspace and meet applicable obligations. Disconnect or request deletion in Settings; some provider or backup records may persist for a limited period. OAuth access tokens can expire and be refreshed while the connection remains active.
-              </p>
-
-              <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <span className="font-bold text-slate-900 text-xs block">User-Initiated Deletion &amp; Disconnect</span>
-                  <span className="text-[11px] text-slate-500 block">
-                    Permanently delete all synced Google Ads campaigns, Customer IDs, and session tokens from AdOptimize.
-                  </span>
-                </div>
-                <button
-                  onClick={onClearData}
-                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Google Data &amp; Disconnect</span>
-                </button>
-              </div>
-
-              <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1 flex-wrap">
-                <span>You can also revoke AdOptimize directly via</span>
-                <a
-                  href="https://myaccount.google.com/permissions"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5"
-                >
-                  <span>Google Account Permissions</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <span>or contact support@adoptimize.app for manual deletion within 48h.</span>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="font-bold text-slate-900">Compliance &amp; Limited Use</div>
-              <div className="text-slate-600 mt-0.5 text-[11px] leading-relaxed">
-                Review our Privacy Policy for Google Ads permissions, AI processing providers, and data controls. Provider and Google policy obligations should be reviewed before launch and whenever integrations change.
+        <section className="space-y-5">
+          <div className="rounded-xl border border-[#DDD6FE] bg-white p-5 shadow-sm sm:p-8">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6D28D9]"><KeyRound className="h-5 w-5" /></span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-[#2E1065]">Change password</h3>
+                {hasPasswordProvider ? (
+                  <>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">Send a secure Firebase password reset link to {userEmail || 'your account email'}.</p>
+                    <button
+                      type="button"
+                      onClick={() => void resetPassword()}
+                      disabled={!userEmail || passwordBusy}
+                      className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#6D28D9] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5B21B6] disabled:opacity-50 sm:w-auto"
+                    >
+                      {passwordBusy ? <AppLoader className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                      {passwordBusy ? 'Sending...' : 'Send password reset email'}
+                    </button>
+                    {passwordMessage && <p role="status" className="mt-3 text-xs font-medium text-green-700">{passwordMessage}</p>}
+                    {passwordError && <p role="alert" className="mt-3 text-xs text-red-700">{passwordError}</p>}
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">Your password is managed by Google because this account uses Google sign-in.</p>
+                    <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#6D28D9] px-5 py-2.5 text-sm font-semibold text-[#6D28D9] hover:bg-[#F5F3FF] sm:w-auto">
+                      Manage Google security <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </>
+                )}
               </div>
             </div>
           </div>
-        </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="rounded-xl border border-[#DDD6FE] bg-white p-5 shadow-sm">
+              <ShieldCheck className="h-6 w-6 text-[#6D28D9]" />
+              <h3 className="mt-3 text-sm font-bold text-[#2E1065]">Privacy and data controls</h3>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">Review Google Ads authorization, data use, AI providers, retention details, and available privacy requests.</p>
+              <div className="mt-4 flex flex-col gap-2 text-sm">
+                <Link href="/privacy-policy" className="font-semibold text-[#6D28D9] underline">Privacy Policy</Link>
+                <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#6D28D9] underline">Google permissions <ExternalLink className="h-3.5 w-3.5" /></a>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#DDD6FE] bg-white p-5 shadow-sm">
+              <Mail className="h-6 w-6 text-[#6D28D9]" />
+              <h3 className="mt-3 text-sm font-bold text-[#2E1065]">Contact support</h3>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">Get help with account access, billing, Google Ads connections, privacy requests, or product questions.</p>
+              <div className="mt-4 flex flex-col gap-2 text-sm">
+                <a href="mailto:support@adoptimize.app" className="break-all font-semibold text-[#6D28D9] underline">support@adoptimize.app</a>
+                <Link href="/contact" className="inline-flex items-center gap-1 font-semibold text-[#6D28D9] underline">Contact page <ExternalLink className="h-3.5 w-3.5" /></Link>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   );

@@ -40,7 +40,7 @@ export function BudgetOptimizerView({
       {/* Hero Header */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-[#6D28D9] border border-emerald-500/30 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FBBF24]/20 text-[#6D28D9] border border-[#FBBF24]/30 text-xs font-semibold mb-3">
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Cross-Campaign Capital Allocator</span>
           </div>
@@ -89,7 +89,7 @@ export function BudgetOptimizerView({
                 key={c.id}
                 className={`p-4 rounded-2xl border transition-all ${
                   isWinner
-                    ? 'bg-emerald-50/40 border-emerald-200/80'
+                    ? 'bg-[#FFFBEB]/40 border-[#FDE68A]/80'
                     : isBleeder
                     ? 'bg-rose-50/40 border-rose-200/80'
                     : 'bg-slate-50 border-slate-200/70'
@@ -102,7 +102,7 @@ export function BudgetOptimizerView({
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       isWinner
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-[#FEF3C7] text-[#92400E]'
                         : isBleeder
                         ? 'bg-rose-100 text-rose-800'
                         : 'bg-slate-200 text-slate-700'
@@ -138,7 +138,7 @@ export function BudgetOptimizerView({
 
         {pendingRecs.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-xs">
-            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+            <CheckCircle2 className="w-8 h-8 text-[#D97706] mx-auto mb-2" />
             <div className="text-sm font-bold text-slate-900">Budgets are currently optimal</div>
             <div className="text-xs text-slate-500 mt-0.5">
               All active campaigns are operating within their target efficiency bands.
@@ -180,18 +180,18 @@ export function BudgetOptimizerView({
                   <div className="w-10 h-10 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold shadow-md shadow-[#6D28D9]/20">
                     <ArrowRight className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-700 mt-1">
+                  <span className="text-xs font-mono font-bold text-[#B45309] mt-1">
                     +{sym}{rec.reallocatedAmount}/day
                   </span>
                 </div>
 
                 {/* To Campaign (Increase Budget) */}
-                <div className="w-full md:w-5/12 bg-white p-4 rounded-xl border border-emerald-200/80 shadow-2xs">
+                <div className="w-full md:w-5/12 bg-white p-4 rounded-xl border border-[#FDE68A]/80 shadow-2xs">
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-bold text-emerald-700 uppercase tracking-wider text-[11px]">
+                    <span className="font-bold text-[#B45309] uppercase tracking-wider text-[11px]">
                       Reallocate Capital To:
                     </span>
-                    <span className="font-mono text-emerald-700 font-bold">
+                    <span className="font-mono text-[#B45309] font-bold">
                       {rec.supportingMetrics.toRoas.toFixed(2)}x ROAS
                     </span>
                   </div>
@@ -204,7 +204,7 @@ export function BudgetOptimizerView({
                   </div>
                   <div className="mt-0.5 flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-700 font-sans font-bold">New Proposed:</span>
-                    <span className="font-bold text-emerald-700 text-sm">{sym}{rec.proposedBudgetTo}/day</span>
+                    <span className="font-bold text-[#B45309] text-sm">{sym}{rec.proposedBudgetTo}/day</span>
                   </div>
                 </div>
               </div>
@@ -222,11 +222,11 @@ export function BudgetOptimizerView({
 
                 {/* Benefits vs Potential Risks */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-xl space-y-1">
-                    <span className="font-bold text-emerald-950 uppercase text-[10px] tracking-wider block">
+                  <div className="p-3 bg-[#FFFBEB]/70 border border-[#FDE68A]/70 rounded-xl space-y-1">
+                    <span className="font-bold text-[#2E1065] uppercase text-[10px] tracking-wider block">
                       Expected Benefits
                     </span>
-                    <span className="text-emerald-900 leading-relaxed block">
+                    <span className="text-[#78350F] leading-relaxed block">
                       Supplies unmet impression share on high-converting auctions; reduces daily capital bleed on low-margin queries.
                     </span>
                   </div>
@@ -246,7 +246,7 @@ export function BudgetOptimizerView({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="font-bold text-slate-500">Projected Value Impact:</span>
-                    <span className="font-bold text-emerald-700 font-mono bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                    <span className="font-bold text-[#B45309] font-mono bg-[#FFFBEB] px-2.5 py-1 rounded-lg border border-[#FEF3C7]">
                       {rec.estimatedMonthlyImpact}
                     </span>
                   </div>
@@ -296,7 +296,7 @@ export function BudgetOptimizerView({
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                    r.status === 'APPROVED' ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   {r.status}
