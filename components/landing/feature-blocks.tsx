@@ -1,4 +1,4 @@
-import { Check, CheckCircle2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { ApprovalCard } from './product-preview';
 import { landing } from './landing-ui';
 
@@ -28,11 +28,10 @@ const blocks = [
   {
     label: 'Approve and execute',
     title: 'Approve the change, and the agent applies it.',
-    text: 'Every change arrives as a proposal with its current and new values side by side. Approve it and the agent runs it in Google Ads, then reads the account back to confirm the result.',
+    text: 'Each proposal shows current and new values side by side. Approve it and the agent applies it in Google Ads, then verifies the result in Google Ads.',
     points: [
-      'Current and proposed values shown side by side',
-      'Proposals you do not approve in time expire',
-      'Each result is confirmed against Google Ads when it is read back',
+      'Unapproved proposals expire after 24 hours',
+      'Each execution is recorded as succeeded, failed or unverified',
     ],
     panel: 'approval',
   },
@@ -52,7 +51,7 @@ function InvestigationPanel() {
         {rows.map((row) => (
           <li key={row.name}>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-950">{row.name}</span>
+              <span className="font-semibold text-slate-950">{row.name}:</span>
               <span className="tabular-nums text-slate-600">${row.now.toFixed(2)} <span className="text-slate-400">vs ${row.before.toFixed(2)}</span></span>
             </div>
             <div className="mt-2 space-y-1.5" aria-hidden="true">
@@ -120,8 +119,9 @@ export function FeatureBlocks() {
               {block.panel === 'approval' && (
                 <div className="space-y-4">
                   <ApprovalCard />
-                  <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Example outcome: applied and confirmed in Google Ads.
+                  <p className="text-center text-xs text-slate-500">Example data for illustration.</p>
+                  <p className="text-sm leading-6 text-slate-600">
+                    Unverified means we could not confirm the change in Google Ads yet. You can check it in your activity history.
                   </p>
                 </div>
               )}

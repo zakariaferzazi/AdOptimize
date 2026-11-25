@@ -10,11 +10,11 @@ export function FinalCta() {
           Give your campaigns an agent that acts. You keep the final say.
         </h2>
         <p className="mx-auto mt-5 max-w-xl leading-7 text-indigo-100">
-          Connect your account, see what the agent finds, and approve only the changes you want.
+          Connect your account and see what the agent finds.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-bold text-indigo-900 transition-colors hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-            Get Started <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            Create free account <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <a href="#pricing" className="inline-flex items-center gap-2 rounded-full border border-indigo-300 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
             See Pro pricing

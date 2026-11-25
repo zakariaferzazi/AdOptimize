@@ -12,15 +12,15 @@ export function ChatSimulation() {
 
       <div className="space-y-4 p-5 text-sm leading-6 sm:p-6">
         <p className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-3 text-white">
-          Build me a campaign that gets app installs at $0.10 each.
+          Build me a campaign that gets app installs at $1.50 each.
         </p>
 
         <p className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800">
-          Create App campaign · Target CPI $0.10
+          Create App campaign · Target CPI $1.50
         </p>
 
         <div className="max-w-[92%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-slate-800">
-          Done. I set up an install campaign with a $0.10 target cost per install and a $25 daily budget. It is paused, so nothing spends until you approve it.
+          I drafted an install campaign with a $1.50 target cost per install and a $25 daily budget. Nothing is created in Google Ads until you approve.
         </div>
 
         <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
@@ -29,6 +29,7 @@ export function ChatSimulation() {
             Approve <ArrowUp className="h-3 w-3" aria-hidden="true" />
           </span>
         </div>
+        <p className="text-center text-xs text-slate-500">Example data for illustration.</p>
       </div>
     </section>
   );

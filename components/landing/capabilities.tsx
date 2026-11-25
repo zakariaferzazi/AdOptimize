@@ -1,36 +1,36 @@
-import { BarChart3, Layers3, ListChecks, Search, SlidersHorizontal, Target, TrendingDown } from 'lucide-react';
+import { Layers3, ListChecks, Search, SlidersHorizontal, Target, TrendingDown } from 'lucide-react';
 import { landing } from './landing-ui';
 
 const capabilities = [
   {
     icon: Search,
     title: 'Investigate performance',
-    text: 'Compare any period with the previous one at account, campaign, ad group or keyword level, broken down by day, device or network.',
+    text: 'Explain any change down to the campaign, keyword or search term.',
   },
   {
     icon: TrendingDown,
     title: 'Find wasted spend',
-    text: 'Surface non-converting search queries, zero-conversion spend, CPA outliers and low-quality keywords, each shown with its supporting numbers.',
+    text: 'Surface non-converting queries and CPA outliers.',
   },
   {
     icon: Layers3,
     title: 'Build campaigns',
-    text: 'Create Search or App campaigns from a brief, with budget, bidding, locations, ad groups and keywords. New campaigns start paused unless you choose otherwise.',
+    text: 'Create Search or App campaigns from a brief.',
   },
   {
     icon: SlidersHorizontal,
     title: 'Adjust budgets and bidding',
-    text: 'Change daily budgets, target CPA or ROAS, max CPC limits, campaign dates and networks. Pause or enable campaigns and ad groups.',
+    text: 'Change budgets, bids and campaign status.',
   },
   {
     icon: ListChecks,
     title: 'Manage keywords and negatives',
-    text: 'Add positive or negative keywords, set keyword and ad group bids, and create ad groups in existing Search campaigns.',
+    text: 'Add keywords and negatives, and adjust bids.',
   },
   {
     icon: Target,
     title: 'Control targeting and conversions',
-    text: 'Edit location targeting, choose which conversion actions a campaign optimizes for, and set tracking templates and final URL suffixes.',
+    text: 'Edit locations and conversion goals.',
   },
 ];
 
@@ -54,12 +54,6 @@ export function Capabilities() {
           ))}
         </ul>
 
-        <div className="mt-8 flex items-start gap-3 rounded-2xl border border-indigo-100 bg-white p-5 text-sm leading-6 text-slate-700">
-          <BarChart3 className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" aria-hidden="true" />
-          <p>
-            Also included with Pro: a period-specific account audit with prioritized findings, the Budget Optimizer, and reports you can export as CSV or print.
-          </p>
-        </div>
       </div>
     </section>
   );

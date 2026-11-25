@@ -1,5 +1,5 @@
 import { LandingHeader } from './landing-header';
-import { Hero, InsideWorkspace } from './hero';
+import { Hero } from './hero';
 import { FeatureBlocks } from './feature-blocks';
 import { Capabilities } from './capabilities';
 import { HowItWorks } from './how-it-works';
@@ -19,7 +19,6 @@ export function LandingPage() {
         <Hero />
         <FeatureBlocks />
         <Capabilities />
-        <InsideWorkspace />
         <HowItWorks />
         <PricingSection />
         <FaqSection />

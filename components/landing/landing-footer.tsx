@@ -39,9 +39,9 @@ export function LandingFooter() {
         <div>
           <Link href="/" className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600" aria-label="AdOptimize home">
             <BrandLogoIcon size={28} className="h-7 w-7" />
-            <span className="font-bold tracking-tight text-slate-950">Ad<span className="text-indigo-600">optimize</span></span>
+            <span className="font-bold tracking-tight text-slate-950">Ad<span className="text-indigo-600">Optimize</span></span>
           </Link>
-          <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">The AI Marketing Agent that investigates and executes Google Ads changes you approve.</p>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">AI agent for Google Ads.</p>
         </div>
         {columns.map((column) => (
           <nav key={column.title} aria-label={`${column.title} links`}>
@@ -55,7 +55,10 @@ export function LandingFooter() {
         ))}
       </div>
       <div className={`${landing.container} flex flex-col gap-3 border-t border-slate-100 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between`}>
-        <p>&copy; {new Date().getFullYear()} AdOptimize. All rights reserved.</p>
+        <div className="space-y-1">
+          <p>&copy; {new Date().getFullYear()} AdOptimize. All rights reserved.</p>
+          <p>Google Ads is a trademark of Google LLC. AdOptimize is not affiliated with or endorsed by Google.</p>
+        </div>
         <div className="flex gap-5">
           <Link href="/sign-in" className="hover:text-slate-950">Sign in</Link>
           <Link href="/sign-up" className="hover:text-slate-950">Create account</Link>
