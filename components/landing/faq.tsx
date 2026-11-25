@@ -26,23 +26,23 @@ const faqs = [
 
 export function FaqSection() {
   return (
-    <section id="faq" className={`${landing.section} scroll-mt-24 bg-slate-50`} aria-labelledby="faq-heading">
+    <section id="faq" className={`${landing.section} scroll-mt-24 bg-[#F5F3FF]`} aria-labelledby="faq-heading">
       <div className={`${landing.container} grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
         <div>
           <p className={landing.label}>FAQ</p>
           <h2 id="faq-heading" className={landing.h2}>Questions before you subscribe.</h2>
           <p className={landing.lead}>
-            Still unsure? <Link href="/contact" className="font-semibold text-indigo-700 underline">Contact our team</Link>.
+            Still unsure? <Link href="/contact" className="font-semibold text-[#6D28D9] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">Contact our team</Link>.
           </p>
         </div>
-        <div className="divide-y divide-slate-200 border-y border-slate-200 bg-white px-6 sm:px-8">
+        <div className="divide-y divide-[#DDD6FE] rounded-xl border border-[#DDD6FE] bg-white px-6 shadow-sm sm:px-8">
           {faqs.map((item) => (
             <details key={item.q} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-semibold text-slate-950 marker:content-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-semibold text-[#2E1065] marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">
                 {item.q}
-                <span className="text-xl leading-none text-indigo-600 transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+                <span className="text-xl leading-none text-[#6D28D9] transition-transform group-open:rotate-45 motion-reduce:transition-none" aria-hidden="true">+</span>
               </summary>
-              <p className="mt-3 pr-8 text-sm leading-6 text-slate-600">{item.a}</p>
+              <p className="mt-3 pr-8 text-sm leading-6 text-[#6B7280]">{item.a}</p>
             </details>
           ))}
         </div>

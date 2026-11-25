@@ -36,7 +36,7 @@ const capabilities = [
 
 export function Capabilities() {
   return (
-    <section id="capabilities" className={`${landing.section} scroll-mt-24 bg-slate-50`} aria-labelledby="capabilities-heading">
+    <section id="capabilities" className={`${landing.section} scroll-mt-24 bg-white`} aria-labelledby="capabilities-heading">
       <div className={landing.container}>
         <div className="max-w-2xl">
           <p className={landing.label}>What the agent does</p>
@@ -48,12 +48,11 @@ export function Capabilities() {
           {capabilities.map(({ icon: Icon, title, text }) => (
             <li key={title} className={landing.card}>
               <span className={landing.iconTile}><Icon className="h-5 w-5" aria-hidden="true" /></span>
-              <h3 className="mt-5 text-lg font-bold text-slate-950">{title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{text}</p>
+              <h3 className="mt-5 text-lg font-bold text-[#2E1065]">{title}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#6B7280]">{text}</p>
             </li>
           ))}
         </ul>
-
       </div>
     </section>
   );

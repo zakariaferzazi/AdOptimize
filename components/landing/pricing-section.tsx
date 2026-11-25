@@ -4,7 +4,6 @@ import { PlanCta } from '@/components/billing/plan-cta';
 import { landing } from './landing-ui';
 
 const proFeatures = [
-  '[X] Google Ads account(s) per plan',
   'AI Marketing Agent that investigates and proposes changes',
   'Approve-then-execute changes to budgets, bidding, keywords, targeting and status',
   'Campaign creation for Search and App campaigns',
@@ -13,7 +12,7 @@ const proFeatures = [
   'Full activity history of proposals, approvals and outcomes',
 ];
 
-const buttonBase = 'mt-8 inline-flex w-full items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60';
+const buttonBase = 'mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9] motion-reduce:transition-none disabled:opacity-60';
 
 export function PricingSection() {
   return (
@@ -25,50 +24,50 @@ export function PricingSection() {
       </div>
 
       <div className="mx-auto mt-12 grid max-w-4xl gap-6 md:grid-cols-2">
-        <article className="flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-950">Pro Monthly</h3>
+        <article className="flex min-w-0 flex-col rounded-xl border border-[#DDD6FE] bg-white p-8 shadow-sm">
+          <h3 className="text-lg font-bold text-[#2E1065]">Pro Monthly</h3>
           <p className="mt-6 flex items-baseline gap-1.5">
-            <span className="text-5xl font-extrabold tracking-tight text-slate-950">$29</span>
-            <span className="text-base font-medium text-slate-500">per month</span>
+            <span className="text-5xl font-extrabold tracking-tight text-[#2E1065]">$29</span>
+            <span className="text-base font-medium text-[#6B7280]">per month</span>
           </p>
-          <p className="mt-3 text-sm text-slate-500">Billed monthly. Cancel anytime.</p>
-          <PlanCta interval="monthly" label="Start Pro monthly" className={`${buttonBase} border border-indigo-600 text-indigo-700 hover:bg-indigo-50`} />
+          <p className="mt-3 text-sm text-[#6B7280]">Billed monthly. Cancel anytime.</p>
+          <PlanCta interval="monthly" label="Start Pro monthly" className={`${buttonBase} border border-[#6D28D9] bg-transparent text-[#6D28D9] hover:bg-[#F5F3FF]`} />
         </article>
 
-        <article className="relative flex flex-col rounded-3xl border-2 border-indigo-600 bg-white p-8 shadow-sm">
-          <span className="absolute -top-3 left-8 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">Best value</span>
-          <h3 className="text-lg font-bold text-slate-950">Pro Yearly</h3>
+        <article className="relative flex min-w-0 flex-col rounded-xl border-2 border-[#6D28D9] bg-white p-8 shadow-sm">
+          <span className="absolute -top-3 left-8 rounded-full bg-[#FBBF24] px-3 py-1 text-xs font-bold text-[#2E1065]">Best value</span>
+          <h3 className="text-lg font-bold text-[#2E1065]">Pro Yearly</h3>
           <p className="mt-6 flex items-baseline gap-1.5">
-            <span className="text-5xl font-extrabold tracking-tight text-slate-950">$99</span>
-            <span className="text-base font-medium text-slate-500">per year</span>
+            <span className="text-5xl font-extrabold tracking-tight text-[#2E1065]">$99</span>
+            <span className="text-base font-medium text-[#6B7280]">per year</span>
           </p>
-          <p className="mt-3 text-sm text-slate-500">About $8.25 per month, billed yearly. Saves $249 compared with monthly.</p>
-          <PlanCta interval="yearly" label="Start Pro yearly" className={`${buttonBase} bg-indigo-600 text-white hover:bg-indigo-700`} />
+          <p className="mt-3 text-sm text-[#6B7280]">About $8.25 per month, billed yearly. Saves $249 compared with monthly.</p>
+          <PlanCta interval="yearly" label="Start Pro yearly" className={`${buttonBase} bg-[#6D28D9] text-white hover:bg-[#5B21B6]`} />
         </article>
       </div>
 
-      <p className="mx-auto mt-5 max-w-4xl text-center text-sm text-slate-600">
+      <p className="mx-auto mt-5 max-w-4xl text-center text-sm text-[#6B7280]">
         14-day refund.{' '}
-        <Link href="/refund-policy" className="font-semibold text-indigo-700 underline">See the refund policy.</Link>
+        <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">See the refund policy.</Link>
       </p>
 
-      <div className="mx-auto mt-10 grid max-w-4xl gap-8 rounded-3xl bg-slate-50 p-8 sm:p-10 md:grid-cols-2">
+      <div className="mx-auto mt-10 grid max-w-4xl gap-8 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-8 sm:p-10 md:grid-cols-2">
         <div>
-          <h3 className="text-base font-bold text-slate-950">Included in Pro</h3>
+          <h3 className="text-base font-bold text-[#2E1065]">Included in Pro</h3>
           <ul className="mt-5 space-y-3">
             {proFeatures.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-slate-700">
-                <Check className="mt-1 h-4 w-4 shrink-0 text-indigo-600" aria-hidden="true" />
+              <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-[#1F2937]">
+                <Check className="mt-1 h-4 w-4 shrink-0 text-[#6D28D9]" aria-hidden="true" />
                 {item}
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="text-sm leading-6 text-slate-700">
+          <p className="text-sm leading-6 text-[#1F2937]">
             Free account: explore your dashboard and campaign data.
           </p>
-          <p className="mt-6 text-sm leading-6 text-slate-600">
+          <p className="mt-6 text-sm leading-6 text-[#1F2937]">
             Using the agent, audits, reports, the Budget Optimizer and campaign changes requires Pro. Prices are in USD; applicable taxes are calculated at checkout.
           </p>
         </div>

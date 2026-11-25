@@ -34,34 +34,34 @@ const columns = [
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer className="border-t border-[#DDD6FE] bg-white">
       <div className={`${landing.container} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4`}>
         <div>
-          <Link href="/" className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600" aria-label="AdOptimize home">
+          <Link href="/" className="inline-flex items-center gap-2.5 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]" aria-label="AdOptimize home">
             <BrandLogoIcon size={28} className="h-7 w-7" />
-            <span className="font-bold tracking-tight text-slate-950">Ad<span className="text-indigo-600">Optimize</span></span>
+            <span className="font-bold tracking-tight text-[#2E1065]">Ad<span className="text-[#6D28D9]">Optimize</span></span>
           </Link>
-          <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">AI agent for Google Ads.</p>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-[#6B7280]">AI agent for Google Ads.</p>
         </div>
         {columns.map((column) => (
           <nav key={column.title} aria-label={`${column.title} links`}>
-            <h2 className="text-sm font-bold text-slate-950">{column.title}</h2>
-            <ul className="mt-4 space-y-3 text-sm text-slate-600">
+            <h2 className="text-sm font-bold text-[#2E1065]">{column.title}</h2>
+            <ul className="mt-4 space-y-3 text-sm text-[#6B7280]">
               {column.links.map((link) => (
-                <li key={link.href}><Link href={link.href} className="hover:text-slate-950">{link.label}</Link></li>
+                <li key={link.href}><Link href={link.href} className="hover:text-[#2E1065]">{link.label}</Link></li>
               ))}
             </ul>
           </nav>
         ))}
       </div>
-      <div className={`${landing.container} flex flex-col gap-3 border-t border-slate-100 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between`}>
+      <div className={`${landing.container} flex flex-col gap-3 border-t border-[#DDD6FE] py-6 text-xs text-[#6B7280] sm:flex-row sm:items-center sm:justify-between`}>
         <div className="space-y-1">
           <p>&copy; {new Date().getFullYear()} AdOptimize. All rights reserved.</p>
           <p>Google Ads is a trademark of Google LLC. AdOptimize is not affiliated with or endorsed by Google.</p>
         </div>
         <div className="flex gap-5">
-          <Link href="/sign-in" className="hover:text-slate-950">Sign in</Link>
-          <Link href="/sign-up" className="hover:text-slate-950">Create account</Link>
+          <Link href="/sign-in" className="hover:text-[#2E1065]">Sign in</Link>
+          <Link href="/sign-up" className="hover:text-[#2E1065]">Create account</Link>
         </div>
       </div>
     </footer>
