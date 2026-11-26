@@ -1828,8 +1828,7 @@ export function AiChatView({
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <AgentIcon className="w-6 h-6 rounded-lg shrink-0" />
-<AppLoader className="h-6 w-6" />
+                      <AppLoader className="h-6 w-6 shrink-0" />
                       <span className="text-xs font-semibold text-slate-900 truncate">
                         {loadingStageLabel}
                       </span>

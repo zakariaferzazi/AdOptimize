@@ -1,7 +1,6 @@
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { ChatSimulation } from './chat-simulation';
 import { landing } from './landing-ui';
+import { LandingPrimaryCta } from './session-cta';
 
 export function Hero() {
   return (
@@ -20,9 +19,7 @@ export function Hero() {
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link href="/sign-up" className={`${landing.btnPrimary} w-full sm:w-auto`}>
-              Create free account <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+            <LandingPrimaryCta className="w-full sm:w-auto" />
             <a href="#pricing" className={`${landing.btnSecondary} w-full sm:w-auto`}>See Pro pricing</a>
           </div>
           <p className="mt-5 text-sm text-[#6B7280]">

@@ -1,6 +1,5 @@
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { landing } from './landing-ui';
+import { LandingPrimaryCta } from './session-cta';
 
 export function FinalCta() {
   return (
@@ -13,9 +12,7 @@ export function FinalCta() {
           Connect your account and see what the agent finds.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/sign-up" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#FBBF24] px-6 py-3 text-sm font-bold text-[#2E1065] transition-colors hover:bg-amber-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none sm:w-auto">
-            Create free account <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+          <LandingPrimaryCta className="!bg-[#FBBF24] !text-[#2E1065] hover:!bg-amber-300 focus-visible:!outline-white w-full sm:w-auto" />
           <a href="#pricing" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white bg-transparent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none sm:w-auto">
             See Pro pricing
           </a>

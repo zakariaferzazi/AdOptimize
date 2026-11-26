@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { landing } from './landing-ui';
+import { LandingAccountLink, LandingPrimaryCta } from './session-cta';
 
 const columns = [
   {
@@ -60,8 +61,8 @@ export function LandingFooter() {
           <p>Google Ads is a trademark of Google LLC. AdOptimize is not affiliated with or endorsed by Google.</p>
         </div>
         <div className="flex gap-5">
-          <Link href="/sign-in" className="hover:text-[#2E1065]">Sign in</Link>
-          <Link href="/sign-up" className="hover:text-[#2E1065]">Create account</Link>
+          <LandingAccountLink className="hover:text-[#2E1065]" />
+          <LandingPrimaryCta className="!h-auto !rounded-none !bg-transparent !p-0 !text-[#6B7280] !shadow-none hover:!bg-transparent hover:!text-[#2E1065]" />
         </div>
       </div>
     </footer>

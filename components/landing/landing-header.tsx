@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { BrandLogoIcon } from '@/components/ui/brand-logo';
 import { landing } from './landing-ui';
+import { LandingAccountLink, LandingPrimaryCta } from './session-cta';
 
 const navItems = [
   { href: '#capabilities', label: 'Capabilities' },
@@ -26,18 +26,16 @@ export function LandingHeader() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/sign-in" className="hidden text-sm font-semibold text-[#1F2937] hover:text-[#2E1065] sm:inline">Sign in</Link>
-          <Link href="/sign-up" className={`${landing.btnPrimary} max-sm:!hidden`}>
-            Create free account <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
+          <LandingAccountLink />
+          <LandingPrimaryCta className="max-sm:!hidden" />
           <details className="group relative md:hidden">
             <summary className="flex h-12 cursor-pointer list-none items-center rounded-xl border border-[#6D28D9] px-4 text-sm font-semibold text-[#6D28D9] marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">Menu</summary>
             <nav aria-label="Mobile navigation" className="absolute right-0 mt-3 w-56 rounded-xl border border-[#DDD6FE] bg-white p-2 shadow-sm">
               {navItems.map((item) => (
                 <a key={item.href} href={item.href} className="block rounded-xl px-4 py-3 text-sm font-medium text-[#1F2937] hover:bg-[#F5F3FF]">{item.label}</a>
               ))}
-              <Link href="/sign-in" className="block rounded-xl px-4 py-3 text-sm font-medium text-[#1F2937] hover:bg-[#F5F3FF]">Sign in</Link>
-              <Link href="/sign-up" className="mt-1 flex h-12 items-center justify-center rounded-xl bg-[#6D28D9] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#5B21B6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9] motion-reduce:transition-none">Create free account</Link>
+              <LandingAccountLink mobile />
+              <LandingPrimaryCta className="mt-1 w-full" />
             </nav>
           </details>
         </div>

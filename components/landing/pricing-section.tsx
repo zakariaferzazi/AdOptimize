@@ -1,15 +1,32 @@
-import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { PlanCta } from '@/components/billing/plan-cta';
 import { landing } from './landing-ui';
 
 const proFeatures = [
-  'AI Marketing Agent that investigates and proposes changes',
-  'Approve-then-execute changes to budgets, bidding, keywords, targeting and status',
-  'Campaign creation for Search and App campaigns',
-  'Period account audit with prioritized findings and CSV export',
-  'Budget Optimizer and performance reports',
-  'Full activity history of proposals, approvals and outcomes',
+  {
+    title: 'An agent that works inside Google Ads',
+    description: 'Ask in plain language. The agent reads connected account data, finds performance drivers, and prepares practical next steps.',
+  },
+  {
+    title: 'Campaigns built from your brief',
+    description: 'Draft Search and App campaigns with goals, budgets, bidding, locations, ad groups and keywords ready for review.',
+  },
+  {
+    title: 'Budget and bidding optimization',
+    description: 'Investigate wasted spend and review proposed changes to daily budgets, target CPA, target ROAS and CPC limits.',
+  },
+  {
+    title: 'Keyword and targeting management',
+    description: 'Find poor-performing queries, prepare keywords and negatives, and manage supported location and conversion-goal changes.',
+  },
+  {
+    title: 'You approve before execution',
+    description: 'Every supported Google Ads change is shown for review with the target and proposed values before you authorize it.',
+  },
+  {
+    title: 'Account history and verification',
+    description: 'Track proposals, approvals, execution results and follow-up checks in your workspace activity history.',
+  },
 ];
 
 const buttonBase = 'mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9] motion-reduce:transition-none disabled:opacity-60';
@@ -46,31 +63,24 @@ export function PricingSection() {
         </article>
       </div>
 
-      <p className="mx-auto mt-5 max-w-4xl text-center text-sm text-[#6B7280]">
-        All sales are final. Cancel to stop the next renewal.{' '}
-        <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9]">See the billing and cancellation policy.</Link>
-      </p>
-
-      <div className="mx-auto mt-10 grid max-w-4xl gap-8 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-8 sm:p-10 md:grid-cols-2">
-        <div>
-          <h3 className="text-base font-bold text-[#2E1065]">Included in Pro</h3>
-          <ul className="mt-5 space-y-3">
-            {proFeatures.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-[#1F2937]">
-                <Check className="mt-1 h-4 w-4 shrink-0 text-[#6D28D9]" aria-hidden="true" />
-                {item}
-              </li>
-            ))}
-          </ul>
+      <div className="mx-auto mt-14 max-w-5xl">
+        <div className="max-w-2xl">
+          <p className={landing.label}>Put the agent to work</p>
+          <h3 className={landing.h2}>More than recommendations. Real Google Ads work, prepared for your approval.</h3>
+          <p className={landing.lead}>Pro gives you an account-aware agent for investigation, campaign creation, optimization and supported execution.</p>
         </div>
-        <div>
-          <p className="text-sm leading-6 text-[#1F2937]">
-            Free account: explore your dashboard and campaign data.
-          </p>
-          <p className="mt-6 text-sm leading-6 text-[#1F2937]">
-            Pro unlocks AI-powered analysis, campaign creation and management, budgets, optimization, reports, and supported Google Ads changes. Prices are in USD; applicable taxes are calculated at checkout.
-          </p>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {proFeatures.map((feature) => (
+            <article key={feature.title} className={landing.card}>
+              <Check className="h-5 w-5 text-[#6D28D9]" aria-hidden="true" />
+              <h4 className="mt-4 text-base font-bold text-[#2E1065]">{feature.title}</h4>
+              <p className="mt-2 text-sm leading-6 text-[#6B7280]">{feature.description}</p>
+            </article>
+          ))}
         </div>
+        <p className="mt-8 text-center text-sm text-[#6B7280]">
+          Explore your dashboard with a standard account. Pro unlocks advanced analysis and supported agent actions.
+        </p>
       </div>
     </section>
   );

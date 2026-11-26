@@ -133,6 +133,20 @@ verified executions; app-only records are not proof of Google Ads changes.
 The former activity-page Revert action only changed app records and has been
 removed. Undoing a live change requires a fresh, explicitly approved proposal.
 
+## Contact form delivery
+
+The public contact form posts to `POST /api/contact`, which validates the message
+and sends it through Resend to `support@adoptimize.app`. Configure these
+server-side Cloudflare secrets:
+
+- `RESEND_API_KEY`
+- `CONTACT_FROM_EMAIL` (a verified sender, for example
+  `AdOptimize <contact@adoptimize.app>`)
+
+Do not expose either value through a `NEXT_PUBLIC_` variable. If delivery is
+not configured, the endpoint returns an explicit error instead of showing a
+false success.
+
 ## Polar billing (sandbox first)
 
 One paid plan, **Pro: USD $29/month or $99/year**, plus applicable taxes.

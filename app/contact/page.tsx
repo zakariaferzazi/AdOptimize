@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Mail, MessageSquare, MapPin } from 'lucide-react';
+import { Mail, MessageSquare } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { ContactForm } from '@/components/contact/contact-form';
 
 export const metadata: Metadata = {
   title: 'Contact Us - AdOptimize | Support & Sales Inquiries',
@@ -45,7 +46,7 @@ export default function ContactPage() {
               <Mail className="w-5 h-5 text-[#6D28D9] shrink-0 mt-0.5" />
               <div>
                 <div className="font-bold text-slate-900 text-xs">Email Support</div>
-                <div className="text-xs text-slate-600 mt-0.5">support@adoptimize.app</div>
+                <a href="mailto:support@adoptimize.app" className="mt-0.5 block text-xs text-[#6D28D9] underline">support@adoptimize.app</a>
               </div>
             </div>
 
@@ -58,41 +59,7 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <form className="space-y-4 pt-4 border-t border-slate-100 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Your Name</label>
-              <input
-                type="text"
-                placeholder="Jay Rathod"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Work Email</label>
-              <input
-                type="email"
-                placeholder="jay@company.com"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Message</label>
-              <textarea
-                rows={4}
-                placeholder="Tell us about your account, billing, or privacy question..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]"
-              />
-            </div>
-
-            <button
-              type="button"
-              className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
-            >
-              Send Message
-            </button>
-          </form>
+          <ContactForm />
         </div>
       </main>
     </div>
