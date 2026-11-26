@@ -87,7 +87,29 @@ export function getInitialState(): AdOptimizeState {
 
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed: Partial<AdOptimizeState> = JSON.parse(saved);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('Invalid saved workspace state.');
+        }
+        const initial = getCleanInitialState();
+        // Older snapshots predate some collections; restore the complete state before rendering.
+        const restored: AdOptimizeState = {
+          ...initial,
+          ...parsed,
+          account: parsed.account ?? initial.account,
+          campaigns: Array.isArray(parsed.campaigns) ? parsed.campaigns : [],
+          keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+          searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : [],
+          ads: Array.isArray(parsed.ads) ? parsed.ads : [],
+          anomalies: Array.isArray(parsed.anomalies) ? parsed.anomalies : [],
+          insights: Array.isArray(parsed.insights) ? parsed.insights : [],
+          budgetRecommendations: Array.isArray(parsed.budgetRecommendations) ? parsed.budgetRecommendations : [],
+          automationRules: Array.isArray(parsed.automationRules) ? parsed.automationRules : [],
+          auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
+          deviceBreakdown: Array.isArray(parsed.deviceBreakdown) ? parsed.deviceBreakdown : [],
+          networkBreakdown: Array.isArray(parsed.networkBreakdown) ? parsed.networkBreakdown : [],
+          locationBreakdown: Array.isArray(parsed.locationBreakdown) ? parsed.locationBreakdown : [],
+        };
         // Only remove ancient mock demo state if not a real user-connected account
         const isUserConnected =
           Boolean(dedicatedConnectedAccount) ||
@@ -128,11 +150,9 @@ export function getInitialState(): AdOptimizeState {
           }
 
           return {
-            ...parsed,
-            deviceBreakdown: Array.isArray(parsed.deviceBreakdown) ? parsed.deviceBreakdown : [],
-            networkBreakdown: Array.isArray(parsed.networkBreakdown) ? parsed.networkBreakdown : [],
+            ...restored,
             account: {
-              ...parsed.account,
+              ...restored.account,
               ...dedicatedConnectedAccount,
               isConnected: true,
               ...fresherFields,
@@ -141,7 +161,7 @@ export function getInitialState(): AdOptimizeState {
           };
         }
 
-        return parsed;
+        return restored;
       }
 
       if (dedicatedConnectedAccount) {
@@ -151,8 +171,8 @@ export function getInitialState(): AdOptimizeState {
           isDemoMode: false,
         };
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.warn('[Workspace] Could not restore saved state:', error);
     }
   }
 

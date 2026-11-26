@@ -12,11 +12,14 @@ const mocks = vi.hoisted(() => ({
   sync: vi.fn(),
   setState: vi.fn(),
   nullCalls: 0,
+  user: { uid: 'user-a' } as { uid: string } | null,
+  formValues: [] as string[],
 }));
 vi.mock('react', async (importOriginal) => ({
   ...await importOriginal<typeof import('react')>(),
   useState: (initial: unknown) => [
-    initial === null && mocks.nullCalls++ === 0 ? { uid: 'user-a', status: mocks.status } : initial,
+    initial === '' && mocks.formValues.length > 0 ? mocks.formValues.shift()
+      : initial === null && mocks.nullCalls++ === 0 ? { uid: 'user-a', status: mocks.status } : initial,
     mocks.setState,
   ],
   useEffect: (effect: () => (() => void) | undefined) => { mocks.effects.push(effect); },
@@ -25,7 +28,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock('@/hooks/use-auth-user', () => ({ useAuthUser: () => ({ user: { uid: 'user-a' }, ready: true }) }));
+vi.mock('@/hooks/use-auth-user', () => ({ useAuthUser: () => ({ user: mocks.user, ready: true }) }));
 vi.mock('@/lib/firebase', () => ({ auth: {}, signInWithEmail: vi.fn(), signInWithGoogle: vi.fn(), signUpWithEmail: vi.fn() }));
 vi.mock('firebase/auth', () => ({ sendPasswordResetEmail: vi.fn(), updateProfile: vi.fn() }));
 vi.mock('@/lib/auth-session', () => ({ synchronizeServerSession: mocks.sync }));
@@ -44,6 +47,8 @@ beforeEach(() => {
   };
   mocks.effects = [];
   mocks.nullCalls = 0;
+  mocks.user = { uid: 'user-a' };
+  mocks.formValues = [];
   mocks.fetch.mockReset().mockImplementation(async () => mocks.status);
   mocks.sync.mockReset().mockResolvedValue(undefined);
   mocks.setState.mockReset();
@@ -60,6 +65,25 @@ describe('paid signup connection step', () => {
     expect(describeAuthError({ code: 'auth/password-does-not-meet-requirements', message: 'raw provider details' })).not.toContain('raw provider details');
   });
 
+  it.each(['campaign1', 'CAMPAIGN1', '12345678'])('allows signup without mixed-case letters: %s', (password) => {
+    mocks.user = null;
+    mocks.formValues = ['Test User', 'test@example.com', password, password];
+    const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
+    expect(html).not.toMatch(/<button[^>]*type="submit"[^>]*\sdisabled=""/);
+    expect(html).not.toContain('Lowercase (a-z) and uppercase (A-Z)');
+  });
+
+  it.each([
+    ['short1', 'short1'],
+    ['campaign', 'campaign'],
+    ['campaign1', 'different1'],
+  ])('keeps length, number/symbol and confirmation checks: %s', (password, confirm) => {
+    mocks.user = null;
+    mocks.formValues = ['Test User', 'test@example.com', password, confirm];
+    const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*\sdisabled=""/);
+  });
+
   it('resumes Google Ads connection for a webhook-confirmed Pro user', () => {
     const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
     expect(html).toContain('Post-payment Google Ads connection');
@@ -71,7 +95,7 @@ describe('paid signup connection step', () => {
     const html = renderToStaticMarkup(React.createElement(AuthFlow, { mode: 'sign-up' }));
     expect(html).not.toContain('Post-payment Google Ads connection');
     expect(html).toContain('Choose your plan');
-    expect(html).toContain('Continue with limited dashboard access');
+    expect(html).toContain('Continue with Free');
     expect(html).not.toContain('Your data, your rules');
   });
 

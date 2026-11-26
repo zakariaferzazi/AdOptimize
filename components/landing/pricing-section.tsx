@@ -4,32 +4,54 @@ import { landing } from './landing-ui';
 
 const proFeatures = [
   {
+    summary: 'AI Marketing Agent for account analysis',
     title: 'An agent that works inside Google Ads',
     description: 'Ask in plain language. The agent reads connected account data, finds performance drivers, and prepares practical next steps.',
   },
   {
+    summary: 'Search and App campaign creation',
     title: 'Campaigns built from your brief',
     description: 'Draft Search and App campaigns with goals, budgets, bidding, locations, ad groups and keywords ready for review.',
   },
   {
+    summary: 'Budget, CPA, ROAS and bidding adjustments',
     title: 'Budget and bidding optimization',
     description: 'Investigate wasted spend and review proposed changes to daily budgets, target CPA, target ROAS and CPC limits.',
   },
   {
+    summary: 'Keywords, negatives and targeting management',
     title: 'Keyword and targeting management',
     description: 'Find poor-performing queries, prepare keywords and negatives, and manage supported location and conversion-goal changes.',
   },
   {
+    summary: 'Approved changes executed in Google Ads',
     title: 'You approve before execution',
     description: 'Every supported Google Ads change is shown for review with the target and proposed values before you authorize it.',
   },
   {
+    summary: 'Activity history and result verification',
     title: 'Account history and verification',
     description: 'Track proposals, approvals, execution results and follow-up checks in your workspace activity history.',
   },
 ];
 
 const buttonBase = 'mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D28D9] motion-reduce:transition-none disabled:opacity-60';
+
+function PlanFeatures() {
+  return (
+    <div className="mt-6 flex-1 border-t border-[#DDD6FE] pt-6">
+      <p className="text-sm font-bold text-[#2E1065]">Everything in Pro</p>
+      <ul className="mt-4 space-y-3">
+        {proFeatures.map((feature) => (
+          <li key={feature.title} className="flex items-start gap-2.5 text-sm leading-6 text-[#1F2937]">
+            <Check className="mt-1 h-4 w-4 shrink-0 text-[#6D28D9]" aria-hidden="true" />
+            <span>{feature.summary}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function PricingSection() {
   return (
@@ -48,6 +70,7 @@ export function PricingSection() {
             <span className="text-base font-medium text-[#6B7280]">per month</span>
           </p>
           <p className="mt-3 text-sm text-[#6B7280]">Billed monthly. Cancel anytime.</p>
+          <PlanFeatures />
           <PlanCta interval="monthly" label="Start Pro monthly" className={`${buttonBase} border border-[#6D28D9] bg-transparent text-[#6D28D9] hover:bg-[#F5F3FF]`} />
         </article>
 
@@ -59,6 +82,7 @@ export function PricingSection() {
             <span className="text-base font-medium text-[#6B7280]">per year</span>
           </p>
           <p className="mt-3 text-sm text-[#6B7280]">About $8.25 per month, billed yearly. Saves $249 compared with monthly.</p>
+          <PlanFeatures />
           <PlanCta interval="yearly" label="Start Pro yearly" className={`${buttonBase} bg-[#6D28D9] text-white hover:bg-[#5B21B6]`} />
         </article>
       </div>

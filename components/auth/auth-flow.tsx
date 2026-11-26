@@ -94,7 +94,7 @@ function ShowcasePanel() {
           <div className="rounded-xl rounded-tl-sm bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-600">
             <p><strong className="text-slate-900">Done.</strong> Wasted search terms flagged, budget bottlenecks identified, and your action plan is ready. No changes made.</p>
           </div>
-          <p className="text-[9px] leading-relaxed text-slate-400">Illustrative example. Findings depend on your account.</p>
+          <p className="text-[9px] leading-relaxed text-slate-400">You Don&apos;t Need a Marketing Specialist Anymore.</p>
         </div>
       </div>
     </aside>
@@ -104,7 +104,6 @@ function ShowcasePanel() {
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
   { label: 'At least one number (0-9) or a symbol', test: (value: string) => /[0-9]/.test(value) || /[^A-Za-z0-9]/.test(value) },
-  { label: 'Lowercase (a-z) and uppercase (A-Z)', test: (value: string) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
 ];
 
 function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone: (user: User) => void }) {
@@ -266,7 +265,7 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
       <button type="button" onClick={() => router.replace(FREE_PATHS.includes(next) ? next : '/dashboard')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline">
-        Continue with limited dashboard access
+        Continue with Free
       </button>
     </div>
   );
@@ -349,7 +348,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button onClick={retry} className="rounded-xl bg-[#6D28D9] text-white text-xs font-semibold px-5 py-2.5">Try again</button>
-                    <Link href="/dashboard" className="rounded-xl border border-slate-200 text-center text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with limited dashboard access</Link>
+                    <Link href="/dashboard" className="rounded-xl border border-slate-200 text-center text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with Free</Link>
                   </div>
                 </div>
               )

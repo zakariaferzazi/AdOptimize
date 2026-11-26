@@ -332,6 +332,11 @@ Homepage and pricing CTAs send new visitors to `/sign-up` and send signed-in use
 straight to a server-created checkout. Visitors can continue with the free plan.
 Paid pages redirect unauthenticated or unpaid users to `/sign-up?next=<page>`.
 
+Email sign-up requires at least eight characters and a number or symbol, plus
+matching password confirmation. Mixed-case letters are not required by the form.
+Firebase Authentication's password policy must also have uppercase/lowercase
+requirements disabled for the same passwords to be accepted by the provider.
+
 ### Google Ads authorization
 
 Google sign-in requests only `openid`, `email` and `profile`. Google Ads access is a

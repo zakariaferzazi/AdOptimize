@@ -27,6 +27,20 @@ describe('homepage', () => {
     expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
   });
 
+  it('shows agent capabilities beneath the price inside both subscription cards', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(LandingPage));
+    const pricingCards = (html.match(/<article[^>]*>.*?<\/article>/g) ?? []).filter((card) => /<h3[^>]*>Pro (Monthly|Yearly)<\/h3>/.test(card));
+    expect(pricingCards).toHaveLength(2);
+    for (const card of pricingCards) {
+      expect(card).toContain('Search and App campaign creation');
+      expect(card).toContain('Budget, CPA, ROAS and bidding adjustments');
+      expect(card).toContain('Approved changes executed in Google Ads');
+      expect(card.indexOf('$')).toBeLessThan(card.indexOf('Everything in Pro'));
+      expect(card.indexOf('Everything in Pro')).toBeLessThan(card.indexOf('Start Pro'));
+    }
+  });
+
   it('does not claim unverified ratings or testimonials', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
