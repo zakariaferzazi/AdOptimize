@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { Database, ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Service Providers - AdOptimize',
   description: 'Service providers and integrations used to operate AdOptimize, connect Google Ads, process subscriptions, and provide AI assistance.',
-};
+  path: '/subprocessors',
+});
 
 const providers = [
   { name: 'Google / Firebase', purpose: 'User authentication and selected application data storage and synchronization.', location: 'Google-operated infrastructure; region depends on configuration.' },

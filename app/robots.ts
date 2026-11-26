@@ -1,14 +1,14 @@
 import { MetadataRoute } from 'next';
+import { PRIVATE_ROUTES, absoluteUrl, getSiteUrl } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
-
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/api/'],
+      disallow: ['/api/', ...PRIVATE_ROUTES],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    host: getSiteUrl(),
+    sitemap: absoluteUrl('/sitemap.xml'),
   };
 }

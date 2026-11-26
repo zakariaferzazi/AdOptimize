@@ -31,23 +31,6 @@ export interface PSEOSolution {
   faqs: { q: string; a: string }[];
 }
 
-export interface PSEOComparison {
-  slug: string;
-  title: string;
-  metaTitle: string;
-  metaDescription: string;
-  targetKeyword: string;
-  competitorName: string;
-  tagline: string;
-  comparisonPoints: {
-    feature: string;
-    adoptimize: string;
-    competitor: string;
-  }[];
-  verdict: string;
-  faqs: { q: string; a: string }[];
-}
-
 export const PSEO_TOOLS: PSEOTool[] = [
   {
     slug: 'google-ads-audit',
@@ -445,106 +428,6 @@ export const PSEO_SOLUTIONS: PSEOSolution[] = [
       {
         q: 'Does AdOptimize replace human agency media buyers?',
         a: 'No. AdOptimize can help media buyers review account data and prepare supported changes while the user remains responsible for campaign decisions and approvals.',
-      },
-    ],
-  },
-];
-
-export const PSEO_COMPARISONS: PSEOComparison[] = [
-  {
-    slug: 'google-ads-agency-vs-software',
-    title: 'Google Ads Agency vs. AI-Assisted Software',
-    metaTitle: 'Google Ads Agency vs. AI-Assisted Software - Comparison',
-    metaDescription: 'Compare service scope, pricing, approval controls, and transparency between traditional agencies and AdOptimize.',
-    targetKeyword: 'Google Ads agency vs software',
-    competitorName: 'Traditional PPC Agency',
-    tagline: 'Review the differences between agency-led campaign management and an approval-controlled AI workspace.',
-    comparisonPoints: [
-      { feature: 'Cost', adoptimize: '$29/month or $99/year', competitor: 'Varies by agency and service scope' },
-      { feature: 'Audit Frequency', adoptimize: 'On-demand analysis and sync', competitor: 'Varies by service agreement' },
-      { feature: 'Root Cause Explanation', adoptimize: 'Account evidence and proposal context', competitor: 'Varies by reporting process' },
-      { feature: 'Human Control', adoptimize: 'Proposal approval before supported execution', competitor: 'Confirm access and approval responsibilities' },
-      { feature: 'Change History', adoptimize: 'Execution history with recorded values', competitor: 'Varies by agency and reporting process' },
-      { feature: 'Contract Commitment', adoptimize: 'Monthly or yearly; cancel to stop future renewal', competitor: 'Varies by agency agreement' },
-    ],
-    verdict: 'AdOptimize may fit teams that want account-aware analysis and approval-controlled software. An agency may be better suited when creative production, strategy, media buying, or hands-on service is required.',
-    faqs: [
-      {
-        q: 'Can I use AdOptimize if I already have an agency?',
-        a: 'Yes. AdOptimize can provide an additional analysis and proposal workspace, but you should confirm access, ownership, and responsibilities with your agency.',
-      },
-      {
-        q: 'What if I need custom ad creative or landing pages?',
-        a: 'AdOptimize focuses on supported Google Ads analysis and account changes. Creative production, video, landing-page work, and broader strategy services are outside the core agent capabilities described on this site.',
-      },
-    ],
-  },
-  {
-    slug: 'wordstream-alternative',
-    title: 'AdOptimize vs. WordStream',
-    metaTitle: 'AdOptimize vs WordStream - Modern Google Ads Alternative',
-    metaDescription: 'Looking for a WordStream alternative? Review AdOptimize account analysis, approval-controlled changes, and activity history.',
-    targetKeyword: 'Wordstream alternative',
-    competitorName: 'WordStream / LOCALiQ',
-    tagline: 'Modern, transparent Google Ads optimization without dated rule templates or agency upsells.',
-    comparisonPoints: [
-      { feature: 'Analysis', adoptimize: 'Account analysis and proposal workflow', competitor: 'Review current provider features' },
-      { feature: 'Data Grounding', adoptimize: 'Connected query, performance, and campaign data', competitor: 'Review current provider documentation' },
-      { feature: 'PMax Support', adoptimize: 'Available analysis depends on accessible Google Ads data', competitor: 'Review current provider documentation' },
-      { feature: 'Budget Workflow', adoptimize: 'Account-aware budget proposals for approval', competitor: 'Review current provider workflow' },
-      { feature: 'Safety Guardrails', adoptimize: 'Proposal validation and approval', competitor: 'Review current provider workflow' },
-    ],
-    verdict: 'AdOptimize offers modern, data-backed optimization built specifically for today’s Smart Bidding and Performance Max environment.',
-    faqs: [
-      {
-        q: 'Why look for a WordStream alternative in 2026?',
-        a: 'AdOptimize provides an account-aware AI workflow for performance questions, search-term analysis, and supported change proposals. It is one alternative to traditional management tools rather than a guarantee of better results.',
-      },
-    ],
-  },
-  {
-    slug: 'optmyzr-alternative',
-    title: 'AdOptimize vs. Optmyzr',
-    metaTitle: 'AdOptimize vs Optmyzr - Simpler, Transparent PPC Optimization',
-    metaDescription: 'Compare AdOptimize and Optmyzr. Clean UI, actionable plain-English recommendations, and guarded execution without enterprise complexity.',
-    targetKeyword: 'Optmyzr alternative',
-    competitorName: 'Optmyzr',
-    tagline: 'A Google Ads-focused AI workspace with connected-account analysis and approval-controlled changes.',
-    comparisonPoints: [
-      { feature: 'Setup', adoptimize: 'Google and Google Ads authorization flows', competitor: 'Review current provider setup' },
-      { feature: 'Pricing', adoptimize: '$29/month or $99/year', competitor: 'Review current provider pricing' },
-      { feature: 'UI Experience', adoptimize: 'Conversation and proposal-based workspace', competitor: 'Varies by plan and account' },
-      { feature: 'AI Diagnosis', adoptimize: 'Account-aware analysis and proposal context', competitor: 'Review current provider workflow' },
-      { feature: 'Guardrails', adoptimize: 'Validation and approval before execution', competitor: 'Review current provider workflow' },
-    ],
-    verdict: 'Evaluate both products against your account permissions, workflow, reporting needs, and current vendor terms. AdOptimize does not guarantee better performance than another product.',
-    faqs: [
-      {
-        q: 'Is AdOptimize suitable for individual marketers?',
-        a: 'AdOptimize can be used by founders, individual advertisers, and lean media teams, but setup quality, data, and user review still matter. Results are not instant or guaranteed.',
-      },
-    ],
-  },
-  {
-    slug: 'adspirer-alternative',
-    title: 'AdOptimize vs. Adspirer',
-    metaTitle: 'AdOptimize vs Adspirer - Dedicated Google Ads AI Optimization',
-    metaDescription: 'Compare AdOptimize and Adspirer. Discover deep SearchStream and PMax campaign diagnostics, negative keyword harvesting, and guarded spend controls.',
-    targetKeyword: 'Adspirer alternative',
-    competitorName: 'Adspirer',
-    tagline: 'A Google Ads-focused AI workspace with connected-account data, proposal review, and recorded outcomes.',
-    comparisonPoints: [
-      { feature: 'Google Ads Focus', adoptimize: 'Connected Google Ads analysis and supported operations', competitor: 'Review current provider capabilities' },
-      { feature: 'Negative Keyword Finder', adoptimize: 'Search-term analysis and approved negative-keyword proposals', competitor: 'Review current provider workflow' },
-      { feature: 'Budget Workflow', adoptimize: 'Budget and bidding proposals for review', competitor: 'Review current provider workflow' },
-      { feature: 'Execution Safety', adoptimize: 'Proposal and execution history with recorded values', competitor: 'Review current provider workflow' },
-      { feature: 'Pricing', adoptimize: 'Pro Monthly at $29 or Pro Yearly at $99; all sales are final', competitor: 'Review current provider pricing and terms' },
-    ],
-    verdict: 'AdOptimize is a Google Ads-focused option. Confirm current Adspirer capabilities, pricing, and terms before making a purchasing decision.',
-    faqs: [
-      {
-        q: 'How does AdOptimize differ from chat-based media buyers?',
-        a: 'AdOptimize provides connected-account analysis, proposal history, and recorded execution outcomes so users can review why a supported change was proposed and what happened after approval.',
       },
     ],
   },

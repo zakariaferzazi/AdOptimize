@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { Mail, MessageSquare } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { ContactForm } from '@/components/contact/contact-form';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Contact Us - AdOptimize | Support & Sales Inquiries',
-  description: 'Get in touch with the AdOptimize support and engineering team for Google Ads integration assistance or agency partnerships.',
-};
+  description: 'Contact AdOptimize support at support@adoptimize.app for help with your account, billing, or Google Ads connection.',
+  path: '/contact',
+});
 
 export default function ContactPage() {
   return (

@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, SlidersHorizontal } from 'lucide-react';
-import { PSEO_COMPARISONS } from '@/lib/pseo-data';
+import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { BLOG_DISCLAIMER } from '@/lib/blog-data';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Google Ads Management Comparisons & Alternatives - AdOptimize',
-  description: 'Compare AdOptimize with traditional PPC management and other Google Ads tools. Review account analysis, approval workflows, and Pro pricing.',
-};
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Google Ads Tool & Agency Comparisons | AdOptimize',
+  description: 'Compare AdOptimize with PPC agencies and other Google Ads tools on pricing, channel scope and change approval.',
+  path: '/compare',
+});
 
 export default function CompareDirectoryPage() {
   return (
@@ -40,6 +43,8 @@ export default function CompareDirectoryPage() {
             Review how AdOptimize’s account analysis, proposal workflow, and $29 monthly or $99 yearly pricing compare with traditional alternatives.
           </p>
         </div>
+
+        <p className="text-center text-xs text-slate-500 leading-relaxed max-w-3xl mx-auto">{BLOG_DISCLAIMER}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {PSEO_COMPARISONS.map((comp) => (

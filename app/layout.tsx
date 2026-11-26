@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthSessionProvider } from '@/components/auth-session-provider';
+import { absoluteUrl, buildGlobalSchema, DEFAULT_OG_IMAGE, getSiteUrl, serializeJsonLd, SITE_NAME } from '@/lib/seo';
+
+const defaultTitle = 'AdOptimize | AI Marketing Agent for Google Ads';
+const defaultDescription = 'AI marketing agent for Google Ads. It analyzes your account, drafts campaign and budget changes, and applies only the changes you approve.';
 
 export const metadata: Metadata = {
-  title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-  description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
-  metadataBase: new URL(process.env.APP_URL || 'https://adoptimize.app'),
-  alternates: {
-    canonical: '/',
-  },
+  title: defaultTitle,
+  description: defaultDescription,
+  metadataBase: new URL(getSiteUrl()),
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
@@ -19,56 +20,30 @@ export const metadata: Metadata = {
     apple: '/icon.svg',
   },
   openGraph: {
-    title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-    description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
-    url: 'https://adoptimize.app',
-    siteName: 'AdOptimize',
+    title: defaultTitle,
+    description: defaultDescription,
+    url: absoluteUrl('/'),
+    siteName: SITE_NAME,
     type: 'website',
+    images: [{ url: DEFAULT_OG_IMAGE, alt: `${SITE_NAME} AI marketing agent for Google Ads` }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AdOptimize - Stop Wasted Google Ads Spend & Increase ROAS',
-    description: 'Instant Google Ads audit tool and optimization software. Eliminate negative keyword leaks, lower cost per conversion, and reallocate budget to winners.',
+    title: defaultTitle,
+    description: defaultDescription,
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
-  const globalSchema = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'Organization',
-        name: 'AdOptimize',
-        url: 'https://adoptimize.app',
-        logo: 'https://adoptimize.app/icon.svg',
-        sameAs: ['https://twitter.com/adoptimize'],
-      },
-      {
-        '@type': 'SoftwareApplication',
-        name: 'AdOptimize',
-        applicationCategory: 'BusinessApplication',
-        operatingSystem: 'All',
-        offers: {
-          '@type': 'Offer',
-          price: '29',
-          priceCurrency: 'USD',
-        },
-        description: 'Instant Google Ads audit and budget optimization software for high-growth businesses and agencies.',
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: '4.9',
-          ratingCount: '340',
-        },
-      },
-    ],
-  };
-
   return (
     <html lang="en" className="h-full antialiased">
       <body className="h-full bg-white text-[#1F2937] selection:bg-[#DDD6FE] selection:text-[#2E1065] font-sans" suppressHydrationWarning>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildGlobalSchema()) }} />
         <AuthSessionProvider />
         {children}
       </body>
     </html>
   );
 }
+

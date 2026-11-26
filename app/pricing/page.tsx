@@ -3,11 +3,13 @@ import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { PlanCta } from '@/components/billing/plan-cta';
+import { absoluteUrl, buildPageMetadata, serializeJsonLd } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Pricing - AdOptimize Pro Monthly and Yearly',
   description: 'Limited dashboard access plus AdOptimize Pro for $29 per month or $99 per year. Unlock AI analysis, campaign management, reports, and approved Google Ads changes.',
-};
+  path: '/pricing',
+});
 
 const features = [
   'AI Marketing Agent with account-aware conversations',
@@ -18,9 +20,23 @@ const features = [
   'Approval and execution history',
 ];
 
+const pricingSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'AdOptimize Pro',
+  description: 'AI marketing agent for Google Ads with approval before supported changes are applied.',
+  brand: { '@type': 'Brand', name: 'AdOptimize' },
+  url: absoluteUrl('/pricing'),
+  offers: [
+    { '@type': 'Offer', name: 'Pro Monthly', price: '29.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: absoluteUrl('/pricing') },
+    { '@type': 'Offer', name: 'Pro Yearly', price: '99.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: absoluteUrl('/pricing') },
+  ],
+};
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-[#F5F3FF] text-slate-900">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(pricingSchema) }} />
       <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/"><BrandLogo /></Link>

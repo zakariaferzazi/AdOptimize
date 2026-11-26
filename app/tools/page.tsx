@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { ArrowRight, Wrench, CheckCircle2 } from 'lucide-react';
 import { PSEO_TOOLS } from '@/lib/pseo-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Free Google Ads Tools & Calculators - AdOptimize',
   description: 'Free Google Ads audit tools, negative keyword finders, CPA calculators, Target ROAS estimators, and Quality Score diagnostics.',
-};
+  path: '/tools',
+});
 
 export default function ToolsDirectoryPage() {
   return (

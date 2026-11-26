@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { SlidersHorizontal, ShieldCheck, Zap, ArrowRight, CheckCircle2, Bot, BarChart3 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Features - AI Google Ads Analysis and Campaign Management | AdOptimize',
   description: 'Explore AdOptimize AI analysis, campaign creation, budgets, bidding, keywords, conversion settings, reports, and approval-controlled Google Ads changes.',
-};
+  path: '/features',
+});
 
 const capabilities = [
   { icon: BarChart3, title: 'Account analysis', desc: 'Ask about performance at account, campaign, ad-group, or keyword level and investigate changes by period, device, or network.' },

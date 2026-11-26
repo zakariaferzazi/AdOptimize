@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { Cookie, ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Cookie Policy - AdOptimize',
   description: 'How AdOptimize uses essential cookies and browser storage for authentication, billing sessions, and user preferences.',
-};
+  path: '/cookie-policy',
+});
 
 export default function CookiePolicyPage() {
   return (

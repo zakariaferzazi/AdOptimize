@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { CreditCard, ExternalLink } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Billing, Cancellation & Refund Policy - AdOptimize',
   description: 'AdOptimize subscription billing, renewal, cancellation, and no-refund policy for Pro Monthly and Pro Yearly.',
-};
+  path: '/refund-policy',
+});
 
 export default function RefundPolicyPage() {
   return (

@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { ArrowRight, Layers, CheckCircle2 } from 'lucide-react';
 import { PSEO_SOLUTIONS } from '@/lib/pseo-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Google Ads Optimization Solutions by Industry - AdOptimize',
   description: 'Tailored Google Ads and Performance Max optimization playbooks for online brands, eCommerce, B2B lead generation, and performance marketing agencies.',
-};
+  path: '/solutions',
+});
 
 export default function SolutionsDirectoryPage() {
   return (

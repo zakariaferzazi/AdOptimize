@@ -1,30 +1,13 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/landing-page';
+import { buildPageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
 const title = 'AdOptimize | AI Marketing Agent for Google Ads';
 const description = 'An AI agent that investigates your Google Ads account, builds campaigns, and executes budget, bidding and keyword changes after you approve them. Pro from $29/month.';
 
-export const metadata: Metadata = {
-  title,
-  description,
-  alternates: { canonical: '/' },
-  openGraph: {
-    title,
-    description,
-    url: '/',
-    siteName: 'AdOptimize',
-    type: 'website',
-    images: [{ url: '/auth_panel.png', alt: 'AdOptimize AI Marketing Agent workspace' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title,
-    description,
-    images: ['/auth_panel.png'],
-  },
-};
+export const metadata: Metadata = buildPageMetadata({ title, description, path: '/' });
 
 const structuredData = {
   '@context': 'https://schema.org',

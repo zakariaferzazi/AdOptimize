@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'About Us - AdOptimize | Mission & Background',
   description: 'Learn what AdOptimize does and how its AI marketing agent helps users analyze, create, and manage Google Ads campaigns.',
-};
+  path: '/about',
+});
 
 export default function AboutPage() {
   return (

@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Terms of Service - AdOptimize',
   description: 'Terms governing access to AdOptimize, Pro subscriptions, Google Ads connections, AI-assisted recommendations, and approved campaign changes.',
-};
+  path: '/terms-of-service',
+});
 
 export default function TermsOfServicePage() {
   return (

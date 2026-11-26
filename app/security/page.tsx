@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { ShieldCheck, Lock, Key, Server, CheckCircle2, ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Security Overview - AdOptimize',
   description: 'How AdOptimize handles Google Ads authorization, approved account changes, server-side credentials, and connected data.',
-};
+  path: '/security',
+});
 
 const controls = [
   {

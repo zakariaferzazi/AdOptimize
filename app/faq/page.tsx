@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { HelpCircle, ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Frequently Asked Questions - AdOptimize',
   description: 'Answers about AdOptimize subscriptions, Google Ads connections, AI analysis, campaign approvals, billing, and cancellations.',
-  alternates: { canonical: 'https://adoptimize.app/faq' },
-};
+  path: '/faq',
+});
 
 const faqs = [
   {

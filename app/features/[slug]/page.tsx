@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PSEO_FEATURES } from '@/lib/pseo-data';
+import { buildPageMetadata } from '@/lib/seo';
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,25 +28,12 @@ export async function generateMetadata({ params }: FeaturePageProps): Promise<Me
   const feature = PSEO_FEATURES.find((f) => f.slug === slug);
   if (!feature) return { title: 'Feature Not Found - AdOptimize' };
 
-  return {
+  return buildPageMetadata({
     title: `${feature.metaTitle} | AdOptimize`,
     description: feature.metaDescription,
-    alternates: {
-      canonical: `https://adoptimize.app/features/${feature.slug}`,
-    },
-    openGraph: {
-      title: `${feature.metaTitle} | AdOptimize`,
-      description: feature.metaDescription,
-      url: `https://adoptimize.app/features/${feature.slug}`,
-      siteName: 'AdOptimize',
-      type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: feature.metaTitle,
-      description: feature.metaDescription,
-    },
-  };
+    path: `/features/${feature.slug}`,
+    type: 'article',
+  });
 }
 
 export default async function FeatureDetailPage({ params }: FeaturePageProps) {
@@ -61,18 +49,12 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
     '@type': 'SoftwareApplication',
     name: `AdOptimize ${feature.title}`,
     applicationCategory: 'BusinessApplication',
-    operatingSystem: 'All',
-    offers: {
-      '@type': 'Offer',
-      price: '29',
-      priceCurrency: 'USD',
-    },
+    operatingSystem: 'Web',
+    offers: [
+      { '@type': 'Offer', name: 'Pro Monthly', price: '29', priceCurrency: 'USD' },
+      { '@type': 'Offer', name: 'Pro Yearly', price: '99', priceCurrency: 'USD' },
+    ],
     description: feature.metaDescription,
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      ratingCount: '194',
-    },
   };
 
   return (

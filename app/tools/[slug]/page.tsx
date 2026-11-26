@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 
 import { PSEO_TOOLS, PSEOTool } from '@/lib/pseo-data';
 import { ToolInteractiveWidget } from './tool-widget';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { buildPageMetadata } from '@/lib/seo';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -21,27 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tool = PSEO_TOOLS.find((t) => t.slug === slug);
   if (!tool) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
-  const url = `${baseUrl}/tools/${tool.slug}`;
-
-  return {
+  return buildPageMetadata({
     title: tool.metaTitle,
     description: tool.metaDescription,
-    alternates: {
-      canonical: url,
-    },
-    openGraph: {
-      title: tool.metaTitle,
-      description: tool.metaDescription,
-      url,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: tool.metaTitle,
-      description: tool.metaDescription,
-    },
-  };
+    path: `/tools/${tool.slug}`,
+  });
 }
 
 export default async function ToolDetailPage({ params }: Props) {

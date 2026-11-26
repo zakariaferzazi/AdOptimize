@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, ChevronRight, HelpCircle } from 'lucide-react';
 import { PSEO_SOLUTIONS } from '@/lib/pseo-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { buildPageMetadata } from '@/lib/seo';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -20,27 +21,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const sol = PSEO_SOLUTIONS.find((s) => s.slug === slug);
   if (!sol) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
-  const url = `${baseUrl}/solutions/${sol.slug}`;
-
-  return {
+  return buildPageMetadata({
     title: sol.metaTitle,
     description: sol.metaDescription,
-    alternates: {
-      canonical: url,
-    },
-    openGraph: {
-      title: sol.metaTitle,
-      description: sol.metaDescription,
-      url,
-      type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: sol.metaTitle,
-      description: sol.metaDescription,
-    },
-  };
+    path: `/solutions/${sol.slug}`,
+    type: 'article',
+  });
 }
 
 export default async function SolutionDetailPage({ params }: Props) {

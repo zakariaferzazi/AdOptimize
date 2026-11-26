@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { AuthFlow } from '@/components/auth/auth-flow';
+import { PRIVATE_ROBOTS } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Sign in | AdOptimize',
   description: 'Sign in to your AdOptimize AI marketing agent.',
-  robots: { index: false, follow: true },
+  robots: PRIVATE_ROBOTS,
 };
 
 export default function SignInPage() {

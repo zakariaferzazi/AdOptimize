@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ChevronRight, HelpCircle, ShieldCheck } from 'lucide-react';
-import { PSEO_COMPARISONS } from '@/lib/pseo-data';
+import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { BLOG_DISCLAIMER, BLOG_POSTS } from '@/lib/blog-data';
+import { absoluteUrl, buildPageMetadata, serializeJsonLd, SITE_CONTENT_UPDATED } from '@/lib/seo';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -20,27 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const comp = PSEO_COMPARISONS.find((c) => c.slug === slug);
   if (!comp) return {};
 
-  const baseUrl = process.env.APP_URL || 'https://adoptimize.app';
-  const url = `${baseUrl}/compare/${comp.slug}`;
-
-  return {
+  return buildPageMetadata({
     title: comp.metaTitle,
     description: comp.metaDescription,
-    alternates: {
-      canonical: url,
-    },
-    openGraph: {
-      title: comp.metaTitle,
-      description: comp.metaDescription,
-      url,
-      type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: comp.metaTitle,
-      description: comp.metaDescription,
-    },
-  };
+    path: `/compare/${comp.slug}`,
+  });
 }
 
 export default async function ComparisonDetailPage({ params }: Props) {
@@ -51,6 +37,8 @@ export default async function ComparisonDetailPage({ params }: Props) {
     notFound();
   }
 
+  const relatedPost = BLOG_POSTS.find((post) => post.slug === comp.relatedBlogSlug);
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -58,10 +46,11 @@ export default async function ComparisonDetailPage({ params }: Props) {
         '@type': 'Article',
         headline: comp.title,
         description: comp.metaDescription,
+        dateModified: SITE_CONTENT_UPDATED,
         author: {
           '@type': 'Organization',
           name: 'AdOptimize',
-          url: 'https://adoptimize.app',
+          url: absoluteUrl('/'),
         },
       },
       {
@@ -71,19 +60,19 @@ export default async function ComparisonDetailPage({ params }: Props) {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://adoptimize.app',
+            item: absoluteUrl('/'),
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Compare',
-            item: 'https://adoptimize.app/compare',
+            item: absoluteUrl('/compare'),
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: comp.title,
-            item: `https://adoptimize.app/compare/${comp.slug}`,
+            item: absoluteUrl(`/compare/${comp.slug}`),
           },
         ],
       },
@@ -105,7 +94,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
     <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
@@ -146,6 +135,12 @@ export default async function ComparisonDetailPage({ params }: Props) {
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
             {comp.tagline}
           </p>
+          <section aria-labelledby="key-facts" className="rounded-xl border border-[#DDD6FE] bg-white p-6 space-y-3 text-left">
+            <h2 id="key-facts" className="text-sm font-bold text-slate-900">Key facts</h2>
+            <ul className="list-disc space-y-2 pl-5 text-xs sm:text-sm text-slate-700 leading-relaxed">
+              {comp.keyFacts.map((fact) => <li key={fact}>{fact}</li>)}
+            </ul>
+          </section>
         </div>
 
         {/* Head-to-Head Comparison Table */}
@@ -172,7 +167,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
             <ShieldCheck className="w-4 h-4" />
             <span>The Verdict</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Why Modern Marketers Choose AdOptimize</h2>
+          <h2 className="text-xl font-bold text-slate-900">How to choose</h2>
           <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
             {comp.verdict}
           </p>
@@ -194,18 +189,43 @@ export default async function ComparisonDetailPage({ params }: Props) {
           </div>
         </div>
 
+        {comp.competitorSources && comp.competitorSources.length > 0 && (
+          <section aria-labelledby="competitor-sources" className="space-y-3 text-xs text-slate-600">
+            <h2 id="competitor-sources" className="text-sm font-bold text-slate-900">Competitor sources</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              {comp.competitorSources.map((source) => (
+                <li key={source.url}>
+                  <a href={source.url} target="_blank" rel="noopener noreferrer nofollow" className="font-semibold text-[#5B21B6] hover:underline">
+                    {source.label}
+                  </a>{' '}
+                  (checked 26 November 2026)
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {relatedPost && (
+          <p className="text-sm text-slate-700">
+            Read the full article:{' '}
+            <Link href={`/blog/${relatedPost.slug}`} className="font-semibold text-[#5B21B6] hover:underline">{relatedPost.title}</Link>
+          </p>
+        )}
+
+        <p className="text-xs text-slate-500 leading-relaxed">{BLOG_DISCLAIMER}</p>
+
         {/* Bottom CTA */}
         <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
-          <h2 className="text-2xl font-bold">Experience the AdOptimize Difference Today</h2>
+          <h2 className="text-2xl font-bold">Explore AdOptimize</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Pro Monthly at $29 or Pro Yearly at $99. Cancel anytime to stop the next renewal; all sales are final.
+            Create a free account to explore your dashboard. Pro Monthly is $29 and Pro Yearly is $99, plus applicable taxes. Subscriptions renew until canceled.
           </p>
           <div className="pt-2">
             <Link
-              href="/"
+              href="/sign-up"
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              <span>Create an account</span>
+              <span>Create free account</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

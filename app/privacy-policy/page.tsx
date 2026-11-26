@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { Lock, Database, Bot, CreditCard, Trash2, Mail, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Privacy Policy - AdOptimize',
   description: 'How AdOptimize handles account information, Google Ads OAuth data, AI conversations, campaign data, billing, cookies, and privacy requests.',
-};
+  path: '/privacy-policy',
+});
 
 const categories = [
   {
