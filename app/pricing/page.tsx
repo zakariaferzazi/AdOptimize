@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { PlanCta } from '@/components/billing/plan-cta';
+import { ProPlanFeatures } from '@/components/billing/pro-plan-features';
 import { absoluteUrl, buildPageMetadata, serializeJsonLd } from '@/lib/seo';
 import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 import { LandingPrimaryCta } from '@/components/landing/session-cta';
@@ -63,22 +64,24 @@ export default function PricingPage() {
             <p className="mt-3 flex-1 text-xs leading-6 text-slate-600">{FREE_PLAN_SUMMARY}</p>
             <LandingPrimaryCta className="mt-8 w-full" />
           </div>
-          <div className="rounded-xl p-7 border border-slate-200/80 bg-white text-slate-900 shadow-xs flex flex-col">
-            <div className="text-sm font-bold">Pro Monthly</div>
+          <article className="rounded-xl p-7 border border-slate-200/80 bg-white text-slate-900 shadow-xs flex flex-col">
+            <h2 className="text-sm font-bold">Pro Monthly</h2>
             <p className="text-xs mt-1 text-slate-500">One paid interval with the full Pro feature set.</p>
             <div className="mt-5 flex items-baseline gap-1"><span className="text-4xl font-bold">$29</span><span className="text-xs text-slate-500">per month</span></div>
             <p className="mt-3 text-xs text-slate-500">Renews monthly until canceled. Taxes calculated at checkout.</p>
+            <ProPlanFeatures />
             <PlanCta interval="monthly" label="Start Pro Monthly" className="mt-8 w-full py-3 rounded-xl text-xs font-bold text-center bg-transparent border border-[#6D28D9] text-[#6D28D9] hover:bg-[#F5F3FF]" />
-          </div>
+          </article>
 
-          <div className="relative rounded-xl p-7 border-2 border-[#6D28D9] bg-[#2E1065] text-white shadow-xl flex flex-col">
+          <article className="relative rounded-xl p-7 border-2 border-[#6D28D9] bg-[#2E1065] text-white shadow-xl flex flex-col">
             <span className="absolute -top-3 right-6 bg-[#FBBF24] text-[#2E1065] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">Best value</span>
-            <div className="text-sm font-bold">Pro Yearly</div>
+            <h2 className="text-sm font-bold">Pro Yearly</h2>
             <p className="text-xs mt-1 text-slate-300">One paid interval with the full Pro feature set.</p>
             <div className="mt-5 flex items-baseline gap-1"><span className="text-4xl font-bold">$99</span><span className="text-xs text-slate-300">per year</span></div>
             <p className="mt-3 text-xs text-slate-300">Renews yearly until canceled. Taxes calculated at checkout.</p>
+            <ProPlanFeatures dark />
             <PlanCta interval="yearly" label="Start Pro Yearly" className="mt-8 w-full py-3 rounded-xl text-xs font-bold text-center bg-[#6D28D9] text-white hover:bg-[#5B21B6]" />
-          </div>
+          </article>
         </div>
 
         <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs max-w-4xl mx-auto">

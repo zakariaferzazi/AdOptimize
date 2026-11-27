@@ -9,6 +9,15 @@ import { fetchBillingStatus, type BillingStatus } from '@/lib/billing-client';
 
 const LandingSessionContext = createContext<{ hasAccess?: boolean; error?: string } | null>(null);
 
+export function LandingAuditCta({ className = '' }: { className?: string }) {
+  const { user, ready } = useAuthUser();
+  return (
+    <Link href={ready && user ? '/audit' : '/sign-up?next=/audit'} className={`${landing.btnPrimary} ${className}`}>
+      Audit now <ArrowRight className="h-4 w-4" aria-hidden="true" />
+    </Link>
+  );
+}
+
 export function LandingSessionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthUser();
   const [loaded, setLoaded] = useState<{ uid: string; status?: BillingStatus; error?: string } | null>(null);

@@ -77,6 +77,25 @@ describe('homepage', () => {
     }
   });
 
+  it('shows the same agent capabilities inside both pricing-page Pro cards', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(PricingPage));
+    const cards = (html.match(/<article[^>]*>.*?<\/article>/g) ?? []).filter((card) => /<h2[^>]*>Pro (Monthly|Yearly)<\/h2>/.test(card));
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(card).toContain('AI Marketing Agent to build, manage and optimize campaigns');
+      expect(card).toContain('Search and App campaigns built from your brief');
+      expect(card).toContain('Budget and bid adjustments for your CPA and ROAS goals');
+      expect(card).toContain('Keywords, negatives, locations and conversion goals');
+      expect(card).toContain('Approved updates applied directly in Google Ads');
+      expect(card).toContain('Account audits, reports and change history');
+      expect(card.indexOf('$')).toBeLessThan(card.indexOf('Your subscription includes'));
+      expect(card.indexOf('Your subscription includes')).toBeLessThan(card.indexOf('Start Pro'));
+    }
+    expect(cards[0]).toContain('data-interval="monthly"');
+    expect(cards[1]).toContain('data-interval="yearly"');
+  });
+
   it('does not claim unverified ratings or testimonials', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Check, SearchCheck } from 'lucide-react';
 import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 import { landing } from './landing-ui';
-import { LandingPrimaryCta } from './session-cta';
+import { LandingAuditCta } from './session-cta';
 
 export function FreeAudit() {
   return (
@@ -13,7 +13,7 @@ export function FreeAudit() {
           <h2 id="free-audit-heading" className={landing.h2}>Your free Google Ads audit starts with real account data.</h2>
           <p className={landing.lead}>Connect Google Ads, choose a reporting period and get a prioritized review plan. Find spend with no recorded conversions, compare CPA and ROAS, and review available keyword Quality Scores.</p>
           <p className="mt-4 text-sm leading-6 text-[#6B7280]">Five completed audits per calendar month (UTC). No card required. The audit is read-only and does not change your campaigns.</p>
-          <LandingPrimaryCta className="mt-7 w-full sm:w-auto" />
+          <LandingAuditCta className="mt-7 w-full sm:w-auto" />
           <Link href="/tools/google-ads-audit" className="mt-4 block text-sm font-semibold text-[#6D28D9] underline">See how the free Google Ads audit tool works</Link>
         </div>
         <div className={landing.card}>

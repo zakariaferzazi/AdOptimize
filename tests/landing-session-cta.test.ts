@@ -21,7 +21,7 @@ vi.mock('@/hooks/use-auth-user', () => ({
   useAuthUser: () => ({ ready: true, user: signedIn ? { uid: 'signed-in' } : null }),
 }));
 
-import { LandingAccountLink, LandingPrimaryCta, LandingSessionProvider } from '@/components/landing/session-cta';
+import { LandingAccountLink, LandingAuditCta, LandingPrimaryCta, LandingSessionProvider } from '@/components/landing/session-cta';
 
 function homepageCta() {
   return renderToStaticMarkup(React.createElement(LandingSessionProvider, null, React.createElement(LandingPrimaryCta)));
@@ -63,6 +63,22 @@ describe('homepage session CTAs', () => {
     expect(html).toContain(hasAccess ? 'href="/dashboard"' : 'href="/pricing"');
     expect(html).not.toContain('Open audit workspace');
     expect(html).not.toContain('/sign-up');
+  });
+
+  it('sends signed-out visitors through signup to the audit', () => {
+    const html = renderToStaticMarkup(React.createElement(LandingSessionProvider, null, React.createElement(LandingAuditCta)));
+    expect(html).toContain('Audit now');
+    expect(html).toContain('href="/sign-up?next=/audit"');
+  });
+
+  it.each([false, true])('takes signed-in users to the audit regardless of Pro access: Pro=%s', (hasAccess) => {
+    signedIn = true;
+    mocks.loaded = { uid: 'signed-in', status: { hasAccess } };
+    const html = renderToStaticMarkup(React.createElement(LandingSessionProvider, null, React.createElement(LandingAuditCta)));
+    expect(html).toContain('Audit now');
+    expect(html).toContain('href="/audit"');
+    expect(html).not.toContain('Upgrade to Pro');
+    expect(html).not.toContain('Go to Dashboard');
   });
 
   it('does not assume Pro or Free before loading the current user plan', () => {
