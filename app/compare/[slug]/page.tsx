@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowRight, CheckCircle2, ChevronRight, HelpCircle, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ChevronRight, HelpCircle, ShieldCheck } from 'lucide-react';
 import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { BLOG_DISCLAIMER, BLOG_POSTS } from '@/lib/blog-data';
-import { absoluteUrl, buildPageMetadata, serializeJsonLd, SITE_CONTENT_UPDATED } from '@/lib/seo';
+import { absoluteUrl, buildPageMetadata, serializeJsonLd } from '@/lib/seo';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -46,7 +46,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
         '@type': 'Article',
         headline: comp.title,
         description: comp.metaDescription,
-        dateModified: SITE_CONTENT_UPDATED,
+        dateModified: comp.checkedAt,
         author: {
           '@type': 'Organization',
           name: 'AdOptimize',
@@ -127,7 +127,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
         {/* Header */}
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5F3FF] text-[#5B21B6] border border-[#DDD6FE] text-xs font-bold">
-            <span>Competitive Audit & Breakdown</span>
+            <span>Pricing &amp; Campaign Workflows</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
             {comp.title}
@@ -145,17 +145,25 @@ export default async function ComparisonDetailPage({ params }: Props) {
 
         {/* Head-to-Head Comparison Table */}
         <div className="bg-white rounded-xl overflow-hidden border border-slate-200/80 shadow-md">
-          <div className="grid grid-cols-3 bg-[#2E1065] text-white p-5 text-xs font-bold uppercase tracking-wider">
+          <div className="hidden grid-cols-3 gap-3 bg-[#2E1065] p-5 text-xs font-bold uppercase tracking-wider text-white sm:grid">
             <div>Feature / Dimension</div>
-            <div className="text-[#6D28D9]">AdOptimize</div>
-            <div className="text-slate-400">{comp.competitorName}</div>
+            <div className="text-[#FBBF24]">AdOptimize</div>
+            <div>{comp.competitorName}</div>
           </div>
           <div className="divide-y divide-slate-100 text-xs sm:text-sm">
             {comp.comparisonPoints.map((row, i) => (
-              <div key={i} className="grid grid-cols-3 p-5 items-center gap-3">
-                <div className="font-bold text-slate-900">{row.feature}</div>
-                <div className="text-[#5B21B6] font-semibold">{row.adoptimize}</div>
-                <div className="text-slate-500">{row.competitor}</div>
+              <div key={i} className="grid gap-3 p-5 sm:grid-cols-3 sm:items-start">
+                <h3 className="font-bold text-slate-900">{row.feature}</h3>
+                <dl className="grid gap-4 leading-relaxed sm:col-span-2 sm:grid-cols-2 sm:gap-3">
+                  <div className="min-w-0">
+                    <dt className="mb-1 text-xs font-bold text-[#2E1065] sm:sr-only">AdOptimize</dt>
+                    <dd className="font-semibold text-[#5B21B6]">{row.adoptimize}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="mb-1 text-xs font-bold text-slate-900 sm:sr-only">{comp.competitorName}</dt>
+                    <dd className="text-slate-600">{row.competitor}</dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
@@ -165,9 +173,9 @@ export default async function ComparisonDetailPage({ params }: Props) {
         <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-3">
           <div className="text-xs font-bold uppercase tracking-wider text-[#6D28D9] flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4" />
-            <span>The Verdict</span>
+            <span>The AdOptimize Value</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">How to choose</h2>
+          <h2 className="text-xl font-bold text-slate-900">Why consider AdOptimize?</h2>
           <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
             {comp.verdict}
           </p>
@@ -198,7 +206,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
                   <a href={source.url} target="_blank" rel="noopener noreferrer nofollow" className="font-semibold text-[#5B21B6] hover:underline">
                     {source.label}
                   </a>{' '}
-                  (checked 26 November 2026)
+                  (checked {new Date(`${comp.checkedAt}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })})
                 </li>
               ))}
             </ul>
@@ -216,9 +224,9 @@ export default async function ComparisonDetailPage({ params }: Props) {
 
         {/* Bottom CTA */}
         <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
-          <h2 className="text-2xl font-bold">Explore AdOptimize</h2>
+          <h2 className="text-2xl font-bold">Put your Google Ads agent to work.</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Create a free account to explore your dashboard. Pro Monthly is $29 and Pro Yearly is $99, plus applicable taxes. Subscriptions renew until canceled.
+            Build campaigns, manage budgets and execute approved optimizations. Explore your dashboard free, then unlock the agent with Pro at $29/month or $99/year, plus applicable taxes.
           </p>
           <div className="pt-2">
             <Link

@@ -1,12 +1,18 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import sitemap from '@/app/sitemap';
 import robots from '@/app/robots';
 import { BLOG_POSTS } from '@/lib/blog-data';
 import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import { buildLlmsTxt } from '@/lib/llms';
 import { buildGlobalSchema, buildPageMetadata, PRIVATE_ROUTES } from '@/lib/seo';
+import ComparisonDetailPage, { generateStaticParams as comparisonParams } from '@/app/compare/[slug]/page';
+import BlogPostPage, { generateStaticParams as blogParams } from '@/app/blog/[slug]/page';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('search indexing', () => {
   it('lists only public, absolute URLs in the sitemap, including the blog and comparisons', () => {
@@ -84,6 +90,38 @@ describe('structured data and content', () => {
     expect(copy).not.toMatch(/Review current provider|all sales are final/i);
     for (const comparison of PSEO_COMPARISONS) {
       expect(comparison.relatedBlogSlug ? BLOG_POSTS.some((post) => post.slug === comparison.relatedBlogSlug) : true).toBe(true);
+    }
+  });
+
+  it('renders every sourced comparison and its linked article with consistent facts and real destinations', async () => {
+    vi.stubGlobal('React', React);
+    const comparisonSlugs = (await comparisonParams()).map((item) => item.slug);
+    const blogSlugs = (await blogParams()).map((item) => item.slug);
+    const urls = sitemap().map((entry) => entry.url);
+
+    for (const comparison of PSEO_COMPARISONS.filter((item) => item.relatedBlogSlug)) {
+      expect(comparisonSlugs).toContain(comparison.slug);
+      expect(blogSlugs).toContain(comparison.relatedBlogSlug);
+      expect(urls).toContain(`https://adoptimize.app/compare/${comparison.slug}`);
+      expect(urls).toContain(`https://adoptimize.app/blog/${comparison.relatedBlogSlug}`);
+      const post = BLOG_POSTS.find((item) => item.slug === comparison.relatedBlogSlug);
+      if (!post) throw new Error(`Missing article for ${comparison.slug}`);
+      expect(post.keyFacts).toEqual(comparison.keyFacts);
+      expect(post.sources).toEqual(comparison.competitorSources);
+
+      const comparisonHtml = renderToStaticMarkup(await ComparisonDetailPage({ params: Promise.resolve({ slug: comparison.slug }) }));
+      const blogHtml = renderToStaticMarkup(await BlogPostPage({ params: Promise.resolve({ slug: post.slug }) }));
+      expect(comparisonHtml).toContain(`href="/blog/${post.slug}"`);
+      expect(blogHtml).toContain(`href="/compare/${comparison.slug}"`);
+      for (const html of [comparisonHtml, blogHtml]) {
+        expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+        expect(html).toContain('27 November 2026');
+        expect(html).toContain('$29');
+        expect(html).toContain('$99');
+        expect(html).not.toMatch(/Choose (WordStream|Adspirer|Optmyzr)|Review current provider|\[X\]/);
+        for (const source of post.sources) expect(html).toContain(`href="${source.url}"`);
+      }
+      expect(comparisonHtml).toContain('<dt class="mb-1 text-xs font-bold text-[#2E1065] sm:sr-only">AdOptimize</dt>');
     }
   });
 });

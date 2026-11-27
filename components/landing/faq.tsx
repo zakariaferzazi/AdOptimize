@@ -3,8 +3,8 @@ import { landing } from './landing-ui';
 
 const faqs = [
   {
-    q: 'Will the agent change my account without asking?',
-    a: 'No. The agent prepares proposed changes, and nothing runs until you approve it.',
+    q: 'Is this just a chatbot with advertising advice?',
+    a: 'No. AdOptimize works with your connected Google Ads account. It analyzes performance, builds campaigns and applies approved changes to budgets, bidding, keywords and targeting. You can delegate the account work, not just ask for advice.',
   },
   {
     q: 'What can the agent actually execute?',
@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: 'How do cancellation and billing work?',
-    a: 'Pro renews monthly or yearly until you cancel in the billing portal. Cancellation stops the next renewal, and AdOptimize follows a strict no-refund policy for charges already made.',
+    a: 'Choose Pro Monthly at $29 or Pro Yearly at $99, plus applicable taxes. Cancel in the billing portal to stop the next renewal. See the billing and cancellation policy for the full terms.',
   },
   {
     q: 'How is my Google Ads access handled?',
@@ -26,7 +26,7 @@ const faqs = [
 
 export function FaqSection() {
   return (
-    <section id="faq" className={`${landing.section} scroll-mt-24 bg-[#F5F3FF]`} aria-labelledby="faq-heading">
+    <section id="faq" className={`${landing.section} scroll-mt-24 bg-white`} aria-labelledby="faq-heading">
       <div className={`${landing.container} grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
         <div>
           <p className={landing.label}>FAQ</p>
@@ -43,6 +43,9 @@ export function FaqSection() {
                 <span className="text-xl leading-none text-[#6D28D9] transition-transform group-open:rotate-45 motion-reduce:transition-none" aria-hidden="true">+</span>
               </summary>
               <p className="mt-3 pr-8 text-sm leading-6 text-[#6B7280]">{item.a}</p>
+              {item.q === 'How do cancellation and billing work?' && (
+                <Link href="/refund-policy" className="mt-2 inline-block text-sm font-semibold text-[#6D28D9] underline">Billing and cancellation policy</Link>
+              )}
             </details>
           ))}
         </div>

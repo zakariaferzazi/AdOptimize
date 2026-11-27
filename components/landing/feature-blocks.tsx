@@ -5,8 +5,8 @@ import { landing } from './landing-ui';
 const blocks = [
   {
     label: 'Ask in plain language',
-    title: 'Get the cause of a change, with the numbers behind it.',
-    text: 'Ask why performance moved. The agent compares your chosen period with the previous one and traces the change down to the campaign, keyword or search term.',
+    title: 'Find what is holding your campaigns back.',
+    text: 'Ask where your budget is going and what deserves attention. The agent connects performance changes to campaign, keyword and search-term data so you can make an informed next move.',
     points: [
       'Compare any period with the equal period before it',
       'Break results down by device, network or day',
@@ -17,11 +17,11 @@ const blocks = [
   {
     label: 'Build from a brief',
     title: 'Describe the campaign. The agent sets it up.',
-    text: 'Give the agent the goal, budget and bidding limit. It prepares the campaign structure, ad groups and keywords for you to review before anything reaches Google Ads.',
+    text: 'Give the agent your offer, goal and budget. It prepares the campaign settings and required structure, then creates the campaign in Google Ads after approval.',
     points: [
       'Search or App campaigns with budget, bidding and locations',
       'Ad groups and keywords created together in one request',
-      'New campaigns start paused until you choose to enable them',
+      'Specify a paused launch when you want to review before spending',
     ],
     panel: 'build',
   },
@@ -30,7 +30,7 @@ const blocks = [
     title: 'Approve the change, and the agent applies it.',
     text: 'Each proposal shows current and new values side by side. Approve it and the agent applies it, then verifies the result in Google Ads.',
     points: [
-      'Unapproved proposals expire after 24 hours',
+      'Change budgets, bidding, keywords and targeting from one conversation',
       'Each execution is recorded as succeeded, failed or unverified',
     ],
     panel: 'approval',
@@ -70,7 +70,7 @@ function InvestigationPanel() {
 
 function BuildPanel() {
   const settings = [
-    ['Campaign', 'Search · Q3 Non-Brand'],
+    ['Campaign', 'Search · Q3 Non-Brand draft'],
     ['Status', 'Paused'],
     ['Daily budget', '$60.00'],
     ['Max CPC limit', '$7.50'],
@@ -81,7 +81,7 @@ function BuildPanel() {
     <div className="min-w-0">
       <section aria-label="Example campaign build summary" className={`${landing.mock} p-5 sm:p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Campaign build</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Campaign draft</p>
           <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Ready for review</span>
         </div>
         <dl className="mt-5 divide-y divide-[#DDD6FE] text-sm">

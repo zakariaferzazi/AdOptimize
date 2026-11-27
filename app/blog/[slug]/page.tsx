@@ -127,7 +127,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         {post.sources.length > 0 && (
           <section aria-labelledby="sources-heading" className="rounded-xl border border-slate-200/80 bg-white p-6 space-y-3">
-            <h2 id="sources-heading" className="text-sm font-bold text-slate-900">Sources checked on 26 November 2026</h2>
+            <h2 id="sources-heading" className="text-sm font-bold text-slate-900">Sources checked on {formatDate(post.updatedAt)}</h2>
             <ul className="space-y-2 text-sm">
               {post.sources.map((source) => (
                 <li key={source.url}>
@@ -150,9 +150,9 @@ export default async function BlogPostPage({ params }: Props) {
         )}
 
         <div className="rounded-xl bg-[#2E1065] p-8 text-center space-y-4 text-white shadow-xl">
-          <h2 className="text-xl font-bold">See what the agent finds in your Google Ads account</h2>
+          <h2 className="text-xl font-bold">Delegate your next Google Ads task.</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Create a free account to explore your dashboard. Pro Monthly is $29 and Pro Yearly is $99, plus applicable taxes.
+            Build campaigns, manage budgets and turn optimization decisions into action. Explore your dashboard free; Pro unlocks the agent at $29/month or $99/year, plus applicable taxes.
           </p>
           <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-xl bg-[#6D28D9] px-6 py-3.5 text-xs font-bold text-white transition-colors hover:bg-[#5B21B6]">
             Create free account <ArrowRight className="w-4 h-4" aria-hidden="true" />

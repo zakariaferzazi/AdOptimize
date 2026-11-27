@@ -34,13 +34,13 @@ export default function CompareDirectoryPage() {
         <div className="text-center space-y-3 max-w-2xl mx-auto">
           <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9] flex items-center justify-center gap-1.5">
             <SlidersHorizontal className="w-4 h-4" />
-            <span>Honest Comparisons</span>
+            <span>Pricing &amp; Campaign Workflows</span>
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-            AdOptimize vs. PPC Agencies & Legacy Tools
+            AdOptimize vs. Google Ads Tools &amp; Agencies
           </h1>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            Review how AdOptimize’s account analysis, proposal workflow, and $29 monthly or $99 yearly pricing compare with traditional alternatives.
+            Compare campaign creation, management, optimization and published prices. See why an executable Google Ads agent at $29/month or $99/year can fit your workflow.
           </p>
         </div>
 

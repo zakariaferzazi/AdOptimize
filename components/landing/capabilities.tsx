@@ -5,32 +5,32 @@ const capabilities = [
   {
     icon: Search,
     title: 'Investigate performance',
-    text: 'Explain any change down to the campaign, keyword or search term.',
+    text: 'Understand what changed and where to focus your next optimization.',
   },
   {
     icon: TrendingDown,
     title: 'Find wasted spend',
-    text: 'Surface non-converting queries and CPA outliers.',
+    text: 'Identify costly queries and turn findings into negative-keyword changes.',
   },
   {
     icon: Layers3,
     title: 'Build campaigns',
-    text: 'Create Search or App campaigns from a brief.',
+    text: 'Brief the agent and launch approved Search or App campaigns.',
   },
   {
     icon: SlidersHorizontal,
     title: 'Adjust budgets and bidding',
-    text: 'Change budgets, bids and campaign status.',
+    text: 'Adjust budgets and bidding around your CPA and ROAS goals.',
   },
   {
     icon: ListChecks,
     title: 'Manage keywords and negatives',
-    text: 'Add keywords and negatives, and adjust bids.',
+    text: 'Add relevant keywords, exclude wasted clicks and refine keyword bids.',
   },
   {
     icon: Target,
     title: 'Control targeting and conversions',
-    text: 'Edit locations and conversion goals.',
+    text: 'Refine locations and conversion goals to match your business.',
   },
 ];
 
@@ -41,7 +41,7 @@ export function Capabilities() {
         <div className="max-w-2xl">
           <p className={landing.label}>What the agent does</p>
           <h2 id="capabilities-heading" className={landing.h2}>It works inside your account, not beside it.</h2>
-          <p className={landing.lead}>Ask for an outcome in plain language. The agent reads the live account, checks each change against Google Ads, and prepares it for your approval.</p>
+          <p className={landing.lead}>One conversation can take you from a performance question to a campaign launch, a budget adjustment or a keyword update. The agent handles the account work; you decide what goes ahead.</p>
         </div>
 
         <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

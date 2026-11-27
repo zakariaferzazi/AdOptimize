@@ -9,10 +9,10 @@ export function Hero() {
         <div>
           <p className="inline-flex rounded-full bg-[#FBBF24] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#2E1065]">AI Marketing Agent for Google Ads</p>
           <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight text-[#2E1065] text-balance sm:text-5xl lg:text-6xl">
-            Your Google Ads agent. You approve every change.
+            Your Google Ads agent. Built to take action.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-[#6B7280]">
-            AdOptimize is the AI marketing agent for your Google Ads. It finds wasted spend, helps lower your cost per conversion and boosts ROAS, and you approve every change before it goes live.
+            Tell AdOptimize what you want to achieve. Your AI Marketing Agent analyzes performance, builds campaigns, manages budgets and bidding, and applies the changes you approve. Less manual work, with optimization decisions focused on your CPA and ROAS goals.
           </p>
           <p className="mt-4 text-sm font-medium text-[#1F2937]">
             Built for in-house marketers, freelancers and agencies.
@@ -23,7 +23,7 @@ export function Hero() {
             <a href="#pricing" className={`${landing.btnSecondary} w-full sm:w-auto`}>See Pro pricing</a>
           </div>
           <p className="mt-5 text-sm text-[#6B7280]">
-            Free account to explore your dashboard. Pro ($29/mo) unlocks the agent.
+            Explore your dashboard with a free account. Pro unlocks the agent from $29/month or $99/year.
           </p>
         </div>
 

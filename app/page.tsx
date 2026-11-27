@@ -5,7 +5,7 @@ import { buildPageMetadata } from '@/lib/seo';
 export const dynamic = 'force-dynamic';
 
 const title = 'AdOptimize | AI Marketing Agent for Google Ads';
-const description = 'An AI agent that investigates your Google Ads account, builds campaigns, and executes budget, bidding and keyword changes after you approve them. Pro from $29/month.';
+const description = 'Build, manage and optimize Google Ads with an AI Marketing Agent that carries out approved campaign, budget, bidding and keyword changes. Pro $29/month or $99/year.';
 
 export const metadata: Metadata = buildPageMetadata({ title, description, path: '/' });
 

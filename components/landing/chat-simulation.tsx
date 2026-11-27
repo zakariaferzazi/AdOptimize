@@ -14,7 +14,7 @@ export function ChatSimulation() {
 
         <div className="space-y-4 p-5 text-sm leading-6 sm:p-6">
           <p className="ml-auto max-w-[85%] rounded-xl bg-[#6D28D9] px-4 py-3 text-white">
-            Build me a campaign that gets app installs at $1.50 each.
+            Build an app install campaign. Aim for $1.50 per install with a $25 daily budget.
           </p>
 
           <p className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#DDD6FE] bg-[#F5F3FF] px-3 py-1.5 text-xs font-semibold text-[#5B21B6]">

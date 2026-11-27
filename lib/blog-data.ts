@@ -1,3 +1,5 @@
+import { COMPARISON_CHECKED_AT, PSEO_COMPARISONS } from '@/lib/comparison-data';
+
 export interface BlogSource {
   label: string;
   url: string;
@@ -19,191 +21,240 @@ export interface BlogPost {
   intro: string;
   keyFacts: string[];
   sections: BlogSection[];
-  // Public pages consulted for any competitor statement in this post.
   sources: BlogSource[];
   relatedCompareSlug?: string;
 }
 
-const DISCLAIMER_NOTE = 'Competitor details are taken from public websites checked on 26 November 2026. Prices and plans change, so confirm them on the vendor’s site before you buy.';
+export const BLOG_DISCLAIMER = 'Competitor details were checked on 27 November 2026 using the linked sources. Prices, billing options, limits and promotions can change. Entry prices do not imply identical features. WordStream, Adspirer, Optmyzr, Opteo and Pace are trademarks of their owners. AdOptimize is not affiliated with or endorsed by them.';
 
-export const BLOG_DISCLAIMER = `${DISCLAIMER_NOTE} WordStream, Adspirer and Optmyzr are trademarks of their owners. AdOptimize is not affiliated with or endorsed by them.`;
+function comparisonFacts(slug: string) {
+  const comparison = PSEO_COMPARISONS.find((item) => item.slug === slug);
+  if (!comparison?.competitorSources?.length) {
+    throw new Error(`Comparison article is missing sourced facts: ${slug}`);
+  }
+  return {
+    keyFacts: comparison.keyFacts,
+    sources: comparison.competitorSources,
+    relatedCompareSlug: comparison.slug,
+  };
+}
 
 export const BLOG_POSTS: BlogPost[] = [
   {
     slug: 'wordstream-vs-adoptimize',
-    keyFacts: [
-      'WordStream markets managed marketing services and a free consultation. Its pricing link led to a services page with no per-plan prices, checked on 26 November 2026.',
-      'AdOptimize is self-serve software for Google Ads. Pro Monthly is $29 and Pro Yearly is $99, plus applicable taxes.',
-      'AdOptimize shows each supported change for approval before it is applied in Google Ads, and records the outcome in activity history.',
-    ],
-    title: 'WordStream vs AdOptimize: Which Google Ads Tool Fits Your Team?',
-    description: 'Compare WordStream (LocaliQ) with AdOptimize on delivery model, published pricing, channel scope and how Google Ads changes are approved.',
+    ...comparisonFacts('wordstream-alternative'),
+    title: 'WordStream Advisor vs AdOptimize: Legacy Pricing, Real Campaign Execution',
+    description: 'The $49 WordStream Advisor listing is not a working checkout offer. See how AdOptimize gives you a Google Ads agent for campaign work at $29/month or $99/year.',
     category: 'Comparison',
     publishedAt: '2026-11-26',
-    updatedAt: '2026-11-26',
-    intro: 'WordStream’s public site promotes managed marketing services built around a consultation. AdOptimize is self-serve software for Google Ads. This guide explains where each one fits so you can choose based on how you want to work, not on a headline.',
+    updatedAt: COMPARISON_CHECKED_AT,
+    intro: 'If you are looking for a self-serve WordStream alternative, the important question is not just price. Can you subscribe to the product, connect your account and get campaign work done? AdOptimize offers an executable Google Ads agent with published Pro prices and a workflow that goes from your brief to approved account changes.',
     sections: [
       {
-        heading: 'The difference in delivery model',
+        heading: 'What the $49 WordStream price actually represents',
         paragraphs: [
-          'WordStream’s pricing link opens its marketing-services page, which invites visitors to book a free consultation. The page lists search, display, video and social advertising, plus listings and SEO services. It did not list per-plan prices.',
-          'AdOptimize is software you use yourself. You connect your Google Ads account, the AI Marketing Agent investigates performance and drafts changes, and you approve each supported change before it runs.',
+          'WordStream still has an Advisor page listing $49/month, a guided optimization workflow, reporting and keyword tools. But the Buy Now links on that page point to example.com. Treat the price as a legacy listing, not a confirmed product you can purchase today.',
+          'The main pricing URL leads to a marketing-services consultation page. Those LocaliQ services are quote-based and are not the same offer as the old Advisor software. We do not publish a guessed service price from unverified forum anecdotes.',
         ],
       },
       {
-        heading: 'Pricing you can check before a sales call',
+        heading: 'An agent that does the account work',
         paragraphs: [
-          'AdOptimize publishes Pro Monthly at $29 and Pro Yearly at $99, plus applicable taxes. A free account lets you explore the dashboard and campaign data. Agent analysis and supported changes require Pro.',
-          'A consultation-led service can be the right model when you want a team to own strategy and execution. Compare the scope of work, not only the monthly figure.',
+          'AdOptimize does more than summarize metrics. Ask it to investigate costly queries, create a Search or App campaign, adjust budgets and bidding, or update keywords and targeting. It prepares the supported changes and applies the ones you approve directly in Google Ads.',
+          'That means you can move from a performance question to an account action without translating every recommendation into manual settings changes.',
         ],
       },
       {
-        heading: 'How changes are handled',
+        heading: 'Pro pricing you can decide on without a sales call',
         paragraphs: [
-          'AdOptimize shows every supported change with its target and proposed values before anything happens in Google Ads.',
-        ],
-        bullets: [
-          'Approved changes are applied in Google Ads and written to your activity history with the outcome.',
-          'Unapproved proposals expire automatically and cannot be approved after that.',
-          'If AdOptimize cannot confirm a change in Google Ads, it is marked unverified until it can be checked.',
+          'Pro Monthly costs $29. Pro Yearly costs $99 for the year, equivalent to $8.25/month, paid yearly. Applicable taxes are additional and media spend is paid separately to Google.',
+          'Both Pro subscriptions include the agent, campaign creation and management, audits, reports and supported execution. Create a free account first to explore your dashboard and campaign data; the agent requires Pro.',
         ],
       },
       {
-        heading: 'Which one should you choose?',
+        heading: 'A practical workflow to evaluate',
         paragraphs: [],
         bullets: [
-          'Choose WordStream if you want an outside team to run strategy and several channels for you.',
-          'Choose AdOptimize if you run Google Ads yourself or with a small team, and want an agent that works in your account but waits for your approval.',
+          'Bring a specific task: build a campaign for your offer or investigate a rise in cost per conversion.',
+          'Review the proposed campaign settings or account update, including the budget and intended goal.',
+          'Approve the work and let the agent apply it, then inspect the execution outcome and follow-up performance.',
         ],
       },
       {
-        heading: 'Questions to ask before you switch',
-        paragraphs: [],
-        bullets: [
-          'Which Google Ads accounts and campaign types need coverage?',
-          'Who approves changes, and where are they recorded?',
-          'What is included in the price, and what costs extra?',
-          'What happens to your data if you cancel?',
+        heading: 'Why consider AdOptimize?',
+        paragraphs: [
+          'AdOptimize gives marketers who manage Google Ads a clear software option: executable campaign work, an account-aware workspace and a $29 monthly or $99 yearly subscription. If you want a managed marketing service instead, obtain its actual scope and quote separately; do not compare it with a retired software listing.',
         ],
       },
     ],
-    sources: [
-      { label: 'WordStream marketing services', url: 'https://www.wordstream.com/marketing-services' },
-    ],
-    relatedCompareSlug: 'wordstream-alternative',
   },
   {
     slug: 'adspirer-vs-adoptimize',
-    keyFacts: [
-      'Adspirer bills by task. Its pricing page, checked on 26 November 2026, lists Free (15 tasks a month), Plus at $40, Pro at $83 and Max at $167 per month.',
-      'Adspirer covers six ad platforms. AdOptimize covers Google Ads only.',
-      'AdOptimize Pro is $29 per month or $99 per year, plus applicable taxes. Agent actions and supported changes require Pro.',
-    ],
-    title: 'Adspirer vs AdOptimize: Multi-Platform Agent or Focused Google Ads Tool?',
-    description: 'Adspirer bills by task across six ad platforms. AdOptimize is a Google Ads agent with fixed Pro plans and approval before changes. Compare scope, pricing and control.',
+    ...comparisonFacts('adspirer-alternative'),
+    title: 'Adspirer vs AdOptimize: Put Your Google Ads Agent to Work',
+    description: 'Compare Adspirer task-based annual pricing with AdOptimize Pro at $29/month or $99/year for Google Ads campaign creation, management and optimization.',
     category: 'Comparison',
     publishedAt: '2026-11-26',
-    updatedAt: '2026-11-26',
-    intro: 'Adspirer and AdOptimize both use AI to help with paid media, but they are built for different scopes. Adspirer covers six ad platforms and bills by task. AdOptimize focuses on Google Ads and offers fixed Pro subscriptions.',
+    updatedAt: COMPARISON_CHECKED_AT,
+    intro: 'Both products can act on advertising accounts. AdOptimize is built for marketers who want to delegate Google Ads campaign work in a dedicated workspace, with Pro Monthly and Pro Yearly rather than a choice of task-based product tiers.',
     sections: [
       {
-        heading: 'Two different pricing models',
+        heading: 'Compare the billing basis, not just the number',
         paragraphs: [
-          'Adspirer’s public pricing page lists a Free plan with 15 tasks a month, then Plus at $40, Pro at $83 and Max at $167 per month. Annual billing lowers those monthly figures. Agencies and Enterprise are quoted separately. The page says you pay for tasks, not a percentage of ad spend.',
-          'AdOptimize offers Pro Monthly at $29 or Pro Yearly at $99, plus applicable taxes. Its free account includes the dashboard and campaign viewing, but agent actions and supported changes require Pro.',
+          'Adspirer displays Plus at $40/month, Pro at $83/month and Max at $167/month with annual-billing labels. These are not figures to present as month-to-month prices. The allowances shown are 150, 600 and 3,000 tasks per month respectively, with a 15-task free tier also listed.',
+          'AdOptimize Pro Monthly is $29, and Pro Yearly is $99 for the year ($8.25/month equivalent), plus applicable taxes. Both unlock the same agent capabilities. A free AdOptimize account is a dashboard preview, not a free agent subscription.',
         ],
       },
       {
-        heading: 'Platform coverage',
+        heading: 'Your campaign data and execution in one place',
         paragraphs: [
-          'Adspirer says its agents are trained on Google, Meta, LinkedIn, TikTok, Amazon and ChatGPT Ads. AdOptimize works with Google Ads only. If most of your paid media runs outside Google, a multi-platform tool is the better fit.',
+          'AdOptimize brings campaign viewing, agent conversations and change history into your Google Ads workspace. You can ask what is driving CPA, have the agent prepare a campaign, and carry out approved budget, bidding or keyword updates without moving the work between separate chat tools and the Google Ads interface.',
+          'Adspirer operates through chat tools including ChatGPT and Claude and advertises six platforms: Google, Meta, LinkedIn, TikTok, Amazon and ChatGPT Ads. AdOptimize does not claim that wider platform coverage; its value is executable Google Ads work at a lower entry subscription price.',
         ],
       },
       {
-        heading: 'Approval and control',
-        paragraphs: [
-          'AdOptimize shows each supported change for approval before it is applied, and records the outcome. The Adspirer pricing page we reviewed focuses on what its agents do in chat tools and does not describe approval controls in detail. Check how each action is confirmed before you connect an account to any tool.',
-        ],
-      },
-      {
-        heading: 'Who should choose which',
+        heading: 'What you can delegate to AdOptimize',
         paragraphs: [],
         bullets: [
-          'Choose Adspirer if you need one assistant across several ad platforms and are comfortable with task-based pricing.',
-          'Choose AdOptimize if your work is Google Ads and you want fixed Pro pricing, a clear approval step and a record of each change.',
+          'Build Search or App campaigns from an offer, goal and budget.',
+          'Investigate wasted spend and performance changes before deciding what to adjust.',
+          'Manage budgets, bidding targets, keywords, negatives and supported targeting settings.',
+          'Apply approved changes and review the recorded execution outcome.',
         ],
       },
       {
-        heading: 'Before you decide',
-        paragraphs: [],
-        bullets: [
-          'List every platform you need to manage.',
-          'Estimate how many agent tasks your team would use each month.',
-          'Test the approval step on a low-risk campaign before you rely on any tool.',
+        heading: 'Make the decision around your account work',
+        paragraphs: [
+          'If your immediate need is to create, manage and optimize Google Ads, AdOptimize offers those capabilities in both Pro subscriptions. Start by identifying the tasks you want to delegate and the subscription commitment you want to make. Cross-platform coverage and task allowances matter only if your workflow actually requires them.',
         ],
       },
     ],
-    sources: [
-      { label: 'Adspirer pricing', url: 'https://www.adspirer.com/pricing' },
-    ],
-    relatedCompareSlug: 'adspirer-alternative',
   },
   {
     slug: 'optmyzr-vs-adoptimize',
-    keyFacts: [
-      'Optmyzr offers Essentials, Premium and Enterprise plans chosen by monthly ad spend band. Its pricing page, checked on 26 November 2026, labels annual billing as saving 30%.',
-      'Optmyzr’s comparison table lists rule-engine automations on schedules. AdOptimize proposes supported changes that you approve before they run.',
-      'AdOptimize Pro is $29 per month or $99 per year, plus applicable taxes.',
-    ],
-    title: 'Optmyzr vs AdOptimize: Plan Tiers, Automation and Approval',
-    description: 'Optmyzr prices by plan and monthly ad spend and offers rule-engine automation. Compare it with AdOptimize’s Google Ads agent on pricing, scope and change approval.',
+    ...comparisonFacts('optmyzr-alternative'),
+    title: 'Optmyzr vs AdOptimize: Google Ads Execution Without a $209 Entry Rate',
+    description: 'Optmyzr Essentials starts at $209/month annually or $299 month-to-month before promotions. Compare AdOptimize campaign management at $29/month or $99/year.',
     category: 'Comparison',
     publishedAt: '2026-11-26',
-    updatedAt: '2026-11-26',
-    intro: 'Optmyzr is a PPC software suite with plans chosen by ad spend and a wide set of tools. AdOptimize is a Google Ads agent with two Pro plans. This guide compares them on pricing, scope and control so you can match the tool to your workflow.',
+    updatedAt: COMPARISON_CHECKED_AT,
+    intro: 'You do not always need a broad PPC toolkit to get your Google Ads work done. AdOptimize lets you describe a task, review the plan and have an agent execute it. Here is how that workflow and its Pro subscription compare with Optmyzr Essentials.',
     sections: [
       {
-        heading: 'How Optmyzr prices its plans',
+        heading: 'Verified entry pricing and billing commitments',
         paragraphs: [
-          'Optmyzr’s pricing page asks for your monthly ad spend, offers Essentials, Premium and Enterprise plans, and lets you switch between monthly and annual billing. The annual option is labelled “Save 30%”. Free trials are listed with no credit card required. The price depends on the spend band you select, so check the figures on the page for your own spend.',
-          'AdOptimize offers Pro Monthly at $29 or Pro Yearly at $99, plus applicable taxes, with no spend band.',
+          'The official Optmyzr pricing data lists the entry Essentials spend band at a standard $209/month under annual billing, or $299 on month-to-month billing. The entry selection shows up to $25,000 in monthly ad spend and 25 accounts. Spend bands, billing periods and promotions affect the final price; the page also advertises temporary sale rates.',
+          'AdOptimize Pro costs $29/month or $99/year, equivalent to $8.25/month paid yearly, plus applicable taxes. These are subscription prices, not Google Ads media budgets. The lower entry price is a concrete difference; it is not a claim that the two products have identical feature sets or account limits.',
         ],
       },
       {
-        heading: 'What each product covers',
+        heading: 'Delegate a task instead of configuring another workflow',
         paragraphs: [
-          'Optmyzr’s comparison table lists rule-engine automations, account and feed audits, bid and placement tools, cross-platform dashboards, and Meta and LinkedIn account tools. AdOptimize concentrates on Google Ads: account analysis, campaign creation, budget, bidding, keyword and targeting proposals, and approved execution.',
+          'Ask AdOptimize to create a Search campaign, investigate a high-CPA campaign, adjust a budget or add negative keywords. The agent uses your connected account data, prepares supported changes and applies the ones you approve.',
+          'Optmyzr offers audits, bidding and optimization tools, cross-platform capabilities and a rule engine. Scheduled rules can be valuable for repeatable workflows. AdOptimize is request-driven agent work, not a replacement claim for every scheduled automation in that suite.',
         ],
       },
       {
-        heading: 'Automation versus approval',
-        paragraphs: [
-          'Optmyzr’s table highlights rule-engine automations that run on schedules, with the frequency depending on the plan. AdOptimize is built around proposals: the agent drafts a supported change, you approve it, and only then is it applied.',
-          'If your priority is scheduled automation across many accounts and platforms, evaluate Optmyzr first. If you want an agent that proposes changes and waits for you, AdOptimize is designed for that workflow.',
-        ],
-      },
-      {
-        heading: 'Which tool fits your workflow?',
+        heading: 'Pro covers the work behind everyday Google Ads decisions',
         paragraphs: [],
         bullets: [
-          'Choose Optmyzr if you need rule-based automation and tools for several channels.',
-          'Choose AdOptimize if you want a Google Ads agent that explains performance, prepares changes and applies only what you approve.',
+          'Campaign creation and management, not just performance commentary.',
+          'Budget and bid changes around your goals, including supported CPA, ROAS and CPC settings.',
+          'Keywords, negative keywords, campaign status, locations and supported conversion goals.',
+          'Account audits, performance reports and recorded execution outcomes.',
         ],
       },
       {
-        heading: 'Verify before you buy',
-        paragraphs: [],
-        bullets: [
-          'Check the current price for your monthly ad spend band.',
-          'Confirm which accounts and platforms each plan includes.',
-          'Ask how each tool records changes and who can approve them.',
+        heading: 'When AdOptimize makes sense',
+        paragraphs: [
+          'For in-house marketers, freelancers and agencies whose immediate goal is to delegate Google Ads tasks, AdOptimize offers an executable agent at $29 monthly or $99 yearly. Before paying for a larger suite, list the tools you will actually use and compare the plan that includes them. Do not equate a larger feature catalogue with better value for every workflow.',
         ],
       },
     ],
-    sources: [
-      { label: 'Optmyzr pricing', url: 'https://www.optmyzr.com/pricing/' },
+  },
+  {
+    slug: 'opteo-vs-adoptimize',
+    ...comparisonFacts('opteo-alternative'),
+    title: 'Opteo vs AdOptimize: A Lower-Entry-Price Google Ads Agent',
+    description: 'Compare Opteo Basic at $129/month with AdOptimize Pro at $29/month or $99/year. Both advertise execution; see the differences in scope and pricing.',
+    category: 'Comparison',
+    publishedAt: COMPARISON_CHECKED_AT,
+    updatedAt: COMPARISON_CHECKED_AT,
+    intro: 'AdOptimize turns your Google Ads brief into campaign work: create campaigns, manage budgets and bidding, and carry out approved optimizations. Compare its lower entry subscription price and focused workspace with Opteo’s broader toolkit and account-based plans.',
+    sections: [
+      {
+        heading: 'What the starting plans cost',
+        paragraphs: [
+          'Opteo Basic is $129/month for 10 accounts and $25,000 in connected monthly spend. Professional is $249/month for 25 accounts and $100,000 spend; Agency is $499/month for 75 accounts and $250,000 spend. These limits are part of the offer, not details to omit when comparing prices.',
+          'AdOptimize Pro Monthly is $29. Pro Yearly is $99 for the year, equivalent to $8.25/month paid yearly, plus applicable taxes. Both Pro subscriptions include the agent for campaign creation, account management and supported optimization.',
+        ],
+      },
+      {
+        heading: 'A dedicated workspace for your Google Ads work',
+        paragraphs: [
+          'Opteo’s current site advertises Google, Meta, Microsoft, LinkedIn and TikTok Ads, an AI agent, one-click improvements, a toolkit and performance monitoring. It also describes pushing reviewed changes live.',
+          'AdOptimize focuses on Google Ads: campaign data, an agent that builds and manages campaigns, and a record of approved execution. That focus can be a practical fit when Google Ads is the account you want to delegate.',
+        ],
+      },
+      {
+        heading: 'Evaluate the tasks you want off your plate',
+        paragraphs: [],
+        bullets: [
+          'Creating a Search or App campaign from your brief.',
+          'Finding costly queries and preparing relevant negative keywords.',
+          'Adjusting campaign budgets, bidding targets, locations and status.',
+          'Reviewing account audits, reports and the outcome of approved changes.',
+        ],
+      },
+      {
+        heading: 'The case for AdOptimize',
+        paragraphs: [
+          'You can get an executable Google Ads agent without a $129/month starting subscription. AdOptimize makes the buying decision straightforward with two Pro intervals and the same core capabilities. Compare broader channel tools separately if you need them; do not pay for scope your current workflow does not use.',
+        ],
+      },
     ],
-    relatedCompareSlug: 'optmyzr-alternative',
+  },
+  {
+    slug: 'pace-vs-adoptimize',
+    ...comparisonFacts('pace-alternative'),
+    title: 'Pace vs AdOptimize: Budget Pacing or Google Ads Campaign Work?',
+    description: 'Pace starts at $49/month; its Dot agent is listed in the $199 One plan. AdOptimize includes its executable Google Ads agent at $29/month or $99/year.',
+    category: 'Comparison',
+    publishedAt: COMPARISON_CHECKED_AT,
+    updatedAt: COMPARISON_CHECKED_AT,
+    intro: 'A $49 pacing plan and an executable campaign agent are not the same purchase. Compare what each tier includes: AdOptimize Pro is built around doing Google Ads work, while Pace layers budget pacing, optimization tools and agent access across its plans.',
+    sections: [
+      {
+        heading: 'Entry price versus the tier with an agent',
+        paragraphs: [
+          'Pace lists Basic at $49/month with a $25,000 monthly managed-spend cap, Pro at $99 with $100,000, and One at $199 with $500,000, all on monthly billing. Basic includes budget pacing, spend protection and Google Ads editing. Its Dot AI chat agent is listed in One, not Basic.',
+          'AdOptimize includes its AI Marketing Agent in Pro Monthly at $29 and Pro Yearly at $99 ($8.25/month equivalent, paid yearly), plus applicable taxes. The agent handles supported campaign creation, management and optimization in both intervals.',
+        ],
+      },
+      {
+        heading: 'What you want the software to do',
+        paragraphs: [
+          'Pace supports pacing across eight platforms and scheduled budget optimization, with frequency and other capabilities depending on the tier. It is more than a reporting dashboard, and its editing and optimization features should not be hidden in a comparison.',
+          'AdOptimize helps you delegate the next Google Ads task: build a campaign, investigate performance, adjust budgets and bidding, manage keywords and targeting, and execute approved updates. The workflow starts with your brief, not a claim of unattended cross-platform budget control.',
+        ],
+      },
+      {
+        heading: 'Compare the plan that includes your required work',
+        paragraphs: [],
+        bullets: [
+          'Need an agent to create and manage Google Ads campaigns? Check agent access, not just basic pacing.',
+          'Need scheduled spend control across many platforms? Check supported platforms and run frequency.',
+          'Separate software fees, taxes and media spend when comparing the total commitment.',
+          'Check account and spend limits as well as approval and change-history workflows.',
+        ],
+      },
+      {
+        heading: 'Why choose AdOptimize for Google Ads work?',
+        paragraphs: [
+          'If your goal is to delegate campaign work to an agent, AdOptimize gives you that in Pro at $29 monthly or $99 yearly. You do not need to move to a $199 pacing tier to access our agent. Choose based on the tasks you want completed, not a generic promise that all automation tools are interchangeable.',
+        ],
+      },
+    ],
   },
   {
     slug: 'find-wasted-google-ads-spend',

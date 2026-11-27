@@ -7,7 +7,7 @@ export function buildLlmsTxt(): string {
   const lines = [
     `# ${SITE_NAME}`,
     '',
-    `> ${SITE_NAME} is an AI marketing agent for Google Ads. It analyzes a connected Google Ads account, drafts campaign, budget, bidding and keyword changes, and applies only the changes the user approves. It is self-serve software, not a managed agency service.`,
+    `> ${SITE_NAME} is an executable AI Marketing Agent for Google Ads. It creates Search and App campaigns, manages budgets, bidding, keywords and targeting, investigates performance and wasted spend, and applies approved changes directly in Google Ads. It is self-serve software, not a managed agency service.`,
     '',
     '## Key facts',
     '',

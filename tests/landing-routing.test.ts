@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '@/components/landing/landing-page';
+import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 
 vi.mock('@/components/billing/plan-cta', () => ({
   PlanCta: ({ interval, label }: { interval: string; label: string }) => React.createElement('button', { 'data-interval': interval }, label),
@@ -33,11 +34,13 @@ describe('homepage', () => {
     const pricingCards = (html.match(/<article[^>]*>.*?<\/article>/g) ?? []).filter((card) => /<h3[^>]*>Pro (Monthly|Yearly)<\/h3>/.test(card));
     expect(pricingCards).toHaveLength(2);
     for (const card of pricingCards) {
-      expect(card).toContain('Search and App campaign creation');
-      expect(card).toContain('Budget, CPA, ROAS and bidding adjustments');
-      expect(card).toContain('Approved changes executed in Google Ads');
-      expect(card.indexOf('$')).toBeLessThan(card.indexOf('Everything in Pro'));
-      expect(card.indexOf('Everything in Pro')).toBeLessThan(card.indexOf('Start Pro'));
+      expect(card).toContain('AI Marketing Agent to build, manage and optimize campaigns');
+      expect(card).toContain('Search and App campaigns built from your brief');
+      expect(card).toContain('Budget and bid adjustments for your CPA and ROAS goals');
+      expect(card).toContain('Approved updates applied directly in Google Ads');
+      expect(card.indexOf('$')).toBeLessThan(card.indexOf('Your subscription includes'));
+      expect(card.indexOf('Your subscription includes')).toBeLessThan(card.indexOf('Start Pro'));
+      expect(card).not.toMatch(/Everything in Pro|Agent for account analysis/);
     }
   });
 
@@ -45,5 +48,22 @@ describe('homepage', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
     expect(html).not.toMatch(/aggregateRating|ratingValue|testimonial/i);
+  });
+
+  it('renders sourced competitor prices, qualifications and working comparison anchors', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(LandingPage));
+    expect(html).toContain('id="compare"');
+    expect(html).toContain('href="#compare"');
+    for (const comparison of PSEO_COMPARISONS) {
+      if (!comparison.pricing) continue;
+      expect(html).toContain(`href="/compare/${comparison.slug}"`);
+      expect(html).toContain(comparison.pricing.label);
+      expect(html).toContain(comparison.pricing.detail);
+    }
+    expect(html).toContain('$8.25/month equivalent, paid yearly');
+    expect(html).toContain('Legacy Advisor page; Buy Now points to example.com');
+    expect(html).toContain('billed annually');
+    expect(html).not.toMatch(/after 24 hours|gets app installs at|guaranteed|can do anything/i);
   });
 });

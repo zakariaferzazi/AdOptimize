@@ -4,34 +4,34 @@ import { landing } from './landing-ui';
 
 const proFeatures = [
   {
-    summary: 'AI Marketing Agent for account analysis',
-    title: 'An agent that works inside Google Ads',
-    description: 'Ask in plain language. The agent reads connected account data, finds performance drivers, and prepares practical next steps.',
+    summary: 'AI Marketing Agent to build, manage and optimize campaigns',
+    title: 'Delegate the work, not just the analysis',
+    description: 'Tell the agent what you want to achieve. It investigates your account, builds campaign plans and carries out approved changes in Google Ads.',
   },
   {
-    summary: 'Search and App campaign creation',
-    title: 'Campaigns built from your brief',
-    description: 'Draft Search and App campaigns with goals, budgets, bidding, locations, ad groups and keywords ready for review.',
+    summary: 'Search and App campaigns built from your brief',
+    title: 'Go from a brief to a campaign',
+    description: 'Describe your offer, audience and budget. The agent prepares campaign settings and the required structure, then creates the campaign after approval.',
   },
   {
-    summary: 'Budget, CPA, ROAS and bidding adjustments',
-    title: 'Budget and bidding optimization',
-    description: 'Investigate wasted spend and review proposed changes to daily budgets, target CPA, target ROAS and CPC limits.',
+    summary: 'Budget and bid adjustments for your CPA and ROAS goals',
+    title: 'Put your budget to better use',
+    description: 'Find spend that is not converting and opportunities worth investigating. Have the agent adjust budgets, bidding targets and CPC limits around your goals.',
   },
   {
-    summary: 'Keywords, negatives and targeting management',
-    title: 'Keyword and targeting management',
-    description: 'Find poor-performing queries, prepare keywords and negatives, and manage supported location and conversion-goal changes.',
+    summary: 'Keywords, negatives, locations and conversion goals',
+    title: 'Reach more relevant searches',
+    description: 'Turn search-term findings into keyword and negative-keyword changes. Refine locations and conversion goals without navigating every setting yourself.',
   },
   {
-    summary: 'Approved changes executed in Google Ads',
-    title: 'You approve before execution',
-    description: 'Every supported Google Ads change is shown for review with the target and proposed values before you authorize it.',
+    summary: 'Approved updates applied directly in Google Ads',
+    title: 'Move from a decision to action',
+    description: 'Review the proposed update, then let the agent apply it to your connected account. You do not have to copy recommendations into Google Ads by hand.',
   },
   {
-    summary: 'Activity history and result verification',
-    title: 'Account history and verification',
-    description: 'Track proposals, approvals, execution results and follow-up checks in your workspace activity history.',
+    summary: 'Account audits, reports and change history',
+    title: 'See what changed and why',
+    description: 'Use account audits and performance reports to plan your next move. Follow proposals, approvals and execution results in your activity history.',
   },
 ];
 
@@ -40,7 +40,7 @@ const buttonBase = 'mt-8 inline-flex h-12 w-full items-center justify-center rou
 function PlanFeatures() {
   return (
     <div className="mt-6 flex-1 border-t border-[#DDD6FE] pt-6">
-      <p className="text-sm font-bold text-[#2E1065]">Everything in Pro</p>
+      <p className="text-sm font-bold text-[#2E1065]">Your subscription includes</p>
       <ul className="mt-4 space-y-3">
         {proFeatures.map((feature) => (
           <li key={feature.title} className="flex items-start gap-2.5 text-sm leading-6 text-[#1F2937]">
@@ -58,8 +58,8 @@ export function PricingSection() {
     <section id="pricing" className={`${landing.container} ${landing.section} scroll-mt-24`} aria-labelledby="pricing-heading">
       <div className="mx-auto max-w-2xl text-center">
         <p className={landing.label}>Pro</p>
-        <h2 id="pricing-heading" className={landing.h2}>One plan with everything the agent can do.</h2>
-        <p className={landing.lead}>Choose monthly flexibility or save with yearly billing. Both include the same features.</p>
+        <h2 id="pricing-heading" className={landing.h2}>Put your AI Marketing Agent to work.</h2>
+        <p className={landing.lead}>Build campaigns, manage your account and turn optimization decisions into action. Choose monthly flexibility or yearly value with the same Pro capabilities.</p>
       </div>
 
       <div className="mx-auto mt-12 grid max-w-4xl gap-6 md:grid-cols-2">
@@ -90,8 +90,8 @@ export function PricingSection() {
       <div className="mx-auto mt-14 max-w-5xl">
         <div className="max-w-2xl">
           <p className={landing.label}>Put the agent to work</p>
-          <h3 className={landing.h2}>More than recommendations. Real Google Ads work, prepared for your approval.</h3>
-          <p className={landing.lead}>Pro gives you an account-aware agent for investigation, campaign creation, optimization and supported execution.</p>
+          <h3 className={landing.h2}>Less manual work. More time to grow.</h3>
+          <p className={landing.lead}>From your next campaign launch to your next budget decision, delegate the Google Ads work to an agent that can act on your behalf.</p>
         </div>
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {proFeatures.map((feature) => (
@@ -103,7 +103,7 @@ export function PricingSection() {
           ))}
         </div>
         <p className="mt-8 text-center text-sm text-[#6B7280]">
-          Explore your dashboard with a standard account. Pro unlocks advanced analysis and supported agent actions.
+          Create a free account to explore your dashboard and campaign data. Subscribe to Pro to use the agent and manage campaigns.
         </p>
       </div>
     </section>

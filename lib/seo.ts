@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const SITE_NAME = 'AdOptimize';
-export const SITE_CONTENT_UPDATED = '2026-11-26';
+export const SITE_CONTENT_UPDATED = '2026-11-27';
 export const DEFAULT_OG_IMAGE = '/auth_panel.png';
 
 // Sign-in, billing and workspace routes are account-specific: keep them out of search and the sitemap.

@@ -4,6 +4,7 @@ import { FeatureBlocks } from './feature-blocks';
 import { Capabilities } from './capabilities';
 import { HowItWorks } from './how-it-works';
 import { PricingSection } from './pricing-section';
+import { Comparisons } from './comparisons';
 import { FaqSection } from './faq';
 import { FinalCta } from './final-cta';
 import { LandingFooter } from './landing-footer';
@@ -21,6 +22,7 @@ export function LandingPage() {
         <Capabilities />
         <HowItWorks />
         <PricingSection />
+        <Comparisons />
         <FaqSection />
         <FinalCta />
       </main>
