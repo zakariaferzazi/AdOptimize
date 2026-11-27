@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '@/components/landing/landing-page';
+import { Hero } from '@/components/landing/hero';
 import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import PricingPage from '@/app/pricing/page';
 
@@ -11,6 +12,20 @@ vi.mock('@/components/billing/plan-cta', () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe('homepage', () => {
+  it('leads with the agent and account creation while preserving the Free audit entry elsewhere', () => {
+    vi.stubGlobal('React', React);
+    const hero = renderToStaticMarkup(React.createElement(Hero));
+    expect(hero).toContain('Your Google Ads agent. Built to take action.');
+    expect(hero).toContain('Create free account');
+    expect(hero).toContain('href="/sign-up?next=/audit"');
+    expect(hero).not.toContain('Find wasted spend with a free Google Ads audit.');
+    expect(hero).not.toContain('No card required for Free.');
+    expect(hero).not.toContain('Dashboard and campaign management require Pro:');
+    const homepage = renderToStaticMarkup(React.createElement(LandingPage));
+    expect(homepage).toContain('Get free audit');
+    expect(homepage).toContain('AI Ads Audit only');
+  });
+
   it('offers an audit-only Free plan alongside exactly two paid checkout intervals', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
@@ -21,7 +36,7 @@ describe('homepage', () => {
     const freeCard = (html.match(/<article[^>]*>.*?<\/article>/g) ?? []).find((card) => /<h3[^>]*>Free<\/h3>/.test(card));
     expect(freeCard).toContain('$0');
     expect(freeCard).toContain('AI Ads Audit only');
-    expect(freeCard).toContain('five Google Ads audits per calendar month');
+    expect(freeCard).toMatch(/\b(?:five|5)\b.*(?:monthly|month)/i);
     expect(freeCard).not.toContain('data-interval');
     expect(freeCard).toContain('href="/sign-up?next=/audit"');
   });
@@ -41,9 +56,9 @@ describe('homepage', () => {
     if (!json) throw new Error('Missing pricing structured data');
     const schema = JSON.parse(json);
     expect(schema.offers).toHaveLength(3);
-    expect(schema.offers[0]).toMatchObject({ price: '0', description: expect.stringContaining('five Google Ads audits per calendar month') });
+    expect(schema.offers[0]).toMatchObject({ price: '0', description: expect.stringMatching(/\b(?:five|5)\b.*(?:monthly|month)/i) });
     expect(html).not.toMatch(/Limited dashboard|viewing do not require a subscription/);
-    expect(html).toContain('Dashboard, campaign viewing');
+    expect(html).toContain('Dashboard and campaign viewing');
   });
 
   it('shows agent capabilities beneath the price inside both subscription cards', () => {

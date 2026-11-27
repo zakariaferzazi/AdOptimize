@@ -27,6 +27,11 @@ export async function requirePageSubscription(path: string): Promise<void> {
   if (!hasPaidAccess(await subscription(userId))) redirect(`/sign-up?next=${encodeURIComponent(path)}`);
 }
 
+export async function hasPageSubscription(path: string): Promise<boolean> {
+  const userId = await requirePageUser(path);
+  return hasPaidAccess(await subscription(userId));
+}
+
 export async function requirePageUser(path: string, authRoute = '/sign-in'): Promise<string> {
   const paywall = `${authRoute}?next=${encodeURIComponent(path)}`;
   const token = (await cookies()).get('adoptimize_session')?.value;

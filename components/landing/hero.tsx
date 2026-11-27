@@ -9,22 +9,19 @@ export function Hero() {
         <div>
           <p className="inline-flex rounded-full bg-[#FBBF24] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#2E1065]">Free audit · Pro AI Marketing Agent</p>
           <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight text-[#2E1065] text-balance sm:text-5xl lg:text-6xl">
-            Find wasted spend with a free Google Ads audit.
+            Your Google Ads agent. Built to take action.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-[#6B7280]">
             Start with five free, read-only audits per month to review performance, costly queries and keyword Quality Scores. When you are ready to act, Pro unlocks your AI Marketing Agent to build campaigns, manage budgets and bidding, and apply the changes you approve.
           </p>
           <p className="mt-4 text-sm font-medium text-[#1F2937]">
-            Built for in-house marketers, freelancers and agencies.
+            Designed for marketers, freelancers, agencies, and businesses managing Google Ads.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <LandingPrimaryCta className="w-full sm:w-auto" />
+            <LandingPrimaryCta label="Create free account" className="w-full sm:w-auto" />
             <a href="#pricing" className={`${landing.btnSecondary} w-full sm:w-auto`}>See Pro pricing</a>
           </div>
-          <p className="mt-5 text-sm text-[#6B7280]">
-            No card required for Free. Dashboard and campaign management require Pro: $29/month or $99/year.
-          </p>
         </div>
 
         <ChatSimulation />

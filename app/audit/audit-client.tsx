@@ -156,8 +156,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           : usage.plan === 'pro' ? <p>Pro: audits do not have the Free plan’s monthly quota. Technical rate limits still apply.</p>
           : <div className="space-y-2">
             <p><strong>Free plan:</strong> {usage.remaining} of {usage.limit} audits available this month. Resets {new Date(usage.resetsAt).toLocaleDateString('en-GB', { timeZone: 'UTC' })} (UTC).</p>
-            <p className="text-slate-600">Completed audits count toward the allowance; failed runs do not. In-progress runs reserve a slot.</p>
-            <Link href="/sign-up?next=/audit" className="inline-flex font-semibold text-[#6D28D9] underline">Upgrade to Pro for the dashboard, campaign management and the AI Marketing Agent</Link>
+            <Link href="/sign-up?next=/audit" className="inline-flex font-semibold text-[#6D28D9] underline">Upgrade to Pro and Unlock All Tools & Features</Link>
           </div>}
       </section>
 
@@ -314,7 +313,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           <p className="mt-2 text-sm text-slate-600">Completed: campaign efficiency and budget checks{report.keywords ? ', keyword quality checks' : ''}{report.searchTerms ? ', search-query checks' : ''}.
             Not assessed: landing-page content, ad policies, attribution accuracy or tracking implementation. Budget visibility is flagged at 20% lost Search impression share; low Quality Score means 4/10 or below.</p>
           <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-500">{report.warnings.map((warning) => <li key={warning}>- {warning}</li>)}</ul>
-          <Link href={usage?.plan === 'pro' ? '/chat' : '/sign-up?next=/chat'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#6D28D9]">{usage?.plan === 'pro' ? 'Investigate with the AI Marketing Agent' : 'Unlock Pro to turn audit findings into approved changes'} <ArrowRight className="w-4 h-4" /></Link>
+          <Link href={usage?.plan === 'pro' ? '/chat' : '/sign-up?next=/chat'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#6D28D9]">{usage?.plan === 'pro' ? 'Investigate with the AI Marketing Agent' : 'Upgrade to Pro to Turn Insights Into Action and Optimize Your Campaigns'} <ArrowRight className="w-4 h-4" /></Link>
         </section>
       </>}
     </div>

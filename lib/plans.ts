@@ -1,6 +1,6 @@
 export const FREE_AUDITS_PER_MONTH = 5;
-export const FREE_WORKSPACE_PATHS = ['/audit', '/settings', '/billing'];
-export const FREE_PLAN_SUMMARY = 'Free includes five Google Ads audits per calendar month (UTC). Dashboard, campaign viewing, the AI Marketing Agent, reports and optimization tools require Pro.';
+export const FREE_WORKSPACE_PATHS = ['/audit', '/settings', '/billing', '/dashboard', '/campaigns', '/chat', '/reports', '/optimizer', '/activity-log'];
+export const FREE_PLAN_SUMMARY = '5 monthly free google ads audits.';
 
 export interface AuditUsage {
   plan: 'free' | 'pro';

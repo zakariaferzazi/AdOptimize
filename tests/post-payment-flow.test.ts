@@ -82,12 +82,19 @@ function clickFreePlan() {
 }
 
 describe('Free audit onboarding', () => {
-  it.each(['/dashboard', '/campaigns', '/audit'])('synchronizes the session and opens the audit, not a paid workspace: %s', async (next) => {
+  it.each(['/dashboard', '/campaigns', '/chat', '/reports', '/optimizer', '/activity-log', '/audit', '/settings', '/billing'])('synchronizes the session before opening the accessible workspace or locked preview: %s', async (next) => {
     mocks.status = { ...mocks.status!, hasAccess: false, status: 'none' };
     mocks.next = next;
     clickFreePlan();
     expect(mocks.sync).toHaveBeenCalledOnce();
     expect(mocks.replace).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith(next));
+  });
+
+  it('keeps the Free continuation on-site when the requested destination is invalid', async () => {
+    mocks.status = { ...mocks.status!, hasAccess: false, status: 'none' };
+    mocks.next = 'https://example.invalid';
+    clickFreePlan();
     await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/audit'));
   });
 

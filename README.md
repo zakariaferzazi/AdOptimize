@@ -87,11 +87,15 @@ server has no messages for that conversation.
 
 ## Google Ads audit
 
-Free accounts have an audit-only workspace with five completed audits per UTC
+Free accounts can run five completed audits per UTC
 calendar month, across all connected accounts. Failed runs release their slot;
 expiring reservations enforce the limit across concurrent Worker requests. Pro
 audits have no monthly quota (technical rate limits still apply). Dashboard,
-campaigns, activity history, the agent, reports and optimizer require Pro.
+campaigns, activity history, the agent, reports and optimizer show labeled sample
+previews on Free; live data and actions require Pro. The chat preview returns an
+upgrade prompt on submission without invoking the AI or storing messages.
+Authenticated page checks choose the preview or the paid client server-side;
+premium API guards remain in place.
 Settings and billing remain accessible on Free for connection and upgrades.
 
 Apply `migrations\0006_free_audit_usage.sql` before deploying this access model
@@ -179,7 +183,8 @@ The homepage always remains public, including for signed-in users. Sign In opens
 `/sign-in`; free-audit CTAs open `/sign-up?next=/audit`, where Google
 authentication is initiated. Sign-in synchronizes the secure server session
 before navigating to the workspace. The audit requires a signed-in session;
-dashboard and campaign routes require Pro, including when a demo flag is supplied.
+dashboard and campaign routes show sample previews for authenticated Free users.
+Supplying a demo flag never unlocks live data or paid actions.
 Subscription management is available in Settings and `/billing`, not a
 sidebar "Billing & Pro" button. Rebuild before deploying routing changes;
 deploying an existing `.open-next` bundle can publish stale UI.
@@ -188,7 +193,8 @@ Only webhook-confirmed Pro access reveals the connection step; returning to
 sign-up with an active subscription resumes it. It reuses the app's connection
 modal instead of a standalone pre-payment onboarding page. Google Ads consent
 still requires an explicit user click, separately from login. Users choosing the
-Free plan synchronize their secure session and go to the audit workspace; they
+Free plan synchronize their secure session and go to their requested workspace
+page (or the audit workspace by default); they
 connect Google Ads in Settings before running an audit.
 The post-payment Connect button opens Google authorization directly, without a
 second confirmation dialog. If multiple accounts are found, selection appears

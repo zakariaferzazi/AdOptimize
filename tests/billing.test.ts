@@ -72,6 +72,7 @@ import ActivityLogPage from '@/app/activity-log/page';
 import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
 import { completeAudit, getAuditUsage, releaseAudit, reserveAudit } from '@/lib/billing/audit-access';
+import { ProPreview } from '@/components/billing/pro-preview';
 
 const organization = '11111111-1111-4111-8111-111111111111';
 const monthly = '22222222-2222-4222-8222-222222222222';
@@ -471,8 +472,9 @@ describe('server-side Pro enforcement and opaque sessions', () => {
   });
 
   it('guards all premium server pages and stores only an expiring session hash', async () => {
-    for (const [path, page] of [['/chat', ChatPage], ['/dashboard', DashboardPage], ['/campaigns', CampaignsPage], ['/activity-log', ActivityLogPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
-      await expect(page()).rejects.toThrow(`redirect:/sign-up?next=${encodeURIComponent(path)}`);
+    const pages = [['/chat', ChatPage, 'chat'], ['/dashboard', DashboardPage, 'dashboard'], ['/campaigns', CampaignsPage, 'campaigns'], ['/activity-log', ActivityLogPage, 'activity_log'], ['/reports', ReportsPage, 'reports'], ['/optimizer', OptimizerPage, 'optimizer']] as const;
+    for (const [path, page] of pages) {
+      await expect(page()).rejects.toThrow(`redirect:/sign-in?next=${encodeURIComponent(path)}`);
     }
     const response = await createSession(request('/api/auth/session', {}));
     expect(response.status).toBe(200);
@@ -487,9 +489,17 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     await expect(AuditPage()).resolves.toBeDefined();
-    for (const page of [DashboardPage, CampaignsPage, ActivityLogPage]) await expect(page()).rejects.toThrow('redirect:/sign-up');
+    for (const [, page, feature] of pages) {
+      const preview = await page();
+      expect(preview.type).toBe(ProPreview);
+      expect(preview.props).toEqual({ feature });
+    }
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
+    for (const [, page] of pages) expect((await page()).type).not.toBe(ProPreview);
+    await db.prepare('UPDATE billing_subscriptions SET period_end = ?').bind('2020-01-01T00:00:00Z').run();
+    for (const [, page] of pages) expect((await page()).type).toBe(ProPreview);
+    await db.prepare('UPDATE billing_subscriptions SET period_end = ?').bind(new Date(Date.now() + 86400000).toISOString()).run();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },
     });
@@ -503,6 +513,15 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     mocks.db = undefined;
     expect((await chat(request('/api/ai/chat', {}))).status).toBe(503);
     expect((await auditUsage(request('/api/google-ads/audit'))).status).toBe(503);
+  });
+
+  it('does not show a paid client or a Free preview when the server cannot verify the plan', async () => {
+    const response = await createSession(request('/api/auth/session', {}));
+    mocks.cookie = response.headers.get('set-cookie')!.split(';')[0].split('=')[1];
+    mocks.db = undefined;
+    for (const page of [ChatPage, DashboardPage, CampaignsPage, ActivityLogPage, ReportsPage, OptimizerPage]) {
+      await expect(page()).rejects.toMatchObject({ status: 503 });
+    }
   });
 
   it('uses atomic persistent rate limits across concurrent requests', async () => {
