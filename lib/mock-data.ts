@@ -487,7 +487,7 @@ export const MOCK_ADS: AdCreative[] = [
     campaignId: 'camp-01',
     headline1: 'Fast PostgreSQL Performance',
     headline2: 'Detect Slow Queries in Seconds',
-    headline3: 'Explore limited dashboard access',
+    headline3: 'Get five free Google Ads audits',
     description1: 'Continuously track database health, query latency, and resource bottlenecks.',
     description2: 'Over 1,200 DevOps teams trust CloudScale. Setup in under 5 minutes.',
     finalUrl: 'https://cloudscale.io/database-monitoring',

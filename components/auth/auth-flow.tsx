@@ -18,9 +18,10 @@ import { parseInterval, safeNext, type PlanInterval } from '@/lib/auth-redirect'
 import { BillingClientError, fetchBillingStatus, startCheckout, type BillingStatus } from '@/lib/billing-client';
 import { synchronizeServerSession } from '@/lib/auth-session';
 import { PostPaymentConnect } from '@/components/billing/post-payment-connect';
+import { FREE_PLAN_SUMMARY, FREE_WORKSPACE_PATHS } from '@/lib/plans';
 
 type Mode = 'sign-in' | 'sign-up';
-const STEPS = ['Account', 'Plan', 'Payment', 'Connect'];
+const STEPS = ['Account', 'Plan', 'Pro payment', 'Connect'];
 
 export function describeAuthError(error: unknown): string {
   const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
@@ -50,7 +51,7 @@ export function Stepper({ current }: { current: number }) {
             <span className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-[#FBBF24] text-[#2E1065]' : active ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-400'}`}>
               {done ? <Check className="w-3 h-3" /> : index + 1}
             </span>
-            <span className={`truncate ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
+            <span className={`min-w-0 ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
             {index < STEPS.length - 1 && <span className="hidden h-px w-4 bg-slate-200 sm:block sm:w-8" />}
           </li>
         );
@@ -220,9 +221,7 @@ function AccountForm({ mode, next, onDone }: { mode: Mode; next: string; onDone:
   );
 }
 
-const PRO_FEATURES = ['AI Marketing Agent', 'Ads Account Audit', 'Budget Optimizer'];
-// Limited non-Pro access can continue to supported workspace pages.
-const FREE_PATHS = ['/dashboard', '/campaigns', '/activity-log', '/settings', '/billing'];
+const PRO_FEATURES = ['AI Marketing Agent and campaign management', 'Dashboard, campaigns and reports', 'Audits without the Free monthly quota', 'Budget Optimizer'];
 
 function PlanStep({ user, status, initial, next }: { user: User; status: BillingStatus; initial: PlanInterval; next: string }) {
   const router = useRouter();
@@ -242,10 +241,28 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
     }
   };
 
+  const continueFree = async () => {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await synchronizeServerSession(user);
+      router.replace(FREE_WORKSPACE_PATHS.includes(next) ? next : '/audit');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to open your free audit workspace.');
+    } finally { setBusy(false); }
+  };
+
   return (
     <div className="space-y-4">
       {status.environment === 'sandbox' && <p className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">Sandbox mode: checkout uses test payments only.</p>}
       {error && <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{error}</p>}
+      <div className="rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-4">
+        <h2 className="text-sm font-bold text-[#2E1065]">Free — AI Ads Audit</h2>
+        <p className="mt-2 text-xs leading-5 text-slate-600">{FREE_PLAN_SUMMARY}</p>
+        <button type="button" disabled={busy} onClick={() => { void continueFree(); }} className="mt-3 w-full rounded-xl border border-[#6D28D9] px-4 py-3 text-sm font-semibold text-[#6D28D9] disabled:opacity-60">
+          Continue with Free
+        </button>
+      </div>
       <div role="radiogroup" aria-label="Billing interval" className="grid grid-cols-2 gap-3">
         {([['monthly', '$29', 'per month', null], ['yearly', '$99', 'per year', 'Save 72%']] as const).map(([value, price, unit, badge]) => (
           <button key={value} type="button" role="radio" aria-checked={interval === value} onClick={() => setInterval(value)}
@@ -264,9 +281,6 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
         {busy ? <><AppLoader className="h-4 w-4" /> Opening secure checkout...</> : <>Continue to secure checkout <ArrowRight className="w-4 h-4" /></>}
       </button>
       <p className="flex items-center gap-1.5 text-[11px] text-slate-400"><ShieldCheck className="w-3.5 h-3.5" /> Payments are handled by Polar. Taxes are calculated at checkout. Cancel anytime.</p>
-      <button type="button" onClick={() => router.replace(FREE_PATHS.includes(next) ? next : '/dashboard')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline">
-        Continue with Free
-      </button>
     </div>
   );
 }
@@ -274,7 +288,7 @@ function PlanStep({ user, status, initial, next }: { user: User; status: Billing
 export function AuthFlow({ mode }: { mode: Mode }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = safeNext(params.get('next'));
+  const next = safeNext(params.get('next'), '/audit');
   const plan = parseInterval(params.get('plan'));
   const { user, ready } = useAuthUser();
   const [loaded, setLoaded] = useState<{ uid: string; status?: BillingStatus; error?: string } | null>(null);
@@ -317,7 +331,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
     ? step === 0 ? 'Sign Up' : step === 1 ? 'Choose your plan' : 'Bring your campaigns to life'
     : 'Sign In';
   const subtitle = signUp
-    ? step === 0 ? 'Create your account to launch your AI marketing agent' : step === 1 ? 'Unlock the full agent. Upgrade, downgrade, or cancel anytime.' : 'Pro is active. Connect Google Ads to get started.'
+    ? step === 0 ? 'Start with five free Google Ads audits per month. No card required. Unlock campaign management with Pro.' : step === 1 ? 'Start with five free audits per month, or put the full agent to work with Pro.' : 'Pro is active. Connect Google Ads to get started.'
     : 'Welcome back. Pick up where your agent left off.';
 
   return (
@@ -348,7 +362,7 @@ export function AuthFlow({ mode }: { mode: Mode }) {
                   <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{statusError}</p>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button onClick={retry} className="rounded-xl bg-[#6D28D9] text-white text-xs font-semibold px-5 py-2.5">Try again</button>
-                    <Link href="/dashboard" className="rounded-xl border border-slate-200 text-center text-slate-700 text-xs font-semibold px-5 py-2.5">Continue with Free</Link>
+                    <Link href="/contact" className="rounded-xl border border-slate-200 text-center text-slate-700 text-xs font-semibold px-5 py-2.5">Contact support</Link>
                   </div>
                 </div>
               )

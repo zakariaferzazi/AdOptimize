@@ -6,6 +6,7 @@ import { BrandLogo } from '@/components/ui/brand-logo';
 import { BLOG_DISCLAIMER, BLOG_POSTS } from '@/lib/blog-data';
 import { PSEO_COMPARISONS } from '@/lib/comparison-data';
 import { absoluteUrl, buildPageMetadata, serializeJsonLd, SITE_NAME } from '@/lib/seo';
+import { PSEO_TOOLS } from '@/lib/pseo-data';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -45,6 +46,7 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) notFound();
 
   const relatedComparison = PSEO_COMPARISONS.find((item) => item.slug === post.relatedCompareSlug);
+  const relatedTool = PSEO_TOOLS.find((item) => item.slug === post.relatedToolSlug);
   const postUrl = absoluteUrl(`/blog/${post.slug}`);
 
   const jsonLd = {
@@ -148,18 +150,24 @@ export default async function BlogPostPage({ params }: Props) {
             <Link href={`/compare/${relatedComparison.slug}`} className="font-semibold text-[#5B21B6] hover:underline">{relatedComparison.title}</Link>
           </p>
         )}
+        {relatedTool && (
+          <p className="text-sm text-slate-700">
+            Explore the tool:{' '}
+            <Link href={`/tools/${relatedTool.slug}`} className="font-semibold text-[#5B21B6] underline">{relatedTool.title}</Link>
+          </p>
+        )}
 
         <div className="rounded-xl bg-[#2E1065] p-8 text-center space-y-4 text-white shadow-xl">
           <h2 className="text-xl font-bold">Delegate your next Google Ads task.</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Build campaigns, manage budgets and turn optimization decisions into action. Explore your dashboard free; Pro unlocks the agent at $29/month or $99/year, plus applicable taxes.
+            Start with five free, read-only Google Ads audits per UTC calendar month. Pro unlocks the dashboard and executable AI Marketing Agent at $29/month or $99/year, plus applicable taxes.
           </p>
-          <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-xl bg-[#6D28D9] px-6 py-3.5 text-xs font-bold text-white transition-colors hover:bg-[#5B21B6]">
-            Create free account <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          <Link href="/sign-up?next=/audit" className="inline-flex items-center gap-2 rounded-xl bg-[#6D28D9] px-6 py-3.5 text-xs font-bold text-white transition-colors hover:bg-[#5B21B6]">
+            Get free audit <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
         </div>
 
-        <p className="text-xs text-slate-500 leading-relaxed">{BLOG_DISCLAIMER}</p>
+        {post.category === 'Comparison' && <p className="text-xs text-slate-500 leading-relaxed">{BLOG_DISCLAIMER}</p>}
       </main>
     </div>
   );

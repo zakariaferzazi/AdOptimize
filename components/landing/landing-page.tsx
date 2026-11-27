@@ -1,5 +1,6 @@
 import { LandingHeader } from './landing-header';
 import { Hero } from './hero';
+import { FreeAudit } from './free-audit';
 import { FeatureBlocks } from './feature-blocks';
 import { Capabilities } from './capabilities';
 import { HowItWorks } from './how-it-works';
@@ -18,6 +19,7 @@ export function LandingPage() {
       <LandingHeader />
       <main id="main">
         <Hero />
+        <FreeAudit />
         <FeatureBlocks />
         <Capabilities />
         <HowItWorks />

@@ -117,10 +117,10 @@ export function Sidebar({
         {/* Brand Lockup */}
         <div className="flex items-center justify-between px-2 pt-1">
           <Link
-            href="/dashboard"
+            href="/audit"
             className="flex items-center gap-2.5 cursor-pointer group"
             onClick={() => {
-              if (onSelectTab) onSelectTab('overview');
+              if (onSelectTab) onSelectTab('audit');
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
           >
@@ -167,6 +167,7 @@ export function Sidebar({
                   />
                   <span className="truncate">{item.label}</span>
                 </div>
+                {item.id !== 'audit' && <span className="ml-1 text-[10px] font-semibold text-slate-300">Pro</span>}
 
                 {item.badge ? (
                   <span

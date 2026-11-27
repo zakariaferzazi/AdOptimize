@@ -51,12 +51,17 @@ export async function reserveCustomer(userId: string): Promise<void> {
 }
 
 export async function subscription(userId: string): Promise<SubscriptionState | null> {
+  const db = await billingDb();
+  const environment = billingEnvironment();
+  const existing = await db.prepare('SELECT 1 AS found FROM billing_subscriptions WHERE environment = ? AND user_id = ? LIMIT 1')
+    .bind(environment, userId).first<{ found: number }>();
+  if (!existing) return null;
   const products = billingProducts();
-  return (await billingDb()).prepare(`SELECT * FROM billing_subscriptions
+  return db.prepare(`SELECT * FROM billing_subscriptions
     WHERE environment = ? AND user_id = ? AND product_id IN (?, ?)
     ORDER BY CASE WHEN status = 'active' AND period_end > ? THEN 0 ELSE 1 END,
       source_time DESC, precedence DESC LIMIT 1`)
-    .bind(billingEnvironment(), userId, products.monthly, products.yearly,
+    .bind(environment, userId, products.monthly, products.yearly,
       new Date(Date.now()).toISOString().replace('Z', '000000Z')).first<SubscriptionState>();
 }
 

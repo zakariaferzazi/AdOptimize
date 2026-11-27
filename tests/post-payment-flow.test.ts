@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   nullCalls: 0,
   user: { uid: 'user-a' } as { uid: string } | null,
   formValues: [] as string[],
+  replace: vi.fn(),
+  next: '/dashboard',
 }));
 vi.mock('react', async (importOriginal) => ({
   ...await importOriginal<typeof import('react')>(),
@@ -23,10 +25,11 @@ vi.mock('react', async (importOriginal) => ({
     mocks.setState,
   ],
   useEffect: (effect: () => (() => void) | undefined) => { mocks.effects.push(effect); },
+  useMemo: <T,>(factory: () => T) => factory(),
 }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: mocks.replace }),
+  useSearchParams: () => new URLSearchParams({ next: mocks.next }),
 }));
 vi.mock('@/hooks/use-auth-user', () => ({ useAuthUser: () => ({ user: mocks.user, ready: true }) }));
 vi.mock('@/lib/firebase', () => ({ auth: {}, signInWithEmail: vi.fn(), signInWithGoogle: vi.fn(), signUpWithEmail: vi.fn() }));
@@ -49,9 +52,52 @@ beforeEach(() => {
   mocks.nullCalls = 0;
   mocks.user = { uid: 'user-a' };
   mocks.formValues = [];
+  mocks.replace.mockReset();
+  mocks.next = '/dashboard';
   mocks.fetch.mockReset().mockImplementation(async () => mocks.status);
   mocks.sync.mockReset().mockResolvedValue(undefined);
   mocks.setState.mockReset();
+});
+
+type ClickableElement = React.ReactElement<{ children?: React.ReactNode; onClick?: () => void }>;
+function findElement(node: React.ReactNode, predicate: (element: ClickableElement) => boolean): ClickableElement | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, predicate);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!React.isValidElement<{ children?: React.ReactNode; onClick?: () => void }>(node)) return undefined;
+  return predicate(node) ? node : findElement(node.props.children, predicate);
+}
+
+function clickFreePlan() {
+  const plan = findElement(AuthFlow({ mode: 'sign-up' }), (element) => typeof element.type === 'function' && element.type.name === 'PlanStep');
+  if (!plan || typeof plan.type !== 'function') throw new Error('Missing plan step');
+  const tree = Reflect.apply(plan.type, null, [plan.props]);
+  const button = findElement(tree, (element) => element.type === 'button' && element.props.children === 'Continue with Free');
+  if (!button?.props.onClick) throw new Error('Missing Free plan action');
+  button.props.onClick();
+}
+
+describe('Free audit onboarding', () => {
+  it.each(['/dashboard', '/campaigns', '/audit'])('synchronizes the session and opens the audit, not a paid workspace: %s', async (next) => {
+    mocks.status = { ...mocks.status!, hasAccess: false, status: 'none' };
+    mocks.next = next;
+    clickFreePlan();
+    expect(mocks.sync).toHaveBeenCalledOnce();
+    expect(mocks.replace).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/audit'));
+  });
+
+  it('shows an error instead of entering the audit when session synchronization fails', async () => {
+    mocks.status = { ...mocks.status!, hasAccess: false, status: 'none' };
+    mocks.sync.mockRejectedValueOnce(new Error('Session unavailable'));
+    clickFreePlan();
+    await vi.waitFor(() => expect(mocks.setState).toHaveBeenCalledWith('Session unavailable'));
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
 });
 
 describe('paid signup connection step', () => {

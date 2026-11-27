@@ -11,8 +11,12 @@ const faqs = [
     a: 'Within the Google Ads account you connect, it can create Search and App campaigns, pause or enable campaigns and ad groups, and change budgets, bidding, dates, networks, locations, keywords, negative keywords, conversion goals and tracking settings.',
   },
   {
-    q: 'Can I look around before I subscribe?',
-    a: 'Yes. Create an account to open your dashboard and see your campaign and account data. Pro is needed to use the agent, audits, reports, the Budget Optimizer and to approve campaign changes.',
+    q: 'What is included in the free Google Ads audit plan?',
+    a: 'Free includes five completed, read-only AI Ads Audits per calendar month (UTC), across your connected accounts. Review performance, non-converting queries, budget visibility and available low keyword Quality Scores, then export findings as CSV. No card is required. Dashboard, campaign viewing, agent conversations, reports and optimization tools require Pro.',
+  },
+  {
+    q: 'Will a free audit change my campaigns?',
+    a: 'No. It reads your connected Google Ads account and produces review findings. Applying campaign, budget, bidding or keyword changes requires Pro and your approval.',
   },
   {
     q: 'How do cancellation and billing work?',

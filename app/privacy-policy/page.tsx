@@ -53,7 +53,7 @@ export default function PrivacyPolicyPage() {
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Privacy Policy</h1>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-3xl">
-            This policy explains how AdOptimize handles information used to provide its account workspace, limited dashboard access, Pro subscriptions, Google Ads analysis, AI assistance, and approved campaign operations.
+            This policy explains how AdOptimize handles information used to provide its Free audit-only plan, Pro workspace, Google Ads analysis, AI assistance, and approved campaign operations. Free includes five completed audits per UTC calendar month. We store audit-usage records linked to a hashed account identifier, including the usage period and reservation or completion status, to enforce that allowance.
           </p>
           <p className="text-xs text-slate-500">The service operator’s full legal name, registered address, applicable jurisdiction, retention schedule, and required privacy representative must be confirmed by counsel before production publication.</p>
         </div>

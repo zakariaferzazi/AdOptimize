@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { fetchBillingStatus, openPortal, type BillingStatus } from '@/lib/billing-client';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 
 export function SubscriptionManager() {
   const { user, ready } = useAuthUser();
@@ -61,7 +62,7 @@ export function SubscriptionManager() {
 
   const label = status?.hasAccess
     ? `Pro ${status.interval === 'yearly' ? 'yearly' : 'monthly'}`
-    : 'Limited dashboard access';
+    : 'Free — AI Ads Audit';
   const canceled = status?.status === 'canceled' || (status?.status === 'active' && status.cancelAtPeriodEnd);
   const statusLabel = canceled
     ? status?.hasAccess ? 'Canceled (access until period end)' : 'Canceled'
@@ -86,6 +87,7 @@ export function SubscriptionManager() {
           <div className="rounded-xl bg-slate-50 p-4 text-sm space-y-1.5">
             <p><span className="text-slate-500">Plan:</span> <strong>{label}</strong></p>
             <p><span className="text-slate-500">Status:</span> {statusLabel}</p>
+            {!status.hasAccess && <p className="pt-2 text-slate-600">{FREE_PLAN_SUMMARY} <Link href="/audit" className="font-semibold text-[#6D28D9] underline">Open AI Ads Audit</Link>.</p>}
             {status.periodEnd && <p><span className="text-slate-500">{canceled || status.cancelAtPeriodEnd ? 'Access ends' : status.hasAccess ? 'Renews' : 'Paid period ends'}:</span> {new Date(status.periodEnd).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>}
             {status.status === 'past_due' && <p className="text-red-700">Your last payment failed. Update your payment method in the portal; Pro resumes after Polar confirms payment.</p>}
           </div>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSubscription } from '@/lib/billing/access';
-import { requireIdentity, UnauthorizedError } from '@/lib/ai/identity';
+import { BillingError } from '@/lib/billing/config';
+import { billingFailure, billingIdentity } from '@/lib/billing/http';
+import { hash, rateLimit } from '@/lib/billing/store';
+import { completeAudit, getAuditUsage, releaseAudit, reserveAudit } from '@/lib/billing/audit-access';
 import { AccountBindingError, resolveAccountBinding, resolveFreshAccessToken } from '@/lib/ai/account-binding';
 import { runAdsAudit, validateAuditOptions } from '@/lib/google-ads/audit';
 import { GoogleAdsRequestError } from '@/lib/google-ads/gaql';
@@ -9,10 +11,18 @@ import { ToolError } from '@/lib/mcp/errors';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export const POST = withSubscription(handleAudit);
-async function handleAudit(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const identity = await requireIdentity(req);
+    const identity = await billingIdentity(req);
+    await rateLimit(`audit-usage:${hash(identity.uid)}`, 60, 60);
+    return NextResponse.json({ usage: await getAuditUsage(identity.uid) }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) { return billingFailure(error); }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const identity = await billingIdentity(req);
+    await rateLimit(`audit:${hash(identity.uid)}`, 120, 60);
     let body: unknown;
     try {
       body = await req.json();
@@ -30,13 +40,22 @@ async function handleAudit(req: NextRequest) {
     }
     const { accessToken, error } = await resolveFreshAccessToken(identity.uid, idToken);
     if (!accessToken) return NextResponse.json({ error: error || 'Reconnect Google Ads to continue.' }, { status: 401 });
-    const report = await runAdsAudit({
-      customerId: binding.customerId, loginCustomerId: binding.loginCustomerId,
-      accountName: binding.accountName, currency: binding.currency, accessToken,
-    }, { ...options });
-    return NextResponse.json({ report }, { headers: { 'Cache-Control': 'no-store' } });
+    const reservation = await reserveAudit(identity.uid);
+    let finished = false;
+    try {
+      const report = await runAdsAudit({
+        customerId: binding.customerId, loginCustomerId: binding.loginCustomerId,
+        accountName: binding.accountName, currency: binding.currency, accessToken,
+      }, { ...options });
+      const usage = reservation ? await completeAudit(reservation, identity.uid) : await getAuditUsage(identity.uid);
+      const response = NextResponse.json({ report, usage }, { headers: { 'Cache-Control': 'no-store' } });
+      finished = true;
+      return response;
+    } finally {
+      if (reservation && !finished) await releaseAudit(reservation);
+    }
   } catch (error) {
-    if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
+    if (error instanceof BillingError) return billingFailure(error);
     if (error instanceof AccountBindingError) return NextResponse.json({ error: error.message }, { status: 403 });
     if (error instanceof ToolError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error('[Ads Audit] Request failed:', error);

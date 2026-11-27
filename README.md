@@ -87,6 +87,18 @@ server has no messages for that conversation.
 
 ## Google Ads audit
 
+Free accounts have an audit-only workspace with five completed audits per UTC
+calendar month, across all connected accounts. Failed runs release their slot;
+expiring reservations enforce the limit across concurrent Worker requests. Pro
+audits have no monthly quota (technical rate limits still apply). Dashboard,
+campaigns, activity history, the agent, reports and optimizer require Pro.
+Settings and billing remain accessible on Free for connection and upgrades.
+
+Apply `migrations\0006_free_audit_usage.sql` before deploying this access model
+(`npm run db:migrate:billing` includes it). Quotas require D1; they do not fall
+back to browser storage or memory. The public audit landing page is
+`/tools/google-ads-audit`; the private report workspace `/audit` stays noindex.
+
 The Audit page runs a read-only report against the signed-in user's connected
 Google Ads account, not the cached insights feed. Choose complete-day presets
 or custom dates (up to 366 days), with an equally long previous-period comparison.
@@ -163,12 +175,11 @@ SHA-256 hash is stored, and it expires no later than its Firebase token.
 Token refresh rotates the session; logout invalidates it. Clearing cookies does
 not delete subscriptions or account history.
 
-The homepage always remains public, including for signed-in users. Log In opens
-`/sign-in`; Get started and the Google signup CTAs open `/sign-up`, where Google
+The homepage always remains public, including for signed-in users. Sign In opens
+`/sign-in`; free-audit CTAs open `/sign-up?next=/audit`, where Google
 authentication is initiated. Sign-in synchronizes the secure server session
-before navigating to the workspace. Anonymous workspace visits go to sign-in;
-only the homepage **View Demo** link opens the anonymous dashboard preview at
-`/dashboard?demo=true`. That flag never bypasses API authentication or Pro access.
+before navigating to the workspace. The audit requires a signed-in session;
+dashboard and campaign routes require Pro, including when a demo flag is supplied.
 Subscription management is available in Settings and `/billing`, not a
 sidebar "Billing & Pro" button. Rebuild before deploying routing changes;
 deploying an existing `.open-next` bundle can publish stale UI.
@@ -177,7 +188,8 @@ Only webhook-confirmed Pro access reveals the connection step; returning to
 sign-up with an active subscription resumes it. It reuses the app's connection
 modal instead of a standalone pre-payment onboarding page. Google Ads consent
 still requires an explicit user click, separately from login. Users choosing the
-free plan go straight to their dashboard and can connect later in Settings.
+Free plan synchronize their secure session and go to the audit workspace; they
+connect Google Ads in Settings before running an audit.
 The post-payment Connect button opens Google authorization directly, without a
 second confirmation dialog. If multiple accounts are found, selection appears
 inline and reuses the completed authorization. The Google Ads logo is the official

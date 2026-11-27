@@ -7,6 +7,7 @@ const columns = [
   {
     title: 'Product',
     links: [
+      { href: '/tools/google-ads-audit', label: 'Free Google Ads audit' },
       { href: '/features', label: 'Features' },
       { href: '/pricing', label: 'Pricing' },
       { href: '/faq', label: 'FAQ' },

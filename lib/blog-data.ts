@@ -1,4 +1,5 @@
 import { COMPARISON_CHECKED_AT, PSEO_COMPARISONS } from '@/lib/comparison-data';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 
 export interface BlogSource {
   label: string;
@@ -23,6 +24,7 @@ export interface BlogPost {
   sections: BlogSection[];
   sources: BlogSource[];
   relatedCompareSlug?: string;
+  relatedToolSlug?: string;
 }
 
 export const BLOG_DISCLAIMER = 'Competitor details were checked on 27 November 2026 using the linked sources. Prices, billing options, limits and promotions can change. Entry prices do not imply identical features. WordStream, Adspirer, Optmyzr, Opteo and Pace are trademarks of their owners. AdOptimize is not affiliated with or endorsed by them.';
@@ -40,6 +42,180 @@ function comparisonFacts(slug: string) {
 }
 
 export const BLOG_POSTS: BlogPost[] = [
+  {
+    slug: 'free-google-ads-audit',
+    title: 'Free Google Ads Audit: What You Get and How to Run It',
+    description: 'Run a free Google Ads audit with AdOptimize. Learn what the report checks, how the five-audits-per-month Free plan works, and when to move to Pro.',
+    category: 'Guide',
+    publishedAt: '2026-11-27',
+    updatedAt: '2026-11-27',
+    intro: 'A useful free Google Ads audit should tell you where to investigate, using your actual account data rather than a generic score. AdOptimize’s Free plan gives you five completed, read-only AI Ads Audits per UTC calendar month. Connect Google Ads, select your dates and get a review plan without entering payment details.',
+    keyFacts: [
+      FREE_PLAN_SUMMARY,
+      'The audit is read-only and uses rules-based diagnostics. Findings are review signals, not AI confidence scores or savings predictions.',
+      'A Google Ads account connection is required. A website URL or customer ID alone cannot reveal private ad performance.',
+      'Failed runs do not consume the allowance; in-progress runs reserve a slot. Your audit page shows remaining usage and its UTC reset date.',
+    ],
+    sections: [
+      {
+        heading: 'What the free Google Ads audit checks',
+        paragraphs: [
+          'The report compares campaign spend, conversions, cost per conversion and ROAS with the immediately preceding, equally long period. Optional CPA and ROAS targets are benchmarks for the review, not changes to your bidding settings.',
+          'It highlights reported search queries with spend and no recorded conversions, budget visibility signals and spending keywords with low available Quality Scores. Findings include the supporting evidence and a suggested next step. Export those findings as CSV when you want to review them with a colleague.',
+        ],
+      },
+      {
+        heading: 'How to run your first audit',
+        paragraphs: [],
+        bullets: [
+          'Create an AdOptimize account and choose Free — AI Ads Audit. No card is required.',
+          'Open Settings and connect your Google Ads account through Google’s authorization screen.',
+          'Open AI Ads Audit and choose complete-day presets or custom dates. Reporting dates follow your Google Ads account time zone.',
+          'Add optional CPA or ROAS targets if they reflect your business goals, then run the audit.',
+          'Read the findings alongside coverage notes before deciding what to change. The audit does not edit the account.',
+        ],
+      },
+      {
+        heading: 'Five audits per month: how the allowance works',
+        paragraphs: [
+          'The Free allowance applies per user across connected accounts, not separately for every account. It resets at the start of each UTC calendar month. Runs are allocated to the month in which they start. A completed audit uses one slot; failed runs release their slot and interrupted reservations expire.',
+          'If all five audits have been used or are in progress, wait for a slot or the next monthly reset, or upgrade to Pro. Pro audits are outside the Free monthly quota, while technical rate limits still apply. Saving a findings CSV does not start another audit.',
+        ],
+      },
+      {
+        heading: 'Do not mistake an audit finding for guaranteed waste',
+        paragraphs: [
+          'A query with spend and no recorded conversions deserves review, but it is not automatically irrelevant. Check intent, your conversion window and whether reporting is complete before adding a negative keyword. Campaign and query spend overlap, so adding both into a total would overstate the opportunity.',
+          'If revenue values are missing, ROAS is unavailable rather than zero. No findings is not a clean bill of health: Google can withhold search terms or keyword scores, and incomplete checks are disclosed in the report.',
+        ],
+      },
+      {
+        heading: 'What is outside the audit',
+        paragraphs: [
+          'The audit does not inspect landing-page content, ad policies, tracking implementation or attribution accuracy. Summary totals include non-removed campaigns; detailed campaign review covers the top 200 by spend. Keyword and non-converting query detail each cover up to 150 rows.',
+          'Quality Scores and campaign settings are current diagnostics, while performance uses the selected period. Keep those different time frames in mind when interpreting a finding.',
+        ],
+      },
+      {
+        heading: 'When to upgrade from Free to Pro',
+        paragraphs: [
+          'Free is for diagnosis. Pro is for the dashboard, campaign workspace and doing the account work: the AI Marketing Agent creates Search and App campaigns, manages budgets and bidding, and carries out approved keyword and targeting changes. Reports, the optimizer and execution history also require Pro.',
+          'Pro Monthly costs $29; Pro Yearly costs $99 for the year, plus applicable taxes. Start with an audit, then choose Pro when you want to turn findings into approved changes.',
+        ],
+      },
+    ],
+    sources: [{ label: 'Google: Quality Score is a diagnostic, not an auction input', url: 'https://support.google.com/google-ads/answer/6167118' }],
+    relatedToolSlug: 'google-ads-audit',
+  },
+  {
+    slug: 'google-ads-audit-tool',
+    title: 'Choosing a Google Ads Audit Tool: Evidence, Coverage and Control',
+    description: 'What to check in a Google Ads audit tool: account authorization, reporting periods, data coverage, real findings and Free versus paid capabilities.',
+    category: 'Guide',
+    publishedAt: '2026-11-27',
+    updatedAt: '2026-11-27',
+    intro: 'A Google Ads audit tool should make the next review decision easier, not manufacture urgency with a generic health score. This checklist explains how to evaluate the evidence, reporting scope and permissions behind a report, including what AdOptimize’s free Google Ads audit provides.',
+    keyFacts: [
+      FREE_PLAN_SUMMARY,
+      'Compare a selected reporting period with an equally long previous period; inspect conversion lag and missing revenue before judging efficiency.',
+      'A credible connected-account audit needs Google authorization and should disclose withheld queries, missing scores and row limits.',
+    ],
+    sections: [
+      {
+        heading: 'Start with the data source',
+        paragraphs: [
+          'An account audit needs authorized access to campaign performance. Entering a domain may support a website review, but it cannot establish private Google Ads spend or conversion results. Confirm which account the tool reads and how to disconnect it.',
+          'AdOptimize uses your connected Google Ads account. You authorize it through Google; the read-only audit does not ask for your Google password or require a payment card on Free.',
+        ],
+      },
+      {
+        heading: 'Check reporting dates and business targets',
+        paragraphs: [
+          'Different periods, incomplete days and conversion delays can change the story. Compare like-for-like dates in the account time zone. Treat CPA and ROAS targets as your business benchmarks, not universal industry promises.',
+          'AdOptimize lets you select a period and compare the immediately preceding, equally long period. Optional targets affect audit findings only; they do not update campaign bidding.',
+        ],
+      },
+      {
+        heading: 'Ask what was not checked',
+        paragraphs: [
+          'A summary can include all campaigns while detailed findings cover a sample. Query reports may also exclude terms Google withholds. Make sure the report identifies those gaps rather than silently calling the account healthy.',
+          'AdOptimize details up to 200 campaigns and up to 150 keywords and non-converting queries each. It discloses incomplete reads and missing scores. It does not assess landing-page content, ad policies, tracking implementation or attribution accuracy.',
+        ],
+      },
+      {
+        heading: 'Prefer evidence over a promised savings figure',
+        paragraphs: [
+          'Look for the campaign or query, period, spend and conversions supporting each finding. Overlapping campaign and search-term spend should not be counted twice. A target CPA outlier is a review signal, not proof that cutting its budget will improve profit.',
+          'Google describes Quality Score as a keyword-level diagnostic, not an input in the ad auction. A tool that converts a score directly into a guaranteed CPC discount is oversimplifying what the score means.',
+        ],
+      },
+      {
+        heading: 'Separate auditing from executing changes',
+        paragraphs: [
+          'The AdOptimize Free plan includes five read-only audits per UTC calendar month, with prioritized findings and CSV export. Pro unlocks the dashboard, campaign workspace, reports, optimizer and the AI Marketing Agent to apply approved changes.',
+          'That distinction lets you inspect evidence first and choose paid management when you need the work carried out. No audit tool can guarantee CPA, ROAS or conversion improvements.',
+        ],
+      },
+    ],
+    sources: [{ label: 'Google: About Quality Score for Search campaigns', url: 'https://support.google.com/google-ads/answer/6167118' }],
+    relatedToolSlug: 'google-ads-audit',
+  },
+  {
+    slug: 'adwords-quality-score-checker',
+    title: 'AdWords Quality Score Checker: Read the Score, Not a CPC Promise',
+    description: 'Use the Quality Score review in a free Google Ads audit. Understand reported scores, missing values, the 4/10 threshold and how to check Google’s components.',
+    category: 'Guide',
+    publishedAt: '2026-11-27',
+    updatedAt: '2026-11-27',
+    intro: 'Looking for an AdWords Quality Score checker? AdWords is now Google Ads, and Quality Score is a diagnostic reported at the keyword level for Search campaigns. AdOptimize’s free Google Ads audit flags spending keywords with low reported scores so you can decide where to investigate.',
+    keyFacts: [
+      FREE_PLAN_SUMMARY,
+      'AdOptimize flags spending keywords at 4/10 or below in a sample of up to 150 keywords. It does not invent scores where Google has no value.',
+      'Quality Score is not an input in the ad auction and should not be converted into a guaranteed CPC discount.',
+    ],
+    sections: [
+      {
+        heading: 'What Google actually reports',
+        paragraphs: [
+          'Google reports a 1–10 Quality Score based on expected clickthrough rate, ad relevance and landing-page experience. It describes the score as a diagnostic, not a KPI to aggregate across an account or an input in the ad auction.',
+          'To inspect component statuses yourself, open Keywords in Google Ads, modify the columns and add Quality Score, Expected CTR, Ad Relevance and Landing Page Experience. These component columns are a Google Ads workflow, not a promise that AdOptimize audits landing-page content.',
+        ],
+      },
+      {
+        heading: 'What the Free audit’s checker reviews',
+        paragraphs: [
+          'Connect Google Ads, select a reporting period and run AI Ads Audit. Its keyword-quality section highlights spending keywords with a current reported Quality Score of 4/10 or below, showing the campaign, ad group, match type and period spend.',
+          'The review samples up to 150 keywords. Scores reflect current diagnostics; the spending metric follows your chosen period. This is not a historical Quality Score trend report or a domain-based website score.',
+        ],
+      },
+      {
+        heading: 'A missing score is not a passing score',
+        paragraphs: [
+          'Google may not have enough relevant search history to show a Quality Score. The audit does not replace a missing value with 10/10, and unavailable keyword reads are disclosed as incomplete coverage.',
+          'Likewise, finding no low-score keywords in the sample does not establish that every keyword in the account is healthy. Read the sampling and coverage notes with the result.',
+        ],
+      },
+      {
+        heading: 'Turn a low score into a specific review',
+        paragraphs: [],
+        bullets: [
+          'Inspect the keyword’s intent and whether the ad answers that intent.',
+          'Review the component statuses in Google Ads to identify what needs attention.',
+          'Check that the landing page matches the offer and is useful to the visitor; the Free audit does not inspect page content.',
+          'Consider conversions, CPA and business value alongside the score rather than chasing a number in isolation.',
+        ],
+      },
+      {
+        heading: 'Free review, Pro account management',
+        paragraphs: [
+          'The Quality Score review is part of the same five free Google Ads audits per UTC calendar month, not a separate allowance. The audit does not edit ads, keywords or bids.',
+          'Pro unlocks the dashboard, campaign workspace and AI Marketing Agent for supported, approved account changes. Paid execution does not guarantee a higher Quality Score or lower CPC.',
+        ],
+      },
+    ],
+    sources: [{ label: 'Google: How Quality Score works and how to check it', url: 'https://support.google.com/google-ads/answer/6167118' }],
+    relatedToolSlug: 'quality-score-checker',
+  },
   {
     slug: 'wordstream-vs-adoptimize',
     ...comparisonFacts('wordstream-alternative'),
@@ -68,7 +244,7 @@ export const BLOG_POSTS: BlogPost[] = [
         heading: 'Pro pricing you can decide on without a sales call',
         paragraphs: [
           'Pro Monthly costs $29. Pro Yearly costs $99 for the year, equivalent to $8.25/month, paid yearly. Applicable taxes are additional and media spend is paid separately to Google.',
-          'Both Pro subscriptions include the agent, campaign creation and management, audits, reports and supported execution. Create a free account first to explore your dashboard and campaign data; the agent requires Pro.',
+          'Both Pro subscriptions include the agent, dashboard, campaign creation and management, reports and supported execution. Free includes five read-only Google Ads audits per UTC calendar month; campaign management requires Pro.',
         ],
       },
       {
@@ -102,7 +278,7 @@ export const BLOG_POSTS: BlogPost[] = [
         heading: 'Compare the billing basis, not just the number',
         paragraphs: [
           'Adspirer displays Plus at $40/month, Pro at $83/month and Max at $167/month with annual-billing labels. These are not figures to present as month-to-month prices. The allowances shown are 150, 600 and 3,000 tasks per month respectively, with a 15-task free tier also listed.',
-          'AdOptimize Pro Monthly is $29, and Pro Yearly is $99 for the year ($8.25/month equivalent), plus applicable taxes. Both unlock the same agent capabilities. A free AdOptimize account is a dashboard preview, not a free agent subscription.',
+          'AdOptimize Pro Monthly is $29, and Pro Yearly is $99 for the year ($8.25/month equivalent), plus applicable taxes. Both unlock the same agent capabilities. Free includes AI Ads Audit only, with five read-only audits per UTC calendar month. The dashboard, campaign workspace and agent require Pro.',
         ],
       },
       {
@@ -309,7 +485,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         heading: 'Repeat the review regularly',
         paragraphs: [
-          'Search demand, budgets and competitors change, so waste returns over time. AdOptimize can repeat this review on your connected Google Ads account and prepare any changes for your approval. Results depend on your account and data, and no outcome is guaranteed.',
+          'Search demand, budgets and competitors change, so waste returns over time. AdOptimize Free includes five read-only Google Ads audits per UTC calendar month. Pro can turn findings into supported changes for your approval. Results depend on your account and data, and no outcome is guaranteed.',
         ],
       },
     ],

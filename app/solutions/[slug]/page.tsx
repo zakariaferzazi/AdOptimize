@@ -225,7 +225,7 @@ export default async function SolutionDetailPage({ params }: Props) {
               href="/"
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              <span>Explore limited dashboard access</span>
+              <span>Start with a free Google Ads audit</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

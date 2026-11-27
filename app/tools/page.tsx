@@ -6,8 +6,8 @@ import { PSEO_TOOLS } from '@/lib/pseo-data';
 import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Free Google Ads Tools & Calculators - AdOptimize',
-  description: 'Free Google Ads audit tools, negative keyword finders, CPA calculators, Target ROAS estimators, and Quality Score diagnostics.',
+  title: 'Free Google Ads Audit Tool & PPC Calculators | AdOptimize',
+  description: 'Run five free Google Ads audits per month. Review query waste and available Quality Scores, or use our public CPA and ROAS calculators.',
   path: '/tools',
 });
 
@@ -36,10 +36,10 @@ export default function ToolsDirectoryPage() {
             <span>Free Google Ads Audit Tools</span>
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-            Free Google Ads Diagnostic Tools & Calculators
+            Free Google Ads audit and practical PPC tools
           </h1>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            Stop wasting budget on underperforming campaigns. Use our free specialized tools to identify negative keyword leaks, calculate target CPA, and model ROAS impact.
+            Start with a read-only audit of your connected Google Ads account. Free includes five audits per month; campaign management requires Pro. Our public calculators also help you understand CPA and ROAS.
           </p>
         </div>
 

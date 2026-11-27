@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CampaignsClientView } from './campaigns-client';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   robots: PRIVATE_ROBOTS,
 };
 
-export default function CampaignsPage() {
+export default async function CampaignsPage() {
+  await requirePageSubscription('/campaigns');
   return <CampaignsClientView />;
 }

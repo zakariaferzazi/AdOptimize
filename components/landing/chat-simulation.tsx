@@ -9,7 +9,7 @@ export function ChatSimulation() {
           <span className="h-2.5 w-2.5 rounded-full bg-[#6B7280]" aria-hidden="true" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#6B7280]" aria-hidden="true" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#6B7280]" aria-hidden="true" />
-          <p className="ml-3 text-xs font-semibold text-[#1F2937]">AI Marketing Agent</p>
+          <p className="ml-3 text-xs font-semibold text-[#1F2937]">Pro AI Marketing Agent</p>
         </div>
 
         <div className="space-y-4 p-5 text-sm leading-6 sm:p-6">

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '@/components/landing/landing-page';
 import { PSEO_COMPARISONS } from '@/lib/comparison-data';
+import PricingPage from '@/app/pricing/page';
 
 vi.mock('@/components/billing/plan-cta', () => ({
   PlanCta: ({ interval, label }: { interval: string; label: string }) => React.createElement('button', { 'data-interval': interval }, label),
@@ -10,22 +11,39 @@ vi.mock('@/components/billing/plan-cta', () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe('homepage', () => {
-  it('sells Pro through exactly the monthly and yearly checkout CTAs, with no free plan', () => {
+  it('offers an audit-only Free plan alongside exactly two paid checkout intervals', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
     expect(html.match(/data-interval="monthly"/g)).toHaveLength(1);
     expect(html.match(/data-interval="yearly"/g)).toHaveLength(1);
     expect(html).toContain('$29');
     expect(html).toContain('$99');
-    expect(html).not.toMatch(/free plan/i);
+    const freeCard = (html.match(/<article[^>]*>.*?<\/article>/g) ?? []).find((card) => /<h3[^>]*>Free<\/h3>/.test(card));
+    expect(freeCard).toContain('$0');
+    expect(freeCard).toContain('AI Ads Audit only');
+    expect(freeCard).toContain('five Google Ads audits per calendar month');
+    expect(freeCard).not.toContain('data-interval');
+    expect(freeCard).toContain('href="/sign-up?next=/audit"');
   });
 
   it('routes sign-in and account creation to the auth pages and renders one page heading', () => {
     vi.stubGlobal('React', React);
     const html = renderToStaticMarkup(React.createElement(LandingPage));
     expect(html).toMatch(/href="\/sign-in"/);
-    expect(html).toMatch(/href="\/sign-up"/);
+    expect(html).toMatch(/href="\/sign-up\?next=\/audit"/);
     expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+  });
+
+  it('publishes the Free offer and its audit limit consistently on the pricing page', () => {
+    vi.stubGlobal('React', React);
+    const html = renderToStaticMarkup(React.createElement(PricingPage));
+    const json = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
+    if (!json) throw new Error('Missing pricing structured data');
+    const schema = JSON.parse(json);
+    expect(schema.offers).toHaveLength(3);
+    expect(schema.offers[0]).toMatchObject({ price: '0', description: expect.stringContaining('five Google Ads audits per calendar month') });
+    expect(html).not.toMatch(/Limited dashboard|viewing do not require a subscription/);
+    expect(html).toContain('Dashboard, campaign viewing');
   });
 
   it('shows agent capabilities beneath the price inside both subscription cards', () => {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
 import { DashboardClientView } from './dashboard-client';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   robots: PRIVATE_ROBOTS,
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  await requirePageSubscription('/dashboard');
   return <DashboardClientView />;
 }

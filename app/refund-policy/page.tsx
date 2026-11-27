@@ -42,7 +42,7 @@ export default function RefundPolicyPage() {
 
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">Cancellation and account access</h2>
-            <p>You can manage or cancel your subscription through the billing portal in AdOptimize. Cancellation stops the next renewal. Unless otherwise required by law, your Pro access continues until the end of the current paid period and then returns to limited dashboard access.</p>
+            <p>You can manage or cancel your subscription through the billing portal in AdOptimize. Cancellation stops the next renewal. Unless otherwise required by law, your Pro access continues until the end of the current paid period and then returns to the Free audit-only plan with five completed Google Ads audits per UTC calendar month. Existing Free usage in that month still counts toward the allowance.</p>
             <p>Canceling does not remove your AdOptimize account or automatically refund charges already made. It also does not stop or refund spending incurred directly in your Google Ads account.</p>
           </section>
 

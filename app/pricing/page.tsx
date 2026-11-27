@@ -4,10 +4,12 @@ import { CheckCircle2 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { PlanCta } from '@/components/billing/plan-cta';
 import { absoluteUrl, buildPageMetadata, serializeJsonLd } from '@/lib/seo';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
+import { LandingPrimaryCta } from '@/components/landing/session-cta';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Pricing - AdOptimize Pro Monthly and Yearly',
-  description: 'Limited dashboard access plus AdOptimize Pro for $29 per month or $99 per year. Unlock AI analysis, campaign management, reports, and approved Google Ads changes.',
+  title: 'Free Google Ads Audit Plan & Pro Pricing | AdOptimize',
+  description: 'Free: five Google Ads audits per month. Pro: dashboard, AI Marketing Agent and campaign management at $29/month or $99/year. Compare AdOptimize plans.',
   path: '/pricing',
 });
 
@@ -18,16 +20,18 @@ const features = [
   'Budget, bidding, keyword, negative, targeting, and conversion-goal proposals',
   'Budget Optimizer and performance reports',
   'Approval and execution history',
+  'Dashboard and campaign viewing',
 ];
 
 const pricingSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'AdOptimize Pro',
-  description: 'AI marketing agent for Google Ads with approval before supported changes are applied.',
+  name: 'AdOptimize',
+  description: 'Free Google Ads audits and Pro AI marketing agent with approval before supported changes are applied.',
   brand: { '@type': 'Brand', name: 'AdOptimize' },
   url: absoluteUrl('/pricing'),
   offers: [
+    { '@type': 'Offer', name: 'Free — AI Ads Audit', price: '0', priceCurrency: 'USD', description: FREE_PLAN_SUMMARY, url: absoluteUrl('/tools/google-ads-audit') },
     { '@type': 'Offer', name: 'Pro Monthly', price: '29.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: absoluteUrl('/pricing') },
     { '@type': 'Offer', name: 'Pro Yearly', price: '99.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: absoluteUrl('/pricing') },
   ],
@@ -46,12 +50,19 @@ export default function PricingPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-16 space-y-12">
         <div className="space-y-3 text-center max-w-2xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9]">Pro subscriptions</span>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Choose how you subscribe</h1>
-          <p className="text-slate-600 text-sm leading-relaxed">Monthly and yearly plans provide the same Pro product access. Limited dashboard and account viewing do not require a subscription.</p>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9]">Free &amp; Pro</span>
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Start with a free Google Ads audit.</h1>
+          <p className="text-slate-600 text-sm leading-relaxed">Free includes AI Ads Audit only, with five completed audits per calendar month (UTC). Both Pro intervals unlock the dashboard, campaign workspace and full agent capabilities.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="rounded-xl p-7 border border-[#DDD6FE] bg-white text-slate-900 shadow-xs flex flex-col">
+            <h2 className="text-sm font-bold">Free</h2>
+            <p className="text-xs mt-1 text-slate-500">AI Ads Audit only. No card required.</p>
+            <div className="mt-5 flex items-baseline gap-1"><span className="text-4xl font-bold">$0</span><span className="text-xs text-slate-500">per month</span></div>
+            <p className="mt-3 flex-1 text-xs leading-6 text-slate-600">{FREE_PLAN_SUMMARY}</p>
+            <LandingPrimaryCta className="mt-8 w-full" />
+          </div>
           <div className="rounded-xl p-7 border border-slate-200/80 bg-white text-slate-900 shadow-xs flex flex-col">
             <div className="text-sm font-bold">Pro Monthly</div>
             <p className="text-xs mt-1 text-slate-500">One paid interval with the full Pro feature set.</p>
@@ -80,7 +91,7 @@ export default function PricingPage() {
             ))}
           </ul>
           <div className="mt-7 border-t border-slate-200 pt-5 text-sm text-slate-600 space-y-2">
-            <p><strong className="text-slate-900">Limited account access:</strong> Explore the dashboard, connected account information, campaign data, account settings, billing, and non-Pro workspace areas without a paid subscription.</p>
+            <p><strong className="text-slate-900">Free plan:</strong> {FREE_PLAN_SUMMARY} Settings and billing remain available for account connection and upgrades.</p>
             <p>Subscriptions renew automatically until canceled. All sales are final. Cancellation stops the next renewal and Pro access generally continues through the paid period. Google Ads advertising spend is separate and is not billed or refunded by AdOptimize.</p>
             <p><Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline">Read the Billing, Cancellation &amp; Refund Policy</Link>.</p>
           </div>

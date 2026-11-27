@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppLoader } from '@/components/ui/app-loader';
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, CheckCircle2, Download, Loader2, SearchCheck, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, SearchCheck, ShieldCheck } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
 import { useAdOptimize } from '@/context/adoptimize-context';
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
@@ -12,6 +12,7 @@ import { downloadCsv } from '@/lib/csv';
 import { buildAuditCsv } from '@/lib/google-ads/audit-csv';
 import type { AdsAuditReport } from '@/lib/google-ads/audit';
 import type { Metrics } from '@/lib/google-ads/reporting';
+import type { AuditUsage } from '@/lib/plans';
 
 const periods = [
   ['LAST_7_DAYS', 'Last 7 complete days'],
@@ -43,13 +44,37 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
   const [report, setReport] = useState<AdsAuditReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [usage, setUsage] = useState<AuditUsage | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [usageAttempt, setUsageAttempt] = useState(0);
   const [category, setCategory] = useState('All');
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    const load = async () => {
+      try {
+        if (auth.currentUser?.uid !== userId) throw new Error('Sign in to view your audit allowance.');
+        const response = await fetch('/api/google-ads/audit', {
+          headers: { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` }, cache: 'no-store',
+        });
+        const data: { usage?: AuditUsage; error?: string } = await response.json();
+        if (!response.ok || !data.usage) throw new Error(data.error || 'Your audit allowance could not be loaded.');
+        if (active) setUsage(data.usage);
+      } catch (failure) {
+        if (!active) return;
+        console.error('[Ads Audit] Allowance failed:', failure);
+        setUsageError(failure instanceof Error ? failure.message : 'Your audit allowance could not be loaded.');
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [userId, usageAttempt]);
 
   const runAudit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (loading) return;
+    if (loading || request.current) return;
     setError(null);
     setLoading(true);
     setReport(null);
@@ -68,15 +93,21 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           ...(targetRoas ? { targetRoas: Number(targetRoas) } : {}),
         }),
       });
-      const data: { report?: AdsAuditReport; error?: string } = await response.json();
-      if (!response.ok || !data.report) throw new Error(data.error || 'The audit returned no report.');
+      const data: { report?: AdsAuditReport; usage?: AuditUsage; error?: string; code?: string } = await response.json();
+      if (data.code === 'audit_quota_exceeded') {
+        setUsage(null);
+        setUsageAttempt((value) => value + 1);
+      }
+      if (!response.ok || !data.report || !data.usage) throw new Error(data.error || 'The audit returned no report or allowance.');
       setReport(data.report);
+      setUsage(data.usage);
       setCategory('All');
     } catch (failure) {
       if (controller.signal.aborted) return;
       console.error('[Ads Audit] Audit failed:', failure);
       setError(failure instanceof Error ? failure.message : 'The audit could not be completed.');
     } finally {
+      if (request.current === controller) request.current = null;
       if (!controller.signal.aborted) setLoading(false);
     }
   };
@@ -111,12 +142,23 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
         </div>
         <h2 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">Know where your ad spend needs attention.</h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-          Audit a specific period using your connected account. Compare performance, inspect costly queries,
-          and get evidence-led next steps. No estimated health scores, invented savings, or automatic changes.
+          Run a read-only Google Ads audit using your connected account. Compare performance, inspect costly queries,
+          review available keyword Quality Scores and get evidence-led next steps.
         </p>
         <div className="mt-5 flex items-center gap-2 text-xs text-slate-300">
           <ShieldCheck className="w-4 h-4 text-[#FBBF24]" /> Read-only analysis. You stay in control of every change.
         </div>
+      </section>
+
+      <section aria-label="Audit allowance" className="rounded-xl border border-[#DDD6FE] bg-white p-5 text-sm">
+        {usageError ? <div role="alert" className="text-red-700">{usageError} <button type="button" onClick={() => { setUsage(null); setUsageError(null); setUsageAttempt((value) => value + 1); }} className="font-semibold underline">Retry</button></div>
+          : !usage ? <p role="status" className="text-slate-500">Loading your audit allowance...</p>
+          : usage.plan === 'pro' ? <p>Pro: audits do not have the Free plan’s monthly quota. Technical rate limits still apply.</p>
+          : <div className="space-y-2">
+            <p><strong>Free plan:</strong> {usage.remaining} of {usage.limit} audits available this month. Resets {new Date(usage.resetsAt).toLocaleDateString('en-GB', { timeZone: 'UTC' })} (UTC).</p>
+            <p className="text-slate-600">Completed audits count toward the allowance; failed runs do not. In-progress runs reserve a slot.</p>
+            <Link href="/sign-up?next=/audit" className="inline-flex font-semibold text-[#6D28D9] underline">Upgrade to Pro for the dashboard, campaign management and the AI Marketing Agent</Link>
+          </div>}
       </section>
 
       <form onSubmit={runAudit} className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4">
@@ -147,7 +189,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
         </fieldset>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <p className="text-xs text-slate-500">Targets are audit benchmarks, not changes to your bidding settings.</p>
-          <button type="submit" disabled={loading || !connected || !userId}
+          <button type="submit" disabled={loading || !connected || !userId || !usage || usage.remaining === 0}
             className="inline-flex items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? <AppLoader className="h-4 w-4" /> : <SearchCheck className="w-4 h-4" />}
             {loading ? 'Auditing account...' : 'Run audit'}
@@ -272,7 +314,7 @@ function AuditWorkspace({ userId, connected, currency }: { userId?: string; conn
           <p className="mt-2 text-sm text-slate-600">Completed: campaign efficiency and budget checks{report.keywords ? ', keyword quality checks' : ''}{report.searchTerms ? ', search-query checks' : ''}.
             Not assessed: landing-page content, ad policies, attribution accuracy or tracking implementation. Budget visibility is flagged at 20% lost Search impression share; low Quality Score means 4/10 or below.</p>
           <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-500">{report.warnings.map((warning) => <li key={warning}>- {warning}</li>)}</ul>
-          <Link href="/chat" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#B45309]">Investigate with the AI Marketing Agent <ArrowRight className="w-4 h-4" /></Link>
+          <Link href={usage?.plan === 'pro' ? '/chat' : '/sign-up?next=/chat'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#6D28D9]">{usage?.plan === 'pro' ? 'Investigate with the AI Marketing Agent' : 'Unlock Pro to turn audit findings into approved changes'} <ArrowRight className="w-4 h-4" /></Link>
         </section>
       </>}
     </div>

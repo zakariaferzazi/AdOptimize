@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ActivityLogClientView } from './activity-log-client';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
+import { requirePageSubscription } from '@/lib/billing/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   robots: PRIVATE_ROBOTS,
 };
 
-export default function ActivityLogPage() {
+export default async function ActivityLogPage() {
+  await requirePageSubscription('/activity-log');
   return <ActivityLogClientView />;
 }

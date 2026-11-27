@@ -200,14 +200,14 @@ export default async function FeatureDetailPage({ params }: FeaturePageProps) {
             Ready to optimize your Google Ads campaigns?
           </h3>
           <p className="text-slate-300 text-xs sm:text-sm max-w-xl mx-auto">
-            Connect your Google Ads account securely via Google authorization. The agent can analyze your data and prepare supported changes for your approval.
+            Start with five free Google Ads audits per UTC calendar month. Pro unlocks the dashboard and agent for campaign creation, management and approved account changes.
           </p>
           <div className="pt-2">
             <Link
-              href="/dashboard"
+              href="/sign-up?next=/audit"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-sm rounded-xl shadow-lg transition-transform hover:scale-105"
             >
-              <span>Create account</span>
+              <span>Get free audit</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

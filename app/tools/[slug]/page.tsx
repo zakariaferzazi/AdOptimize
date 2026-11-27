@@ -2,10 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ShieldCheck, HelpCircle, ChevronRight } from 'lucide-react';
-import { PSEO_TOOLS, PSEOTool } from '@/lib/pseo-data';
+import { PSEO_TOOLS } from '@/lib/pseo-data';
 import { ToolInteractiveWidget } from './tool-widget';
 import { BrandLogo } from '@/components/ui/brand-logo';
-import { buildPageMetadata } from '@/lib/seo';
+import { absoluteUrl, buildPageMetadata, serializeJsonLd } from '@/lib/seo';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
+import { LandingPrimaryCta } from '@/components/landing/session-cta';
+import { BLOG_POSTS } from '@/lib/blog-data';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -36,6 +39,7 @@ export default async function ToolDetailPage({ params }: Props) {
   if (!tool) {
     notFound();
   }
+  const relatedArticles = BLOG_POSTS.filter((post) => post.relatedToolSlug === tool.slug);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -50,6 +54,7 @@ export default async function ToolDetailPage({ params }: Props) {
           '@type': 'Offer',
           price: '0',
           priceCurrency: 'USD',
+          description: ['audit', 'quality-score', 'negative-keywords', 'wasted-spend'].includes(tool.toolType) ? FREE_PLAN_SUMMARY : tool.metaDescription,
         },
       },
       {
@@ -59,19 +64,19 @@ export default async function ToolDetailPage({ params }: Props) {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://adoptimize.app',
+            item: absoluteUrl('/'),
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Free Google Ads Tools',
-            item: 'https://adoptimize.app/tools',
+            item: absoluteUrl('/tools'),
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: tool.title,
-            item: `https://adoptimize.app/tools/${tool.slug}`,
+            item: absoluteUrl(`/tools/${tool.slug}`),
           },
         ],
       },
@@ -93,7 +98,7 @@ export default async function ToolDetailPage({ params }: Props) {
     <div className="min-h-screen bg-[#F5F3FF] text-slate-900 font-sans">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
@@ -138,7 +143,20 @@ export default async function ToolDetailPage({ params }: Props) {
         </div>
 
         {/* Interactive Tool Widget */}
-        <ToolInteractiveWidget tool={tool} />
+        {['audit', 'quality-score', 'negative-keywords', 'wasted-spend'].includes(tool.toolType) ? (
+          <section className="rounded-xl border border-[#DDD6FE] bg-white p-6 sm:p-8 space-y-4" aria-labelledby="real-audit-heading">
+            <h2 id="real-audit-heading" className="text-xl font-bold text-[#2E1065]">Run your free Google Ads audit</h2>
+            <p className="text-sm leading-6 text-slate-700">{FREE_PLAN_SUMMARY}</p>
+            <ol className="list-decimal pl-5 space-y-2 text-sm leading-6 text-slate-700">
+              <li>Create your account. Free requires no credit card.</li>
+              <li>Connect Google Ads through Google’s authorization screen in Settings.</li>
+              <li>Open AI Ads Audit, choose your dates and optional CPA/ROAS targets, and run the report.</li>
+              <li>Review findings and coverage notes. Export the findings as CSV.</li>
+            </ol>
+            <p className="text-xs leading-5 text-slate-500">The audit uses rules-based diagnostics from your connected account. It cannot scan private ad performance from a domain or customer ID alone. No savings or performance outcome is guaranteed.</p>
+            <LandingPrimaryCta className="w-full sm:w-auto" />
+          </section>
+        ) : <ToolInteractiveWidget tool={tool} />}
 
         {/* Key Benefits */}
         <div className="bg-white rounded-xl p-7 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
@@ -155,7 +173,7 @@ export default async function ToolDetailPage({ params }: Props) {
 
         {/* Benchmark Cards */}
         <div className="space-y-3">
-          <h2 className="text-base font-bold text-slate-900">Industry Performance Benchmarks</h2>
+          <h2 className="text-base font-bold text-slate-900">Scope and methodology</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {tool.benchmarks.map((b, i) => (
               <div key={i} className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs space-y-1">
@@ -184,17 +202,25 @@ export default async function ToolDetailPage({ params }: Props) {
         </div>
 
         {/* Bottom CTA */}
+        {relatedArticles.length > 0 && (
+          <section className="rounded-xl border border-[#DDD6FE] bg-white p-6 space-y-3" aria-labelledby="audit-guides">
+            <h2 id="audit-guides" className="text-lg font-bold text-[#2E1065]">Practical audit guides</h2>
+            <ul className="list-disc pl-5 space-y-3 text-sm text-[#6D28D9]">
+              {relatedArticles.map((post) => <li key={post.slug}><Link href={`/blog/${post.slug}`} className="font-semibold underline">{post.title}</Link></li>)}
+            </ul>
+          </section>
+        )}
         <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
-          <h2 className="text-2xl font-bold">Ready to Automate Your Google Ads Optimization?</h2>
+          <h2 className="text-2xl font-bold">Start with a free Google Ads audit.</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Connect your account with Google authorization. Use AI-assisted analysis and review every supported change before approval.
+            Run five read-only audits per month. Upgrade to Pro for the dashboard and an agent that creates campaigns, manages budgets and executes approved changes.
           </p>
           <div className="pt-2">
             <Link
-              href="/"
+              href="/sign-up?next=/audit"
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-md transition-colors"
             >
-              <span>Launch Live AdOptimize Workspace</span>
+              <span>Get free audit</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

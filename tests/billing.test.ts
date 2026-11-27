@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPlatformProxy } from 'wrangler';
 import { NextRequest, NextResponse } from 'next/server';
+import React from 'react';
 import type { D1Database } from '@/lib/store/d1';
 
 const mocks = vi.hoisted(() => ({
@@ -44,6 +45,9 @@ vi.mock('@/app/chat/chat-client', () => ({ ChatClientView: () => null }));
 vi.mock('@/app/audit/audit-client', () => ({ AuditClientView: () => null }));
 vi.mock('@/app/reports/reports-client', () => ({ ReportsClientView: () => null }));
 vi.mock('@/app/optimizer/optimizer-client', () => ({ OptimizerClientView: () => null }));
+vi.mock('@/app/dashboard/dashboard-client', () => ({ DashboardClientView: () => null }));
+vi.mock('@/app/campaigns/campaigns-client', () => ({ CampaignsClientView: () => null }));
+vi.mock('@/app/activity-log/activity-log-client', () => ({ ActivityLogClientView: () => null }));
 
 import { createPolar } from '@polar-sh/sdk/2026-10';
 import { POST as webhook } from '@/app/api/billing/webhook/route';
@@ -54,7 +58,7 @@ import { POST as createSession, DELETE as deleteSession } from '@/app/api/auth/s
 import { POST as chat } from '@/app/api/ai/chat/route';
 import { POST as approve } from '@/app/api/ai/chat/approve/route';
 import { POST as execute } from '@/app/api/ai/chat/execute/route';
-import { POST as audit } from '@/app/api/google-ads/audit/route';
+import { POST as audit, GET as auditUsage } from '@/app/api/google-ads/audit/route';
 import { POST as report } from '@/app/api/google-ads/report/route';
 import { POST as mutate } from '@/app/api/google-ads/mutate/route';
 import { POST as mcp } from '@/app/api/mcp/route';
@@ -62,8 +66,12 @@ import ChatPage from '@/app/chat/page';
 import AuditPage from '@/app/audit/page';
 import ReportsPage from '@/app/reports/page';
 import OptimizerPage from '@/app/optimizer/page';
+import DashboardPage from '@/app/dashboard/page';
+import CampaignsPage from '@/app/campaigns/page';
+import ActivityLogPage from '@/app/activity-log/page';
 import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
+import { completeAudit, getAuditUsage, releaseAudit, reserveAudit } from '@/lib/billing/audit-access';
 
 const organization = '11111111-1111-4111-8111-111111111111';
 const monthly = '22222222-2222-4222-8222-222222222222';
@@ -123,10 +131,11 @@ beforeAll(async () => {
   deploymentOrigin = platform.env.APP_URL;
   mocks.db = db;
   dispose = platform.dispose;
-  const sql = readFileSync('migrations\\0004_billing.sql', 'utf8');
+  const sql = readFileSync('migrations\\0004_billing.sql', 'utf8') + readFileSync('migrations\\0006_free_audit_usage.sql', 'utf8');
   await db.batch(sql.split(';').map((query) => query.trim()).filter(Boolean).map((query) => db.prepare(query)));
 }, 30000);
 beforeEach(async () => {
+  vi.stubGlobal('React', React);
   vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
   vi.stubEnv('APP_URL', 'https://app.example.test');
   vi.stubEnv('POLAR_ORGANIZATION_ID_SANDBOX', organization);
@@ -142,7 +151,7 @@ beforeEach(async () => {
   vi.stubEnv('POLAR_ACCESS_TOKEN', 'production-token-not-a-real-credential');
   mocks.db = db;
   mocks.cookie = undefined;
-  await db.batch(['billing_customers', 'billing_subscriptions', 'billing_events', 'billing_payments', 'billing_rate_limits', 'app_sessions']
+  await db.batch(['billing_customers', 'billing_subscriptions', 'billing_events', 'billing_payments', 'billing_rate_limits', 'app_sessions', 'free_audit_runs']
     .map((table) => db.prepare(`DELETE FROM ${table}`)));
   await reserveCustomer('user-a');
   mocks.checkout.mockReset().mockResolvedValue({ url: 'https://sandbox.polar.sh/checkout/example' });
@@ -154,7 +163,7 @@ beforeEach(async () => {
   }));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
-afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 afterAll(async () => { await dispose?.(); });
 
 describe('verified Polar webhook lifecycle on real D1', () => {
@@ -411,7 +420,7 @@ describe('server-created checkout and portal', () => {
 describe('server-side Pro enforcement and opaque sessions', () => {
   const premium = [
     ['/api/ai/chat', chat], ['/api/ai/chat/approve', approve], ['/api/ai/chat/execute', execute],
-    ['/api/google-ads/audit', audit], ['/api/google-ads/report', report], ['/api/google-ads/mutate', mutate], ['/api/mcp', mcp],
+    ['/api/google-ads/report', report], ['/api/google-ads/mutate', mutate], ['/api/mcp', mcp],
   ] as const;
   it('creates and revokes sessions with the deployed origin before Polar is configured', async () => {
     vi.stubEnv('APP_URL', deploymentOrigin);
@@ -462,7 +471,7 @@ describe('server-side Pro enforcement and opaque sessions', () => {
   });
 
   it('guards all premium server pages and stores only an expiring session hash', async () => {
-    for (const [path, page] of [['/chat', ChatPage], ['/audit', AuditPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
+    for (const [path, page] of [['/chat', ChatPage], ['/dashboard', DashboardPage], ['/campaigns', CampaignsPage], ['/activity-log', ActivityLogPage], ['/reports', ReportsPage], ['/optimizer', OptimizerPage]] as const) {
       await expect(page()).rejects.toThrow(`redirect:/sign-up?next=${encodeURIComponent(path)}`);
     }
     const response = await createSession(request('/api/auth/session', {}));
@@ -477,11 +486,14 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     expect(stored?.token_hash).toBe(hash(mocks.cookie));
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
+    await expect(AuditPage()).resolves.toBeDefined();
+    for (const page of [DashboardPage, CampaignsPage, ActivityLogPage]) await expect(page()).rejects.toThrow('redirect:/sign-up');
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },
     });
+
     expect((await deleteSession(logout)).status).toBe(200);
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     expect(hasPaidAccess(await subscription('user-a'))).toBe(true);
@@ -490,6 +502,7 @@ describe('server-side Pro enforcement and opaque sessions', () => {
   it('fails closed without durable storage, never falling back to browser or memory state', async () => {
     mocks.db = undefined;
     expect((await chat(request('/api/ai/chat', {}))).status).toBe(503);
+    expect((await auditUsage(request('/api/google-ads/audit'))).status).toBe(503);
   });
 
   it('uses atomic persistent rate limits across concurrent requests', async () => {
@@ -498,5 +511,90 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     const rejected = results.filter((result) => result.status === 'rejected');
     expect(rejected).toHaveLength(4);
     for (const result of rejected) if (result.status === 'rejected') expect(result.reason.status).toBe(429);
+  });
+});
+
+describe('Free audit access and durable monthly allowance', () => {
+  it('requires authentication for audits even when anonymous AI mode is enabled', async () => {
+    vi.stubEnv('AI_ALLOW_ANONYMOUS', '1');
+    for (const handler of [audit, auditUsage]) {
+      const anonymous = request('/api/google-ads/audit', {});
+      anonymous.headers.delete('authorization');
+      expect((await handler(anonymous)).status).toBe(401);
+      expect((await handler(request('/api/google-ads/audit', {}, 'forged'))).status).toBe(401);
+    }
+    await expect(AuditPage()).rejects.toThrow('redirect:/sign-in?next=%2Faudit');
+    expect((await audit(request('/api/google-ads/audit', {}))).status).toBe(409);
+  });
+
+  it('lets Free users inspect their allowance without Polar product credentials or a payment', async () => {
+    vi.stubEnv('POLAR_PRODUCT_PRO_MONTHLY_SANDBOX', undefined);
+    vi.stubEnv('POLAR_PRODUCT_PRO_YEARLY_SANDBOX', undefined);
+    expect((await auditUsage(request('/api/google-ads/audit'))).status).toBe(200);
+    expect(await getAuditUsage('user-a')).toMatchObject({ plan: 'free', limit: 5, remaining: 5 });
+    expect((await status(request('/api/billing/status'))).status).toBe(200);
+    expect(mocks.checkout).not.toHaveBeenCalled();
+  });
+
+  it('permits exactly five concurrent reservations, counts completed reports and rejects the sixth', async () => {
+    const attempts = await Promise.allSettled(Array.from({ length: 6 }, () => reserveAudit('user-a')));
+    const accepted = attempts.filter((item) => item.status === 'fulfilled');
+    expect(accepted).toHaveLength(5);
+    const rejected = attempts.find((item) => item.status === 'rejected');
+    if (rejected?.status !== 'rejected') throw new Error('Expected quota rejection');
+    expect(rejected.reason).toMatchObject({ status: 429, code: 'audit_quota_exceeded' });
+    for (const item of accepted) {
+      if (item.status === 'fulfilled' && item.value) await completeAudit(item.value, 'user-a');
+    }
+    expect(await getAuditUsage('user-a')).toMatchObject({ used: 5, remaining: 0 });
+    await expect(reserveAudit('user-a')).rejects.toMatchObject({ code: 'audit_quota_exceeded' });
+    expect(await getAuditUsage('user-b')).toMatchObject({ remaining: 5 });
+  });
+
+  it('does not charge failed or interrupted audits', async () => {
+    const first = await reserveAudit('user-a');
+    if (!first) throw new Error('Expected Free reservation');
+    await releaseAudit(first);
+    expect(await getAuditUsage('user-a')).toMatchObject({ used: 0, remaining: 5 });
+    const interrupted = await reserveAudit('user-a');
+    const now = Date.now();
+    vi.setSystemTime(now + 121000);
+    expect(await getAuditUsage('user-a')).toMatchObject({ used: 0, remaining: 5 });
+    if (!interrupted) throw new Error('Expected Free reservation');
+    await expect(completeAudit(interrupted, 'user-a')).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('resets at the UTC calendar-month boundary and isolates deployment environments', async () => {
+    vi.setSystemTime(new Date('2026-11-30T23:55:00Z'));
+    for (let i = 0; i < 5; i++) {
+      const id = await reserveAudit('user-a');
+      if (!id) throw new Error('Expected Free reservation');
+      await completeAudit(id, 'user-a');
+    }
+    expect(await getAuditUsage('user-a')).toMatchObject({ remaining: 0, resetsAt: '2026-12-01T00:00:00.000Z' });
+    vi.stubEnv('POLAR_ENVIRONMENT', 'production');
+    expect(await getAuditUsage('user-a')).toMatchObject({ remaining: 5 });
+    vi.stubEnv('POLAR_ENVIRONMENT', 'sandbox');
+    vi.setSystemTime(new Date('2026-12-01T00:00:00Z'));
+    expect(await getAuditUsage('user-a')).toMatchObject({ remaining: 5 });
+  });
+
+  it('does not apply the Free quota to an active Pro subscription, but restores it after expiration', async () => {
+    await deliver();
+    for (let i = 0; i < 6; i++) expect(await reserveAudit('user-a')).toBeNull();
+    expect(await getAuditUsage('user-a')).toMatchObject({ plan: 'pro', limit: null, remaining: null });
+    await db.prepare('UPDATE billing_subscriptions SET period_end = ?').bind('2020-01-01T00:00:00Z').run();
+    expect(await getAuditUsage('user-a')).toMatchObject({ plan: 'free', remaining: 5 });
+  });
+
+  it('allocates a run spanning midnight to its original UTC month without extending old usage retention', async () => {
+    vi.setSystemTime(new Date('2026-11-30T23:59:50Z'));
+    const id = await reserveAudit('user-a');
+    if (!id) throw new Error('Expected Free reservation');
+    vi.setSystemTime(new Date('2026-12-01T00:00:10Z'));
+    expect(await completeAudit(id, 'user-a')).toMatchObject({ remaining: 5 });
+    const row = await db.prepare('SELECT period, expires_at FROM free_audit_runs WHERE id = ?')
+      .bind(id).first<{ period: string; expires_at: number }>();
+    expect(row).toMatchObject({ period: '2026-11', expires_at: Date.parse('2026-12-01T00:00:00Z') / 1000 });
   });
 });

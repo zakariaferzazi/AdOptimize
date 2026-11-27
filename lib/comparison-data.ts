@@ -1,3 +1,5 @@
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
+
 export interface PSEOComparison {
   slug: string;
   title: string;
@@ -20,7 +22,7 @@ export const COMPARISON_CHECKED_AT = '2026-11-27';
 const proPrice = '$29/month or $99/year ($8.25/month equivalent), plus applicable taxes';
 const agentWork = 'Analyze performance, create Search and App campaigns, and apply approved budget, bid, keyword and targeting changes';
 
-export const PSEO_COMPARISONS: PSEOComparison[] = [
+const comparisons: PSEOComparison[] = [
   {
     slug: 'google-ads-agency-vs-software',
     title: 'AdOptimize vs. a Google Ads Agency',
@@ -147,7 +149,7 @@ export const PSEO_COMPARISONS: PSEOComparison[] = [
     verdict: 'If Google Ads is the account you want to delegate, AdOptimize puts the agent, your campaign data and your change history in one workspace. Start Pro at $29 monthly or $99 yearly and use it for campaign creation, management and optimization. For a Google Ads-first workflow, it is a straightforward alternative to selecting a multi-platform, task-based tier.',
     faqs: [
       { q: 'Can AdOptimize do more than analyze my account?', a: 'Yes. It creates Search and App campaigns and applies approved budget, bidding, keyword, targeting and campaign-status changes directly in Google Ads.' },
-      { q: 'What can I see before subscribing?', a: 'Create a free account to explore the dashboard and campaign data. Pro unlocks the agent, audits, reports and campaign management.' },
+      { q: 'What can I use before subscribing?', a: 'Free includes five read-only AI Ads Audits per UTC calendar month. Pro unlocks the dashboard, campaign workspace, AI Marketing Agent, reports and optimization tools.' },
     ],
     competitorSources: [{ label: 'Adspirer pricing and task allowances', url: 'https://www.adspirer.com/pricing' }],
     relatedBlogSlug: 'adspirer-vs-adoptimize',
@@ -224,3 +226,7 @@ export const PSEO_COMPARISONS: PSEOComparison[] = [
     relatedBlogSlug: 'pace-vs-adoptimize',
   },
 ];
+
+export const PSEO_COMPARISONS = comparisons.map((comparison) => ({
+  ...comparison, keyFacts: [FREE_PLAN_SUMMARY, ...comparison.keyFacts],
+}));

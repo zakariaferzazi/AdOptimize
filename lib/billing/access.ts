@@ -23,11 +23,16 @@ export function withSubscription(handler: (request: NextRequest) => Promise<Resp
 }
 
 export async function requirePageSubscription(path: string): Promise<void> {
-  // The sign-up flow resumes at the right step: account for guests, plan for signed-in unpaid users.
-  const paywall = `/sign-up?next=${encodeURIComponent(path)}`;
+  const userId = await requirePageUser(path, '/sign-up');
+  if (!hasPaidAccess(await subscription(userId))) redirect(`/sign-up?next=${encodeURIComponent(path)}`);
+}
+
+export async function requirePageUser(path: string, authRoute = '/sign-in'): Promise<string> {
+  const paywall = `${authRoute}?next=${encodeURIComponent(path)}`;
   const token = (await cookies()).get('adoptimize_session')?.value;
   if (!token) redirect(paywall);
   const session = await (await billingDb()).prepare('SELECT user_id FROM app_sessions WHERE token_hash = ? AND expires_at > ?')
     .bind(hash(token), Math.floor(Date.now() / 1000)).first<{ user_id: string }>();
-  if (!session || !hasPaidAccess(await subscription(session.user_id))) redirect(paywall);
+  if (!session) redirect(paywall);
+  return session.user_id;
 }

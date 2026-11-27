@@ -12,10 +12,10 @@ export function LandingPrimaryCta({ className = '' }: { className?: string }) {
 
   return (
     <Link
-      href={signedIn ? '/dashboard' : '/sign-up'}
+      href={signedIn ? '/audit' : '/sign-up?next=/audit'}
       className={`${landing.btnPrimary} ${className}`}
     >
-      {signedIn ? 'Go to Dashboard' : 'Create free account'}
+      {signedIn ? 'Open audit workspace' : 'Get free audit'}
       <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </Link>
   );

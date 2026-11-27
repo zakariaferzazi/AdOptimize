@@ -18,17 +18,18 @@ describe('homepage session CTAs', () => {
   it('shows account creation while signed out', () => {
     const primary = renderToStaticMarkup(React.createElement(LandingPrimaryCta));
     const account = renderToStaticMarkup(React.createElement(LandingAccountLink));
-    expect(primary).toContain('Create free account');
-    expect(primary).toContain('/sign-up');
+    expect(primary).toContain('Get free audit');
+    expect(primary).toContain('/sign-up?next=/audit');
     expect(account).toContain('Sign in');
   });
 
-  it('links directly to the dashboard while signed in', () => {
+  it('links directly to the accessible audit workspace while signed in', () => {
     signedIn = true;
     const primary = renderToStaticMarkup(React.createElement(LandingPrimaryCta));
     const account = renderToStaticMarkup(React.createElement(LandingAccountLink));
-    expect(primary).toContain('Go to Dashboard');
-    expect(primary).toContain('/dashboard');
+    expect(primary).toContain('Open audit workspace');
+    expect(primary).toContain('/audit');
+    expect(primary).not.toContain('/sign-up');
     expect(account).toBe('');
   });
 });

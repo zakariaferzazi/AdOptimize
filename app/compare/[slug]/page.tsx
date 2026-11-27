@@ -226,7 +226,7 @@ export default async function ComparisonDetailPage({ params }: Props) {
         <div className="bg-[#2E1065] text-white rounded-xl p-8 text-center space-y-4 shadow-xl">
           <h2 className="text-2xl font-bold">Put your Google Ads agent to work.</h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-            Build campaigns, manage budgets and execute approved optimizations. Explore your dashboard free, then unlock the agent with Pro at $29/month or $99/year, plus applicable taxes.
+            Start with five free, read-only Google Ads audits per UTC calendar month. Pro unlocks the dashboard, campaign workspace and executable agent at $29/month or $99/year, plus applicable taxes.
           </p>
           <div className="pt-2">
             <Link

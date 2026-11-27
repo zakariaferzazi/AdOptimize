@@ -6,7 +6,17 @@ import { buildAuditCsv } from '@/lib/google-ads/audit-csv';
 import { jsonRequest } from './helpers/model';
 
 const mocks = vi.hoisted(() => ({ uid: 'audit-user', connected: true }));
-vi.mock('@/lib/billing/access', () => ({ withSubscription: <T>(handler: T) => handler }));
+vi.mock('@/lib/billing/http', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/billing/http')>(),
+  billingIdentity: async () => ({ uid: mocks.uid }),
+}));
+vi.mock('@/lib/billing/store', () => ({ rateLimit: vi.fn(), hash: (value: string) => value }));
+vi.mock('@/lib/billing/audit-access', () => ({
+  reserveAudit: vi.fn(async () => 'audit-reservation'),
+  releaseAudit: vi.fn(async () => {}),
+  completeAudit: vi.fn(async () => ({ plan: 'free', limit: 5, used: 1, remaining: 4, resetsAt: '2026-12-01T00:00:00Z' })),
+  getAuditUsage: vi.fn(async () => ({ plan: 'free', limit: 5, used: 0, remaining: 5, resetsAt: '2026-12-01T00:00:00Z' })),
+}));
 vi.mock('@/lib/ai/identity', () => ({
   requireIdentity: async () => ({ uid: mocks.uid }),
   UnauthorizedError: class UnauthorizedError extends Error {},
@@ -19,6 +29,7 @@ vi.mock('@/lib/ai/account-binding', () => ({
   AccountBindingError: class AccountBindingError extends Error {},
 }));
 import { POST } from '@/app/api/google-ads/audit/route';
+import { completeAudit, releaseAudit, reserveAudit } from '@/lib/billing/audit-access';
 
 let fake: FakeGoogleAds;
 let context: GoogleAdsContext;
@@ -26,6 +37,7 @@ const dates = { startDate: '2026-10-10', endDate: '2026-10-16' };
 
 beforeEach(() => {
   mocks.connected = true;
+  vi.clearAllMocks();
   fake = new FakeGoogleAds();
   vi.stubGlobal('fetch', fake.fetch);
   invalidateGaqlCache();
@@ -193,6 +205,9 @@ describe('audit validation and account binding', () => {
     expect(response.status).toBe(200);
     expect(fake.requests.every((request) => request.url.includes('/customers/1234567890/'))).toBe(true);
     expect(fake.mutates()).toEqual([]);
+    expect(await response.json()).toMatchObject({ usage: { plan: 'free', remaining: 4 } });
+    expect(completeAudit).toHaveBeenCalledWith('audit-reservation', mocks.uid);
+    expect(releaseAudit).not.toHaveBeenCalled();
   });
 
   it('requires a connected account', async () => {
@@ -200,5 +215,17 @@ describe('audit validation and account binding', () => {
     const response = await POST(jsonRequest('http://localhost/api/google-ads/audit', dates));
     expect(response.status).toBe(409);
     expect(fake.requests).toEqual([]);
+    expect(reserveAudit).not.toHaveBeenCalled();
+  });
+
+  it('releases the Free allowance when a campaign read fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    fake.failNext((request) => request.from === 'campaign', 'USER_PERMISSION_DENIED', 'authorizationError');
+    const response = await POST(jsonRequest('http://localhost/api/google-ads/audit', dates));
+    expect(response.ok).toBe(false);
+    expect(reserveAudit).toHaveBeenCalledOnce();
+    expect(releaseAudit).toHaveBeenCalledWith('audit-reservation');
+    expect(completeAudit).not.toHaveBeenCalled();
+    expect(fake.mutates()).toEqual([]);
   });
 });

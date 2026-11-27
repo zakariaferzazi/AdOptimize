@@ -47,7 +47,7 @@ export default function AboutPage() {
             Google Ads accounts generate detailed performance and configuration data, but finding the cause of a change and turning that finding into a reviewed action can require switching between reports and campaign settings.
           </p>
           <p>
-            AdOptimize is designed for in-house marketers, freelancers, and agencies who want help understanding campaign, keyword, search-term, conversion, and bidding data—and, with approval, applying supported account changes. AdOptimize offers limited dashboard access plus Pro Monthly and Pro Yearly subscriptions for its advanced agent and management features.
+            AdOptimize is designed for in-house marketers, freelancers, and agencies who want help understanding campaign, keyword, search-term, conversion, and bidding data—and, with approval, applying supported account changes. Start with the Free AI Ads Audit plan: five read-only Google Ads audits per calendar month (UTC). Pro Monthly and Pro Yearly unlock the dashboard, campaign workspace, AI Marketing Agent and advanced management features.
           </p>
           <p>The agent can explain account performance, create supported Search or App campaigns, and prepare changes to budgets, bidding, status, dates, networks, locations, keywords, negatives, tracking, and conversion goals. Results are not guaranteed, and users review and approve each proposed change before it is executed in Google Ads.</p>
         </div>

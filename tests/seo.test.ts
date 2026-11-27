@@ -11,6 +11,8 @@ import { buildLlmsTxt } from '@/lib/llms';
 import { buildGlobalSchema, buildPageMetadata, PRIVATE_ROUTES } from '@/lib/seo';
 import ComparisonDetailPage, { generateStaticParams as comparisonParams } from '@/app/compare/[slug]/page';
 import BlogPostPage, { generateStaticParams as blogParams } from '@/app/blog/[slug]/page';
+import ToolDetailPage, { generateMetadata as toolMetadata } from '@/app/tools/[slug]/page';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -49,7 +51,9 @@ describe('answer engine (GEO) content', () => {
     expect(text).toContain('support@adoptimize.app');
     expect(text).toContain('https://adoptimize.app/blog/wordstream-vs-adoptimize');
     expect(text).toContain('https://adoptimize.app/compare/adspirer-alternative');
-    expect(text).not.toMatch(/aggregateRating|all sales are final|Review current provider|free plan/i);
+    expect(text).toContain(FREE_PLAN_SUMMARY);
+    expect(text).toContain('https://adoptimize.app/tools/google-ads-audit');
+    expect(text).not.toMatch(/aggregateRating|all sales are final|Review current provider|explore the dashboard and campaign data/i);
   });
 
   it('gives every blog post and comparison standalone key facts with no unsupported claims', () => {
@@ -60,6 +64,34 @@ describe('answer engine (GEO) content', () => {
     for (const list of facts) {
       expect(list.length).toBeGreaterThanOrEqual(2);
       for (const fact of list) expect(fact).not.toMatch(/guarantee[ds]? (results|savings|roas|cpa)|always|#1/i);
+    }
+  });
+
+  it('targets the primary free audit query on an indexable real-audit landing page', async () => {
+    vi.stubGlobal('React', React);
+    const params = Promise.resolve({ slug: 'google-ads-audit' });
+    const metadata = await toolMetadata({ params });
+    expect(metadata.title).toContain('Free Google Ads Audit');
+    expect(metadata.alternates?.canonical).toBe('https://adoptimize.app/tools/google-ads-audit');
+    const html = renderToStaticMarkup(await ToolDetailPage({ params }));
+    expect(html).toContain('href="/sign-up?next=/audit"');
+    expect(html).toContain(FREE_PLAN_SUMMARY);
+    expect(html).not.toMatch(/Run 60-Sec Audit|3 Critical Issues Detected|Customer ID or Account Domain for Scan/);
+  });
+
+  it('publishes useful audit articles with internal tool links, dates and truthful Free facts', async () => {
+    vi.stubGlobal('React', React);
+    const urls = sitemap().map((entry) => entry.url);
+    for (const slug of ['free-google-ads-audit', 'google-ads-audit-tool', 'adwords-quality-score-checker']) {
+      const post = BLOG_POSTS.find((item) => item.slug === slug);
+      if (!post?.relatedToolSlug) throw new Error(`Missing audit article: ${slug}`);
+      expect(urls).toContain(`https://adoptimize.app/blog/${slug}`);
+      const html = renderToStaticMarkup(await BlogPostPage({ params: Promise.resolve({ slug }) }));
+      expect(html).toContain(`href="/tools/${post.relatedToolSlug}"`);
+      expect(html).toContain('href="/sign-up?next=/audit"');
+      expect(html).toContain(FREE_PLAN_SUMMARY);
+      expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+      expect(html).not.toMatch(/50% cheaper clicks|no account connection required|dashboard preview/);
     }
   });
 });

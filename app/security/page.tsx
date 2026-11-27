@@ -31,6 +31,11 @@ const controls = [
     title: 'Account-scoped access',
     text: 'Workspace and billing routes use authenticated account identity and server-side checks. Connected Google Ads data and subscription access are bound to the signed-in user.',
   },
+  {
+    icon: ShieldCheck,
+    title: 'Free audit access and limits',
+    text: 'Free includes five read-only Google Ads audits per UTC calendar month. Sign-in and an authorized account connection are required. The allowance is enforced server-side in durable storage; dashboard, campaign workspace and agent execution require Pro.',
+  },
 ];
 
 export default function SecurityPage() {
@@ -81,7 +86,7 @@ export default function SecurityPage() {
 
         <div className="text-center pt-2">
           <Link href="/" className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#2E1065] text-[#FBBF24] font-bold text-xs rounded-xl shadow-lg">
-            Open AdOptimize Dashboard <ArrowRight className="w-4 h-4" />
+            Explore AdOptimize <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </main>

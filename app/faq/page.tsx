@@ -6,14 +6,26 @@ import { BrandLogo } from '@/components/ui/brand-logo';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Frequently Asked Questions - AdOptimize',
-  description: 'Answers about AdOptimize subscriptions, Google Ads connections, AI analysis, campaign approvals, billing, and cancellations.',
+  description: 'How AdOptimize’s free Google Ads audit works: five audits per month, read-only findings and Google authorization. Plus Pro billing and campaign management FAQs.',
   path: '/faq',
 });
 
 const faqs = [
   {
-    q: 'What is included without Pro?',
-    a: 'You can create an account, connect or view supported account information, explore limited dashboard and campaign data, use account settings, and access billing. Advanced analysis and supported Google Ads changes require Pro.',
+    q: 'What is included in the free Google Ads audit plan?',
+    a: 'Free includes AI Ads Audit only: five completed, read-only Google Ads audits per calendar month (UTC), across your connected accounts. Reports include performance comparisons, non-converting reported queries, budget visibility, optional CPA/ROAS benchmarks, available low keyword Quality Scores and a findings CSV export. No card is required. Settings and billing remain available; the dashboard and campaign workspace require Pro.',
+  },
+  {
+    q: 'What happens after my five free audits?',
+    a: 'Wait until the next UTC calendar month, or upgrade to Pro for audits without the Free monthly quota. Failed runs do not use an audit; in-progress runs temporarily reserve a slot. Technical rate limits apply to all plans.',
+  },
+  {
+    q: 'Does the free audit change my Google Ads account?',
+    a: 'No. AI Ads Audit reads your authorized account and produces findings for review. Campaign, budget, bidding or keyword changes require Pro and explicit approval.',
+  },
+  {
+    q: 'Does it include an AdWords Quality Score checker?',
+    a: 'The audit reviews available Google Ads keyword Quality Scores in its spending-keyword sample and flags scores of 4/10 or below. Scores are reported by Google, not calculated from a website URL. Unavailable scores are not treated as healthy. This is a current diagnostic, not a promised CPC discount.',
   },
   {
     q: 'What do Pro Monthly and Pro Yearly include?',
@@ -41,7 +53,7 @@ const faqs = [
   },
   {
     q: 'What happens when I cancel?',
-    a: 'Canceling stops the next renewal. Pro access continues through the end of the paid period unless otherwise required by law, then the account returns to limited dashboard access.',
+    a: 'Canceling stops the next renewal. Pro access continues through the end of the paid period unless otherwise required by law, then the account returns to the Free audit-only plan with five audits per calendar month (UTC).',
   },
   {
     q: 'Do you offer refunds?',

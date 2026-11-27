@@ -28,7 +28,7 @@ export default function TermsOfServicePage() {
         <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs space-y-6 text-xs sm:text-sm text-slate-700 leading-relaxed">
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">1. The service</h2>
-            <p>AdOptimize is an AI-powered workspace for connected Google Ads accounts. Account holders can view limited dashboard and account information without Pro. Pro subscribers can use analysis, audits, reports, the Budget Optimizer, AI conversations, campaign creation and management, and supported change proposals.</p>
+            <p>AdOptimize is an AI-powered workspace for connected Google Ads accounts. The Free plan includes AI Ads Audit only, with five completed read-only audits per UTC calendar month across the user’s connected accounts. Runs are allocated to the month in which they start. Failed runs do not consume the allowance; in-progress runs reserve a slot. Account settings and billing are available for connection and upgrades. The dashboard, campaign workspace, activity history, reports, Budget Optimizer, AI conversations and campaign management require Pro. Pro audits do not have the Free monthly quota; technical rate limits apply to all plans.</p>
           </section>
 
           <section className="space-y-2">
@@ -50,7 +50,7 @@ export default function TermsOfServicePage() {
           <section className="space-y-2">
             <h2 className="text-base font-bold text-slate-900">5. Subscriptions, renewals, and cancellation</h2>
             <p>Pro Monthly costs $29 per month and Pro Yearly costs $99 per year, plus applicable taxes. Polar handles checkout and recurring billing as merchant of record. Subscriptions renew automatically at the selected interval until canceled through the billing portal.</p>
-            <p>Cancellation stops the next renewal. Pro access generally continues until the end of the paid period, after which your account returns to limited dashboard access. All sales are final; see the <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline">Billing, Cancellation &amp; Refund Policy</Link>. Mandatory legal rights remain unaffected.</p>
+            <p>Cancellation stops the next renewal. Pro access generally continues until the end of the paid period, after which your account returns to the Free audit-only plan and its monthly allowance. All sales are final; see the <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline">Billing, Cancellation &amp; Refund Policy</Link>. Mandatory legal rights remain unaffected.</p>
           </section>
 
           <section className="space-y-2">

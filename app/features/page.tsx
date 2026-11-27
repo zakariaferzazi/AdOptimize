@@ -3,10 +3,11 @@ import { buildPageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { SlidersHorizontal, ShieldCheck, Zap, ArrowRight, CheckCircle2, Bot, BarChart3 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
+import { FREE_PLAN_SUMMARY } from '@/lib/plans';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Features - AI Google Ads Analysis and Campaign Management | AdOptimize',
-  description: 'Explore AdOptimize AI analysis, campaign creation, budgets, bidding, keywords, conversion settings, reports, and approval-controlled Google Ads changes.',
+  description: 'Start with a free Google Ads audit. Explore Pro AI campaign creation, budgets, bidding, keywords, reports and approval-controlled Google Ads changes.',
   path: '/features',
 });
 
@@ -33,8 +34,14 @@ export default function FeaturesPage() {
         <div className="space-y-3 text-center max-w-2xl mx-auto">
           <span className="text-xs font-bold uppercase tracking-wider text-[#6D28D9]">Platform Capabilities</span>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Analyze, build, and manage Google Ads with an AI agent</h1>
-          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">Limited dashboard access is available without Pro. Pro Monthly and Pro Yearly unlock the agent, advanced analysis, audits, reports, campaign creation, and supported Google Ads changes.</p>
+          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">{FREE_PLAN_SUMMARY} Pro Monthly and Pro Yearly include the same advanced capabilities.</p>
         </div>
+
+        <section className="rounded-xl border border-[#DDD6FE] bg-white p-7 space-y-3">
+          <h2 className="text-xl font-bold text-[#2E1065]">Free Google Ads audit: AI Ads Audit</h2>
+          <p className="text-sm leading-6 text-slate-600">Run five read-only audits per month. Compare period performance, review non-converting reported queries, optional CPA/ROAS targets, budget visibility and low reported keyword Quality Scores. Export findings as CSV without changing your account.</p>
+          <Link href="/tools/google-ads-audit" className="inline-flex text-sm font-semibold text-[#6D28D9] underline">Explore the free Google Ads audit tool</Link>
+        </section>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {capabilities.map((capability) => {

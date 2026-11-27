@@ -84,7 +84,7 @@ export function buildGlobalSchema() {
         name: SITE_NAME,
         url: getSiteUrl(),
         logo: absoluteUrl('/icon.svg'),
-        description: 'AdOptimize is an AI marketing agent for Google Ads, built for approval-controlled changes.',
+        description: 'AdOptimize offers a free Google Ads audit plan with five read-only audits per month, plus a Pro AI marketing agent for approved campaign management.',
         contactPoint: {
           '@type': 'ContactPoint',
           email: 'support@adoptimize.app',
