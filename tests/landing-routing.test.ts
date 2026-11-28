@@ -58,7 +58,8 @@ describe('homepage', () => {
     expect(schema.offers).toHaveLength(3);
     expect(schema.offers[0]).toMatchObject({ price: '0', description: expect.stringMatching(/\b(?:five|5)\b.*(?:monthly|month)/i) });
     expect(html).not.toMatch(/Limited dashboard|viewing do not require a subscription/);
-    expect(html).toContain('Dashboard and campaign viewing');
+    expect(html).toContain('Pricing questions');
+    expect(html).not.toContain('Included with Pro');
   });
 
   it('shows agent capabilities beneath the price inside both subscription cards', () => {

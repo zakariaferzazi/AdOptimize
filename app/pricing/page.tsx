@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CheckCircle2 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/brand-logo';
 import { PlanCta } from '@/components/billing/plan-cta';
 import { ProPlanFeatures } from '@/components/billing/pro-plan-features';
@@ -14,15 +13,38 @@ export const metadata: Metadata = buildPageMetadata({
   path: '/pricing',
 });
 
-const features = [
-  'AI Marketing Agent with account-aware conversations',
-  'Google Ads performance analysis and period-specific audits',
-  'Campaign creation and supported campaign management',
-  'Budget, bidding, keyword, negative, targeting, and conversion-goal proposals',
-  'Budget Optimizer and performance reports',
-  'Approval and execution history',
-  'Dashboard and campaign viewing',
+const pricingQuestions = [
+  {
+    question: 'What counts toward the Free audit limit?',
+    answer: 'Only completed audits count. Free includes five completed AI Ads Audits per calendar month, and the allowance resets at the start of each month (UTC).',
+  },
+  {
+    question: 'Is my Google Ads spend included?',
+    answer: 'No. Google bills your advertising spend directly. Your AdOptimize subscription covers the software and AI Marketing Agent only.',
+  },
+  {
+    question: 'Will the agent change my account without asking?',
+    answer: 'No. The agent prepares supported changes and applies them to your connected Google Ads account only after you approve them.',
+  },
+  {
+    question: 'What is the difference between monthly and yearly?',
+    answer: 'Both include the same Pro features. Yearly is $99 per year, compared with $348 for 12 months on the monthly plan.',
+  },
+  {
+    question: 'How do renewals and cancellation work?',
+    answer: 'Pro renews automatically until canceled. Canceling stops the next renewal, and Pro access generally continues through the current paid period.',
+  },
 ];
+
+const pricingFaqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: pricingQuestions.map(({ question, answer }) => ({
+    '@type': 'Question',
+    name: question,
+    acceptedAnswer: { '@type': 'Answer', text: answer },
+  })),
+};
 
 const pricingSchema = {
   '@context': 'https://schema.org',
@@ -42,6 +64,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-[#F5F3FF] text-slate-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(pricingSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(pricingFaqSchema) }} />
       <header className="bg-[#2E1065] text-white px-6 py-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/"><BrandLogo /></Link>
@@ -84,21 +107,20 @@ export default function PricingPage() {
           </article>
         </div>
 
-        <div className="bg-white rounded-xl p-8 border border-slate-200/80 shadow-xs max-w-4xl mx-auto">
-          <h2 className="text-lg font-bold text-slate-900">Included with Pro</h2>
-          <ul className="mt-5 grid sm:grid-cols-2 gap-3">
-            {features.map((feature) => (
-              <li key={feature} className="flex items-start gap-2 text-sm text-slate-700">
-                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-[#6D28D9]" />{feature}
-              </li>
+        <section aria-labelledby="pricing-questions" className="max-w-4xl mx-auto">
+          <h2 id="pricing-questions" className="text-2xl font-bold tracking-tight text-center text-slate-900">Pricing questions</h2>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {pricingQuestions.map(({ question, answer }) => (
+              <article key={question} className="rounded-xl border border-[#DDD6FE] bg-white p-6 shadow-xs">
+                <h3 className="text-sm font-bold text-[#2E1065]">{question}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{answer}</p>
+              </article>
             ))}
-          </ul>
-          <div className="mt-7 border-t border-slate-200 pt-5 text-sm text-slate-600 space-y-2">
-            <p><strong className="text-slate-900">Free plan:</strong> {FREE_PLAN_SUMMARY} Settings and billing remain available for account connection and upgrades.</p>
-            <p>Subscriptions renew automatically until canceled. All sales are final. Cancellation stops the next renewal and Pro access generally continues through the paid period. Google Ads advertising spend is separate and is not billed or refunded by AdOptimize.</p>
-            <p><Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline">Read the Billing, Cancellation &amp; Refund Policy</Link>.</p>
           </div>
-        </div>
+          <p className="mt-6 text-center text-sm text-slate-600">
+            See the <Link href="/refund-policy" className="font-semibold text-[#6D28D9] underline">billing and cancellation policy</Link> for full terms.
+          </p>
+        </section>
       </main>
     </div>
   );
