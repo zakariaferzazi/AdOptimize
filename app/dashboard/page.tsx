@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
 import { DashboardClientView } from './dashboard-client';
 import { hasPageSubscription } from '@/lib/billing/access';
-import { ProPreview } from '@/components/billing/pro-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  if (!(await hasPageSubscription('/dashboard'))) return <ProPreview feature="dashboard" />;
-  return <DashboardClientView />;
+  return <DashboardClientView hasProAccess={await hasPageSubscription('/dashboard')} />;
 }

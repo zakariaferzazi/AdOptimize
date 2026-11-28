@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { AppLoader } from '@/components/ui/app-loader';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -79,6 +80,7 @@ interface AiChatViewProps {
   recommendations: BudgetRecommendation[];
   rules: AutomationRule[];
   userId?: string;
+  preview?: boolean;
   accessToken?: string;
   onMutateCampaign?: (campaign: Campaign, auditLog: AuditLog) => void;
   onSelectCampaign?: (campaign: Campaign) => void;
@@ -97,6 +99,7 @@ export function AiChatView({
   account,
   campaigns,
   userId,
+  preview = false,
   onMutateCampaign,
   onSelectCampaign,
   onSelectCampaignByName,
@@ -110,7 +113,8 @@ export function AiChatView({
   const storageKey = useMemo(() => `adoptimize_chat_sessions_${userId || 'guest'}`, [userId]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>('default');
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(!preview);
+  const [previewQuery, setPreviewQuery] = useState('');
   const [isConversationLoading, setIsConversationLoading] = useState(false);
   const [isHistoryMutating, setIsHistoryMutating] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -164,6 +168,7 @@ export function AiChatView({
   }, [showSessionsDrawer]);
 
   useEffect(() => {
+    if (preview) return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -222,7 +227,7 @@ export function AiChatView({
       cancelled = true;
       controller.abort();
     };
-  }, [storageKey, userId, historyReload]);
+  }, [storageKey, userId, historyReload, preview]);
 
   useEffect(() => {
     if (!userId || isHistoryLoading || currentSessionId === 'default') return;
@@ -263,6 +268,7 @@ export function AiChatView({
 
   const saveSessions = (updatedSessions: ChatSession[]) => {
     setSessions(updatedSessions);
+    if (preview) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(updatedSessions));
     } catch {
@@ -273,6 +279,7 @@ export function AiChatView({
   const updateSessions = (updater: (current: ChatSession[]) => ChatSession[]) => {
     setSessions((current) => {
       const updated = updater(current);
+      if (preview) return updated;
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));
       } catch {
@@ -396,6 +403,11 @@ export function AiChatView({
   ) => {
     const query = (textToSend ?? inputValue).trim();
     if (!query || isLoading || isHistoryBusy || historyError) return;
+    if (preview) {
+      setPreviewQuery(query);
+      setInputValue('');
+      return;
+    }
     const isRetry = Boolean(opts?.isRetry);
     const requestSessionId = currentSessionId;
 
@@ -653,6 +665,12 @@ export function AiChatView({
   };
 
   const handleClearHistory = async () => {
+    if (preview) {
+      setSessions([]);
+      setPreviewQuery('');
+      setConfirmClearHistory(false);
+      return;
+    }
     if (isLoading || isHistoryBusy) return;
     setIsHistoryMutating(true);
     try {
@@ -707,6 +725,12 @@ export function AiChatView({
 
   const handleNewConversation = () => {
     if (isLoading || isHistoryBusy) return;
+    if (preview) {
+      setSessions([]);
+      setPreviewQuery('');
+      setInputValue('');
+      return;
+    }
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'New Conversation',
@@ -1383,6 +1407,13 @@ export function AiChatView({
           className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 bg-[#f8fafc] relative"
         >
           <div className="max-w-3xl mx-auto space-y-6">
+            {previewQuery && (
+              <div role="status" className="rounded-2xl border border-[#DDD6FE] bg-white p-4 text-sm">
+                <p className="font-semibold text-slate-900">{previewQuery}</p>
+                <p className="mt-3 text-slate-700">Upgrade to Pro to use the AI Marketing Agent and make changes to your Google Ads account.</p>
+                <Link href="/pricing" className="mt-3 inline-block font-semibold text-[#6D28D9] underline">See Pro plans</Link>
+              </div>
+            )}
             {searchQuery.trim() && (
               <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 text-xs text-slate-600">
                 <span>

@@ -6,7 +6,7 @@ import { AdOptimizeProvider } from '@/context/adoptimize-context';
 export function withAdOptimize<P extends object>(Component: React.ComponentType<P>) {
   function WrappedWithAdOptimize(props: P) {
     return (
-      <AdOptimizeProvider>
+      <AdOptimizeProvider allowPaidSync={!('hasProAccess' in props) || props.hasProAccess !== false}>
         <Component {...props} />
       </AdOptimizeProvider>
     );

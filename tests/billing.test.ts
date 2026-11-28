@@ -72,7 +72,6 @@ import ActivityLogPage from '@/app/activity-log/page';
 import { requirePageSubscription, withSubscription } from '@/lib/billing/access';
 import { hash, hasPaidAccess, rateLimit, reserveCustomer, subscription } from '@/lib/billing/store';
 import { completeAudit, getAuditUsage, releaseAudit, reserveAudit } from '@/lib/billing/audit-access';
-import { ProPreview } from '@/components/billing/pro-preview';
 
 const organization = '11111111-1111-4111-8111-111111111111';
 const monthly = '22222222-2222-4222-8222-222222222222';
@@ -489,16 +488,17 @@ describe('server-side Pro enforcement and opaque sessions', () => {
     expect(stored!.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 3600);
     await expect(requirePageSubscription('/chat')).rejects.toThrow('redirect:/sign-up?next=%2Fchat');
     await expect(AuditPage()).resolves.toBeDefined();
-    for (const [, page, feature] of pages) {
-      const preview = await page();
-      expect(preview.type).toBe(ProPreview);
-      expect(preview.props).toEqual({ feature });
-    }
+    const freeViews = await Promise.all(pages.map(([, page]) => page()));
+    for (const view of freeViews) expect(view.props).toEqual({ hasProAccess: false });
     await deliver();
     await expect(requirePageSubscription('/chat')).resolves.toBeUndefined();
-    for (const [, page] of pages) expect((await page()).type).not.toBe(ProPreview);
+    for (const [index, [, page]] of pages.entries()) {
+      const view = await page();
+      expect(view.type).toBe(freeViews[index].type);
+      expect(view.props).toEqual({ hasProAccess: true });
+    }
     await db.prepare('UPDATE billing_subscriptions SET period_end = ?').bind('2020-01-01T00:00:00Z').run();
-    for (const [, page] of pages) expect((await page()).type).toBe(ProPreview);
+    for (const [, page] of pages) expect((await page()).props).toEqual({ hasProAccess: false });
     await db.prepare('UPDATE billing_subscriptions SET period_end = ?').bind(new Date(Date.now() + 86400000).toISOString()).run();
     const logout = new Request('https://app.example.test/api/auth/session', {
       method: 'DELETE', headers: { Origin: 'https://app.example.test', Cookie: `adoptimize_session=${mocks.cookie}` },

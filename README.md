@@ -91,10 +91,10 @@ Free accounts can run five completed audits per UTC
 calendar month, across all connected accounts. Failed runs release their slot;
 expiring reservations enforce the limit across concurrent Worker requests. Pro
 audits have no monthly quota (technical rate limits still apply). Dashboard,
-campaigns, activity history, the agent, reports and optimizer show labeled sample
-previews on Free; live data and actions require Pro. The chat preview returns an
+campaigns, activity history, the agent, reports and optimizer use the same workspace
+interface on Free, with live data and actions locked. The chat returns an
 upgrade prompt on submission without invoking the AI or storing messages.
-Authenticated page checks choose the preview or the paid client server-side;
+Authenticated page checks pass the entitlement to the workspace server-side;
 premium API guards remain in place.
 Settings and billing remain accessible on Free for connection and upgrades.
 
@@ -183,7 +183,7 @@ The homepage always remains public, including for signed-in users. Sign In opens
 `/sign-in`; free-audit CTAs open `/sign-up?next=/audit`, where Google
 authentication is initiated. Sign-in synchronizes the secure server session
 before navigating to the workspace. The audit requires a signed-in session;
-dashboard and campaign routes show sample previews for authenticated Free users.
+dashboard and campaign routes show the locked workspace for authenticated Free users.
 Supplying a demo flag never unlocks live data or paid actions.
 Subscription management is available in Settings and `/billing`, not a
 sidebar "Billing & Pro" button. Rebuild before deploying routing changes;

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { ReportsClientView } from './reports-client';
 import { hasPageSubscription } from '@/lib/billing/access';
-import { ProPreview } from '@/components/billing/pro-preview';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default async function ReportsPage() {
-  if (!(await hasPageSubscription('/reports'))) return <ProPreview feature="reports" />;
-  return <ReportsClientView />;
+  return <ReportsClientView hasProAccess={await hasPageSubscription('/reports')} />;
 }

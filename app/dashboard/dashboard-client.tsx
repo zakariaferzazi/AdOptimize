@@ -52,10 +52,11 @@ const METRIC_ICONS: Record<KpiMetricId, React.ComponentType<{ className?: string
 };
 
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
+import { getCleanInitialState } from '@/lib/data-provider';
 
-export const DashboardClientView = withAdOptimize(function DashboardClientViewInner() {
+export const DashboardClientView = withAdOptimize(function DashboardClientViewInner({ hasProAccess = true }: { hasProAccess?: boolean }) {
   const {
-    state,
+    state: accountState,
     setState,
     user,
     authLoading,
@@ -71,6 +72,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     handleSync,
   } = useAdOptimize();
 
+  const state = hasProAccess ? accountState : getCleanInitialState();
   const { account, campaigns, keywords, searchTerms, deviceBreakdown, networkBreakdown } = state;
 
   // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
@@ -279,7 +281,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
 
   if (isDataStillLoading) {
     return (
-      <AppShell title="Overview">
+      <AppShell title="Overview" proLocked={!hasProAccess}>
         <DashboardSkeleton />
       </AppShell>
     );

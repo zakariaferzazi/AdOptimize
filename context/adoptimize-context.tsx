@@ -162,16 +162,19 @@ function getCampaignSnapshotTs(campaigns: Campaign[] | undefined): number {
 
 const AdOptimizeContext = createContext<AdOptimizeContextType | undefined>(undefined);
 
-export function AdOptimizeProvider({ children }: { children: React.ReactNode }) {
+export function AdOptimizeProvider({ children, allowPaidSync = true }: { children: React.ReactNode; allowPaidSync?: boolean }) {
   const existing = useContext(AdOptimizeContext);
   if (existing) {
     return <>{children}</>;
   }
-  return <AdOptimizeProviderInner>{children}</AdOptimizeProviderInner>;
+  return <AdOptimizeProviderInner allowPaidSync={allowPaidSync}>{children}</AdOptimizeProviderInner>;
 }
 
-function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AdOptimizeState>(() => getInitialState());
+function AdOptimizeProviderInner({ children, allowPaidSync }: { children: React.ReactNode; allowPaidSync: boolean }) {
+  const [state, setState] = useState<AdOptimizeState>(() => {
+    const saved = getInitialState();
+    return allowPaidSync ? saved : { ...getCleanInitialState(), account: saved.account };
+  });
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
@@ -263,16 +266,24 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+  const isBackgroundSyncingRef = useRef<boolean>(false);
+  const disconnectingRef = useRef(false);
+  const credentialsRemovedRef = useRef(false);
+  const isHydratingRef = useRef(false);
+  const pendingSnapshotWritesRef = useRef(new Set<Promise<void>>());
+  const lastSyncTimestampRef = useRef<number>(0);
+  const handleRefreshTokenRef = useRef<((isSilent?: boolean) => Promise<string | null>) | null>(null);
+  const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
 
   // Proactive Google Ads OAuth Token Auto-Rotation
   // Checks token health gently every 15 minutes without aggressive loops or window focus listeners
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!allowPaidSync || typeof window === 'undefined') return;
 
     let isRenewing = false;
 
     const autoRenewOrCheck = async () => {
-      if (isRenewing) return;
+      if (isRenewing || disconnectingRef.current || credentialsRemovedRef.current) return;
 
       const activeRefreshTok =
         refreshToken ||
@@ -308,7 +319,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             // The encrypted refresh token stays on the server; only a short-lived access token returns.
             const res = await authenticatedFetch('/api/google-ads/token', { method: 'POST' });
             const data = await res.json().catch(() => ({}));
-            if (res.ok && data.accessToken) {
+            if (res.ok && data.accessToken && !disconnectingRef.current && !credentialsRemovedRef.current) {
               storeGoogleAdsToken(data.accessToken, undefined, data.expiresAt);
               setOauthToken(data.accessToken);
               setIsTokenExpired(false);
@@ -334,12 +345,8 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
     return () => {
       clearInterval(timer);
     };
-  }, [state.account, user, refreshToken]);
+  }, [state.account, user, refreshToken, allowPaidSync]);
 
-  const isBackgroundSyncingRef = useRef<boolean>(false);
-  const lastSyncTimestampRef = useRef<number>(0);
-  const handleRefreshTokenRef = useRef<((isSilent?: boolean) => Promise<string | null>) | null>(null);
-  const unsubscribeCampaignsRef = useRef<(() => void) | null>(null);
   // True while this browser holds a newer successful sync than Firestore; used to stop
   // an older Firestore snapshot from overwriting fresher local data.
   const preferLocalDataRef = useRef<boolean>(false);
@@ -426,6 +433,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           }
 
       if (currentUser) {
+        isHydratingRef.current = true;
         try {
           await syncUserProfile({
             uid: currentUser.uid,
@@ -460,7 +468,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
                 localStorage.setItem('adoptimize_onboarding_completed', 'true');
               } catch {}
             }
-          } else if (localConnectedAccount) {
+          } else if (!remoteAccount && localConnectedAccount) {
             // Local storage has connected account, restore into remoteAccount and Firestore
             remoteAccount = localConnectedAccount;
             await saveUserAccount(currentUser.uid, localConnectedAccount);
@@ -478,6 +486,18 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
               totalCampaignsCount: 0,
             };
             await saveUserAccount(currentUser.uid, remoteAccount);
+          }
+
+          if (remoteAccount && !remoteAccount.isConnected && localConnectedAccount) {
+            clearSavedState();
+            clearStoredGoogleAdsToken();
+            setOauthToken(null);
+            setRefreshToken(null);
+          }
+
+          if (!allowPaidSync) {
+            setState({ ...getCleanInitialState(), account: remoteAccount });
+            return;
           }
 
           if (remoteAccount?.lastSuccessfulSyncAt) {
@@ -558,6 +578,11 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           }
 
           setState((prev) => {
+            if (remoteAccount && !remoteAccount.isConnected) {
+              const disconnectedState = { ...getCleanInitialState(), account: remoteAccount };
+              saveState(disconnectedState);
+              return disconnectedState;
+            }
             // Re-check once more when the updater actually runs; a sync may have
             // completed after the freshness check above.
             const latestLocalTs = getLocalSuccessfulSyncTs();
@@ -643,6 +668,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         } catch (err) {
           console.error('Error fetching user data from Firestore:', err);
         } finally {
+          isHydratingRef.current = false;
           if (isSubscribed) {
             setIsInitialLoading(false);
           }
@@ -672,7 +698,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
         window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       }
     };
-  }, []);
+  }, [allowPaidSync]);
 
   const isConnected = state.account.isConnected;
   const clientCustomerId = state.account.clientCustomerId;
@@ -762,7 +788,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
       }
 
       if (user?.uid) {
-        persistGoogleAdsSyncSnapshot(user.uid, {
+        const write = persistGoogleAdsSyncSnapshot(user.uid, {
           campaigns: freshCampaigns,
           keywords: freshKeywords,
           searchTerms: freshSearchTerms,
@@ -776,6 +802,8 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
             }
           })
           .catch((err) => console.warn('[Sync] Could not persist fresh Google Ads data:', err));
+        pendingSnapshotWritesRef.current.add(write);
+        void write.finally(() => pendingSnapshotWritesRef.current.delete(write));
       } else {
         preferLocalDataRef.current = false;
       }
@@ -786,7 +814,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   // Automatic background synchronization: fetches full live campaign data + performance metrics
   const performBackgroundSync = useCallback(
     async (force = false, tokenOverride?: string) => {
-      if (!isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
+      if (!allowPaidSync || disconnectingRef.current || credentialsRemovedRef.current || !isConnected || !clientCustomerId || clientCustomerId === 'Not Connected') {
         return;
       }
       // If a rate limit cooldown was recorded recently (< 60s), throttle unless forced
@@ -978,6 +1006,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
     },
     [
       isConnected,
+      allowPaidSync,
       clientCustomerId,
       loginCustomerId,
       user,
@@ -1082,6 +1111,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
     syncedKeywords?: Keyword[],
     syncedSearchTerms?: SearchTerm[]
   ) => {
+    credentialsRemovedRef.current = false;
     const validToken = token || connectedAccount.accessToken || null;
     if (validToken) {
       setOauthToken(validToken);
@@ -1130,7 +1160,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
     showToast(`Connected: ${connectedAccount.clientCustomerId}`);
 
     if (user) {
-      persistGoogleAdsSyncSnapshot(user.uid, {
+      const write = persistGoogleAdsSyncSnapshot(user.uid, {
         campaigns: syncedCampaigns || [],
         keywords: syncedKeywords,
         searchTerms: syncedSearchTerms,
@@ -1140,6 +1170,8 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
           if (persisted) preferLocalDataRef.current = false;
         })
         .catch((err) => console.warn('[Connect] Could not persist initial Google Ads snapshot:', err));
+      pendingSnapshotWritesRef.current.add(write);
+      void write.finally(() => pendingSnapshotWritesRef.current.delete(write));
     }
   };
 
@@ -1196,6 +1228,7 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   }, [handleRefreshToken]);
 
   const handleSync = async (force = false) => {
+    if (!allowPaidSync || disconnectingRef.current || credentialsRemovedRef.current) return;
     if (!state.account.isConnected || !state.account.clientCustomerId || state.account.clientCustomerId === 'Not Connected') {
       showToast('Please connect your Google Ads account first.');
       return;
@@ -1526,81 +1559,87 @@ function AdOptimizeProviderInner({ children }: { children: React.ReactNode }) {
   };
 
   const handleResetData = async () => {
-    // 1. Immediately clean up local storage and state for instant UI responsiveness
-    const cleanAccount: GoogleAdsAccount = {
-      id: user ? `acc-${user.uid.slice(0, 8)}` : 'acc-primary',
-      clientCustomerId: 'Not Connected',
-      accountName: 'Google Ads Account',
-      currency: 'USD',
-      timezone: 'America/New_York (UTC-5)',
-      isConnected: false,
-      lastSyncAt: new Date().toISOString(),
-      syncStatus: 'IDLE',
-      isDemo: false,
-      totalCampaignsCount: 0,
-      monthlySpendCap: 25000,
-    };
-
-    const cleanState: AdOptimizeState = {
-      account: cleanAccount,
-      campaigns: [],
-      keywords: [],
-      searchTerms: [],
-      ads: [],
-      anomalies: [],
-      insights: [],
-      budgetRecommendations: [],
-      automationRules: [],
-      auditLogs: [],
-      deviceBreakdown: [],
-      networkBreakdown: [],
-      locationBreakdown: [],
-      isDemoMode: false,
-      selectedPeriod: 'LAST_7_DAYS',
-    };
-
-    // Unsubscribe Firestore live campaigns listener to avoid re-populating state
-    if (unsubscribeCampaignsRef.current) {
-      unsubscribeCampaignsRef.current();
-      unsubscribeCampaignsRef.current = null;
+    if (!user) throw new Error('Sign in before disconnecting Google Ads.');
+    if (isSyncing || isBackgroundSyncingRef.current || isInitialLoading || isHydratingRef.current || disconnectingRef.current) {
+      throw new Error('Wait for the current sync to finish before disconnecting Google Ads.');
     }
-
-    // Reset React state immediately so UI updates instantly
-    setState(cleanState);
-    setOauthToken(null);
-    setRefreshToken(null);
-    setSelectedCampaign(null);
-    setApiIssue(null);
-    setLastSyncTimestamp(null);
-    lastSyncTimestampRef.current = 0;
-    preferLocalDataRef.current = false;
-
-    // Clear all storage keys & save clean state
-    clearSavedState();
-    clearStoredGoogleAdsToken();
-    saveState(cleanState);
-
-    showToast('Disconnecting & clearing cached account data...');
-
+    disconnectingRef.current = true;
     try {
-      // Purge server-side query and token caches
-      authenticatedFetch('/api/google-ads/disconnect', {
+      await Promise.all(pendingSnapshotWritesRef.current);
+      const response = await authenticatedFetch('/api/google-ads/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: state.account.clientCustomerId,
-        }),
-      }).catch(() => null);
-
-      // Purge Firestore data if user is logged in
-      if (user) {
+        body: JSON.stringify({ customerId: state.account.clientCustomerId }),
+      });
+      if (!response.ok) {
+        const data: { error?: string } = await response.json();
+        throw new Error(data.error || 'Could not disconnect Google Ads. Please retry.');
+      }
+      credentialsRemovedRef.current = true;
+      clearStoredGoogleAdsToken();
+      setOauthToken(null);
+      setRefreshToken(null);
+      try {
         await clearAllUserData(user.uid);
+      } catch (error) {
+        console.error('[Google Ads] Failed to clear disconnected account data:', error);
+        throw new Error('Google Ads credentials were removed, but account data could not be cleared. Please retry.');
       }
 
+      const cleanAccount: GoogleAdsAccount = {
+        id: `acc-${user.uid.slice(0, 8)}`,
+        clientCustomerId: 'Not Connected',
+        accountName: 'Google Ads Account',
+        currency: 'USD',
+        timezone: 'America/New_York (UTC-5)',
+        isConnected: false,
+        lastSyncAt: new Date().toISOString(),
+        syncStatus: 'IDLE',
+        isDemo: false,
+        totalCampaignsCount: 0,
+        monthlySpendCap: 25000,
+      };
+
+      const cleanState: AdOptimizeState = {
+        account: cleanAccount,
+        campaigns: [],
+        keywords: [],
+        searchTerms: [],
+        ads: [],
+        anomalies: [],
+        insights: [],
+        budgetRecommendations: [],
+        automationRules: [],
+        auditLogs: [],
+        deviceBreakdown: [],
+        networkBreakdown: [],
+        locationBreakdown: [],
+        isDemoMode: false,
+        selectedPeriod: 'LAST_7_DAYS',
+      };
+
+      // Unsubscribe Firestore live campaigns listener to avoid re-populating state
+      if (unsubscribeCampaignsRef.current) {
+        unsubscribeCampaignsRef.current();
+        unsubscribeCampaignsRef.current = null;
+      }
+
+      setState(cleanState);
+      setOauthToken(null);
+      setRefreshToken(null);
+      setSelectedCampaign(null);
+      setApiIssue(null);
+      setLastSyncTimestamp(null);
+      lastSyncTimestampRef.current = 0;
+      preferLocalDataRef.current = false;
+
+      clearSavedState();
+      clearStoredGoogleAdsToken();
+      saveState(cleanState);
+
       showToast('Disconnected from Google Ads & all cache cleared.');
-    } catch (err) {
-      console.warn('Notice clearing remote data:', err);
-      showToast('Account disconnected & local cache cleared.');
+    } finally {
+      disconnectingRef.current = false;
     }
   };
 

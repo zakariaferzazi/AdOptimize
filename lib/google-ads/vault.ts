@@ -161,9 +161,15 @@ export async function freshAccessToken(userId: string): Promise<{ accessToken?: 
     return { error: 'Google Ads access expired. Reconnect Google Ads.' };
   }
   const expiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
-  await saveTokens(userId, {
-    accessToken: refreshed.accessToken, expiresAt,
-    ...(refreshed.refreshToken && refreshed.refreshToken !== refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
-  });
+  const accessCipher = await seal(refreshed.accessToken, `access:${userId}`);
+  const refreshCipher = refreshed.refreshToken && refreshed.refreshToken !== refreshToken
+    ? await seal(refreshed.refreshToken, `refresh:${userId}`)
+    : row.refresh_cipher;
+  const updated = await (await billingDb()).prepare(
+    `UPDATE google_ads_tokens SET refresh_cipher = ?, access_cipher = ?, access_expires_at = ?, updated_at = ?
+     WHERE user_id = ? AND refresh_cipher = ? RETURNING user_id`)
+    .bind(refreshCipher, accessCipher, expiresAt, Math.floor(Date.now() / 1000), userId, row.refresh_cipher)
+    .first<{ user_id: string }>();
+  if (!updated) return { error: 'Google Ads connection changed. Reconnect Google Ads.' };
   return { accessToken: refreshed.accessToken, expiresAt };
 }

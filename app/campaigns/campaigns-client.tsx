@@ -10,7 +10,7 @@ import { useAdOptimize } from '@/context/adoptimize-context';
 import { Campaign, CampaignType, CampaignStatus } from '@/types/adoptimize';
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
 
-export const CampaignsClientView = withAdOptimize(function CampaignsClientViewInner() {
+export const CampaignsClientView = withAdOptimize(function CampaignsClientViewInner({ hasProAccess = true }: { hasProAccess?: boolean }) {
   const {
     state,
     user,
@@ -28,7 +28,10 @@ export const CampaignsClientView = withAdOptimize(function CampaignsClientViewIn
     lastSyncTimestamp,
   } = useAdOptimize();
 
-  const { account, campaigns, keywords, searchTerms } = state;
+  const { account } = state;
+  const campaigns = hasProAccess ? state.campaigns : [];
+  const keywords = hasProAccess ? state.keywords : [];
+  const searchTerms = hasProAccess ? state.searchTerms : [];
   const [deepDiveCampaign, setDeepDiveCampaign] = useState<Campaign | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mutatingCampaignId, setMutatingCampaignId] = useState<string | null>(null);
@@ -105,7 +108,7 @@ export const CampaignsClientView = withAdOptimize(function CampaignsClientViewIn
   }
 
   return (
-    <AppShell title="Campaigns Manager">
+    <AppShell title="Campaigns Manager" proLocked={!hasProAccess}>
       <CampaignsFullView
         campaigns={campaigns}
         currency={account.currency}

@@ -6,7 +6,7 @@ import { BudgetOptimizerView } from '@/components/optimizer/budget-optimizer-vie
 import { useAdOptimize } from '@/context/adoptimize-context';
 import { withAdOptimize } from '@/components/providers/with-adoptimize';
 
-export const OptimizerClientView = withAdOptimize(function OptimizerClientViewInner() {
+export const OptimizerClientView = withAdOptimize(function OptimizerClientViewInner({ hasProAccess = true }: { hasProAccess?: boolean }) {
   const {
     state,
     setState,
@@ -14,7 +14,8 @@ export const OptimizerClientView = withAdOptimize(function OptimizerClientViewIn
     showToast,
   } = useAdOptimize();
 
-  const { budgetRecommendations, campaigns } = state;
+  const budgetRecommendations = hasProAccess ? state.budgetRecommendations : [];
+  const campaigns = hasProAccess ? state.campaigns : [];
 
   const handleApprove = async (rec: any) => {
     await handleApplyRecommendation(rec.id);
@@ -31,7 +32,7 @@ export const OptimizerClientView = withAdOptimize(function OptimizerClientViewIn
   };
 
   return (
-    <AppShell title="Budget Optimizer">
+    <AppShell title="Budget Optimizer" proLocked={!hasProAccess}>
       <BudgetOptimizerView
         recommendations={budgetRecommendations}
         campaigns={campaigns}

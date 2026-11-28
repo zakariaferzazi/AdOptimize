@@ -22,7 +22,7 @@ import {
 interface SettingsViewProps {
   account: GoogleAdsAccount;
   onOpenConnectModal: () => void;
-  onClearData: () => void;
+  onClearData: () => Promise<void>;
   onUpdateCurrency?: (currency: string) => void;
   userEmail?: string | null;
   onTestRefresh?: () => Promise<void>;
@@ -37,6 +37,7 @@ export function SettingsView({
 }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'connections' | 'billing' | 'security'>('connections');
   const [isClearing, setIsClearing] = useState(false);
+  const [disconnectError, setDisconnectError] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -45,8 +46,11 @@ export function SettingsView({
 
   const disconnect = async () => {
     setIsClearing(true);
+    setDisconnectError('');
     try {
       await onClearData();
+    } catch (error) {
+      setDisconnectError(error instanceof Error ? error.message : 'Could not disconnect Google Ads. Please retry.');
     } finally {
       setIsClearing(false);
     }
@@ -145,6 +149,7 @@ export function SettingsView({
               </button>
             )}
           </div>
+          {disconnectError && <p role="alert" className="mt-4 text-sm text-red-700">{disconnectError}</p>}
         </section>
       )}
 

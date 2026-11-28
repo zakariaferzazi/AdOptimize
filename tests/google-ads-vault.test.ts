@@ -107,6 +107,26 @@ describe('incremental Google Ads authorization', () => {
     expect(googleCalls[0].get('refresh_token')).not.toBe('shared-environment-refresh-token');
   });
 
+  it('does not restore credentials when a disconnect races with token rotation', async () => {
+    await connect('user-a');
+    await db.prepare('UPDATE google_ads_tokens SET access_expires_at = ? WHERE user_id = ?').bind(Date.now() - 1000, 'user-a').run();
+    let release = () => {};
+    let notifyStarted = () => {};
+    const started = new Promise<void>((resolve) => { notifyStarted = resolve; });
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      notifyStarted();
+      await wait;
+      return Response.json({ access_token: 'new-access', refresh_token: 'rotated-refresh', expires_in: 3600 });
+    }));
+    const refreshing = freshAccessToken('user-a');
+    await started;
+    await deleteStoredTokens('user-a');
+    release();
+    expect((await refreshing).error).toMatch(/connection changed/i);
+    expect(await hasStoredTokens('user-a')).toBe(false);
+  });
+
   it('removes credentials when Google revokes them and asks the user to reconnect', async () => {
     await connect('user-a');
     await db.prepare('UPDATE google_ads_tokens SET access_expires_at = ? WHERE user_id = ?').bind(Date.now() - 1000, 'user-a').run();

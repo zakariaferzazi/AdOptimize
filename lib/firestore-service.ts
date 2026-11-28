@@ -838,48 +838,31 @@ export async function clearAllUserData(userId: string) {
     'searchTerms',
   ];
 
-  // 1. Concurrently fetch and delete all documents across collections in parallel
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     collections.map(async (colName) => {
-      try {
-        const colRef = collection(db, 'users', userId, colName);
-        const snap = await getDocs(colRef);
-        if (!snap.empty) {
-          const deletePromises = snap.docs.map((d) => deleteDoc(d.ref));
-          await Promise.allSettled(deletePromises);
-        }
-      } catch (e) {
-        console.warn(`Error clearing ${colName}:`, e);
-      }
+      const colRef = collection(db, 'users', userId, colName);
+      const snap = await getDocs(colRef);
+      const deletions = await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
+      const failed = deletions.find((result) => result.status === 'rejected');
+      if (failed?.status === 'rejected') throw failed.reason;
     })
   );
+  const failed = results.find((result) => result.status === 'rejected');
+  if (failed?.status === 'rejected') throw failed.reason;
 
-  // 2. Clear tokens subcollection document
-  try {
-    const tokenDocRef = doc(db, 'users', userId, 'tokens', 'google_ads');
-    await deleteDoc(tokenDocRef);
-  } catch (e) {
-    console.warn('Error clearing tokens/google_ads:', e);
-  }
-
-  // 3. Reset primary account document to explicit disconnected state
-  try {
-    const docRef = doc(db, 'users', userId, 'accounts', 'primary');
-    await setDoc(docRef, {
-      id: `acc-${userId.slice(0, 8)}`,
-      clientCustomerId: 'Not Connected',
-      accountName: 'Google Ads Account',
-      currency: 'USD',
-      timezone: 'America/New_York (UTC-5)',
-      isConnected: false,
-      lastSyncAt: new Date().toISOString(),
-      syncStatus: 'IDLE',
-      isDemo: false,
-      totalCampaignsCount: 0,
-    });
-  } catch (e) {
-    console.warn('Error resetting account:', e);
-  }
+  await deleteDoc(doc(db, 'users', userId, 'tokens', 'google_ads'));
+  await setDoc(doc(db, 'users', userId, 'accounts', 'primary'), {
+    id: `acc-${userId.slice(0, 8)}`,
+    clientCustomerId: 'Not Connected',
+    accountName: 'Google Ads Account',
+    currency: 'USD',
+    timezone: 'America/New_York (UTC-5)',
+    isConnected: false,
+    lastSyncAt: new Date().toISOString(),
+    syncStatus: 'IDLE',
+    isDemo: false,
+    totalCampaignsCount: 0,
+  });
 }
 
 // 15. Persist a complete Google Ads sync snapshot.

@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { CampaignsClientView } from './campaigns-client';
 import { PRIVATE_ROBOTS } from '@/lib/seo';
 import { hasPageSubscription } from '@/lib/billing/access';
-import { ProPreview } from '@/components/billing/pro-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default async function CampaignsPage() {
-  if (!(await hasPageSubscription('/campaigns'))) return <ProPreview feature="campaigns" />;
-  return <CampaignsClientView />;
+  return <CampaignsClientView hasProAccess={await hasPageSubscription('/campaigns')} />;
 }

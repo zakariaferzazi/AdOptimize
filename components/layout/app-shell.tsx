@@ -22,13 +22,15 @@ interface AppShellProps {
   children: React.ReactNode;
   title?: string;
   headerExtra?: React.ReactNode;
+  proLocked?: boolean;
+  limitedAccess?: boolean;
 }
 
 export function AppShell(props: AppShellProps) {
   return <Suspense fallback={<p role="status" className="flex items-center gap-2 p-8 text-sm text-slate-500"><AppLoader className="h-5 w-5" /> Loading workspace...</p>}><AppShellInner {...props} /></Suspense>;
 }
 
-function AppShellInner({ children, title, headerExtra }: AppShellProps) {
+function AppShellInner({ children, title, headerExtra, proLocked = false, limitedAccess = proLocked }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useSearchParams();
@@ -81,10 +83,10 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
   useEffect(() => {
     if (syncedPathRef.current === pathname) return;
     syncedPathRef.current = pathname;
-    if (!authLoading && account.isConnected && account.clientCustomerId !== 'Not Connected') {
+    if (!limitedAccess && !authLoading && account.isConnected && account.clientCustomerId !== 'Not Connected') {
       void handleSync(true);
     }
-  }, [pathname, authLoading, account.isConnected, account.clientCustomerId, handleSync]);
+  }, [pathname, authLoading, account.isConnected, account.clientCustomerId, handleSync, limitedAccess]);
 
   // Determine current tab from route
   const getCurrentTab = (): NavTab => {
@@ -155,8 +157,8 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
       {/* 1. Sidebar Navigation (Desktop collapsible + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}
-        anomaliesCount={anomalies.filter((a) => !a.resolved).length}
-        recommendationsCount={budgetRecommendations.filter((b) => b.status === 'PENDING').length}
+        anomaliesCount={limitedAccess ? 0 : anomalies.filter((a) => !a.resolved).length}
+        recommendationsCount={limitedAccess ? 0 : budgetRecommendations.filter((b) => b.status === 'PENDING').length}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         isDesktopCollapsed={isDesktopSidebarCollapsed}
@@ -171,13 +173,13 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
         <Header
           title={title || currentTab}
           account={account}
-          anomalies={anomalies}
+          anomalies={limitedAccess ? [] : anomalies}
           isSyncing={isSyncing}
           syncCooldownRemaining={syncCooldownRemaining}
           lastSyncTimestamp={lastSyncTimestamp}
           user={user}
           authLoading={authLoading}
-          onRefreshSync={() => handleSync(true)}
+          onRefreshSync={() => limitedAccess ? router.push('/pricing') : handleSync(true)}
           onSelectAnomaly={(anomaly) => {
             const camp = campaigns.find((c) => c.id === anomaly.campaignId);
             if (camp) setSelectedCampaign(camp);
@@ -195,7 +197,16 @@ function AppShellInner({ children, title, headerExtra }: AppShellProps) {
 
 
           {/* Page Content */}
-          {children}
+          {proLocked ? (
+            <>
+              <section className="rounded-xl border border-[#DDD6FE] bg-white p-5 text-sm text-[#2E1065]" aria-label="Pro access required">
+                <p className="font-semibold">Upgrade to Pro to use this feature and view live data.</p>
+                <p className="mt-1 text-slate-600">The workspace below is a locked preview; values shown are not your account data.</p>
+                <Link href="/pricing" className="mt-3 inline-block font-semibold text-[#6D28D9] underline">See Pro plans</Link>
+              </section>
+              <div inert aria-hidden="true" className="select-none opacity-70">{children}</div>
+            </>
+          ) : children}
         </main>
       </div>
 
