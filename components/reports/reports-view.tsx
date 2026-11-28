@@ -22,7 +22,7 @@ const metricLabels: Array<{ key: keyof Metrics; label: string }> = [
   { key: 'ctr', label: 'CTR' }, { key: 'conversionValue', label: 'Recorded conversion value' },
 ];
 
-export function ReportsView({ userId, connected }: { userId?: string; connected: boolean }) {
+export function ReportsView({ userId, connected, locked = false }: { userId?: string; connected: boolean; locked?: boolean }) {
   const [period, setPeriod] = useState('LAST_30_DAYS');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -37,7 +37,7 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
 
   const generate = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (loading) return;
+    if (loading || locked) return;
     setLoading(true);
     setError(null);
     setReport(null);
@@ -104,11 +104,11 @@ export function ReportsView({ userId, connected }: { userId?: string; connected:
           <label className="w-full sm:w-auto text-xs font-medium text-slate-700">Start date<input className={inputClass} type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
           <label className="w-full sm:w-auto text-xs font-medium text-slate-700">End date<input className={inputClass} type="date" required min={startDate || undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         </>}
-        <button disabled={loading || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50">
+        <button disabled={loading || locked || !userId || !connected} className="inline-flex items-center gap-2 rounded-xl bg-[#FBBF24] px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50">
           {loading && <AppLoader className="h-5 w-5" />}{loading ? 'Generating...' : 'Generate report'}
         </button>
       </fieldset>
-      {!userId || !connected ? <p className="mt-4 text-sm text-amber-800">{!userId ? 'Sign in' : 'Connect a Google Ads account'} to generate reports. <Link className="underline" href="/settings">Open settings</Link></p> : null}
+      {locked ? <p className="mt-4 text-sm text-amber-800">Upgrade to Pro to generate reports. <Link className="underline" href="/pricing">View plans</Link></p> : !userId || !connected ? <p className="mt-4 text-sm text-amber-800">{!userId ? 'Sign in' : 'Connect a Google Ads account'} to generate reports. <Link className="underline" href="/settings">Open settings</Link></p> : null}
     </form>
 
     {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>}

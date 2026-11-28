@@ -14,8 +14,9 @@ export const ReportsClientView = withAdOptimize(function ReportsClientViewInner(
     <AppShell title="Executive Reports & Analytics" proLocked={!hasProAccess}>
       <ReportsView
         key={`${user?.uid}:${account.clientCustomerId}`}
-        userId={hasProAccess ? user?.uid : undefined}
-        connected={hasProAccess && Boolean(account.isConnected && account.clientCustomerId !== 'Not Connected')}
+        userId={user?.uid}
+        connected={Boolean(account.isConnected && account.clientCustomerId !== 'Not Connected')}
+        locked={!hasProAccess}
       />
     </AppShell>
   );

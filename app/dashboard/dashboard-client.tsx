@@ -72,7 +72,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
     handleSync,
   } = useAdOptimize();
 
-  const state = hasProAccess ? accountState : getCleanInitialState();
+  const state = hasProAccess ? accountState : { ...getCleanInitialState(), account: accountState.account };
   const { account, campaigns, keywords, searchTerms, deviceBreakdown, networkBreakdown } = state;
 
   // 1. Campaign Filter State: 'ALL' or specific campaign id (persisted in localStorage)
@@ -288,7 +288,7 @@ export const DashboardClientView = withAdOptimize(function DashboardClientViewIn
   }
 
   return (
-    <AppShell title="Overview">
+    <AppShell title="Overview" proLocked={!hasProAccess}>
       <div className="space-y-6">
         {/* Production Onboarding Banner when Google Ads account is not connected */}
         {!isAccountConnected && (

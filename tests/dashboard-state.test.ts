@@ -47,6 +47,16 @@ describe('dashboard saved state', () => {
     expect(mocks.state.locationBreakdown).toEqual([]);
   });
 
+  it('keeps a free account connected without exposing paid dashboard data', () => {
+    const connected = getInitialState();
+    connected.account = { ...connected.account, isConnected: true, clientCustomerId: '123-456-7890' };
+    mocks.state = connected;
+
+    const html = renderToStaticMarkup(React.createElement(DashboardClientView as React.ComponentType<{ hasProAccess?: boolean }>, { hasProAccess: false }));
+    expect(html).not.toContain('Connect your active Google Ads account');
+    for (const campaign of connected.campaigns) expect(html).not.toContain(campaign.name);
+  });
+
   it('restores missing collections without overriding newer sync data with a dedicated account', () => {
     const account = {
       ...getCleanInitialState('My account', '1234567890').account,
